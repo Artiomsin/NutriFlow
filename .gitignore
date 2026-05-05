@@ -1,24 +1,67 @@
-# Nestjs specific
-/dist
-/node_modules
-/build
-/tmp
+# =========================
+# Node.js / NestJS
+# =========================
+node_modules/
+dist/
+build/
 
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
-pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-lerna-debug.log*
 
-# dotenv environment variable files
+# Coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# Environment
 .env
-.env.development
-.env.test
-.env.production
+.env.*
+!.env.example
 
-# temp directory
-.temp
-.tmp
+# TypeScript
+*.tsbuildinfo
+
+# =========================
+# OS
+# =========================
+.DS_Store
+
+# =========================
+# IDE
+# =========================
+.vscode/
+.idea/
+
+# =========================
+# iOS / Xcode
+# =========================
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+*.xccheckout
+
+# Swift Package Manager
+.build/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+
+# =========================
+# Docker / Local data
+# =========================
+postgres-data/
+redis-data/
+
+# =========================
+# Secrets
+# =========================
+*.key
+*.pem
