@@ -9,6 +9,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/bun": "latest",
+    "@types/ioredis": "^5.0.0",
     "@types/node": "^25.6.0",
     "@types/pg": "^8.20.0",
     "@typescript-eslint/eslint-plugin": "^8.59.2",
