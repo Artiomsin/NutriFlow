@@ -1,0 +1,17 @@
+
+services:
+  postgres:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: nutriflow
+      POSTGRES_PASSWORD: nutriflow_pass
+      POSTGRES_DB: nutriflow
+    ports:
+      - "5432:5432"
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: always
+    ports:
+      - "6379:6379"
