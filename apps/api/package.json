@@ -1,0 +1,35 @@
+{
+  "name": "api",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run src/main.ts",
+    "dev": "bun --watch src/main.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/bun": "latest",
+    "@types/ioredis": "^5.0.0",
+    "@types/node": "^25.6.0",
+    "@types/pg": "^8.20.0",
+    "@typescript-eslint/eslint-plugin": "^8.59.2",
+    "@typescript-eslint/parser": "^8.59.2",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^10.3.0",
+    "eslint-plugin-prettier": "^5.5.5",
+    "globals": "^17.6.0",
+    "tsx": "^4.21.0"
+  },
+  "peerDependencies": {
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.19",
+    "@nestjs/core": "^11.1.19",
+    "@nestjs/platform-express": "^11.1.19",
+    "drizzle-orm": "^0.45.2",
+    "pg": "^8.20.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  }
+}
