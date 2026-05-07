@@ -7,6 +7,7 @@ import { UsersModule } from "./users/users.module";
 import { AuthModule } from "./auth/auth.module";
 import { ProfilesModule } from "./profiles/profiles.module";
 import { FoodModule } from './food/food.module';
+import { WaterTrackingModule } from './water-tracking/water-tracking.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { FoodModule } from './food/food.module';
     AuthModule,
     ProfilesModule,
     FoodModule,
+    WaterTrackingModule,
   ],
 })
 export class AppModule {}
