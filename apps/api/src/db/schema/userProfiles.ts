@@ -17,7 +17,12 @@ export const userProfiles = app.table('user_profiles', {
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
 
-  weight: numeric('weight', { precision: 5, scale: 2 }),
+  weight: numeric('weight', {
+      precision: 5,
+      scale: 2,
+      mode: 'number',
+    }),
+
   height: integer('height'),
   age: integer('age'),
 
