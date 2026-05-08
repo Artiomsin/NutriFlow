@@ -8,6 +8,7 @@ import { AuthModule } from "./auth/auth.module";
 import { ProfilesModule } from "./profiles/profiles.module";
 import { FoodModule } from './food/food.module';
 import { WaterTrackingModule } from './water-tracking/water-tracking.module';
+import { DailySummaryModule } from './daily-summary/daily-summary.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { WaterTrackingModule } from './water-tracking/water-tracking.module';
     ProfilesModule,
     FoodModule,
     WaterTrackingModule,
+    DailySummaryModule,
   ],
 })
 export class AppModule {}
