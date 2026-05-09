@@ -2,7 +2,7 @@ import SwiftUI
 
 struct HomeView: View {
     
-    @EnvironmentObject var vm: AuthViewModel
+    @EnvironmentObject var session: SessionManager
     
     var body: some View {
         ZStack {
@@ -57,20 +57,11 @@ struct HomeView: View {
                 Spacer()
                 
                 PrimaryButton(title: "Logout") {
-                    Task {
-                        await vm.logout()
-                    }
+                    session.logout()
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 30)
             }
         }
     }
-}
-
-#Preview {
-    let testVM = AuthViewModel()
-    testVM.state = .loggedIn
-    return HomeView()
-        .environmentObject(testVM)
 }

@@ -2,7 +2,7 @@ import SwiftUI
 
 struct AuthView: View {
     
-    @EnvironmentObject var vm: AuthViewModel
+    @StateObject var vm: AuthViewModel
     
     @State private var isLogin = true
     
@@ -31,7 +31,11 @@ struct AuthView: View {
                         title: isLogin ? "Sign in" : "Create account"
                     ) {
                         Task {
-                            isLogin ? await vm.login() : await vm.register()
+                            if isLogin {
+                                await vm.login()
+                            } else {
+                                await vm.register()
+                            }
                         }
                     }
                     
