@@ -2,9 +2,12 @@ import SwiftUI
 
 struct AuthView: View {
     
-    @StateObject var vm: AuthViewModel
-    
+    @StateObject private var vm: AuthViewModel
     @State private var isLogin = true
+    
+    init(session: SessionManager) {
+        _vm = StateObject(wrappedValue: AuthViewModel(session: session))
+    }
     
     var body: some View {
         ZStack {
@@ -22,10 +25,6 @@ struct AuthView: View {
                         vm: vm,
                         isLogin: isLogin
                     )
-                    
-                    if let error = vm.errorMessage {
-                        ErrorMessageView(text: error)
-                    }
                     
                     PrimaryButton(
                         title: isLogin ? "Sign in" : "Create account"
@@ -49,6 +48,17 @@ struct AuthView: View {
                         )
                         .font(.footnote)
                         .foregroundColor(.white.opacity(0.5))
+                    }
+                    
+                    // MARK: - STATE ERROR UI
+                    if case .error(let error) = vm.state {
+                        ErrorMessageView(text: error.localizedDescription)
+                    }
+                    
+                    // MARK: - LOADING UI
+                    if case .loading = vm.state {
+                        ProgressView()
+                            .tint(.white)
                     }
                 }
                 .padding(.horizontal, 20)

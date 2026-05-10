@@ -1,4 +1,3 @@
-
 import Foundation
 
 @MainActor
@@ -14,16 +13,37 @@ final class SessionManager: ObservableObject {
         }
     }
     
+    
+    var accessToken: String? {
+        TokenStorage.shared.getAccess()
+    }
+    
+    var refreshToken: String? {
+        TokenStorage.shared.getRefresh()
+    }
+    
+    var userEmail: String? {
+        TokenStorage.shared.getEmail()
+    }
+    
+    var userFirstName: String? {
+        TokenStorage.shared.getFirstName()
+    }
+    
+    var userLastName: String? {
+        TokenStorage.shared.getLastName()
+    }
+    
+    
     func restoreSession() async {
         
-        guard let refresh = TokenStorage.shared.getRefresh(),
+        guard let refresh = refreshToken,
               !refresh.isEmpty else {
             state = .unauthenticated
             return
         }
         
         do {
-            
             let res = try await authService.refresh(token: refresh)
             
             TokenStorage.shared.save(
@@ -34,15 +54,16 @@ final class SessionManager: ObservableObject {
             state = .authenticated
             
         } catch {
-            
             TokenStorage.shared.clear()
             state = .unauthenticated
         }
     }
     
-    func login(access: String, refresh: String) {
+    
+    func login(access: String, refresh: String, email: String? = nil, firstName: String? = nil, lastName: String? = nil) {
         
         TokenStorage.shared.save(access: access, refresh: refresh)
+        TokenStorage.shared.saveUserData(email: email, firstName: firstName, lastName: lastName)
         state = .authenticated
     }
     

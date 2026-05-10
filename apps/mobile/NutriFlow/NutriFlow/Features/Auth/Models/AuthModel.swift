@@ -15,6 +15,9 @@ struct RegisterRequest: Codable {
 struct AuthResponse: Codable {
     let accessToken: String
     let refreshToken: String
+    let email: String?
+    let firstName: String?
+    let lastName: String?
 }
 
 struct LogoutResponse: Codable {

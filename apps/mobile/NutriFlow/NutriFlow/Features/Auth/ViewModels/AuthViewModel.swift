@@ -1,22 +1,31 @@
 import Foundation
 
+enum ValidationError: LocalizedError {
+    case emptyField(String)
+    case invalidEmail
+
+    var errorDescription: String? {
+        switch self {
+        case .emptyField(let field):
+            return "\(field) is required"
+        case .invalidEmail:
+            return "Invalid email format"
+        }
+    }
+}
+
 @MainActor
 final class AuthViewModel: ObservableObject {
     
+    @Published var state: AuthState = .unauthenticated
     
     @Published var email: String = ""
     @Published var password: String = ""
     @Published var firstName: String = ""
     @Published var lastName: String = ""
     
-    
-    
-    @Published var isLoading: Bool = false
-    @Published var errorMessage: String?
-    
     private let authService: AuthService
     private let session: SessionManager
-    
     
     init(
         session: SessionManager,
@@ -31,15 +40,9 @@ final class AuthViewModel: ObservableObject {
         
         guard validateLogin() else { return }
         
-        isLoading = true
-        errorMessage = nil
-        
-        defer {
-            isLoading = false
-        }
+        state = .loading
         
         do {
-            
             let response = try await authService.login(
                 email: email,
                 password: password
@@ -47,13 +50,15 @@ final class AuthViewModel: ObservableObject {
             
             session.login(
                 access: response.accessToken,
-                refresh: response.refreshToken
+                refresh: response.refreshToken,
+                email: email
             )
             
             clearInputs()
+            state = .authenticated
             
         } catch {
-            errorMessage = mapError(error)
+            state = .error(error)
         }
     }
     
@@ -62,15 +67,9 @@ final class AuthViewModel: ObservableObject {
         
         guard validateRegister() else { return }
         
-        isLoading = true
-        errorMessage = nil
-        
-        defer {
-            isLoading = false
-        }
+        state = .loading
         
         do {
-            
             let response = try await authService.register(
                 email: email,
                 password: password,
@@ -80,74 +79,73 @@ final class AuthViewModel: ObservableObject {
             
             session.login(
                 access: response.accessToken,
-                refresh: response.refreshToken
+                refresh: response.refreshToken,
+                email: response.email ?? email,
+                firstName: response.firstName ?? firstName,
+                lastName: response.lastName ?? lastName
             )
             
             clearInputs()
+            state = .authenticated
             
         } catch {
-            errorMessage = mapError(error)
+            state = .error(error)
         }
     }
     
     
     func logout() {
+        
         session.logout()
         clearInputs()
+        state = .unauthenticated
     }
-}
-
-
-private extension AuthViewModel {
     
-    func validateLogin() -> Bool {
+    private func validateLogin() -> Bool {
         
-        if email.isEmpty || password.isEmpty {
-            errorMessage = "Email and password are required"
+        guard !email.isEmpty else {
+            state = .error(ValidationError.emptyField("Email"))
+            return false
+        }
+        
+        guard !password.isEmpty else {
+            state = .error(ValidationError.emptyField("Password"))
             return false
         }
         
         return true
     }
     
-    func validateRegister() -> Bool {
+    private func validateRegister() -> Bool {
         
-        if email.isEmpty ||
-            password.isEmpty ||
-            firstName.isEmpty ||
-            lastName.isEmpty {
-            
-            errorMessage = "All fields are required"
+        guard !email.isEmpty else {
+            state = .error(ValidationError.emptyField("Email"))
+            return false
+        }
+        
+        guard !password.isEmpty else {
+            state = .error(ValidationError.emptyField("Password"))
+            return false
+        }
+        
+        guard !firstName.isEmpty else {
+            state = .error(ValidationError.emptyField("First name"))
+            return false
+        }
+        
+        guard !lastName.isEmpty else {
+            state = .error(ValidationError.emptyField("Last name"))
             return false
         }
         
         return true
     }
-}
-
-
-private extension AuthViewModel {
     
-    func clearInputs() {
+    
+    private func clearInputs() {
         email = ""
         password = ""
         firstName = ""
         lastName = ""
-    }
-    
-    func mapError(_ error: Error) -> String {
-        
-        if let urlError = error as? URLError {
-            switch urlError.code {
-            case .notConnectedToInternet:
-                return "No internet connection"
-            case .timedOut:
-                return "Request timed out"
-            default:
-                return "Network error"
-            }
-        }
-        
-        return error.localizedDescription
     }
 }
