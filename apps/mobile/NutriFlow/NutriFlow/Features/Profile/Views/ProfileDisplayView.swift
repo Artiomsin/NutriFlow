@@ -3,153 +3,219 @@ import SwiftUI
 struct ProfileDisplayView: View {
     @ObservedObject var viewModel: ProfileViewModel
     @EnvironmentObject var session: SessionManager
+    var onLogout: (() -> Void)?
     
     var body: some View {
         ZStack {
             Color(red: 0.03, green: 0.04, blue: 0.06)
                 .ignoresSafeArea()
-            
             ScrollView(showsIndicators: false) {
+
                 VStack(spacing: 24) {
+
                     if case .loaded(let profile) = viewModel.state {
+
                         VStack(spacing: 16) {
+
                             Image(systemName: "person.circle.fill")
                                 .font(.system(size: 80))
                                 .foregroundColor(.green)
-                            
-                            VStack(spacing: 4) {
-                                let firstName = profile.firstName ?? TokenStorage.shared.getFirstName()
-                                let lastName = profile.lastName ?? TokenStorage.shared.getLastName()
-                                let email = profile.email ?? TokenStorage.shared.getEmail()
-                                
-                                if let firstName = firstName, let lastName = lastName {
-                                    Text("\(firstName) \(lastName)")
-                                        .font(.title2.bold())
-                                        .foregroundColor(.white)
+
+                            VStack(spacing: 12) {
+
+                                VStack(spacing: 4) {
+
+                                    if let firstName = profile.firstName,
+                                       let lastName = profile.lastName {
+
+                                        Text("\(firstName) \(lastName)")
+                                            .font(.title2.bold())
+                                            .foregroundColor(.white)
+                                    }
+
+                                    if let email = profile.email {
+
+                                        Text(email)
+                                            .font(.subheadline)
+                                            .foregroundColor(.white.opacity(0.6))
+                                    }
                                 }
-                                
-                                if let email = email {
-                                    Text(email)
-                                        .font(.subheadline)
-                                        .foregroundColor(.white.opacity(0.6))
+
+                                NavigationLink {
+
+                                    EditProfileView(viewModel: viewModel)
+
+                                } label: {
+
+                                    HStack(spacing: 6) {
+
+                                        Image(systemName: "pencil")
+
+                                        Text("Edit profile")
+                                    }
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundColor(.black)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 10)
+                                    .background(Color.green)
+                                    .cornerRadius(10)
                                 }
                             }
                         }
                         .padding(.top, 40)
-                        
+
                         VStack(spacing: 16) {
+
                             ProfileInfoCard(
                                 icon: "scalemass",
                                 title: "Weight",
                                 value: profile.weight.map { "\($0) kg" } ?? "Not set"
                             )
-                            
+
                             ProfileInfoCard(
                                 icon: "ruler",
                                 title: "Height",
                                 value: profile.height.map { "\($0) cm" } ?? "Not set"
                             )
-                            
+
                             ProfileInfoCard(
                                 icon: "calendar",
                                 title: "Age",
                                 value: profile.age.map { "\($0) years" } ?? "Not set"
                             )
-                            
+
                             ProfileInfoCard(
                                 icon: "target",
                                 title: "Goal",
                                 value: profile.goal?.displayName ?? "Not set"
                             )
-                            
+
                             ProfileInfoCard(
                                 icon: "figure.walk",
                                 title: "Activity",
                                 value: profile.activityLevel?.displayName ?? "Not set"
                             )
                         }
-                        .padding(.horizontal, 20)
-                        
+
                     } else if case .loading = viewModel.state {
+
                         ProgressView()
                             .tint(.white)
+
                     } else if case .empty = viewModel.state {
+
                         VStack(spacing: 16) {
+
                             Image(systemName: "person.circle.fill")
                                 .font(.system(size: 80))
                                 .foregroundColor(.green)
-                            
-                            let firstName = TokenStorage.shared.getFirstName()
-                            let lastName = TokenStorage.shared.getLastName()
-                            let email = TokenStorage.shared.getEmail()
-                            
-                            if let firstName = firstName, let lastName = lastName {
-                                Text("\(firstName) \(lastName)")
-                                    .font(.title2.bold())
-                                    .foregroundColor(.white)
-                            }
-                            
-                            if let email = email {
-                                Text(email)
-                                    .font(.subheadline)
-                                    .foregroundColor(.white.opacity(0.6))
-                            }
+
+                            Text("No profile data. Please create your profile.")
+                                .foregroundColor(.white.opacity(0.6))
+                                .multilineTextAlignment(.center)
                         }
-                        .padding(.top, 40)
-                        
-                        Text("No profile data. Please create your profile.")
-                            .foregroundColor(.white.opacity(0.6))
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 40)
+
                     } else if case .error(let error) = viewModel.state {
+
                         ErrorMessageView(text: error.localizedDescription)
                     }
+
+                    Button {
+
+                        onLogout?()
+
+                    } label: {
+
+                        Text("Logout")
+                            .font(.headline)
+                            .foregroundColor(.red.opacity(0.8))
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.red.opacity(0.1))
+                            .cornerRadius(12)
+                    }
+                    .padding(.top, 12)
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 20)
-                
-                Button {
-                    session.logout()
-                } label: {
-                    Text("Logout")
-                        .font(.headline)
-                        .foregroundColor(.red.opacity(0.8))
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.red.opacity(0.1))
-                        .cornerRadius(12)
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 100)
+                .padding(.bottom, 120)
             }
+            
         }
     }
 }
 
-struct ProfileInfoCard: View {
-    let icon: String
-    let title: String
-    let value: String
-    
-    var body: some View {
-        HStack {
-            Image(systemName: icon)
-                .font(.system(size: 20))
-                .foregroundColor(.green)
-                .frame(width: 30)
-            
-            Text(title)
-                .font(.subheadline)
-                .foregroundColor(.white.opacity(0.6))
-            
-            Spacer()
-            
-            Text(value)
-                .font(.subheadline.bold())
-                .foregroundColor(.white)
-        }
-        .padding()
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(12)
+
+
+#Preview {
+
+    let session = SessionManager(
+        tokenStorage: TokenStorage(
+            keychain: KeychainService()
+        )
+    )
+
+    let vm = ProfileViewModel(
+        session: session,
+        service: MockProfileService()
+    )
+
+    vm.setPreviewState(
+        .loaded(
+            UserProfile(
+                id: UUID().uuidString,
+                userId: UUID().uuidString,
+                email: "artem@example.com",
+                firstName: "Artem",
+                lastName: "Developer",
+                weight: 82,
+                height: 183,
+                age: 24,
+                goal: .gain,
+                activityLevel: .high,
+                createdAt: "2026-05-13",
+                updatedAt: "2026-05-13"
+            )
+        )
+    )
+
+    return NavigationStack {
+        ProfileDisplayView(viewModel: vm)
+            .environmentObject(session)
     }
+}
+
+
+final class MockProfileService: ProfileServiceProtocol {
+    func deleteMyProfile(token: String) async throws -> EmptyResponse {
+        fatalError()
+    }
+    
+
+    func getMyProfile(token: String) async throws -> UserProfile {
+        fatalError()
+    }
+
+    func createProfile(
+        token: String,
+        weight: Double?,
+        height: Int?,
+        age: Int?,
+        goal: Goal?,
+        activityLevel: ActivityLevel?
+    ) async throws -> UserProfile {
+        fatalError()
+    }
+
+    func updateMyProfile(
+        token: String,
+        weight: Double?,
+        height: Int?,
+        age: Int?,
+        goal: Goal?,
+        activityLevel: ActivityLevel?
+    ) async throws -> UserProfile {
+        fatalError()
+    }
+
+    
 }

@@ -2,20 +2,24 @@
 import Foundation
 
 
-final class ProfileService {
-    
-    private let client = APIClient.shared
-    
+final class ProfileService: ProfileServiceProtocol {
+
+    private let client: HTTPClient
+
+    init(client: HTTPClient = URLSessionHTTPClient()) {
+        self.client = client
+    }
+
     func getMyProfile(token: String) async throws -> UserProfile {
-           
-           return try await client.request(
-               endpoint: "/profiles/me",
-               method: "GET",
-               body: nil,
-               token: token
-           )
-       }
-    
+        let request = APIRequest(
+            path: ProfileEndpoints.getMyProfile,
+            method: .GET,
+            body: nil as EmptyBody?,
+            headers: ["Authorization": "Bearer \(token)"]
+        )
+        return try await client.send(request)
+    }
+
     func createProfile(
             token: String,
             weight: Double?,
@@ -24,25 +28,15 @@ final class ProfileService {
             goal: Goal?,
             activityLevel: ActivityLevel?
         ) async throws -> UserProfile {
-            
-            let body = try JSONEncoder().encode(
-                CreateProfileRequest(
-                    weight: weight,
-                    height: height,
-                    age: age,
-                    goal: goal,
-                    activityLevel: activityLevel
-                )
-            )
-            
-            return try await client.request(
-                endpoint: "/profiles",
-                method: "POST",
-                body: body,
-                token: token
-            )
-        }
-    
+        let request = APIRequest(
+            path: ProfileEndpoints.createProfile,
+            method: .POST,
+            body: CreateProfileRequest(weight: weight, height: height, age: age, goal: goal, activityLevel: activityLevel),
+            headers: ["Authorization": "Bearer \(token)"]
+        )
+        return try await client.send(request)
+    }
+
     func updateMyProfile(
             token: String,
             weight: Double?,
@@ -51,33 +45,22 @@ final class ProfileService {
             goal: Goal?,
             activityLevel: ActivityLevel?
         ) async throws -> UserProfile {
-            
-            let body = try JSONEncoder().encode(
-                UpdateProfileRequest(
-                    weight: weight,
-                    height: height,
-                    age: age,
-                    goal: goal,
-                    activityLevel: activityLevel
-                )
-            )
-            
-            return try await client.request(
-                endpoint: "/profiles/me",
-                method: "PUT",
-                body: body,
-                token: token
-            )
-        }
-    
-    func deleteMyProfile(token: String) async throws {
-            
-            try await client.requestVoid(
-                endpoint: "/profiles/me",
-                method: "DELETE",
-                token: token
-            )
-        }
-    
-    
+        let request = APIRequest(
+            path: ProfileEndpoints.updateMyProfile,
+            method: .PUT,
+            body: UpdateProfileRequest(weight: weight, height: height, age: age, goal: goal, activityLevel: activityLevel),
+            headers: ["Authorization": "Bearer \(token)"]
+        )
+        return try await client.send(request)
+    }
+
+    func deleteMyProfile(token: String) async throws -> EmptyResponse {
+        let request = APIRequest(
+            path: ProfileEndpoints.deleteMyProfile,
+            method: .DELETE,
+            body: nil as EmptyBody?,
+            headers: ["Authorization": "Bearer \(token)"]
+        )
+        return try await client.send(request)
+    }
 }

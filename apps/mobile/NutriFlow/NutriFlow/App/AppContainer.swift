@@ -1,0 +1,30 @@
+import Foundation
+import Combine
+
+@MainActor
+final class AppContainer: ObservableObject {
+
+    let httpClient: HTTPClient
+    let keychainService: KeychainService
+    let tokenStorage: TokenStorageProtocol
+    let sessionManager: SessionManager
+    let authService: AuthServiceProtocol
+    let profileService: ProfileServiceProtocol
+
+    init() {
+        self.httpClient = URLSessionHTTPClient()
+        self.keychainService = KeychainService()
+        self.tokenStorage = TokenStorage(keychain: keychainService)
+        self.sessionManager = SessionManager(tokenStorage: tokenStorage)
+        self.authService = AuthService(client: httpClient)
+        self.profileService = ProfileService(client: httpClient)
+    }
+
+    func makeAuthViewModel() -> AuthViewModel {
+        AuthViewModel(authService: authService, sessionManager: sessionManager)
+    }
+
+    func makeProfileViewModel() -> ProfileViewModel {
+        ProfileViewModel(session: sessionManager, service: profileService)
+    }
+}

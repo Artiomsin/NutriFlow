@@ -1,15 +1,14 @@
 import SwiftUI
 
 struct ProfileTabView: View {
-    @EnvironmentObject var session: SessionManager
-    @StateObject private var profileVM = ProfileViewModel()
+    @ObservedObject var viewModel: ProfileViewModel
+    var onLogout: (() -> Void)?
     
     var body: some View {
-        ProfileDisplayView(viewModel: profileVM)
+        ProfileDisplayView(viewModel: viewModel, onLogout: onLogout)
             .onAppear {
-                profileVM.configure(session: session)
                 Task {
-                    await profileVM.loadProfile()
+                    await viewModel.loadProfile()
                 }
             }
     }

@@ -1,43 +1,39 @@
 import SwiftUI
 
 struct AuthView: View {
-    
-    @StateObject private var vm: AuthViewModel
+
+    @ObservedObject var viewModel: AuthViewModel
     @State private var isLogin = true
-    
-    init(session: SessionManager) {
-        _vm = StateObject(wrappedValue: AuthViewModel(session: session))
-    }
-    
+
     var body: some View {
         ZStack {
-            
+
             Color(red: 0.03, green: 0.04, blue: 0.06)
                 .ignoresSafeArea()
-            
+
             ScrollView(showsIndicators: false) {
-                
+
                 VStack(spacing: 20) {
-                    
+
                     AuthHeaderView(isLogin: isLogin)
-                    
+
                     AuthFormView(
-                        vm: vm,
+                        viewModel: viewModel,
                         isLogin: isLogin
                     )
-                    
+
                     PrimaryButton(
                         title: isLogin ? "Sign in" : "Create account"
                     ) {
                         Task {
                             if isLogin {
-                                await vm.login()
+                                await viewModel.login()
                             } else {
-                                await vm.register()
+                                await viewModel.register()
                             }
                         }
                     }
-                    
+
                     Button {
                         isLogin.toggle()
                     } label: {
@@ -49,16 +45,13 @@ struct AuthView: View {
                         .font(.footnote)
                         .foregroundColor(.white.opacity(0.5))
                     }
-                    
-                    // MARK: - STATE ERROR UI
-                    if case .error(let error) = vm.state {
-                        ErrorMessageView(text: error.localizedDescription)
+
+                    if case .error(let message) = viewModel.state {
+                        ErrorMessageView(text: message)
                     }
-                    
-                    // MARK: - LOADING UI
-                    if case .loading = vm.state {
-                        ProgressView()
-                            .tint(.white)
+
+                    if case .loading = viewModel.state {
+                        ProgressView().tint(.white)
                     }
                 }
                 .padding(.horizontal, 20)

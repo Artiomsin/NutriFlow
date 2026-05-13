@@ -1,74 +1,53 @@
 import Foundation
 
-enum ValidationError: LocalizedError {
-    case emptyField(String)
-    case invalidEmail
-
-    var errorDescription: String? {
-        switch self {
-        case .emptyField(let field):
-            return "\(field) is required"
-        case .invalidEmail:
-            return "Invalid email format"
-        }
-    }
-}
-
 @MainActor
 final class AuthViewModel: ObservableObject {
     
-    @Published var state: AuthState = .unauthenticated
-    
+    @Published var state: AuthState = .idle
     @Published var email: String = ""
     @Published var password: String = ""
     @Published var firstName: String = ""
     @Published var lastName: String = ""
     
-    private let authService: AuthService
-    private let session: SessionManager
+    private let authService: AuthServiceProtocol
+    private let sessionManager: SessionManager
     
     init(
-        session: SessionManager,
-        authService: AuthService = AuthService()
+        authService: AuthServiceProtocol,
+        sessionManager: SessionManager
     ) {
-        self.session = session
         self.authService = authService
-    }
-    
-    
-    func login() async {
-        
-        guard validateLogin() else { return }
-        
-        state = .loading
-        
-        do {
-            let response = try await authService.login(
-                email: email,
-                password: password
-            )
-            
-            session.login(
-                access: response.accessToken,
-                refresh: response.refreshToken,
-                email: email
-            )
-            
-            clearInputs()
-            state = .authenticated
-            
-        } catch {
-            state = .error(error)
+        self.sessionManager = sessionManager
+
+        if case .authenticated = sessionManager.state {
+            self.state = .authenticated
+        } else {
+            self.state = .unauthenticated
         }
     }
-    
-    
-    func register() async {
-        
-        guard validateRegister() else { return }
-        
+
+
+    func login() async {
         state = .loading
-        
+
+        do {
+            let response = try await authService.login(email: email, password: password)
+
+            sessionManager.setSession(
+                accessToken: response.accessToken,
+                refreshToken: response.refreshToken
+            )
+
+            state = .authenticated
+
+        } catch {
+            state = .error(error.localizedDescription)
+        }
+    }
+
+    func register() async {
+        state = .loading
+
         do {
             let response = try await authService.register(
                 email: email,
@@ -76,76 +55,55 @@ final class AuthViewModel: ObservableObject {
                 firstName: firstName,
                 lastName: lastName
             )
-            
-            session.login(
-                access: response.accessToken,
-                refresh: response.refreshToken,
-                email: response.email ?? email,
-                firstName: response.firstName ?? firstName,
-                lastName: response.lastName ?? lastName
+
+            sessionManager.setSession(
+                accessToken: response.accessToken,
+                refreshToken: response.refreshToken
             )
-            
-            clearInputs()
+
             state = .authenticated
-            
+
         } catch {
-            state = .error(error)
+            state = .error(error.localizedDescription)
         }
     }
-    
-    
-    func logout() {
-        
-        session.logout()
-        clearInputs()
-        state = .unauthenticated
+
+
+    func logout() async {
+        guard let token = sessionManager.accessToken() else {
+            sessionManager.logout()
+            state = .unauthenticated
+            return
+        }
+
+        do {
+            _ = try await authService.logout(accessToken: token)
+            sessionManager.logout()
+            state = .unauthenticated
+        } catch {
+            sessionManager.logout()
+            state = .unauthenticated
+        }
     }
-    
-    private func validateLogin() -> Bool {
-        
-        guard !email.isEmpty else {
-            state = .error(ValidationError.emptyField("Email"))
+
+
+    func refreshTokenIfNeeded() async -> Bool {
+        guard let refreshToken = sessionManager.refreshToken() else {
             return false
         }
-        
-        guard !password.isEmpty else {
-            state = .error(ValidationError.emptyField("Password"))
+
+        do {
+            let response = try await authService.refresh(refreshToken: refreshToken)
+
+            sessionManager.setSession(
+                accessToken: response.accessToken,
+                refreshToken: response.refreshToken
+            )
+
+            return true
+        } catch {
+            sessionManager.logout()
             return false
         }
-        
-        return true
-    }
-    
-    private func validateRegister() -> Bool {
-        
-        guard !email.isEmpty else {
-            state = .error(ValidationError.emptyField("Email"))
-            return false
-        }
-        
-        guard !password.isEmpty else {
-            state = .error(ValidationError.emptyField("Password"))
-            return false
-        }
-        
-        guard !firstName.isEmpty else {
-            state = .error(ValidationError.emptyField("First name"))
-            return false
-        }
-        
-        guard !lastName.isEmpty else {
-            state = .error(ValidationError.emptyField("Last name"))
-            return false
-        }
-        
-        return true
-    }
-    
-    
-    private func clearInputs() {
-        email = ""
-        password = ""
-        firstName = ""
-        lastName = ""
     }
 }

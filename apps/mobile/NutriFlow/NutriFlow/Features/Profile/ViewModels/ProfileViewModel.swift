@@ -3,7 +3,7 @@ import Foundation
 @MainActor
 final class ProfileViewModel: ObservableObject {
     
-    @Published var state: ProfileState = .loading
+    @Published private(set) var state: ProfileState = .loading
     
     @Published var weight: String = ""
     @Published var height: String = ""
@@ -12,33 +12,23 @@ final class ProfileViewModel: ObservableObject {
     @Published var goal: Goal?
     @Published var activityLevel: ActivityLevel?
     
-    private var service: ProfileService?
-    private var session: SessionManager?
+    var onUnauthorized: (() -> Void)?
     
-    init() {}
+    private let service: ProfileServiceProtocol
+    private var session: SessionManager
     
-    convenience init(session: SessionManager) {
-        self.init()
+    init(session: SessionManager, service: ProfileServiceProtocol) {
         self.session = session
-        self.service = ProfileService()
+        self.service = service
     }
     
     func configure(session: SessionManager) {
         self.session = session
-        self.service = ProfileService()
     }
-    
-    private func getSession() -> SessionManager {
-        guard let session = session else {
-            fatalError("Session not configured")
-        }
-        return session
-    }
-    
     
     func loadProfile() async {
         
-        guard let token = getSession().accessToken else {
+        guard let token = session.accessToken() else {
             state = .empty
             return
         }
@@ -46,13 +36,20 @@ final class ProfileViewModel: ObservableObject {
         state = .loading
         
         do {
-            let profile = try await service?.getMyProfile(token: token)
+            let profile = try await service.getMyProfile(token: token)
+            state = .loaded(profile)
+            mapToForm(profile)
             
-            if let profile = profile {
-                state = .loaded(profile)
-                mapToForm(profile)
+        } catch let error as APIError {
+            switch error {
+            case .notFound:
+                state = .empty
+            case .unauthorized:
+                session.logout()
+                onUnauthorized?()
+            default:
+                state = .error(error)
             }
-            
         } catch {
             state = .error(error)
         }
@@ -61,7 +58,7 @@ final class ProfileViewModel: ObservableObject {
     
     func createProfile() async {
         
-        guard let token = getSession().accessToken else {
+        guard let token = session.accessToken() else {
             state = .error(APIError.unauthorized)
             return
         }
@@ -69,7 +66,7 @@ final class ProfileViewModel: ObservableObject {
         state = .saving(nil)
         
         do {
-            let profile = try await service?.createProfile(
+            let profile = try await service.createProfile(
                 token: token,
                 weight: Double(weight),
                 height: Int(height),
@@ -78,9 +75,7 @@ final class ProfileViewModel: ObservableObject {
                 activityLevel: activityLevel
             )
             
-            if let profile = profile {
-                state = .loaded(profile)
-            }
+            state = .loaded(profile)
             
         } catch {
             state = .error(error)
@@ -90,7 +85,7 @@ final class ProfileViewModel: ObservableObject {
     
     func updateProfile() async {
         
-        guard let token = getSession().accessToken else {
+        guard let token = session.accessToken() else {
             state = .error(APIError.unauthorized)
             return
         }
@@ -98,7 +93,7 @@ final class ProfileViewModel: ObservableObject {
         state = .saving(nil)
         
         do {
-            let profile = try await service?.updateMyProfile(
+            let profile = try await service.updateMyProfile(
                 token: token,
                 weight: Double(weight),
                 height: Int(height),
@@ -107,9 +102,7 @@ final class ProfileViewModel: ObservableObject {
                 activityLevel: activityLevel
             )
             
-            if let profile = profile {
-                state = .loaded(profile)
-            }
+            state = .loaded(profile)
             
         } catch {
             state = .error(error)
@@ -119,7 +112,7 @@ final class ProfileViewModel: ObservableObject {
     
     func deleteProfile() async {
         
-        guard let token = getSession().accessToken else {
+        guard let token = session.accessToken() else {
             state = .error(APIError.unauthorized)
             return
         }
@@ -127,7 +120,7 @@ final class ProfileViewModel: ObservableObject {
         state = .saving(nil)
         
         do {
-            try await service?.deleteMyProfile(token: token)
+            _ = try await service.deleteMyProfile(token: token)
             
             state = .empty
             clearForm()
@@ -157,4 +150,11 @@ final class ProfileViewModel: ObservableObject {
         goal = nil
         activityLevel = nil
     }
+
+#if DEBUG
+func setPreviewState(_ state: ProfileState) {
+    self.state = state
+}
+#endif
+    
 }
