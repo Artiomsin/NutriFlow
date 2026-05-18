@@ -14,11 +14,11 @@ struct AppCard<Content: View>: View {
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(Color.white.opacity(0.04))
+                RoundedRectangle(cornerRadius: AppTheme.cornerRadiusLarge)
+                    .fill(AppTheme.cardBackground)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: AppTheme.cornerRadiusLarge)
+                            .stroke(AppTheme.cardBorder, lineWidth: 1)
                     )
             )
     }

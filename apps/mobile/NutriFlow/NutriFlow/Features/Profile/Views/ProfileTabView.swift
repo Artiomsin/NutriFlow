@@ -8,7 +8,7 @@ struct ProfileTabView: View {
         ProfileDisplayView(viewModel: viewModel, onLogout: onLogout)
             .onAppear {
                 Task {
-                    await viewModel.loadProfile()
+                    await viewModel.loadData()
                 }
             }
     }

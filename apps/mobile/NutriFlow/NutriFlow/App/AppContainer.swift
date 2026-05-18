@@ -10,7 +10,9 @@ final class AppContainer: ObservableObject {
     let sessionManager: SessionManager
     let authService: AuthServiceProtocol
     let profileService: ProfileServiceProtocol
-
+    let userService: UserServiceProtocol
+    
+    
     init() {
         self.httpClient = URLSessionHTTPClient()
         self.keychainService = KeychainService()
@@ -18,6 +20,7 @@ final class AppContainer: ObservableObject {
         self.sessionManager = SessionManager(tokenStorage: tokenStorage)
         self.authService = AuthService(client: httpClient)
         self.profileService = ProfileService(client: httpClient)
+        self.userService = UserService(client: httpClient)
     }
 
     func makeAuthViewModel() -> AuthViewModel {
@@ -25,6 +28,6 @@ final class AppContainer: ObservableObject {
     }
 
     func makeProfileViewModel() -> ProfileViewModel {
-        ProfileViewModel(session: sessionManager, service: profileService)
+        ProfileViewModel(session: sessionManager, profileService: profileService, userService: userService)
     }
 }

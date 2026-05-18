@@ -1,7 +1,6 @@
 
 import Foundation
 
-
 final class ProfileService: ProfileServiceProtocol {
 
     private let client: HTTPClient

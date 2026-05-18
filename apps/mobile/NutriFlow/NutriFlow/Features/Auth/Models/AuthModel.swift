@@ -18,7 +18,6 @@ struct RefreshDTO: Encodable {
 
 struct EmptyBody: Encodable {}
 
-
 struct AuthTokensResponse: Decodable {
     let accessToken: String
     let refreshToken: String

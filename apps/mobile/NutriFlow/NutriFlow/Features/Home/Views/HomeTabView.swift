@@ -1,12 +1,4 @@
-//
-//  HomeTabView.swift
-//  Nutriflow
-//
-//  Created by Artem on 12.05.26.
-//
-
 import SwiftUI
-
 
 struct HomeTabView: View {
     
@@ -20,12 +12,12 @@ struct HomeTabView: View {
                     
                     Text("Home")
                         .font(.system(size: 30, weight: .semibold))
-                        .foregroundColor(.white)
-                        .padding(.top, 60)
+                        .foregroundColor(AppTheme.textPrimary)
+                        .padding(.top, AppTheme.headerPaddingTop)
                     
                     Text("Welcome back")
                         .font(.footnote)
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(AppTheme.textSecondary)
                 }
                 
                 Spacer()
@@ -37,11 +29,11 @@ struct HomeTabView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Today")
                                 .font(.headline)
-                                .foregroundColor(.white)
+                                .foregroundColor(AppTheme.textPrimary)
                             
                             Text("Your nutrition overview will appear here")
                                 .font(.caption)
-                                .foregroundColor(.white.opacity(0.5))
+                                .foregroundColor(AppTheme.textSecondary)
                         }
                     }
                     
@@ -49,19 +41,27 @@ struct HomeTabView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Progress")
                                 .font(.headline)
-                                .foregroundColor(.white)
+                                .foregroundColor(AppTheme.textPrimary)
                             
                             Text("Track your daily goals")
                                 .font(.caption)
-                                .foregroundColor(.white.opacity(0.5))
+                                .foregroundColor(AppTheme.textSecondary)
                         }
                     }
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, AppTheme.paddingHorizontal)
                 
                 Spacer()
                     .frame(height: 100)
             }
+            .background(AppTheme.background)
         }
     }
+}
+
+#Preview {
+    let session = SessionManager(tokenStorage: TokenStorage(keychain: KeychainService()))
+    return HomeTabView()
+        .environmentObject(session)
+        .preferredColorScheme(.dark)
 }

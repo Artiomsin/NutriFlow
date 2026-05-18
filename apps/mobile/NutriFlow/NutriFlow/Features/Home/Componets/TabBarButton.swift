@@ -1,9 +1,3 @@
-//
-//  TabBarButton.swift
-//  Nutriflow
-//
-//  Created by Artem on 12.05.26.
-//
 import SwiftUI
 
 struct TabBarButton: View {
@@ -16,12 +10,12 @@ struct TabBarButton: View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 20))
-                    .foregroundColor(isSelected ? .green : .white.opacity(0.4))
+                    .font(.system(size: AppTheme.tabBarIconSize))
+                    .foregroundColor(isSelected ? AppTheme.accent : AppTheme.textSecondary)
                 
                 Text(title)
                     .font(.caption2)
-                    .foregroundColor(isSelected ? .green : .white.opacity(0.4))
+                    .foregroundColor(isSelected ? AppTheme.accent : AppTheme.textSecondary)
             }
             .frame(maxWidth: .infinity)
         }

@@ -26,8 +26,8 @@ struct AppRootView: View {
         
         ZStack {
             
-            Color(red: 0.03, green: 0.04, blue: 0.06)
-                .ignoresSafeArea()
+            Color.clear
+                .background(AppTheme.background.ignoresSafeArea())
             
             switch currentScreen {
                 
@@ -70,7 +70,7 @@ struct AppRootView: View {
             }
         }
         .onAppear {
-            profileViewModel.configure(session: container.sessionManager)
+           
             profileViewModel.onUnauthorized = { [self] in
                 currentScreen = .auth
             }
@@ -90,8 +90,7 @@ struct AppRootView: View {
     }
     
     private func checkProfile() async {
-        profileViewModel.configure(session: container.sessionManager)
-        await profileViewModel.loadProfile()
+        await profileViewModel.loadData()
         
         switch profileViewModel.state {
         case .loaded:

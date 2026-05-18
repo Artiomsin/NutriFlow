@@ -13,27 +13,24 @@ struct AppTextField: View {
             
             Text(title)
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(AppTheme.textSecondary)
             
             TextField("", text: $text)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .keyboardType(keyboardType)
-                .foregroundColor(.white)
+                .foregroundColor(AppTheme.textPrimary)
                 .padding()
                 .background(fieldBackground)
         }
     }
     
     private var fieldBackground: some View {
-        RoundedRectangle(cornerRadius: 12)
-            .fill(Color.white.opacity(0.04))
+        RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
+            .fill(AppTheme.fieldBackground)
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(
-                        Color.white.opacity(0.06),
-                        lineWidth: 1
-                    )
+                RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
+                    .stroke(AppTheme.fieldBorder, lineWidth: 1)
             )
     }
 }

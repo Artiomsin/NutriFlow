@@ -1,12 +1,4 @@
-//
-//  CustomTabBar.swift
-//  Nutriflow
-//
-//  Created by Artem on 12.05.26.
-//
-
 import SwiftUI
-
 
 struct CustomTabBar: View {
     @Binding var selectedTab: Int
@@ -27,7 +19,7 @@ struct CustomTabBar: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
-        .background(Color(red: 0.05, green: 0.06, blue: 0.08))
-        .cornerRadius(20)
+        .background(AppTheme.cardBackground)
+        .cornerRadius(AppTheme.cornerRadiusTabBar)
     }
 }

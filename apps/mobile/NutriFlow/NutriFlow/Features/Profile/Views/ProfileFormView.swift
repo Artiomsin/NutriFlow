@@ -6,19 +6,18 @@ struct ProfileFormView: View {
     
     var body: some View {
         ZStack {
-            Color(red: 0.03, green: 0.04, blue: 0.06)
-                .ignoresSafeArea()
+            AppTheme.background.ignoresSafeArea()
             
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
                     Text("Create Profile")
                         .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.top, 60)
+                        .foregroundColor(AppTheme.textPrimary)
+                        .padding(.top, AppTheme.headerPaddingTop)
                     
                     Text("Tell us about yourself")
                         .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(AppTheme.textTertiary)
                     
                     VStack(spacing: 16) {
                         AppTextField(
@@ -42,7 +41,7 @@ struct ProfileFormView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Goal")
                                 .font(.subheadline)
-                                .foregroundColor(.white.opacity(0.6))
+                                .foregroundColor(AppTheme.textTertiary)
                             
                             HStack(spacing: 12) {
                                 ForEach(Goal.allCases, id: \.self) { goal in
@@ -59,7 +58,7 @@ struct ProfileFormView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Activity Level")
                                 .font(.subheadline)
-                                .foregroundColor(.white.opacity(0.6))
+                                .foregroundColor(AppTheme.textTertiary)
                             
                             HStack(spacing: 12) {
                                 ForEach(ActivityLevel.allCases, id: \.self) { level in
@@ -73,17 +72,17 @@ struct ProfileFormView: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, AppTheme.paddingHorizontal)
                     
                     if case .error(let error) = viewModel.state {
                         ErrorMessageView(text: error.localizedDescription)
-                            .padding(.horizontal, 20)
+                            .padding(.horizontal, AppTheme.paddingHorizontal)
                     }
                     
                     PrimaryButton(title: "Save") {
                         Task {
                             await viewModel.createProfile()
-                            await viewModel.loadProfile()
+                            await viewModel.loadData()
                             
                             switch viewModel.state {
                             case .loaded:
@@ -93,7 +92,7 @@ struct ProfileFormView: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, AppTheme.paddingHorizontal)
                     
                     if case .saving = viewModel.state {
                         ProgressView()
@@ -116,11 +115,11 @@ struct SelectableChip: View {
         Button(action: action) {
             Text(title)
                 .font(.subheadline)
-                .foregroundColor(isSelected ? .black : .white)
+                .foregroundColor(isSelected ? AppTheme.primaryButtonText : AppTheme.textPrimary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
-                .background(isSelected ? Color.green : Color.white.opacity(0.1))
-                .cornerRadius(20)
+                .background(isSelected ? AppTheme.accent : AppTheme.fieldBackground)
+                .cornerRadius(AppTheme.chipCornerRadius)
         }
     }
 }

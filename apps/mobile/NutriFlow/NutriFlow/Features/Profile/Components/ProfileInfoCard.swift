@@ -1,9 +1,3 @@
-//
-//  ProfileInfoCard.swift
-//  Nutriflow
-//
-//  Created by Artem on 12.05.26.
-//
 import SwiftUI
 
 struct ProfileInfoCard: View {
@@ -14,22 +8,22 @@ struct ProfileInfoCard: View {
     var body: some View {
         HStack {
             Image(systemName: icon)
-                .font(.system(size: 20))
-                .foregroundColor(.green)
+                .font(.system(size: AppTheme.iconSize))
+                .foregroundColor(AppTheme.accent)
                 .frame(width: 30)
             
             Text(title)
                 .font(.subheadline)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(AppTheme.textSecondary)
             
             Spacer()
             
             Text(value)
                 .font(.subheadline.bold())
-                .foregroundColor(.white)
+                .foregroundColor(AppTheme.textPrimary)
         }
         .padding()
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(12)
+        .background(AppTheme.cardBackground)
+        .cornerRadius(AppTheme.cornerRadiusMedium)
     }
 }

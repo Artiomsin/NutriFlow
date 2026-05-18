@@ -1,14 +1,8 @@
-//
-//  UsersEndpoints.swift
-//  Nutriflow
-//
-//  Created by Artem on 12.05.26.
-//
-
 import Foundation
 
-
-enum UsersEndpoints{
-    
-    
+enum UserEndpoints {
+    static let createUser = "/users"
+    static let getUsers = "/users"
+    static let getMe = "/users/me"
+    static let updateMe = "/users/me"
 }

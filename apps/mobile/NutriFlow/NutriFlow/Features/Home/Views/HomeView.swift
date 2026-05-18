@@ -12,8 +12,7 @@ struct HomeView: View {
 
         ZStack {
 
-            Color(red: 0.03, green: 0.04, blue: 0.06)
-                .ignoresSafeArea()
+            AppTheme.background.ignoresSafeArea()
 
 TabView(selection: $selectedTab) {
 
@@ -24,6 +23,7 @@ TabView(selection: $selectedTab) {
                 ProfileTabFlow(
                     profileViewModel: profileViewModel,
                     onLogout: onLogout
+                    
                 )
                 .environmentObject(session)
                 .tag(1)
@@ -48,12 +48,8 @@ struct SettingsTabFlow: View {
     @EnvironmentObject var session: SessionManager
 
     var body: some View {
-
-        NavigationStack {
-            Color(red: 0.03, green: 0.04, blue: 0.06)
-                .ignoresSafeArea()
-                .overlay(SettingsView())
-        }
+        AppTheme.background.ignoresSafeArea()
+            .overlay(SettingsView())
     }
 }
 
@@ -67,8 +63,8 @@ struct SettingsView: View {
                 
                 Text("Settings")
                     .font(.system(size: 30, weight: .semibold))
-                    .foregroundColor(.white)
-                    .padding(.top, 60)
+                    .foregroundColor(AppTheme.textPrimary)
+                    .padding(.top, AppTheme.headerPaddingTop)
                 
                 Spacer()
                     .frame(height: 20)
@@ -78,7 +74,7 @@ struct SettingsView: View {
                     SettingsRow(icon: "bell", title: "Notifications")
                     SettingsRow(icon: "lock", title: "Privacy")
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, AppTheme.paddingHorizontal)
                 
                 Spacer()
                     .frame(height: 100)
@@ -94,23 +90,75 @@ struct SettingsRow: View {
     var body: some View {
         HStack {
             Image(systemName: icon)
-                .font(.system(size: 20))
-                .foregroundColor(.green)
+                .font(.system(size: AppTheme.iconSize))
+                .foregroundColor(AppTheme.accent)
                 .frame(width: 30)
             
             Text(title)
                 .font(.subheadline)
-                .foregroundColor(.white)
+                .foregroundColor(AppTheme.textPrimary)
             
             Spacer()
             
             Image(systemName: "chevron.right")
                 .font(.system(size: 14))
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(AppTheme.textSecondary)
         }
         .padding()
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(12)
+        .background(AppTheme.cardBackground)
+        .cornerRadius(AppTheme.cornerRadiusMedium)
+    }
+}
+
+#Preview {
+    let session = SessionManager(tokenStorage: TokenStorage(keychain: KeychainService()))
+    let vm = ProfileViewModel(
+        session: session,
+        profileService: MockProfileService(),
+        userService: MockUserService()
+    )
+
+    HomeViewPreviewWrapper(
+        vm: vm,
+        session: session
+    )
+    .environmentObject(session)
+    .preferredColorScheme(.dark)
+}
+
+struct HomeViewPreviewWrapper: View {
+    let vm: ProfileViewModel
+    let session: SessionManager
+
+    var body: some View {
+        HomeView(
+            onLogout: {},
+            profileViewModel: vm
+        )
+        .onAppear {
+            vm.email = "test@example.com"
+            vm.firstName = "Artem"
+            vm.lastName = "Developer"
+            vm.weight = "82"
+            vm.height = "183"
+            vm.age = "24"
+            vm.goal = .gain
+            vm.activityLevel = .high
+            vm.setPreviewState(.loaded(UserProfile(
+                id: UUID().uuidString,
+                userId: UUID().uuidString,
+                email: "test@example.com",
+                firstName: "Artem",
+                lastName: "Developer",
+                weight: 82,
+                height: 183,
+                age: 24,
+                goal: .gain,
+                activityLevel: .high,
+                createdAt: nil,
+                updatedAt: nil
+            )))
+        }
     }
 }
 

@@ -7,9 +7,7 @@ struct AuthView: View {
 
     var body: some View {
         ZStack {
-
-            Color(red: 0.03, green: 0.04, blue: 0.06)
-                .ignoresSafeArea()
+            AppTheme.background.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
 
@@ -43,7 +41,7 @@ struct AuthView: View {
                             : "Already have account? Sign in"
                         )
                         .font(.footnote)
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(AppTheme.textSecondary)
                     }
 
                     if case .error(let message) = viewModel.state {
