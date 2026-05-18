@@ -1,30 +1,27 @@
 import SwiftUI
 
-struct HomeView: View {
+struct HomeTabView: View {
     
     @EnvironmentObject var session: SessionManager
     
     var body: some View {
-        ZStack {
-            
-            Color(red: 0.03, green: 0.04, blue: 0.06)
-                .ignoresSafeArea()
-            
+        ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
                 
                 VStack(spacing: 6) {
                     
                     Text("Home")
                         .font(.system(size: 30, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(AppTheme.textPrimary)
+                        .padding(.top, AppTheme.headerPaddingTop)
                     
                     Text("Welcome back")
                         .font(.footnote)
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(AppTheme.textSecondary)
                 }
-                .padding(.top, 60)
                 
                 Spacer()
+                    .frame(height: 20)
                 
                 VStack(spacing: 16) {
                     
@@ -32,11 +29,11 @@ struct HomeView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Today")
                                 .font(.headline)
-                                .foregroundColor(.white)
+                                .foregroundColor(AppTheme.textPrimary)
                             
                             Text("Your nutrition overview will appear here")
                                 .font(.caption)
-                                .foregroundColor(.white.opacity(0.5))
+                                .foregroundColor(AppTheme.textSecondary)
                         }
                     }
                     
@@ -44,24 +41,27 @@ struct HomeView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Progress")
                                 .font(.headline)
-                                .foregroundColor(.white)
+                                .foregroundColor(AppTheme.textPrimary)
                             
                             Text("Track your daily goals")
                                 .font(.caption)
-                                .foregroundColor(.white.opacity(0.5))
+                                .foregroundColor(AppTheme.textSecondary)
                         }
                     }
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, AppTheme.paddingHorizontal)
                 
                 Spacer()
-                
-                PrimaryButton(title: "Logout") {
-                    session.logout()
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 30)
+                    .frame(height: 100)
             }
+            .background(AppTheme.background)
         }
     }
+}
+
+#Preview {
+    let session = SessionManager(tokenStorage: TokenStorage(keychain: KeychainService()))
+    return HomeTabView()
+        .environmentObject(session)
+        .preferredColorScheme(.dark)
 }

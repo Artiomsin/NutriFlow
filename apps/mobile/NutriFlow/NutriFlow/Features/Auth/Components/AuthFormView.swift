@@ -3,7 +3,7 @@ import SwiftUI
 
 struct AuthFormView: View {
     
-    @ObservedObject var vm: AuthViewModel
+    @ObservedObject var viewModel: AuthViewModel
     
     let isLogin: Bool
     
@@ -12,23 +12,23 @@ struct AuthFormView: View {
             
             AppTextField(
                 title: "Email",
-                text: $vm.email
+                text: $viewModel.email
             )
             
             AuthPasswordField(
-                password: $vm.password
+                password: $viewModel.password
             )
             
             if !isLogin {
                 
                 AppTextField(
                     title: "First name",
-                    text: $vm.firstName
+                    text: $viewModel.firstName
                 )
                 
                 AppTextField(
                     title: "Last name",
-                    text: $vm.lastName
+                    text: $viewModel.lastName
                 )
             }
         }

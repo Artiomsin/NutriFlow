@@ -1,54 +1,50 @@
-
 import Foundation
 
-@MainActor
+enum SessionState {
+    case idle
+    case authenticated
+    case unauthenticated
+}
+
 final class SessionManager: ObservableObject {
+
+    @Published private(set) var state: SessionState = .idle
     
-    @Published private(set) var state: AuthState = .loading
-    
-    private let authService = AuthService()
-    
-    init() {
-        Task {
-            await restoreSession()
-        }
+    private var tokenStorage: TokenStorageProtocol?
+
+    convenience init() {
+        self.init(tokenStorage: TokenStorage(keychain: KeychainService()))
     }
-    
-    func restoreSession() async {
-        
-        guard let refresh = TokenStorage.shared.getRefresh(),
-              !refresh.isEmpty else {
-            state = .unauthenticated
-            return
-        }
-        
+
+    init(tokenStorage: TokenStorageProtocol) {
+        self.tokenStorage = tokenStorage
+        check()
+    }
+
+    func setSession(accessToken: String, refreshToken: String) {
         do {
-            
-            let res = try await authService.refresh(token: refresh)
-            
-            TokenStorage.shared.save(
-                access: res.accessToken,
-                refresh: res.refreshToken
-            )
-            
+            try tokenStorage?.saveAccessToken(accessToken)
+            try tokenStorage?.saveRefreshToken(refreshToken)
             state = .authenticated
-            
         } catch {
-            
-            TokenStorage.shared.clear()
             state = .unauthenticated
         }
     }
-    
-    func login(access: String, refresh: String) {
-        
-        TokenStorage.shared.save(access: access, refresh: refresh)
-        state = .authenticated
-    }
-    
+
     func logout() {
-        
-        TokenStorage.shared.clear()
+        try? tokenStorage?.clear()
         state = .unauthenticated
+    }
+
+    func accessToken() -> String? {
+        try? tokenStorage?.getAccessToken()
+    }
+
+    func refreshToken() -> String? {
+        try? tokenStorage?.getRefreshToken()
+    }
+
+    private func check() {
+        state = (try? tokenStorage?.getAccessToken()) != nil ? .authenticated : .unauthenticated
     }
 }

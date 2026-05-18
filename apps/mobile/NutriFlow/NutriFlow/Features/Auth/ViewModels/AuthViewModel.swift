@@ -3,151 +3,107 @@ import Foundation
 @MainActor
 final class AuthViewModel: ObservableObject {
     
-    
+    @Published var state: AuthState = .idle
     @Published var email: String = ""
     @Published var password: String = ""
     @Published var firstName: String = ""
     @Published var lastName: String = ""
     
-    
-    
-    @Published var isLoading: Bool = false
-    @Published var errorMessage: String?
-    
-    private let authService: AuthService
-    private let session: SessionManager
-    
+    private let authService: AuthServiceProtocol
+    private let sessionManager: SessionManager
     
     init(
-        session: SessionManager,
-        authService: AuthService = AuthService()
+        authService: AuthServiceProtocol,
+        sessionManager: SessionManager
     ) {
-        self.session = session
         self.authService = authService
+        self.sessionManager = sessionManager
+
+        if case .authenticated = sessionManager.state {
+            self.state = .authenticated
+        } else {
+            self.state = .unauthenticated
+        }
     }
-    
-    
+
+
     func login() async {
-        
-        guard validateLogin() else { return }
-        
-        isLoading = true
-        errorMessage = nil
-        
-        defer {
-            isLoading = false
-        }
-        
+        state = .loading
+
         do {
-            
-            let response = try await authService.login(
-                email: email,
-                password: password
+            let response = try await authService.login(email: email, password: password)
+
+            sessionManager.setSession(
+                accessToken: response.accessToken,
+                refreshToken: response.refreshToken
             )
-            
-            session.login(
-                access: response.accessToken,
-                refresh: response.refreshToken
-            )
-            
-            clearInputs()
-            
+
+            state = .authenticated
+
         } catch {
-            errorMessage = mapError(error)
+            state = .error(error.localizedDescription)
         }
     }
-    
-    
+
     func register() async {
-        
-        guard validateRegister() else { return }
-        
-        isLoading = true
-        errorMessage = nil
-        
-        defer {
-            isLoading = false
-        }
-        
+        state = .loading
+
         do {
-            
             let response = try await authService.register(
                 email: email,
                 password: password,
                 firstName: firstName,
                 lastName: lastName
             )
-            
-            session.login(
-                access: response.accessToken,
-                refresh: response.refreshToken
+
+            sessionManager.setSession(
+                accessToken: response.accessToken,
+                refreshToken: response.refreshToken
             )
-            
-            clearInputs()
-            
+
+            state = .authenticated
+
         } catch {
-            errorMessage = mapError(error)
+            state = .error(error.localizedDescription)
         }
     }
-    
-    
-    func logout() {
-        session.logout()
-        clearInputs()
+
+
+    func logout() async {
+        guard let token = sessionManager.accessToken() else {
+            sessionManager.logout()
+            state = .unauthenticated
+            return
+        }
+
+        do {
+            _ = try await authService.logout(accessToken: token)
+            sessionManager.logout()
+            state = .unauthenticated
+        } catch {
+            sessionManager.logout()
+            state = .unauthenticated
+        }
     }
-}
 
 
-private extension AuthViewModel {
-    
-    func validateLogin() -> Bool {
-        
-        if email.isEmpty || password.isEmpty {
-            errorMessage = "Email and password are required"
+    func refreshTokenIfNeeded() async -> Bool {
+        guard let refreshToken = sessionManager.refreshToken() else {
             return false
         }
-        
-        return true
-    }
-    
-    func validateRegister() -> Bool {
-        
-        if email.isEmpty ||
-            password.isEmpty ||
-            firstName.isEmpty ||
-            lastName.isEmpty {
-            
-            errorMessage = "All fields are required"
+
+        do {
+            let response = try await authService.refresh(refreshToken: refreshToken)
+
+            sessionManager.setSession(
+                accessToken: response.accessToken,
+                refreshToken: response.refreshToken
+            )
+
+            return true
+        } catch {
+            sessionManager.logout()
             return false
         }
-        
-        return true
-    }
-}
-
-
-private extension AuthViewModel {
-    
-    func clearInputs() {
-        email = ""
-        password = ""
-        firstName = ""
-        lastName = ""
-    }
-    
-    func mapError(_ error: Error) -> String {
-        
-        if let urlError = error as? URLError {
-            switch urlError.code {
-            case .notConnectedToInternet:
-                return "No internet connection"
-            case .timedOut:
-                return "Request timed out"
-            default:
-                return "Network error"
-            }
-        }
-        
-        return error.localizedDescription
     }
 }

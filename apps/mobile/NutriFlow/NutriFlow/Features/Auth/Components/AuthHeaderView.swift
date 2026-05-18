@@ -10,7 +10,7 @@ struct AuthHeaderView: View {
             
             Text(isLogin ? "Welcome back" : "Create account")
                 .font(.system(size: 30, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(AppTheme.textPrimary)
             
             Text(
                 isLogin
@@ -18,7 +18,7 @@ struct AuthHeaderView: View {
                 : "Register to get started"
             )
             .font(.footnote)
-            .foregroundColor(.white.opacity(0.5))
+            .foregroundColor(AppTheme.textSecondary)
         }
         .padding(.bottom, 10)
     }

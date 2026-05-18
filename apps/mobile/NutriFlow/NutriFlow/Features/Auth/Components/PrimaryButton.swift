@@ -9,14 +9,13 @@ struct PrimaryButton: View {
     
     var body: some View {
         Button(action: action) {
-            
             Text(title)
                 .font(.headline)
-                .foregroundColor(.black)
+                .foregroundColor(AppTheme.primaryButtonText)
                 .frame(maxWidth: .infinity)
-                .frame(height: 50)
-                .background(Color.green)
-                .cornerRadius(12)
+                .frame(height: AppTheme.buttonHeight)
+                .background(AppTheme.accent)
+                .cornerRadius(AppTheme.cornerRadiusMedium)
         }
     }
 }

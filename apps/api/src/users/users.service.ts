@@ -27,13 +27,13 @@ export class UsersService {
       throw new ConflictException('Email already exists');
     }
 
-    const hash = await bcrypt.hash(data.password, 10);
+    const passwordHash = await bcrypt.hash(data.password, 10);
 
     const result = await db
       .insert(users)
       .values({
         email: data.email,
-        passwordHash: hash,
+        passwordHash,
         firstName: data.firstName,
         lastName: data.lastName,
       })
@@ -61,35 +61,46 @@ export class UsersService {
     return user;
   }
 
-  async update(id: string, data: UpdateUserDto) {
-    const user = await db
+  async updateMe(userId: string, data: UpdateUserDto) {
+    const existing = await this.findOne(userId);
+
+    if (data.email && data.email !== existing.email) {
+      const emailTaken = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, data.email))
+        .limit(1)
+        .then(r => r[0]);
+
+      if (emailTaken) {
+        throw new ConflictException('Email already exists');
+      }
+    }
+
+    let passwordHash: string | undefined;
+
+    if (data.password) {
+      passwordHash = await bcrypt.hash(data.password, 10);
+    }
+
+    const result = await db
       .update(users)
       .set({
-        ...data,
+        email: data.email ?? existing.email,
+        firstName: data.firstName ?? existing.firstName,
+        lastName: data.lastName ?? existing.lastName,
+        ...(passwordHash ? { passwordHash } : {}),
         updatedAt: new Date(),
       })
-      .where(eq(users.id, id))
-      .returning()
-      .then(r => r[0]);
+      .where(eq(users.id, userId))
+      .returning();
 
-    if (!user) {
+    const updated = result[0];
+
+    if (!updated) {
       throw new NotFoundException('User not found');
     }
 
-    return user;
-  }
-
-  async delete(id: string) {
-    const user = await db
-      .delete(users)
-      .where(eq(users.id, id))
-      .returning()
-      .then(r => r[0]);
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    return { message: 'User deleted successfully' };
+    return updated;
   }
 }

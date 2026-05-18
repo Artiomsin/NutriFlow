@@ -8,10 +8,10 @@ struct ErrorMessageView: View {
     var body: some View {
         Text(text)
             .font(.caption)
-            .foregroundColor(Color.red.opacity(0.85))
+            .foregroundColor(AppTheme.error)
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.red.opacity(0.08))
-            .cornerRadius(10)
+            .background(AppTheme.errorBackground)
+            .cornerRadius(AppTheme.cornerRadiusSmall)
     }
 }

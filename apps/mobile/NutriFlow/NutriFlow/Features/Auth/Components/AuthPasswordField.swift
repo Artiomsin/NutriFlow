@@ -11,7 +11,7 @@ struct AuthPasswordField: View {
             
             Text("Password")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(AppTheme.textSecondary)
             
             HStack {
                 
@@ -30,10 +30,10 @@ struct AuthPasswordField: View {
                         ? "eye.slash"
                         : "eye"
                     )
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(AppTheme.textSecondary)
                 }
             }
-            .foregroundColor(.white)
+            .foregroundColor(AppTheme.textPrimary)
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
             .padding()
@@ -42,14 +42,11 @@ struct AuthPasswordField: View {
     }
     
     private var fieldBackground: some View {
-        RoundedRectangle(cornerRadius: 12)
-            .fill(Color.white.opacity(0.04))
+        RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
+            .fill(AppTheme.fieldBackground)
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(
-                        Color.white.opacity(0.06),
-                        lineWidth: 1
-                    )
+                RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
+                    .stroke(AppTheme.fieldBorder, lineWidth: 1)
             )
     }
 }

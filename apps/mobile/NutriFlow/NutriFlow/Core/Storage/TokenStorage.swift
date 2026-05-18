@@ -1,30 +1,33 @@
 
+final class TokenStorage: TokenStorageProtocol {
 
-import Foundation
+    private let keychain: KeychainService
 
-final class TokenStorage {
-    
-    static let shared = TokenStorage()
-    private init() {}
-    
-    private let accessKey = "accessToken"
-    private let refreshKey = "refreshToken"
-    
-    func save(access: String, refresh: String) {
-        UserDefaults.standard.set(access, forKey: accessKey)
-        UserDefaults.standard.set(refresh, forKey: refreshKey)
+    private let accessKey = "access_token"
+    private let refreshKey = "refresh_token"
+
+    init(keychain: KeychainService) {
+        self.keychain = keychain
     }
-    
-    func getAccess() -> String? {
-        UserDefaults.standard.string(forKey: accessKey)
+
+    func saveAccessToken(_ token: String) throws {
+        try keychain.save(token, for: accessKey)
     }
-    
-    func getRefresh() -> String? {
-        UserDefaults.standard.string(forKey: refreshKey)
+
+    func saveRefreshToken(_ token: String) throws {
+        try keychain.save(token, for: refreshKey)
     }
-    
-    func clear() {
-        UserDefaults.standard.removeObject(forKey: accessKey)
-        UserDefaults.standard.removeObject(forKey: refreshKey)
+
+    func getAccessToken() throws -> String? {
+        try keychain.read(accessKey)
+    }
+
+    func getRefreshToken() throws -> String? {
+        try keychain.read(refreshKey)
+    }
+
+    func clear() throws {
+        try keychain.delete(accessKey)
+        try keychain.delete(refreshKey)
     }
 }
