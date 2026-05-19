@@ -12,6 +12,7 @@ struct AppRootView: View {
     @StateObject private var container = AppContainer()
     @StateObject private var authViewModel: AuthViewModel
     @StateObject private var profileViewModel: ProfileViewModel
+    @StateObject private var foodViewModel: FoodViewModel
     @State private var currentScreen: AppScreen = .auth
     @State private var profileCompleted = false
     
@@ -20,6 +21,7 @@ struct AppRootView: View {
         _container = StateObject(wrappedValue: container)
         _authViewModel = StateObject(wrappedValue: container.makeAuthViewModel())
         _profileViewModel = StateObject(wrappedValue: container.makeProfileViewModel())
+        _foodViewModel = StateObject(wrappedValue: container.makeFoodViewModel())
     }
     
     var body: some View {
@@ -56,10 +58,13 @@ struct AppRootView: View {
                         authViewModel.password = ""
                         authViewModel.firstName = ""
                         authViewModel.lastName = ""
-                        container.sessionManager.logout()
+                        Task {
+                            await authViewModel.logout()
+                        }
                         currentScreen = .auth
                     },
-                    profileViewModel: profileViewModel
+                    profileViewModel: profileViewModel,
+                    foodViewModel: foodViewModel
                 )
                     .environmentObject(container.sessionManager)
             }

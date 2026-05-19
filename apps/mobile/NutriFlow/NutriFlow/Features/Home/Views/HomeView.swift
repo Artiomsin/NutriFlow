@@ -5,6 +5,7 @@ struct HomeView: View {
     @EnvironmentObject var session: SessionManager
     var onLogout: (() -> Void)?
     @ObservedObject var profileViewModel: ProfileViewModel
+    @ObservedObject var foodViewModel: FoodViewModel
 
     @State private var selectedTab = 0
 
@@ -16,7 +17,9 @@ struct HomeView: View {
 
 TabView(selection: $selectedTab) {
 
-                HomeTabFlow()
+                HomeTabFlow(
+                    foodViewModel: foodViewModel
+                )
                     .environmentObject(session)
                     .tag(0)
 
@@ -110,16 +113,24 @@ struct SettingsRow: View {
     }
 }
 
+
+
+
 #Preview {
     let session = SessionManager(tokenStorage: TokenStorage(keychain: KeychainService()))
-    let vm = ProfileViewModel(
+    let profileVM = ProfileViewModel(
         session: session,
         profileService: MockProfileService(),
         userService: MockUserService()
     )
+    let foodVM = FoodViewModel(
+        session: session,
+        service: MockFoodService()
+    )
 
     HomeViewPreviewWrapper(
-        vm: vm,
+        profileVM: profileVM,
+        foodVM: foodVM,
         session: session
     )
     .environmentObject(session)
@@ -127,24 +138,26 @@ struct SettingsRow: View {
 }
 
 struct HomeViewPreviewWrapper: View {
-    let vm: ProfileViewModel
+    let profileVM: ProfileViewModel
+    let foodVM: FoodViewModel
     let session: SessionManager
 
     var body: some View {
         HomeView(
             onLogout: {},
-            profileViewModel: vm
+            profileViewModel: profileVM,
+            foodViewModel: foodVM
         )
         .onAppear {
-            vm.email = "test@example.com"
-            vm.firstName = "Artem"
-            vm.lastName = "Developer"
-            vm.weight = "82"
-            vm.height = "183"
-            vm.age = "24"
-            vm.goal = .gain
-            vm.activityLevel = .high
-            vm.setPreviewState(.loaded(UserProfile(
+            profileVM.email = "test@example.com"
+            profileVM.firstName = "Artem"
+            profileVM.lastName = "Developer"
+            profileVM.weight = "82"
+            profileVM.height = "183"
+            profileVM.age = "24"
+            profileVM.goal = .gain
+            profileVM.activityLevel = .high
+            profileVM.setPreviewState(.loaded(UserProfile(
                 id: UUID().uuidString,
                 userId: UUID().uuidString,
                 email: "test@example.com",
@@ -158,7 +171,26 @@ struct HomeViewPreviewWrapper: View {
                 createdAt: nil,
                 updatedAt: nil
             )))
+            foodVM.setPreviewState(.loaded([
+                FoodEntry(id: "1", userId: "1", name: "Chicken breast", calories: 165, protein: 31, fat: 4, carbs: 0, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
+                FoodEntry(id: "2", userId: "1", name: "Rice", calories: 200, protein: 4, fat: 1, carbs: 45, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil)
+            ]))
         }
+    }
+}
+
+final class MockFoodService: FoodServiceProtocol {
+    func createFoodEntry(token: String, name: String, calories: Int, protein: Int?, fat: Int?, carbs: Int?) async throws -> FoodEntry {
+        FoodEntry(id: UUID().uuidString, userId: "1", name: name, calories: calories, protein: protein, fat: fat, carbs: carbs, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil)
+    }
+    func getTodayFood(token: String) async throws -> [FoodEntry] {
+        [
+            FoodEntry(id: "1", userId: "1", name: "Chicken breast", calories: 165, protein: 31, fat: 4, carbs: 0, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
+            FoodEntry(id: "2", userId: "1", name: "Rice", calories: 200, protein: 4, fat: 1, carbs: 45, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil)
+        ]
+    }
+    func deleteFoodEntry(token: String, id: String) async throws -> EmptyResponse {
+        EmptyResponse()
     }
 }
 
