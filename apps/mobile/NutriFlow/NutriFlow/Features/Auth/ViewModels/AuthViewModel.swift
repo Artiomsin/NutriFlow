@@ -3,7 +3,7 @@ import Foundation
 @MainActor
 final class AuthViewModel: ObservableObject {
     
-    @Published var state: AuthState = .idle
+    @Published private(set) var state: AuthState = .idle
     @Published var email: String = ""
     @Published var password: String = ""
     @Published var firstName: String = ""

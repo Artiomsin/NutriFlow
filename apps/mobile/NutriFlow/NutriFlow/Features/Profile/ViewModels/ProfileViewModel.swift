@@ -3,7 +3,7 @@ import Foundation
 @MainActor
 final class ProfileViewModel: ObservableObject {
     
-    @Published var state: ProfileState = .loading
+    @Published private(set) var state: ProfileState = .loading
     
     @Published var weight: String = ""
     @Published var height: String = ""
