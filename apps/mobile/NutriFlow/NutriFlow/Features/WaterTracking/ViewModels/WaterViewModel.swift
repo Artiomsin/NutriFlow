@@ -1,121 +1,100 @@
-
 import Foundation
+import Observation
 
+@Observable
 @MainActor
-final class WaterViewModel: ObservableObject {
+final class WaterViewModel {
 
-    @Published private(set) var state: WaterState = .idle
+    var state: WaterState = .idle
+    var amountMl: String = ""
     
-    @Published var amountMl: String = ""
+    @ObservationIgnored private let session: SessionManager
+    @ObservationIgnored private let service: WaterTrackingServiceProtocol
+    @ObservationIgnored var onUnauthorized: (() -> Void)?
     
-    private let session: SessionManager
-    private let service:WaterTrackingServiceProtocol
-    
-    
-    var onUnauthorized: (() -> Void)?
-    
-    
-    init(session: SessionManager, service:WaterTrackingServiceProtocol){
-        self.session=session
-        self.service=service
-        
+    init(session: SessionManager, service: WaterTrackingServiceProtocol) {
+        self.session = session
+        self.service = service
     }
     
-    
     func loadToday() async {
-
-            guard let token = session.accessToken() else {
-                state = .error(APIError.unauthorized)
-                return
-            }
-
-            state = .loading
-
-            do {
-                let entries = try await service.getTodayWater(token: token)
-                state = .loaded(entries)
-
-            } catch let error as APIError {
-
-                if case .unauthorized = error {
-                    session.logout()
-                    onUnauthorized?()
-                }
-
-                state = .error(error)
-
-            } catch {
-                state = .error(error)
-            }
+        guard let token = session.accessToken() else {
+            state = .error(APIError.unauthorized)
+            return
         }
 
+        state = .loading
+
+        do {
+            let entries = try await service.getTodayWater(token: token)
+            state = .loaded(entries)
+
+        } catch let error as APIError {
+            if case .unauthorized = error {
+                session.logout()
+                onUnauthorized?()
+            }
+            state = .error(error)
+
+        } catch {
+            state = .error(error)
+        }
+    }
+
+    func createWater() async {
+        guard let token = session.accessToken() else {
+            state = .error(APIError.unauthorized)
+            return
+        }
+
+        guard let ml = Int(amountMl) else { return }
+
+        state = .saving
+
+        do {
+            _ = try await service.createWaterEntry(token: token, amountMl: ml)
+            await loadToday()
+            clearForm()
+
+        } catch let error as APIError {
+            if case .unauthorized = error {
+                session.logout()
+                onUnauthorized?()
+            }
+            state = .error(error)
+
+        } catch {
+            state = .error(error)
+        }
+    }
+
+    func deleteWater(id: String) async {
+        guard let token = session.accessToken() else {
+            state = .error(APIError.unauthorized)
+            return
+        }
+
+        do {
+            _ = try await service.deleteWaterEntry(token: token, id: id)
+            await loadToday()
+
+        } catch let error as APIError {
+            if case .unauthorized = error {
+                session.logout()
+                onUnauthorized?()
+            }
+            state = .error(error)
+
+        } catch {
+            state = .error(error)
+        }
+    }
+
+    private func clearForm() {
+        amountMl = ""
+    }
     
-
-        func createWater() async {
-
-            guard let token = session.accessToken() else {
-                state = .error(APIError.unauthorized)
-                return
-            }
-
-            guard let ml = Int(amountMl) else { return }
-
-            state = .saving
-
-            do {
-                _ = try await service.createWaterEntry(
-                    token: token,
-                    amountMl: ml
-                )
-
-                await loadToday()
-                clearForm()
-
-            } catch let error as APIError {
-
-                if case .unauthorized = error {
-                    session.logout()
-                    onUnauthorized?()
-                }
-
-                state = .error(error)
-
-            } catch {
-                state = .error(error)
-            }
-        }
-
-        func deleteWater(id: String) async {
-
-            guard let token = session.accessToken() else {
-                state = .error(APIError.unauthorized)
-                return
-            }
-
-            do {
-                _ = try await service.deleteWaterEntry(token: token, id: id)
-                await loadToday()
-
-            } catch let error as APIError {
-
-                if case .unauthorized = error {
-                    session.logout()
-                    onUnauthorized?()
-                }
-
-                state = .error(error)
-
-            } catch {
-                state = .error(error)
-            }
-        }
-
-
-        private func clearForm() {
-            amountMl = ""
-        }
-
-        func setPreviewState(_ newState: WaterState) {
-            state = newState
-        }
+    func setPreviewState(_ newState: WaterState) {
+        state = newState
+    }
 }

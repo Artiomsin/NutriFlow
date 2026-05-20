@@ -8,13 +8,16 @@ import { eq, and, gte, lte, sql } from 'drizzle-orm';
 export class DailySummaryService {
 
   async findToday(userId: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     const [summary] = await db
       .select()
       .from(dailySummary)
       .where(
         and(
           eq(dailySummary.userId, userId),
-          sql`DATE(${dailySummary.date}) = CURRENT_DATE`,
+          eq(dailySummary.date, today),
         ),
       )
       .limit(1);

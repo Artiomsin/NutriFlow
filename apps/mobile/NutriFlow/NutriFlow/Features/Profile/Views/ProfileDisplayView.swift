@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct ProfileDisplayView: View {
-    @ObservedObject var viewModel: ProfileViewModel
-    @EnvironmentObject var session: SessionManager
+    @Bindable var viewModel: ProfileViewModel
+    @Bindable var session: SessionManager
     var onLogout: (() -> Void)?
     @State private var showEditProfile = false
 
@@ -119,81 +119,5 @@ struct ProfileDisplayView: View {
                 showEditProfile = false
             }
         }
-    }
-}
-
-
-#Preview {
-    let session = SessionManager(tokenStorage: TokenStorage(keychain: KeychainService()))
-    let vm = ProfileViewModel(
-        session: session,
-        profileService: MockProfileService(),
-        userService: MockUserService()
-    )
-
-    ProfileDisplayViewPreviewWrapper(vm: vm, session: session)
-        .environmentObject(session)
-        .preferredColorScheme(.dark)
-}
-
-struct ProfileDisplayViewPreviewWrapper: View {
-    @ObservedObject var vm: ProfileViewModel
-    let session: SessionManager
-
-    var body: some View {
-        ProfileDisplayView(viewModel: vm)
-            .onAppear {
-                vm.email = "test@example.com"
-                vm.firstName = "Artem"
-                vm.lastName = "Developer"
-                vm.weight = "82"
-                vm.height = "183"
-                vm.age = "24"
-                vm.goal = .gain
-                vm.activityLevel = .high
-                vm.setPreviewState(.loaded(UserProfile(
-                    id: UUID().uuidString,
-                    userId: UUID().uuidString,
-                    email: "test@example.com",
-                    firstName: "Artem",
-                    lastName: "Developer",
-                    weight: 82,
-                    height: 183,
-                    age: 24,
-                    goal: .gain,
-                    activityLevel: .high,
-                    createdAt: nil,
-                    updatedAt: nil
-                )))
-            }
-    }
-}
-
-
-final class MockUserService: UserServiceProtocol {
-    func createUser(email: String, password: String, firstName: String?, lastName: String?) async throws -> User {
-        User(id: UUID().uuidString, email: email, firstName: firstName ?? "", lastName: lastName ?? "")
-    }
-    func getUsers(token: String) async throws -> [User] { [] }
-    func getMe(token: String) async throws -> User {
-        User(id: UUID().uuidString, email: "test@example.com", firstName: "Artem", lastName: "Developer")
-    }
-    func updateMe(token: String, email: String?, password: String?, firstName: String?, lastName: String?) async throws -> User {
-        User(id: UUID().uuidString, email: email ?? "", firstName: firstName ?? "", lastName: lastName ?? "")
-    }
-}
-
-final class MockProfileService: ProfileServiceProtocol {
-    func getMyProfile(token: String) async throws -> UserProfile {
-        UserProfile(id: UUID().uuidString, userId: UUID().uuidString, email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: 82, height: 183, age: 24, goal: .gain, activityLevel: .high, createdAt: nil, updatedAt: nil)
-    }
-    func createProfile(token: String, weight: Double?, height: Int?, age: Int?, goal: Goal?, activityLevel: ActivityLevel?) async throws -> UserProfile {
-        UserProfile(id: UUID().uuidString, userId: UUID().uuidString, email: nil, firstName: nil, lastName: nil, weight: weight, height: height, age: age, goal: goal, activityLevel: activityLevel, createdAt: nil, updatedAt: nil)
-    }
-    func updateMyProfile(token: String, weight: Double?, height: Int?, age: Int?, goal: Goal?, activityLevel: ActivityLevel?) async throws -> UserProfile {
-        UserProfile(id: UUID().uuidString, userId: UUID().uuidString, email: nil, firstName: nil, lastName: nil, weight: weight, height: height, age: age, goal: goal, activityLevel: activityLevel, createdAt: nil, updatedAt: nil)
-    }
-    func deleteMyProfile(token: String) async throws -> EmptyResponse {
-        EmptyResponse()
     }
 }

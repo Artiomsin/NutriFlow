@@ -15,16 +15,32 @@ struct UserProfile: Codable, Identifiable {
     let updatedAt: String?
 }
 
-enum Goal: String, Codable {
+enum Goal: String, Codable, CaseIterable {
     case lose
     case gain
     case maintain
+
+    var displayName: String {
+        switch self {
+        case .lose: "Lose"
+        case .gain: "Gain"
+        case .maintain: "Maintain"
+        }
+    }
 }
 
-enum ActivityLevel: String, Codable {
+enum ActivityLevel: String, Codable, CaseIterable {
     case low
     case medium
     case high
+
+    var displayName: String {
+        switch self {
+        case .low: "Low"
+        case .medium: "Medium"
+        case .high: "High"
+        }
+    }
 }
 
 struct CreateProfileRequest: Codable {

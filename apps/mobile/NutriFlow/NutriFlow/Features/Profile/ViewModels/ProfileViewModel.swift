@@ -1,184 +1,181 @@
 import Foundation
+import Observation
 
+@Observable
 @MainActor
-final class ProfileViewModel: ObservableObject {
+final class ProfileViewModel {
     
-    @Published private(set) var state: ProfileState = .loading
+    var state: ProfileState = .loading
     
-    @Published var weight: String = ""
-    @Published var height: String = ""
-    @Published var age: String = ""
+    var weight: String = ""
+    var height: String = ""
+    var age: String = ""
     
-    @Published var email: String = ""
-    @Published var firstName: String = ""
-    @Published var lastName: String = ""
+    var email: String = ""
+    var firstName: String = ""
+    var lastName: String = ""
     
-    @Published var goal: Goal?
-    @Published var activityLevel: ActivityLevel?
+    var goal: Goal?
+    var activityLevel: ActivityLevel?
     
-    var onUnauthorized: (() -> Void)?
-    
-    private let profileService: ProfileServiceProtocol
-    private let userService: UserServiceProtocol
-    private var session: SessionManager
+    @ObservationIgnored private let profileService: ProfileServiceProtocol
+    @ObservationIgnored private let userService: UserServiceProtocol
+    @ObservationIgnored private var session: SessionManager
+    @ObservationIgnored var onUnauthorized: (() -> Void)?
     
     init(
-            session: SessionManager,
-            profileService: ProfileServiceProtocol,
-            userService: UserServiceProtocol
-        ) {
-            self.session = session
-            self.profileService = profileService
-            self.userService = userService
-        }
+        session: SessionManager,
+        profileService: ProfileServiceProtocol,
+        userService: UserServiceProtocol
+    ) {
+        self.session = session
+        self.profileService = profileService
+        self.userService = userService
+    }
     
     func loadData() async {
+        guard let token = session.accessToken() else {
+            state = .empty
+            return
+        }
 
-            guard let token = session.accessToken() else {
-                state = .empty
-                return
-            }
+        state = .loading
 
-            state = .loading
-
-            do {
-                
-                async let user = userService.getMe(token: token)
-                async let profile = profileService.getMyProfile(token: token)
-
-                let (u, p) = try await (user, profile)
-
+        do {
+            let user = try await userService.getMe(token: token)
+            email = user.email
+            firstName = user.firstName
+            lastName = user.lastName
             
-                email = u.email
-                firstName = u.firstName
-                lastName = u.lastName
-
-             
-                mapProfile(p)
-
-                state = .loaded(p)
-
+            do {
+                let profile = try await profileService.getMyProfile(token: token)
+                mapProfile(profile)
+                state = .loaded(profile)
             } catch let error as APIError {
-                if case .unauthorized = error {
+                if case .notFound = error {
+                    state = .empty
+                } else if case .unauthorized = error {
                     session.logout()
                     onUnauthorized?()
+                } else {
+                    state = .error(error)
                 }
-
-                state = .error(error)
             } catch {
                 state = .error(error)
             }
-        }
 
-       
-        func updateUser() async {
-
-            guard let token = session.accessToken() else {
-                state = .error(APIError.unauthorized)
-                return
+        } catch let error as APIError {
+            if case .unauthorized = error {
+                session.logout()
+                onUnauthorized?()
             }
-
-            do {
-                let user = try await userService.updateMe(
-                    token: token,
-                    email: email.isEmpty ? nil : email,
-                    password: nil,
-                    firstName: firstName.isEmpty ? nil : firstName,
-                    lastName: lastName.isEmpty ? nil : lastName
-                )
-
-                email = user.email
-                firstName = user.firstName
-                lastName = user.lastName
-
-            } catch {
-                state = .error(error)
-            }
+            state = .error(error)
+        } catch {
+            state = .error(error)
         }
-
+    }
     
-        func createProfile() async {
-
-            guard let token = session.accessToken() else {
-                state = .error(APIError.unauthorized)
-                return
-            }
-
-            state = .saving(nil)
-
-            do {
-                let profile = try await profileService.createProfile(
-                    token: token,
-                    weight: Double(weight),
-                    height: Int(height),
-                    age: Int(age),
-                    goal: goal,
-                    activityLevel: activityLevel
-                )
-
-                mapProfile(profile)
-                state = .loaded(profile)
-
-            } catch {
-                state = .error(error)
-            }
+    func updateUser() async {
+        guard let token = session.accessToken() else {
+            state = .error(APIError.unauthorized)
+            return
         }
 
-        func updateProfile() async {
+        do {
+            let user = try await userService.updateMe(
+                token: token,
+                email: email.isEmpty ? nil : email,
+                password: nil,
+                firstName: firstName.isEmpty ? nil : firstName,
+                lastName: lastName.isEmpty ? nil : lastName
+            )
 
-            guard let token = session.accessToken() else {
-                state = .error(APIError.unauthorized)
-                return
-            }
+            email = user.email
+            firstName = user.firstName
+            lastName = user.lastName
 
-            state = .saving(nil)
-
-            do {
-                let profile = try await profileService.updateMyProfile(
-                    token: token,
-                    weight: Double(weight),
-                    height: Int(height),
-                    age: Int(age),
-                    goal: goal,
-                    activityLevel: activityLevel
-                )
-
-                mapProfile(profile)
-                state = .loaded(profile)
-
-            } catch {
-                state = .error(error)
-            }
+        } catch {
+            state = .error(error)
+        }
+    }
+    
+    func createProfile() async {
+        guard let token = session.accessToken() else {
+            state = .error(APIError.unauthorized)
+            return
         }
 
-        func deleteProfile() async {
+        state = .saving(nil)
 
-            guard let token = session.accessToken() else {
-                state = .error(APIError.unauthorized)
-                return
-            }
+        do {
+            let profile = try await profileService.createProfile(
+                token: token,
+                weight: Double(weight),
+                height: Int(height),
+                age: Int(age),
+                goal: goal,
+                activityLevel: activityLevel
+            )
 
-            state = .saving(nil)
+            mapProfile(profile)
+            state = .loaded(profile)
 
-            do {
-                _ = try await profileService.deleteMyProfile(token: token)
+        } catch {
+            state = .error(error)
+        }
+    }
 
-                clearForm()
-                state = .empty
-
-            } catch {
-                state = .error(error)
-            }
+    func updateProfile() async {
+        guard let token = session.accessToken() else {
+            state = .error(APIError.unauthorized)
+            return
         }
 
-        private func mapProfile(_ profile: UserProfile) {
-            weight = profile.weight.map { String($0) } ?? ""
-            height = profile.height.map { String($0) } ?? ""
-            age = profile.age.map { String($0) } ?? ""
+        state = .saving(nil)
 
-            goal = profile.goal
-            activityLevel = profile.activityLevel
+        do {
+            let profile = try await profileService.updateMyProfile(
+                token: token,
+                weight: Double(weight),
+                height: Int(height),
+                age: Int(age),
+                goal: goal,
+                activityLevel: activityLevel
+            )
+
+            mapProfile(profile)
+            state = .loaded(profile)
+
+        } catch {
+            state = .error(error)
         }
+    }
+
+    func deleteProfile() async {
+        guard let token = session.accessToken() else {
+            state = .error(APIError.unauthorized)
+            return
+        }
+
+        state = .saving(nil)
+
+        do {
+            _ = try await profileService.deleteMyProfile(token: token)
+            clearForm()
+            state = .empty
+
+        } catch {
+            state = .error(error)
+        }
+    }
+
+    private func mapProfile(_ profile: UserProfile) {
+        weight = profile.weight.map { String($0) } ?? ""
+        height = profile.height.map { String($0) } ?? ""
+        age = profile.age.map { String($0) } ?? ""
+        goal = profile.goal
+        activityLevel = profile.activityLevel
+    }
 
     private func clearForm() {
         weight = ""
@@ -187,7 +184,7 @@ final class ProfileViewModel: ObservableObject {
         goal = nil
         activityLevel = nil
     }
-
+    
     func setPreviewState(_ newState: ProfileState) {
         state = newState
     }

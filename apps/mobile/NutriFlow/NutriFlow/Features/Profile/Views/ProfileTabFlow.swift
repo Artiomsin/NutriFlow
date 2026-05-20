@@ -2,10 +2,8 @@ import SwiftUI
 
 struct ProfileTabFlow: View {
 
-    @ObservedObject var profileViewModel: ProfileViewModel
-
-    @EnvironmentObject var session: SessionManager
-
+    @Bindable var profileViewModel: ProfileViewModel
+    @Bindable var session: SessionManager
     var onLogout: (() -> Void)?
 
     var body: some View {
@@ -17,6 +15,7 @@ struct ProfileTabFlow: View {
 
             ProfileDisplayView(
                 viewModel: profileViewModel,
+                session: session,
                 onLogout: onLogout
             )
         }

@@ -2,20 +2,14 @@ import SwiftUI
 
 struct HomeTabFlow: View {
 
-    @ObservedObject var foodViewModel: FoodViewModel
-    @ObservedObject var waterViewModel: WaterViewModel
+    @Bindable var homeViewModel: HomeViewModel
+    @Bindable var session: SessionManager
 
     var body: some View {
-
         ZStack {
-
             AppTheme.background
                 .ignoresSafeArea()
-
-            HomeTabView(
-                foodViewModel: foodViewModel,
-                waterViewModel: waterViewModel
-            )
+            HomeTabView(session: session, homeViewModel: homeViewModel)
         }
     }
 }
