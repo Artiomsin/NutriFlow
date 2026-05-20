@@ -2,7 +2,7 @@ import SwiftUI
 
 struct EditProfileView: View {
 
-    @ObservedObject var viewModel: ProfileViewModel
+    @Bindable var viewModel: ProfileViewModel
     @Environment(\.dismiss) private var dismiss
     var onDismiss: (() -> Void)?
 

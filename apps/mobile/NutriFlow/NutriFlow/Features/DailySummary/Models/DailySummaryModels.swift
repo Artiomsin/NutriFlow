@@ -23,3 +23,29 @@ struct DailySummary: Codable, Identifiable {
     let createdAt: String?
     let updatedAt: String?
 }
+
+enum PeriodType: String, CaseIterable {
+    case today
+    case week
+    case month
+    case custom
+    
+    var displayName: String {
+        switch self {
+        case .today: return "Today"
+        case .week: return "Week"
+        case .month: return "Month"
+        case .custom: return "Custom"
+        }
+    }
+}
+struct ChartDataPoint: Identifiable {
+    let id = UUID()
+    let date: Date
+    let label: String
+    let calories: Int
+    let protein: Double
+    let fat: Double
+    let carbs: Double
+    let waterMl: Int
+}

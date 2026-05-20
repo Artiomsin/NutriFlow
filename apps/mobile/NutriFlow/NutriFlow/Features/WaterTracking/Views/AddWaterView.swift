@@ -4,11 +4,11 @@
 //
 
 import SwiftUI
-import UIKit
 
 struct AddWaterView: View {
 
-    @ObservedObject var viewModel: WaterViewModel
+    @Bindable var waterViewModel: WaterViewModel
+    var onSave: () -> Void
     @Environment(\.dismiss) private var dismiss
 
     @State private var selectedAmount = 250.0
@@ -43,12 +43,12 @@ struct AddWaterView: View {
         .padding(.top, 12)
         .background(Color.black.opacity(0.95).ignoresSafeArea())
         .onAppear {
-            viewModel.amountMl = "\(Int(selectedAmount))"
+            waterViewModel.amountMl = "\(Int(selectedAmount))"
             animatedAmount = selectedAmount
             animateWave = true
         }
         .onChange(of: selectedAmount) { _, newValue in
-            viewModel.amountMl = "\(Int(newValue))"
+            waterViewModel.amountMl = "\(Int(newValue))"
             triggerSplash()
 
             withAnimation(.easeInOut(duration: 0.45)) {
@@ -56,8 +56,6 @@ struct AddWaterView: View {
             }
         }
     }
-
-    // MARK: HEADER
 
     private var header: some View {
 
@@ -76,8 +74,6 @@ struct AddWaterView: View {
             }
         }
     }
-
-    // MARK: GLASS
 
     private var glassPreview: some View {
 
@@ -112,8 +108,6 @@ struct AddWaterView: View {
         }
     }
 
-    // MARK: WATER
-
     private var waterLayer: some View {
 
         GeometryReader { geo in
@@ -133,8 +127,6 @@ struct AddWaterView: View {
             .frame(maxHeight: .infinity, alignment: .bottom)
         }
     }
-
-    // MARK: SURFACE WAVE (FIXED COLOR)
 
     private var waterSurface: some View {
 
@@ -162,8 +154,6 @@ struct AddWaterView: View {
         }
     }
 
-    // MARK: SPLASH
-
     private var splashView: some View {
 
         ZStack {
@@ -189,8 +179,6 @@ struct AddWaterView: View {
         .animation(.easeOut(duration: 0.45), value: animateSplash)
     }
 
-    // MARK: PICKER
-
     private var amountPicker: some View {
 
         Picker("", selection: $selectedAmount) {
@@ -207,20 +195,19 @@ struct AddWaterView: View {
         .cornerRadius(22)
     }
 
-    // MARK: SAVE
-
     private var saveButton: some View {
 
         Button {
 
             Task {
-                await viewModel.createWater()
+                await waterViewModel.createWater()
+                onSave()
                 dismiss()
             }
 
         } label: {
 
-            if case .saving = viewModel.state {
+            if case .saving = waterViewModel.state {
                 ProgressView().tint(.black)
             } else {
                 Text("Add Water")
@@ -233,8 +220,6 @@ struct AddWaterView: View {
         .background(Color.cyan)
         .cornerRadius(16)
     }
-
-    // MARK: SPLASH LOGIC
 
     private func triggerSplash() {
 
@@ -250,7 +235,27 @@ struct AddWaterView: View {
     }
 }
 
-// MARK: GLASS SHAPE
+#Preview {
+    AddWaterViewPreview()
+}
+
+struct AddWaterViewPreview: View {
+    var body: some View {
+        let session = SessionManager(tokenStorage: TokenStorage(keychain: KeychainService()))
+
+        let waterVM = WaterViewModel(
+            session: session,
+            service: MockWaterService()
+        )
+
+        return AddWaterView(
+            waterViewModel: waterVM,
+            onSave: {}
+        )
+    }
+}
+
+
 
 struct GlassShape: Shape {
 
@@ -279,7 +284,7 @@ struct GlassShape: Shape {
     }
 }
 
-// MARK: WAVE
+
 
 struct WaveShape: Shape {
 
@@ -308,21 +313,4 @@ struct WaveShape: Shape {
 
         return path
     }
-}
-
-#Preview {
-
-    let session = SessionManager(
-        tokenStorage: TokenStorage(
-            keychain: KeychainService()
-        )
-    )
-
-    let viewModel = WaterViewModel(
-        session: session,
-        service: MockWaterService()
-    )
-
-    AddWaterView(viewModel: viewModel)
-        .preferredColorScheme(.dark)
 }

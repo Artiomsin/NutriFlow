@@ -1,6 +1,5 @@
 import SwiftUI
 
-
 enum AppScreen: Equatable {
     case auth
     case profileForm
@@ -9,23 +8,19 @@ enum AppScreen: Equatable {
 
 struct AppRootView: View {
     
-    @StateObject private var container = AppContainer()
-    @StateObject private var authViewModel: AuthViewModel
-    @StateObject private var profileViewModel: ProfileViewModel
-    @StateObject private var foodViewModel: FoodViewModel
-    @StateObject private var waterViewModel: WaterViewModel
-    @StateObject private var dailyViewModel: DailySummaryViewModel
+    @State private var container = AppContainer()
+    @State private var authViewModel: AuthViewModel
+    @State private var profileViewModel: ProfileViewModel
+    @State private var homeViewModel: HomeViewModel
     @State private var currentScreen: AppScreen = .auth
     @State private var profileCompleted = false
     
     init() {
         let container = AppContainer()
-        _container = StateObject(wrappedValue: container)
-        _authViewModel = StateObject(wrappedValue: container.makeAuthViewModel())
-        _profileViewModel = StateObject(wrappedValue: container.makeProfileViewModel())
-        _foodViewModel = StateObject(wrappedValue: container.makeFoodViewModel())
-        _waterViewModel = StateObject(wrappedValue: container.makeWaterTrackingViewModel())
-        _dailyViewModel=StateObject(wrappedValue:    container.makeDailySummaryViewModel())
+        _container = State(wrappedValue: container)
+        _authViewModel = State(wrappedValue: container.makeAuthViewModel())
+        _profileViewModel = State(wrappedValue: container.makeProfileViewModel())
+        _homeViewModel = State(wrappedValue: container.makeHomeViewModel())
     }
     
     var body: some View {
@@ -39,17 +34,17 @@ struct AppRootView: View {
                 
             case .auth:
                 AuthView(viewModel: authViewModel)
-                    .onChange(of: container.sessionManager.state) { (oldState: SessionState, newState: SessionState) in
+                    .onChange(of: container.sessionManager.state) { oldState, newState in
                         if newState == .authenticated {
                             Task {
-                                await checkProfile()
+                                await handleAuthSuccess()
                             }
                         }
                     }
                 
             case .profileForm:
                 ProfileFormView(viewModel: profileViewModel, isCompleted: $profileCompleted)
-                    .onChange(of: profileCompleted) { (oldValue: Bool, newValue: Bool) in
+                    .onChange(of: profileCompleted) { _, newValue in
                         if newValue {
                             currentScreen = .home
                         }
@@ -67,22 +62,19 @@ struct AppRootView: View {
                         }
                         currentScreen = .auth
                     },
+                    homeViewModel: homeViewModel,
                     profileViewModel: profileViewModel,
-                    foodViewModel: foodViewModel,
-                    waterViewModel: waterViewModel,
-                    dailyViewModel: dailyViewModel
-                    
+                    session: container.sessionManager
                 )
-                    .environmentObject(container.sessionManager)
             }
         }
-        .onChange(of: container.sessionManager.state) { (oldState: SessionState, newState: SessionState) in
+        .onChange(of: container.sessionManager.state) { oldState, newState in
             if newState == .unauthenticated {
                 currentScreen = .auth
             }
         }
         .onAppear {
-           
+            
             profileViewModel.onUnauthorized = { [self] in
                 currentScreen = .auth
             }
@@ -92,7 +84,7 @@ struct AppRootView: View {
                 Task {
                     let isValid = await authViewModel.refreshTokenIfNeeded()
                     if isValid {
-                        await checkProfile()
+                        await handleAuthSuccess()
                     } else {
                         currentScreen = .auth
                     }
@@ -101,7 +93,7 @@ struct AppRootView: View {
         }
     }
     
-    private func checkProfile() async {
+    private func handleAuthSuccess() async {
         await profileViewModel.loadData()
         
         switch profileViewModel.state {
@@ -113,8 +105,4 @@ struct AppRootView: View {
             break
         }
     }
-}
-
-#Preview {
-    AppRootView()
 }

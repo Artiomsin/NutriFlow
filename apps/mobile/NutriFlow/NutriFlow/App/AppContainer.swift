@@ -1,8 +1,7 @@
 import Foundation
-import Combine
 
 @MainActor
-final class AppContainer: ObservableObject {
+final class AppContainer {
 
     let httpClient: HTTPClient
     let keychainService: KeychainService
@@ -24,8 +23,8 @@ final class AppContainer: ObservableObject {
         self.profileService = ProfileService(client: httpClient)
         self.foodService = FoodService(client: httpClient)
         self.userService = UserService(client: httpClient)
-        self.waterTrackingService=WaterTrackingService(client: httpClient)
-        self.dailySummaryService=DailySummaryService(client: httpClient)
+        self.waterTrackingService = WaterTrackingService(client: httpClient)
+        self.dailySummaryService = DailySummaryService(client: httpClient)
     }
 
     func makeAuthViewModel() -> AuthViewModel {
@@ -37,15 +36,22 @@ final class AppContainer: ObservableObject {
     }
     
     func makeFoodViewModel() -> FoodViewModel {
-        FoodViewModel(session: sessionManager ,service: foodService)
+        FoodViewModel(session: sessionManager, service: foodService)
     }
     
     func makeWaterTrackingViewModel() -> WaterViewModel {
-        WaterViewModel( session: sessionManager, service: waterTrackingService)
+        WaterViewModel(session: sessionManager, service: waterTrackingService)
     }
     
     func makeDailySummaryViewModel() -> DailySummaryViewModel {
-        DailySummaryViewModel( session: sessionManager, service: dailySummaryService)
+        DailySummaryViewModel(session: sessionManager, service: dailySummaryService)
     }
     
+    func makeHomeViewModel() -> HomeViewModel {
+        HomeViewModel(
+            foodViewModel: makeFoodViewModel(),
+            waterViewModel: makeWaterTrackingViewModel(),
+            dailyViewModel: makeDailySummaryViewModel()
+        )
+    }
 }

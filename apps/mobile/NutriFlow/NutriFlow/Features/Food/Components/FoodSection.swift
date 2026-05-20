@@ -1,11 +1,10 @@
-
 import SwiftUI
 
 struct FoodSection: View {
 
-    @ObservedObject var viewModel: FoodViewModel
-
+    @Bindable var foodViewModel: FoodViewModel
     var onAddFood: (() -> Void)?
+    var onDeleteFood: ((String) -> Void)?
 
     var body: some View {
 
@@ -20,15 +19,10 @@ struct FoodSection: View {
                 Spacer()
 
                 Button {
-
                     onAddFood?()
-
                 } label: {
-
                     HStack(spacing: 6) {
-
                         Image(systemName: "plus")
-
                         Text("Add")
                     }
                     .font(.subheadline.weight(.semibold))
@@ -47,7 +41,7 @@ struct FoodSection: View {
     @ViewBuilder
     private var content: some View {
 
-        switch viewModel.state {
+        switch foodViewModel.state {
 
         case .idle, .loading:
 
@@ -68,16 +62,11 @@ struct FoodSection: View {
                     ForEach(sortedEntries(entries)) { entry in
 
                         FoodCard(entry: entry) {
-                            Task {
-                                await viewModel.deleteFood(id: entry.id)
-                            }
+                            onDeleteFood?(entry.id)
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(role: .destructive) {
-                                Task {
-                                    await viewModel.deleteFood(id: entry.id)
-                                    
-                                }
+                                onDeleteFood?(entry.id)
                             } label: {
                                 Label("Delete", systemImage: "trash")
                             }
@@ -93,9 +82,7 @@ struct FoodSection: View {
 
         case .error(let error):
 
-            ErrorMessageView(
-                text: error.localizedDescription
-            )
+            ErrorMessageView(text: error.localizedDescription)
         }
     }
 
@@ -104,9 +91,7 @@ struct FoodSection: View {
     }
 
     private var emptyState: some View {
-
         VStack(spacing: 10) {
-
             Image(systemName: "fork.knife.circle")
                 .font(.system(size: 42))
                 .foregroundColor(AppTheme.textSecondary)
@@ -119,5 +104,34 @@ struct FoodSection: View {
         .padding(.vertical, 24)
         .background(AppTheme.cardBackground)
         .cornerRadius(AppTheme.cornerRadiusMedium)
+    }
+}
+
+#Preview {
+    FoodSectionPreview()
+}
+
+struct FoodSectionPreview: View {
+    var body: some View {
+        let session = SessionManager(tokenStorage: TokenStorage(keychain: KeychainService()))
+
+        let foodVM = FoodViewModel(
+            session: session,
+            service: MockFoodService()
+        )
+        foodVM.setPreviewState(.loaded([
+            FoodEntry(id: "1", userId: "1", name: "Chicken breast", calories: 165, protein: 31, fat: 4, carbs: 0, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
+            FoodEntry(id: "2", userId: "1", name: "Rice", calories: 200, protein: 4, fat: 1, carbs: 45, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil),
+            FoodEntry(id: "3", userId: "1", name: "Salad", calories: 85, protein: 2, fat: 5, carbs: 8, createdAt: "2026-05-18T14:00:00Z", updatedAt: nil)
+        ]))
+
+        return FoodSection(
+            foodViewModel: foodVM,
+            onAddFood: {},
+            onDeleteFood: { _ in }
+        )
+        .padding()
+        .background(AppTheme.background)
+        .preferredColorScheme(.dark)
     }
 }

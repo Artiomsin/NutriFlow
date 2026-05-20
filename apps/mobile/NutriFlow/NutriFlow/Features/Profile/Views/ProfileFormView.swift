@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ProfileFormView: View {
-    @ObservedObject var viewModel: ProfileViewModel
+    @Bindable var viewModel: ProfileViewModel
     @Binding var isCompleted: Bool
     
     var body: some View {
@@ -124,30 +124,5 @@ struct SelectableChip: View {
     }
 }
 
-extension Goal: CaseIterable {
-    static var allCases: [Goal] {
-        [.lose, .gain, .maintain]
-    }
-    
-    var displayName: String {
-        switch self {
-        case .lose: return "Lose"
-        case .gain: return "Gain"
-        case .maintain: return "Maintain"
-        }
-    }
-}
 
-extension ActivityLevel: CaseIterable {
-    static var allCases: [ActivityLevel] {
-        [.low, .medium, .high]
-    }
-    
-    var displayName: String {
-        switch self {
-        case .low: return "Low"
-        case .medium: return "Medium"
-        case .high: return "High"
-        }
-    }
-}
+

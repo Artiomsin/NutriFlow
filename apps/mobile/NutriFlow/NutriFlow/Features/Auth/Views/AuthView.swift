@@ -2,7 +2,7 @@ import SwiftUI
 
 struct AuthView: View {
 
-    @ObservedObject var viewModel: AuthViewModel
+    @Bindable var viewModel: AuthViewModel
     @State private var isLogin = true
 
     var body: some View {

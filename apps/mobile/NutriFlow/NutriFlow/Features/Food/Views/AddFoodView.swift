@@ -2,14 +2,13 @@
 //  AddFoodView.swift
 //  Nutriflow
 //
-//  Created by Artem on 19.05.26.
-//
 
 import SwiftUI
 
 struct AddFoodView: View {
 
-    @ObservedObject var viewModel: FoodViewModel
+    @Bindable var foodViewModel: FoodViewModel
+    var onSave: () -> Void
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -53,30 +52,30 @@ struct AddFoodView: View {
 
             AppTextField(
                 title: "Food name",
-                text: $viewModel.name
+                text: $foodViewModel.name
             )
 
             AppTextField(
                 title: "Calories",
-                text: $viewModel.calories,
+                text: $foodViewModel.calories,
                 keyboardType: UIKeyboardType.numberPad
             )
 
             AppTextField(
                 title: "Protein (g)",
-                text: $viewModel.protein,
+                text: $foodViewModel.protein,
                 keyboardType: UIKeyboardType.numberPad
             )
 
             AppTextField(
                 title: "Fat (g)",
-                text: $viewModel.fat,
+                text: $foodViewModel.fat,
                 keyboardType: UIKeyboardType.numberPad
             )
 
             AppTextField(
                 title: "Carbs (g)",
-                text: $viewModel.carbs,
+                text: $foodViewModel.carbs,
                 keyboardType: UIKeyboardType.numberPad
             )
         }
@@ -87,13 +86,14 @@ struct AddFoodView: View {
         Button {
 
             Task {
-                await viewModel.createFood()
+                await foodViewModel.createFood()
+                onSave()
                 dismiss()
             }
 
         } label: {
 
-            if case .saving = viewModel.state {
+            if case .saving = foodViewModel.state {
                 ProgressView()
                     .tint(.black)
             } else {
@@ -106,6 +106,29 @@ struct AddFoodView: View {
         .padding()
         .background(AppTheme.accent)
         .cornerRadius(12)
-        .disabled(viewModel.name.isEmpty || viewModel.calories.isEmpty)
+        .disabled(foodViewModel.name.isEmpty || foodViewModel.calories.isEmpty)
+    }
+}
+
+#Preview {
+    AddFoodViewPreview()
+}
+
+struct AddFoodViewPreview: View {
+    @State private var dismissed = false
+
+    var body: some View {
+        let session = SessionManager(tokenStorage: TokenStorage(keychain: KeychainService()))
+
+        let foodVM = FoodViewModel(
+            session: session,
+            service: MockFoodService()
+        )
+
+        return AddFoodView(
+            foodViewModel: foodVM,
+            onSave: {}
+        )
+        .preferredColorScheme(.dark)
     }
 }

@@ -1,16 +1,18 @@
 import Foundation
+import Observation
 
+@Observable
 @MainActor
-final class AuthViewModel: ObservableObject {
+final class AuthViewModel {
     
-    @Published private(set) var state: AuthState = .idle
-    @Published var email: String = ""
-    @Published var password: String = ""
-    @Published var firstName: String = ""
-    @Published var lastName: String = ""
+    var state: AuthState = .idle
+    var email: String = ""
+    var password: String = ""
+    var firstName: String = ""
+    var lastName: String = ""
     
-    private let authService: AuthServiceProtocol
-    private let sessionManager: SessionManager
+    @ObservationIgnored private let authService: AuthServiceProtocol
+    @ObservationIgnored private let sessionManager: SessionManager
     
     init(
         authService: AuthServiceProtocol,
@@ -25,7 +27,6 @@ final class AuthViewModel: ObservableObject {
             self.state = .unauthenticated
         }
     }
-
 
     func login() async {
         state = .loading
@@ -68,7 +69,6 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
-
     func logout() async {
         guard let token = sessionManager.accessToken() else {
             sessionManager.logout()
@@ -85,7 +85,6 @@ final class AuthViewModel: ObservableObject {
             state = .unauthenticated
         }
     }
-
 
     func refreshTokenIfNeeded() async -> Bool {
         guard let refreshToken = sessionManager.refreshToken() else {

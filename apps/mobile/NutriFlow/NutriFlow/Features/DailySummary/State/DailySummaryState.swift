@@ -14,10 +14,9 @@ enum DailySummaryState {
     case error(Error)
 }
 
-
-enum DailySummaryRangeState {
+enum ChartState {
     case idle
     case loading
-    case loaded([DailySummary])
+    case loaded([ChartDataPoint])
     case error(Error)
 }

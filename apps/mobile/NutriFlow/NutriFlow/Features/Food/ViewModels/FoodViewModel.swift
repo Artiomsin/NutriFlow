@@ -1,23 +1,23 @@
-
 import Foundation
+import Observation
 
+@Observable
 @MainActor
-final class FoodViewModel: ObservableObject {
+final class FoodViewModel {
     
-    @Published private(set) var state: FoodState = .idle
+    var state: FoodState = .idle
     
-    @Published var name: String = ""
-    @Published var calories: String = ""
-    @Published var protein: String = ""
-    @Published var fat: String = ""
-    @Published var carbs: String = ""
+    var name: String = ""
+    var calories: String = ""
+    var protein: String = ""
+    var fat: String = ""
+    var carbs: String = ""
     
-    private let session: SessionManager
-    private let service: FoodServiceProtocol
+    @ObservationIgnored private let session: SessionManager
+    @ObservationIgnored private let service: FoodServiceProtocol
+    @ObservationIgnored var onUnauthorized: (() -> Void)?
     
-    var onUnauthorized: (() -> Void)?
-    
-    init (session: SessionManager, service: FoodServiceProtocol){
+    init(session: SessionManager, service: FoodServiceProtocol) {
         self.session = session
         self.service = service
     }
@@ -95,7 +95,6 @@ final class FoodViewModel: ObservableObject {
     }
     
     private func clearForm() {
-        
         name = ""
         calories = ""
         protein = ""

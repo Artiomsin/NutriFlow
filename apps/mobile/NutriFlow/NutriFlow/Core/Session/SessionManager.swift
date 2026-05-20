@@ -1,14 +1,10 @@
 import Foundation
+import Observation
 
-enum SessionState {
-    case idle
-    case authenticated
-    case unauthenticated
-}
-
-final class SessionManager: ObservableObject {
-
-    @Published private(set) var state: SessionState = .idle
+@Observable
+final class SessionManager {
+    
+    var state: SessionState = .idle
     
     private var tokenStorage: TokenStorageProtocol?
 
@@ -47,4 +43,11 @@ final class SessionManager: ObservableObject {
     private func check() {
         state = (try? tokenStorage?.getAccessToken()) != nil ? .authenticated : .unauthenticated
     }
+}
+
+
+enum SessionState {
+    case idle
+    case authenticated
+    case unauthenticated
 }

@@ -1,9 +1,8 @@
-
 import SwiftUI
 
 struct AuthFormView: View {
     
-    @ObservedObject var viewModel: AuthViewModel
+    @Bindable var viewModel: AuthViewModel
     
     let isLogin: Bool
     

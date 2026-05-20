@@ -2,14 +2,12 @@
 //  DailySummarySection.swift
 //  Nutriflow
 //
-//  Created by Artem on 20.05.26.
-//
 
 import SwiftUI
 
 struct DailySummarySection: View {
 
-    @ObservedObject var viewModel: DailySummaryViewModel
+    @Bindable var viewModel: DailySummaryViewModel
 
     var body: some View {
 
@@ -22,13 +20,10 @@ struct DailySummarySection: View {
     }
 
     private var header: some View {
-
         HStack {
-
             Text("Today's Overview")
                 .font(.title3.bold())
                 .foregroundColor(AppTheme.textPrimary)
-
             Spacer()
         }
     }
@@ -47,5 +42,37 @@ struct DailySummarySection: View {
         case .error(let error):
             ErrorMessageView(text: error.localizedDescription)
         }
+    }
+}
+
+#Preview {
+    DailySummarySectionPreview()
+}
+
+struct DailySummarySectionPreview: View {
+    var body: some View {
+        let session = SessionManager(tokenStorage: TokenStorage(keychain: KeychainService()))
+
+        let dailyVM = DailySummaryViewModel(
+            session: session,
+            service: MockDailySummaryService()
+        )
+        dailyVM.setPreviewState(.loaded(DailySummary(
+            id: "1",
+            userId: "1",
+            date: "2026-05-18",
+            totalCalories: 1250,
+            totalProtein: 85,
+            totalFat: 42,
+            totalCarbs: 120,
+            totalWaterMl: 1750,
+            createdAt: "2026-05-18T10:00:00Z",
+            updatedAt: nil
+        )))
+
+        return DailySummarySection(viewModel: dailyVM)
+            .padding()
+            .background(AppTheme.background)
+            .preferredColorScheme(.dark)
     }
 }
