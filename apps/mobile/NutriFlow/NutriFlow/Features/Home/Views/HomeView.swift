@@ -3,42 +3,43 @@ import SwiftUI
 struct HomeView: View {
 
     @EnvironmentObject var session: SessionManager
+
     var onLogout: (() -> Void)?
+
     @ObservedObject var profileViewModel: ProfileViewModel
     @ObservedObject var foodViewModel: FoodViewModel
+    @ObservedObject var waterViewModel: WaterViewModel
 
     @State private var selectedTab = 0
 
     var body: some View {
 
-        ZStack {
+        TabView(selection: $selectedTab) {
 
-            AppTheme.background.ignoresSafeArea()
+            HomeTabFlow(
+                foodViewModel: foodViewModel,
+                waterViewModel: waterViewModel
+            )
+            .environmentObject(session)
+            .tag(0)
 
-TabView(selection: $selectedTab) {
+            ProfileTabFlow(
+                profileViewModel: profileViewModel,
+                onLogout: onLogout
+            )
+            .environmentObject(session)
+            .tag(1)
 
-                HomeTabFlow(
-                    foodViewModel: foodViewModel
-                )
-                    .environmentObject(session)
-                    .tag(0)
-
-                ProfileTabFlow(
-                    profileViewModel: profileViewModel,
-                    onLogout: onLogout
-                    
-                )
+            SettingsTabFlow()
                 .environmentObject(session)
-                .tag(1)
-
-                SettingsTabFlow()
-                    .environmentObject(session)
                 .tag(2)
-            }
+        }
+        .toolbar(.hidden, for: .tabBar)
+        .background(AppTheme.background)
+        .safeAreaInset(edge: .bottom) {
 
             CustomTabBar(selectedTab: $selectedTab)
-                .padding(.bottom, 20)
-                .frame(maxHeight: .infinity, alignment: .bottom)
+                .background(AppTheme.background)
         }
     }
 }
@@ -127,10 +128,15 @@ struct SettingsRow: View {
         session: session,
         service: MockFoodService()
     )
+    let waterVM = WaterViewModel(
+        session: session,
+        service: MockWaterService()
+    )
 
     HomeViewPreviewWrapper(
         profileVM: profileVM,
         foodVM: foodVM,
+        waterVM: waterVM,
         session: session
     )
     .environmentObject(session)
@@ -140,13 +146,15 @@ struct SettingsRow: View {
 struct HomeViewPreviewWrapper: View {
     let profileVM: ProfileViewModel
     let foodVM: FoodViewModel
+    let waterVM: WaterViewModel
     let session: SessionManager
 
     var body: some View {
         HomeView(
             onLogout: {},
             profileViewModel: profileVM,
-            foodViewModel: foodVM
+            foodViewModel: foodVM,
+            waterViewModel: waterVM
         )
         .onAppear {
             profileVM.email = "test@example.com"
@@ -175,6 +183,10 @@ struct HomeViewPreviewWrapper: View {
                 FoodEntry(id: "1", userId: "1", name: "Chicken breast", calories: 165, protein: 31, fat: 4, carbs: 0, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
                 FoodEntry(id: "2", userId: "1", name: "Rice", calories: 200, protein: 4, fat: 1, carbs: 45, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil)
             ]))
+            waterVM.setPreviewState(.loaded([
+                WaterEntry(id: "1", userId: "1", amountMl: 250, createdAt: "2026-05-18T08:00:00Z", updatedAt: nil),
+                WaterEntry(id: "2", userId: "1", amountMl: 500, createdAt: "2026-05-18T10:30:00Z", updatedAt: nil)
+            ]))
         }
     }
 }
@@ -190,6 +202,21 @@ final class MockFoodService: FoodServiceProtocol {
         ]
     }
     func deleteFoodEntry(token: String, id: String) async throws -> EmptyResponse {
+        EmptyResponse()
+    }
+}
+
+final class MockWaterService: WaterTrackingServiceProtocol {
+    func createWaterEntry(token: String, amountMl: Int) async throws -> WaterEntry {
+        WaterEntry(id: UUID().uuidString, userId: "1", amountMl: amountMl, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil)
+    }
+    func getTodayWater(token: String) async throws -> [WaterEntry] {
+        [
+            WaterEntry(id: "1", userId: "1", amountMl: 250, createdAt: "2026-05-18T08:00:00Z", updatedAt: nil),
+            WaterEntry(id: "2", userId: "1", amountMl: 500, createdAt: "2026-05-18T10:30:00Z", updatedAt: nil)
+        ]
+    }
+    func deleteWaterEntry(token: String, id: String) async throws -> EmptyResponse {
         EmptyResponse()
     }
 }

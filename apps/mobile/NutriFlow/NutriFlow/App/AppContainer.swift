@@ -12,6 +12,7 @@ final class AppContainer: ObservableObject {
     let profileService: ProfileServiceProtocol
     let userService: UserServiceProtocol
     let foodService: FoodServiceProtocol
+    let waterTrackingService: WaterTrackingServiceProtocol
     
     init() {
         self.httpClient = URLSessionHTTPClient()
@@ -22,6 +23,7 @@ final class AppContainer: ObservableObject {
         self.profileService = ProfileService(client: httpClient)
         self.foodService = FoodService(client: httpClient)
         self.userService = UserService(client: httpClient)
+        self.waterTrackingService=WaterTrackingService(client: httpClient)
     }
 
     func makeAuthViewModel() -> AuthViewModel {
@@ -35,4 +37,9 @@ final class AppContainer: ObservableObject {
     func makeFoodViewModel() -> FoodViewModel {
         FoodViewModel(session: sessionManager ,service: foodService)
     }
+    
+    func makeWaterTrackingViewModel() -> WaterViewModel {
+        WaterViewModel( session: sessionManager, service: waterTrackingService)
+    }
+    
 }
