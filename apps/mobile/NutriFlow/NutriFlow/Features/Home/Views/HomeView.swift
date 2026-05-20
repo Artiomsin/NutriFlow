@@ -9,6 +9,7 @@ struct HomeView: View {
     @ObservedObject var profileViewModel: ProfileViewModel
     @ObservedObject var foodViewModel: FoodViewModel
     @ObservedObject var waterViewModel: WaterViewModel
+    @ObservedObject var dailyViewModel: DailySummaryViewModel
 
     @State private var selectedTab = 0
 
@@ -18,7 +19,8 @@ struct HomeView: View {
 
             HomeTabFlow(
                 foodViewModel: foodViewModel,
-                waterViewModel: waterViewModel
+                waterViewModel: waterViewModel,
+                dailyViewModel: dailyViewModel
             )
             .environmentObject(session)
             .tag(0)
@@ -132,11 +134,16 @@ struct SettingsRow: View {
         session: session,
         service: MockWaterService()
     )
+    let dailyVM = DailySummaryViewModel(
+        session: session,
+        service: MockDailySummaryService()
+    )
 
     HomeViewPreviewWrapper(
         profileVM: profileVM,
         foodVM: foodVM,
         waterVM: waterVM,
+        dailyVM: dailyVM,
         session: session
     )
     .environmentObject(session)
@@ -147,6 +154,7 @@ struct HomeViewPreviewWrapper: View {
     let profileVM: ProfileViewModel
     let foodVM: FoodViewModel
     let waterVM: WaterViewModel
+    let dailyVM: DailySummaryViewModel
     let session: SessionManager
 
     var body: some View {
@@ -154,7 +162,8 @@ struct HomeViewPreviewWrapper: View {
             onLogout: {},
             profileViewModel: profileVM,
             foodViewModel: foodVM,
-            waterViewModel: waterVM
+            waterViewModel: waterVM,
+            dailyViewModel: dailyVM
         )
         .onAppear {
             profileVM.email = "test@example.com"
@@ -218,6 +227,29 @@ final class MockWaterService: WaterTrackingServiceProtocol {
     }
     func deleteWaterEntry(token: String, id: String) async throws -> EmptyResponse {
         EmptyResponse()
+    }
+}
+
+final class MockDailySummaryService: DailySummaryServiceProtocol {
+    func getTodayDailySummary(token: String) async throws -> DailySummary {
+        DailySummary(
+            id: "1",
+            userId: "1",
+            date: "2026-05-18",
+            totalCalories: 365,
+            totalProtein: 35,
+            totalFat: 5,
+            totalCarbs: 45,
+            totalWaterMl: 750,
+            createdAt: "2026-05-18T10:00:00Z",
+            updatedAt: nil
+        )
+    }
+    func getDailySummaryByDate(token: String, date: String) async throws -> DailySummary {
+        try await getTodayDailySummary(token: token)
+    }
+    func getDailySummaryRange(token: String, from: String, to: String) async throws -> [DailySummary] {
+        [try await getTodayDailySummary(token: token)]
     }
 }
 

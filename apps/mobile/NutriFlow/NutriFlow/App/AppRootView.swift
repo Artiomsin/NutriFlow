@@ -14,6 +14,7 @@ struct AppRootView: View {
     @StateObject private var profileViewModel: ProfileViewModel
     @StateObject private var foodViewModel: FoodViewModel
     @StateObject private var waterViewModel: WaterViewModel
+    @StateObject private var dailyViewModel: DailySummaryViewModel
     @State private var currentScreen: AppScreen = .auth
     @State private var profileCompleted = false
     
@@ -24,6 +25,7 @@ struct AppRootView: View {
         _profileViewModel = StateObject(wrappedValue: container.makeProfileViewModel())
         _foodViewModel = StateObject(wrappedValue: container.makeFoodViewModel())
         _waterViewModel = StateObject(wrappedValue: container.makeWaterTrackingViewModel())
+        _dailyViewModel=StateObject(wrappedValue:    container.makeDailySummaryViewModel())
     }
     
     var body: some View {
@@ -67,7 +69,9 @@ struct AppRootView: View {
                     },
                     profileViewModel: profileViewModel,
                     foodViewModel: foodViewModel,
-                    waterViewModel: waterViewModel
+                    waterViewModel: waterViewModel,
+                    dailyViewModel: dailyViewModel
+                    
                 )
                     .environmentObject(container.sessionManager)
             }

@@ -6,6 +6,7 @@ struct HomeTabView: View {
 
     @ObservedObject var foodViewModel: FoodViewModel
     @ObservedObject var waterViewModel: WaterViewModel
+    @ObservedObject var dailyViewModel: DailySummaryViewModel
 
     @State private var showAddFood = false
     @State private var showAddWater = false
@@ -17,6 +18,9 @@ struct HomeTabView: View {
             VStack(spacing: 24) {
 
                 header
+
+                DailySummarySection(viewModel: dailyViewModel)
+                    .padding(.horizontal, AppTheme.paddingHorizontal)
 
                 FoodSection(
                     viewModel: foodViewModel,
@@ -40,20 +44,17 @@ struct HomeTabView: View {
         }
         .task {
 
+            await dailyViewModel.loadToday()
             await foodViewModel.loadToday()
             await waterViewModel.loadToday()
         }
         .fullScreenCover(isPresented: $showAddFood) {
 
-            AddFoodView(
-                viewModel: foodViewModel
-            )
+            AddFoodView(viewModel: foodViewModel)
         }
         .fullScreenCover(isPresented: $showAddWater) {
 
-            AddWaterView(
-                viewModel: waterViewModel
-            )
+            AddWaterView(viewModel: waterViewModel)
         }
     }
 

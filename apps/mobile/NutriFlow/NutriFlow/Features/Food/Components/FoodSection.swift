@@ -76,6 +76,7 @@ struct FoodSection: View {
                             Button(role: .destructive) {
                                 Task {
                                     await viewModel.deleteFood(id: entry.id)
+                                    
                                 }
                             } label: {
                                 Label("Delete", systemImage: "trash")
