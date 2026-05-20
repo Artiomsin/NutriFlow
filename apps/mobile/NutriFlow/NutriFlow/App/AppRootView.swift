@@ -13,6 +13,7 @@ struct AppRootView: View {
     @StateObject private var authViewModel: AuthViewModel
     @StateObject private var profileViewModel: ProfileViewModel
     @StateObject private var foodViewModel: FoodViewModel
+    @StateObject private var waterViewModel: WaterViewModel
     @State private var currentScreen: AppScreen = .auth
     @State private var profileCompleted = false
     
@@ -22,14 +23,15 @@ struct AppRootView: View {
         _authViewModel = StateObject(wrappedValue: container.makeAuthViewModel())
         _profileViewModel = StateObject(wrappedValue: container.makeProfileViewModel())
         _foodViewModel = StateObject(wrappedValue: container.makeFoodViewModel())
+        _waterViewModel = StateObject(wrappedValue: container.makeWaterTrackingViewModel())
     }
     
     var body: some View {
         
         ZStack {
             
-            Color.clear
-                .background(AppTheme.background.ignoresSafeArea())
+            AppTheme.background
+                .ignoresSafeArea()
             
             switch currentScreen {
                 
@@ -64,7 +66,8 @@ struct AppRootView: View {
                         currentScreen = .auth
                     },
                     profileViewModel: profileViewModel,
-                    foodViewModel: foodViewModel
+                    foodViewModel: foodViewModel,
+                    waterViewModel: waterViewModel
                 )
                     .environmentObject(container.sessionManager)
             }

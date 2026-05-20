@@ -1,11 +1,21 @@
 import SwiftUI
 
 struct HomeTabFlow: View {
+
     @ObservedObject var foodViewModel: FoodViewModel
+    @ObservedObject var waterViewModel: WaterViewModel
+
     var body: some View {
-        AppTheme.background.ignoresSafeArea()
-            .overlay(
-                            HomeTabView(viewModel: foodViewModel)
-                        )
+
+        ZStack {
+
+            AppTheme.background
+                .ignoresSafeArea()
+
+            HomeTabView(
+                foodViewModel: foodViewModel,
+                waterViewModel: waterViewModel
+            )
+        }
     }
 }

@@ -3,9 +3,12 @@ import SwiftUI
 struct HomeTabView: View {
 
     @EnvironmentObject var session: SessionManager
-    @ObservedObject var viewModel: FoodViewModel
+
+    @ObservedObject var foodViewModel: FoodViewModel
+    @ObservedObject var waterViewModel: WaterViewModel
 
     @State private var showAddFood = false
+    @State private var showAddWater = false
 
     var body: some View {
 
@@ -16,9 +19,17 @@ struct HomeTabView: View {
                 header
 
                 FoodSection(
-                    viewModel: viewModel,
+                    viewModel: foodViewModel,
                     onAddFood: {
                         showAddFood = true
+                    }
+                )
+                .padding(.horizontal, AppTheme.paddingHorizontal)
+
+                WaterSection(
+                    viewModel: waterViewModel,
+                    onAddWater: {
+                        showAddWater = true
                     }
                 )
                 .padding(.horizontal, AppTheme.paddingHorizontal)
@@ -28,10 +39,21 @@ struct HomeTabView: View {
             .background(AppTheme.background)
         }
         .task {
-            await viewModel.loadToday()
+
+            await foodViewModel.loadToday()
+            await waterViewModel.loadToday()
         }
         .fullScreenCover(isPresented: $showAddFood) {
-            AddFoodView(viewModel: viewModel)
+
+            AddFoodView(
+                viewModel: foodViewModel
+            )
+        }
+        .fullScreenCover(isPresented: $showAddWater) {
+
+            AddWaterView(
+                viewModel: waterViewModel
+            )
         }
     }
 
@@ -44,7 +66,7 @@ struct HomeTabView: View {
                 .foregroundColor(AppTheme.textPrimary)
                 .padding(.top, AppTheme.headerPaddingTop)
 
-            Text("Your daily nutrition")
+            Text("Track your food and water intake")
                 .font(.footnote)
                 .foregroundColor(AppTheme.textSecondary)
         }
