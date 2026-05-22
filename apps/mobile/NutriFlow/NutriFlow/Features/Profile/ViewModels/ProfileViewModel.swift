@@ -35,6 +35,7 @@ final class ProfileViewModel {
     
     func loadData() async {
         guard let token = session.accessToken() else {
+            clearForm()
             state = .empty
             return
         }
@@ -42,34 +43,28 @@ final class ProfileViewModel {
         state = .loading
 
         do {
-            let user = try await userService.getMe(token: token)
-            email = user.email
-            firstName = user.firstName
-            lastName = user.lastName
-            
-            do {
-                let profile = try await profileService.getMyProfile(token: token)
-                mapProfile(profile)
-                state = .loaded(profile)
-            } catch let error as APIError {
-                if case .notFound = error {
-                    state = .empty
-                } else if case .unauthorized = error {
-                    session.logout()
-                    onUnauthorized?()
-                } else {
-                    state = .error(error)
-                }
-            } catch {
-                state = .error(error)
-            }
+            async let user = userService.getMe(token: token)
+            async let profile = profileService.getMyProfile(token: token)
+
+            let (userResult, profileResult) = try await (user, profile)
+
+            email = userResult.email
+            firstName = userResult.firstName
+            lastName = userResult.lastName
+            mapProfile(profileResult)
+            state = .loaded(profileResult)
 
         } catch let error as APIError {
             if case .unauthorized = error {
                 session.logout()
                 onUnauthorized?()
             }
-            state = .error(error)
+            if case .notFound = error {
+                clearForm()
+                state = .empty
+            } else {
+                state = .error(error)
+            }
         } catch {
             state = .error(error)
         }

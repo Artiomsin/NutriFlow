@@ -56,7 +56,10 @@ final class FoodViewModel {
             return
         }
         
-        guard let caloriesInt = Int(calories) else { return }
+        guard let caloriesInt = Int(calories) else {
+            state = .error(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Калории должны быть числом"]))
+            return
+        }
         
         state = .saving
         

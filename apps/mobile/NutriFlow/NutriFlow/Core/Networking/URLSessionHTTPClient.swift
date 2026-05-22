@@ -2,6 +2,16 @@ import Foundation
 
 final class URLSessionHTTPClient: HTTPClient {
 
+    private let session: URLSession
+
+    init() {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 15
+        config.timeoutIntervalForResource = 30
+        config.waitsForConnectivity = true
+        self.session = URLSession(configuration: config)
+    }
+
     func send<T: Decodable, Body: Encodable>(
         _ request: APIRequest<Body>
     ) async throws -> T {
@@ -22,7 +32,7 @@ final class URLSessionHTTPClient: HTTPClient {
             urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
 
-        let (data, response) = try await URLSession.shared.data(for: urlRequest)
+        let (data, response) = try await session.data(for: urlRequest)
 
         guard let http = response as? HTTPURLResponse else {
             throw APIError.requestFailed

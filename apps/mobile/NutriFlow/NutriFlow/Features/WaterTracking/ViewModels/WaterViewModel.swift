@@ -47,7 +47,10 @@ final class WaterViewModel {
             return
         }
 
-        guard let ml = Int(amountMl) else { return }
+        guard let ml = Int(amountMl) else {
+            state = .error(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Количество должно быть числом"]))
+            return
+        }
 
         state = .saving
 

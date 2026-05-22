@@ -109,34 +109,13 @@ struct SummaryStatCard: View {
 }
 
 
-#Preview {
-    StatisticsPreviewContent()
-}
-
-struct StatisticsPreviewContent: View {
-    var body: some View {
-        let mockTokenStorage = MockTokenStorage(accessToken: "preview_token")
-        let session = SessionManager(tokenStorage: mockTokenStorage)
-        let vm = DailySummaryViewModel(
-            session: session,
-            service: MockDailySummaryService()
-        )
-
-        let calendar = Calendar.current
-        var components = DateComponents()
-        components.year = 2026
-        components.month = 3
-        components.day = 1
-        let fromDate = calendar.date(from: components) ?? Date()
-        components.month = 5
-        components.day = 18
-        let toDate = calendar.date(from: components) ?? Date()
-
-        vm.periodType = .custom
-        vm.fromDate = fromDate
-        vm.toDate = toDate
-
-        return StatisticsView(viewModel: vm)
-            .background(AppTheme.background)
-    }
+#Preview("NutriFlow Stats") {
+    let vm = DailySummaryViewModel(
+        session: SessionManager(tokenStorage: MockTokenStorage()),
+        service: MockDailySummaryService(),
+        foodService: MockFoodService(),
+        waterService: MockWaterService()
+    )
+    vm.periodType = .today
+    return StatisticsView(viewModel: vm).background(AppTheme.background)
 }

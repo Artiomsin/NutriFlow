@@ -14,10 +14,17 @@ enum DailySummaryEndpoints {
     static let getDailySummaryRange = "/daily-summary/range"
 
     static func getDailySummaryByDate(date: String) -> String {
-        "/daily-summary?date=\(date)"
+        var components = URLComponents(string: "/daily-summary")!
+        components.queryItems = [URLQueryItem(name: "date", value: date)]
+        return components.url?.absoluteString ?? "/daily-summary"
     }
 
     static func getDailySummaryRange(from: String, to: String) -> String {
-        "/daily-summary/range?from=\(from)&to=\(to)"
+        var components = URLComponents(string: "/daily-summary/range")!
+        components.queryItems = [
+            URLQueryItem(name: "from", value: from),
+            URLQueryItem(name: "to", value: to)
+        ]
+        return components.url?.absoluteString ?? "/daily-summary/range"
     }
 }

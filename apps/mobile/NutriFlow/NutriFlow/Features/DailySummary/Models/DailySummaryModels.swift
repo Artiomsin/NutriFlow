@@ -49,3 +49,10 @@ struct ChartDataPoint: Identifiable {
     let carbs: Double
     let waterMl: Int
 }
+
+
+enum AggregationLevel {
+    case day
+    case week
+    case month
+}
