@@ -82,13 +82,9 @@ struct ProfileFormView: View {
                     PrimaryButton(title: "Save") {
                         Task {
                             await viewModel.createProfile()
-                            await viewModel.loadData()
                             
-                            switch viewModel.state {
-                            case .loaded:
+                            if case .loaded = viewModel.state {
                                 isCompleted = true
-                            default:
-                                break
                             }
                         }
                     }

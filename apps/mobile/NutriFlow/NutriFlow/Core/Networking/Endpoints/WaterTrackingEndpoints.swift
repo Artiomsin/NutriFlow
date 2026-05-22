@@ -6,6 +6,7 @@ enum WaterTrackingEndpoints {
     static let getTodayWater = "/water-tracking/today"
 
     static func deleteWaterTracking(id: String) -> String {
-        "/water-tracking/\(id)"
+        let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
+        return "/water-tracking/\(encoded)"
     }
 }

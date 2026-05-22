@@ -7,14 +7,14 @@ enum AppScreen: Equatable {
 }
 
 struct AppRootView: View {
-    
-    @State private var container = AppContainer()
+
+    @State private var container: AppContainer
     @State private var authViewModel: AuthViewModel
     @State private var profileViewModel: ProfileViewModel
     @State private var homeViewModel: HomeViewModel
     @State private var currentScreen: AppScreen = .auth
     @State private var profileCompleted = false
-    
+
     init() {
         let container = AppContainer()
         _container = State(wrappedValue: container)

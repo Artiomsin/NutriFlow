@@ -22,8 +22,13 @@ final class MockFoodService: FoodServiceProtocol {
     }
     func getTodayFood(token: String) async throws -> [FoodEntry] {
         [
-            FoodEntry(id: "1", userId: "1", name: "Chicken breast", calories: 165, protein: 31, fat: 4, carbs: 0, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
-            FoodEntry(id: "2", userId: "1", name: "Rice", calories: 200, protein: 4, fat: 1, carbs: 45, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil)
+            FoodEntry(id: "1", userId: "1", name: "Oatmeal", calories: 320, protein: 12, fat: 6, carbs: 56, createdAt: "2026-05-18T08:00:00Z", updatedAt: nil),
+            FoodEntry(id: "2", userId: "1", name: "Chicken breast", calories: 165, protein: 31, fat: 4, carbs: 0, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
+            FoodEntry(id: "3", userId: "1", name: "Rice", calories: 200, protein: 4, fat: 1, carbs: 45, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil),
+            FoodEntry(id: "4", userId: "1", name: "Apple", calories: 95, protein: 0, fat: 0, carbs: 25, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil),
+            FoodEntry(id: "5", userId: "1", name: "Salmon", calories: 367, protein: 34, fat: 22, carbs: 0, createdAt: "2026-05-18T14:00:00Z", updatedAt: nil),
+            FoodEntry(id: "6", userId: "1", name: "Broccoli", calories: 55, protein: 4, fat: 1, carbs: 11, createdAt: "2026-05-18T14:00:00Z", updatedAt: nil),
+            FoodEntry(id: "7", userId: "1", name: "Greek yogurt", calories: 150, protein: 15, fat: 4, carbs: 10, createdAt: "2026-05-18T19:00:00Z", updatedAt: nil)
         ]
     }
     func deleteFoodEntry(token: String, id: String) async throws -> EmptyResponse {
@@ -37,8 +42,12 @@ final class MockWaterService: WaterTrackingServiceProtocol {
     }
     func getTodayWater(token: String) async throws -> [WaterEntry] {
         [
-            WaterEntry(id: "1", userId: "1", amountMl: 250, createdAt: "2026-05-18T08:00:00Z", updatedAt: nil),
-            WaterEntry(id: "2", userId: "1", amountMl: 500, createdAt: "2026-05-18T10:30:00Z", updatedAt: nil)
+            WaterEntry(id: "1", userId: "1", amountMl: 300, createdAt: "2026-05-18T08:00:00Z", updatedAt: nil),
+            WaterEntry(id: "2", userId: "1", amountMl: 500, createdAt: "2026-05-18T10:30:00Z", updatedAt: nil),
+            WaterEntry(id: "3", userId: "1", amountMl: 400, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil),
+            WaterEntry(id: "4", userId: "1", amountMl: 350, createdAt: "2026-05-18T15:00:00Z", updatedAt: nil),
+            WaterEntry(id: "5", userId: "1", amountMl: 250, createdAt: "2026-05-18T18:00:00Z", updatedAt: nil),
+            WaterEntry(id: "6", userId: "1", amountMl: 200, createdAt: "2026-05-18T21:00:00Z", updatedAt: nil)
         ]
     }
     func deleteWaterEntry(token: String, id: String) async throws -> EmptyResponse {

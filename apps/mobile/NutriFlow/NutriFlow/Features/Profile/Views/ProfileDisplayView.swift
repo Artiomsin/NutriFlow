@@ -98,12 +98,12 @@ struct ProfileDisplayView: View {
                             .foregroundColor(AppTheme.logoutBorder)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(
+                            .background(AppTheme.logoutBackground)
+                            .cornerRadius(AppTheme.cornerRadiusMedium)
+                            .overlay(
                                 RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
                                     .stroke(AppTheme.logoutBorder, lineWidth: 1)
-                                    .background(AppTheme.logoutBackground)
                             )
-                            .cornerRadius(AppTheme.cornerRadiusMedium)
                     }
                     .padding(.top, 12)
                 }

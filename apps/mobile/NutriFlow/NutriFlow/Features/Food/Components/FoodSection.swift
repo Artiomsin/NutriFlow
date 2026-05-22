@@ -64,13 +64,6 @@ struct FoodSection: View {
                         FoodCard(entry: entry) {
                             onDeleteFood?(entry.id)
                         }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) {
-                                onDeleteFood?(entry.id)
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        }
                     }
                 }
             }

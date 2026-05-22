@@ -64,13 +64,6 @@ struct WaterSection: View {
                         WaterCard(entry: entry) {
                             onDeleteWater?(entry.id)
                         }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) {
-                                onDeleteWater?(entry.id)
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        }
                     }
                 }
             }

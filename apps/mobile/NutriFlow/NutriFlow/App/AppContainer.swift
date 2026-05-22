@@ -44,7 +44,7 @@ final class AppContainer {
     }
     
     func makeDailySummaryViewModel() -> DailySummaryViewModel {
-        DailySummaryViewModel(session: sessionManager, service: dailySummaryService)
+        DailySummaryViewModel(session: sessionManager, service: dailySummaryService, foodService: foodService, waterService: waterTrackingService)
     }
     
     func makeHomeViewModel() -> HomeViewModel {

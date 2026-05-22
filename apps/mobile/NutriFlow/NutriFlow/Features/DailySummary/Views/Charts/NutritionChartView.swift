@@ -9,7 +9,7 @@ import SwiftUI
 import Charts
 struct NutritionChartView: View {
     let data: [ChartDataPoint]
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -23,31 +23,31 @@ struct NutritionChartView: View {
                 MacroSummaryItem(title: "Carbs", value: avgCarbs, color: .green)
             }
             .padding(.vertical, 8)
-            Chart(data) { point in
-                BarMark(x: .value("Date", point.date), y: .value("Protein", point.protein)).foregroundStyle(.blue)
-                BarMark(x: .value("Date", point.date), y: .value("Fat", point.fat)).foregroundStyle(.yellow)
-                BarMark(x: .value("Date", point.date), y: .value("Carbs", point.carbs)).foregroundStyle(.green)
-            }
-            .frame(height: 180)
-            .chartLegend(position: .bottom) { HStack(spacing: 20) { LegendItem(color: .blue, label: "Protein"); LegendItem(color: .yellow, label: "Fat"); LegendItem(color: .green, label: "Carbs") } }
-            .chartPlotStyle { $0.padding(.leading, 8) }
-            .chartYAxis { AxisMarks(position: .leading) { _ in AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.3)); AxisValueLabel().foregroundStyle(AppTheme.textTertiary) } }
-            .chartXAxis {
-                AxisMarks(values: .stride(by: .day, count: labelStride)) { _ in
-                    AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.15))
-                    AxisValueLabel(format: .dateTime.day().month())
-                        .foregroundStyle(AppTheme.textTertiary)
-                        .font(.caption2)
+            ScrollView(.horizontal, showsIndicators: false) {
+                Chart(data) { point in
+                    BarMark(x: .value("Date", point.label), y: .value("Protein", point.protein), width: .fixed(14)).foregroundStyle(.blue)
+                    BarMark(x: .value("Date", point.label), y: .value("Fat", point.fat), width: .fixed(14)).foregroundStyle(.yellow)
+                    BarMark(x: .value("Date", point.label), y: .value("Carbs", point.carbs), width: .fixed(14)).foregroundStyle(.green)
+                }
+                .frame(width: chartWidth, height: 180)
+                .chartLegend(position: .bottom) { HStack(spacing: 20) { LegendItem(color: .blue, label: "Protein"); LegendItem(color: .yellow, label: "Fat"); LegendItem(color: .green, label: "Carbs") } }
+                .chartYAxis { AxisMarks(position: .leading) { _ in AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.3)); AxisValueLabel().foregroundStyle(AppTheme.textTertiary) } }
+                .chartXAxis {
+                    AxisMarks { _ in
+                        AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.15))
+                        AxisValueLabel().foregroundStyle(AppTheme.textTertiary)
+                    }
                 }
             }
         }
         .padding().background(AppTheme.cardBackground).cornerRadius(AppTheme.cornerRadiusMedium)
     }
-    
-    private var labelStride: Int {
-        max(1, data.count / 7)
+
+    private var chartWidth: CGFloat {
+        let perBar: CGFloat = data.count <= 10 ? 80 : 100
+        return max(360, CGFloat(data.count) * perBar)
     }
-    
+
     private var avgProtein: Int { guard !data.isEmpty else { return 0 }; return Int(data.reduce(0) { $0 + $1.protein } / Double(data.count)) }
     private var avgFat: Int { guard !data.isEmpty else { return 0 }; return Int(data.reduce(0) { $0 + $1.fat } / Double(data.count)) }
     private var avgCarbs: Int { guard !data.isEmpty else { return 0 }; return Int(data.reduce(0) { $0 + $1.carbs } / Double(data.count)) }

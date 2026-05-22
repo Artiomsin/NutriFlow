@@ -1,5 +1,5 @@
 //
-//  WaterChartView.swift
+//  CaloriesChartView.swift
 //  Nutriflow
 //
 //  Created by Artem on 20.05.26.
@@ -7,26 +7,22 @@
 
 import SwiftUI
 import Charts
-struct WaterChartView: View {
+struct CaloriesChartView: View {
     let data: [ChartDataPoint]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Image(systemName: "drop.fill").foregroundColor(.blue)
-                Text("Water Intake").font(.headline).foregroundColor(AppTheme.textPrimary)
+                Image(systemName: "flame.fill").foregroundColor(.orange)
+                Text("Calories").font(.headline).foregroundColor(AppTheme.textPrimary)
                 Spacer()
-                Text("\(totalWater) ml").font(.subheadline).foregroundColor(AppTheme.textSecondary)
+                Text("\(totalCalories) kcal").font(.subheadline).foregroundColor(AppTheme.textSecondary)
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 Chart(data) { point in
-                    LineMark(x: .value("Date", point.label), y: .value("Water", point.waterMl))
-                        .foregroundStyle(.blue).interpolationMethod(.catmullRom)
-                    AreaMark(x: .value("Date", point.label), y: .value("Water", point.waterMl))
-                        .foregroundStyle(LinearGradient(colors: [.blue.opacity(0.3), .blue.opacity(0.05)], startPoint: .top, endPoint: .bottom))
-                        .interpolationMethod(.catmullRom)
-                    PointMark(x: .value("Date", point.label), y: .value("Water", point.waterMl))
-                        .foregroundStyle(.blue).symbolSize(30)
+                    BarMark(x: .value("Date", point.label), y: .value("Calories", point.calories), width: .fixed(16))
+                        .foregroundStyle(LinearGradient(colors: [.orange, .red], startPoint: .top, endPoint: .bottom))
+                        .cornerRadius(4)
                 }
                 .frame(width: chartWidth, height: 180)
                 .chartYAxis { AxisMarks(position: .leading) { _ in AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.3)); AxisValueLabel().foregroundStyle(AppTheme.textTertiary) } }
@@ -46,5 +42,5 @@ struct WaterChartView: View {
         return max(360, CGFloat(data.count) * perBar)
     }
 
-    private var totalWater: Int { data.reduce(0) { $0 + $1.waterMl } }
+    private var totalCalories: Int { data.reduce(0) { $0 + $1.calories } }
 }
