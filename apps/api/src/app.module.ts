@@ -9,6 +9,7 @@ import { ProfilesModule } from "./profiles/profiles.module";
 import { FoodModule } from './food/food.module';
 import { WaterTrackingModule } from './water-tracking/water-tracking.module';
 import { DailySummaryModule } from './daily-summary/daily-summary.module';
+import { GoalsModule } from './goals/goals.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { DailySummaryModule } from './daily-summary/daily-summary.module';
     FoodModule,
     WaterTrackingModule,
     DailySummaryModule,
+    GoalsModule,
   ],
 })
 export class AppModule {}
