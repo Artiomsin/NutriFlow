@@ -29,6 +29,7 @@ export class ProfilesService {
         weight: data.weight,
         height: data.height,
         age: data.age,
+        gender: data.gender,
         goal: data.goal,
         activityLevel: data.activityLevel,
       })

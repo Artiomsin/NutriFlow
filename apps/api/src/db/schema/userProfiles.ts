@@ -25,7 +25,7 @@ export const userProfiles = app.table('user_profiles', {
 
   height: integer('height'),
   age: integer('age'),
-
+  gender: varchar('gender', { length: 10 }),  
   goal: varchar('goal', { length: 20 }),
   activityLevel: varchar('activity_level', { length: 20 }),
 
