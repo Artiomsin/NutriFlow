@@ -39,9 +39,29 @@ struct DailySummarySection: View {
         case .loaded(let summary):
             DailySummaryCard(summary: summary)
 
+        case .empty:
+            emptyState
+
         case .error(let error):
             ErrorMessageView(text: error.localizedDescription)
         }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "chart.bar.xaxis")
+                .font(.system(size: 50))
+                .foregroundColor(AppTheme.textSecondary)
+            Text("No data for this period")
+                .font(.headline)
+                .foregroundColor(AppTheme.textSecondary)
+            Text("Start tracking to see statistics")
+                .font(.subheadline)
+                .foregroundColor(AppTheme.textTertiary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.vertical, 40)
+        .frame(maxWidth: .infinity)
     }
 }
 
