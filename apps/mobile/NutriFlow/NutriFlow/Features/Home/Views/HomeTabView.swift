@@ -51,13 +51,23 @@ struct HomeTabView: View {
         .fullScreenCover(isPresented: $showAddFood) {
             AddFoodView(
                 foodViewModel: homeViewModel.foodViewModel,
-                onSave: { Task { await homeViewModel.dailyViewModel.loadToday() } }
+                onSave: {
+                    Task {
+                        homeViewModel.dailyViewModel.invalidateCache()
+                        await homeViewModel.dailyViewModel.loadToday()
+                    }
+                }
             )
         }
         .fullScreenCover(isPresented: $showAddWater) {
             AddWaterView(
                 waterViewModel: homeViewModel.waterViewModel,
-                onSave: { Task { await homeViewModel.dailyViewModel.loadToday() } }
+                onSave: {
+                    Task {
+                        homeViewModel.dailyViewModel.invalidateCache()
+                        await homeViewModel.dailyViewModel.loadToday()
+                    }
+                }
             )
         }
     }

@@ -72,16 +72,13 @@ export class WaterTrackingService {async create(userId: string, dto: CreateWater
       0,
     );
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
     const existing = await db
       .select()
       .from(dailySummary)
       .where(
         and(
           eq(dailySummary.userId, userId),
-          eq(dailySummary.date, today),
+          sql`DATE(${dailySummary.date}) = CURRENT_DATE`,
         ),
       )
       .limit(1);
@@ -89,7 +86,7 @@ export class WaterTrackingService {async create(userId: string, dto: CreateWater
     if (existing.length === 0) {
       await db.insert(dailySummary).values({
         userId,
-        date: today,
+        date: sql`CURRENT_DATE`,
         totalCalories: 0,
         totalProtein: 0,
         totalFat: 0,
@@ -108,7 +105,7 @@ export class WaterTrackingService {async create(userId: string, dto: CreateWater
       .where(
         and(
           eq(dailySummary.userId, userId),
-          eq(dailySummary.date, today),
+          sql`DATE(${dailySummary.date}) = CURRENT_DATE`,
         ),
       );
   }

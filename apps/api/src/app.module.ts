@@ -10,6 +10,7 @@ import { FoodModule } from './food/food.module';
 import { WaterTrackingModule } from './water-tracking/water-tracking.module';
 import { DailySummaryModule } from './daily-summary/daily-summary.module';
 import { GoalsModule } from './goals/goals.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { GoalsModule } from './goals/goals.module';
     WaterTrackingModule,
     DailySummaryModule,
     GoalsModule,
+    AnalyticsModule,
   ],
 })
 export class AppModule {}

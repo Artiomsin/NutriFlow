@@ -80,16 +80,13 @@ export class FoodService {
       { calories: 0, protein: 0, fat: 0, carbs: 0 },
     );
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
     const existing = await db
       .select()
       .from(dailySummary)
       .where(
         and(
           eq(dailySummary.userId, userId),
-          eq(dailySummary.date, today),
+          sql`DATE(${dailySummary.date}) = CURRENT_DATE`,
         ),
       )
       .limit(1);
@@ -97,7 +94,7 @@ export class FoodService {
     if (existing.length === 0) {
       await db.insert(dailySummary).values({
         userId,
-        date: today,
+        date: sql`CURRENT_DATE`,
         totalCalories: totals.calories,
         totalProtein: totals.protein,
         totalFat: totals.fat,
@@ -119,7 +116,7 @@ export class FoodService {
       .where(
         and(
           eq(dailySummary.userId, userId),
-          eq(dailySummary.date, today),
+          sql`DATE(${dailySummary.date}) = CURRENT_DATE`,
         ),
       );
   }

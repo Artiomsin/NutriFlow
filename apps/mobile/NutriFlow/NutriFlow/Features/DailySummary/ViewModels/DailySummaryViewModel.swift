@@ -52,7 +52,11 @@ final class DailySummaryViewModel {
         state = .loading
         do {
             let result = try await service.getTodayDailySummary(token: token)
-            state = .loaded(result)
+            if result.id == nil {
+                state = .empty
+            } else {
+                state = .loaded(result)
+            }
             lastTodayFetch = Date()
         } catch let error as APIError {
             if case .unauthorized = error {
@@ -78,7 +82,11 @@ final class DailySummaryViewModel {
         state = .loading
         do {
             let result = try await service.getDailySummaryByDate(token: token, date: date)
-            state = .loaded(result)
+            if result.id == nil {
+                state = .empty
+            } else {
+                state = .loaded(result)
+            }
         } catch let error as APIError {
             if case .unauthorized = error {
                 session.logout()
@@ -238,7 +246,7 @@ final class DailySummaryViewModel {
                     return
                 }
                 let summary = try await service.getTodayDailySummary(token: token)
-                summaries = [summary]
+                summaries = summary.id == nil ? [] : [summary]
 
             case .week:
                 let cal = Calendar.current

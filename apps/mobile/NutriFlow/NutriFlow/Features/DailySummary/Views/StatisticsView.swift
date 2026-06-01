@@ -50,7 +50,8 @@ struct StatisticsView: View {
         case .idle, .loading:
             ProgressView().tint(.white).frame(maxWidth: .infinity).padding(.vertical, 40)
         case .loaded(let data):
-            if data.isEmpty {
+            let hasData = data.contains { $0.calories > 0 || $0.waterMl > 0 || $0.protein > 0 || $0.fat > 0 || $0.carbs > 0 }
+            if data.isEmpty || !hasData {
                 emptyState
             } else {
                 VStack(spacing: 20) {

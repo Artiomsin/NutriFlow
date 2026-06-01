@@ -64,9 +64,10 @@ export class GoalsService {
     const tdee = this.calculateTDEE(bmr, activityLevel);
     const goalCalories = this.adjustForGoal(tdee, goal);
     const protein = this.calculateProtein(weight, goal);
-    const remainingAfterProtein = goalCalories - protein * 4;
-    const fat = (remainingAfterProtein * 0.25) / 9;
-    const carbs = (goalCalories - protein * 4 - fat * 9) / 4;
+    const fat = (goalCalories * 0.25) / 9;
+    const proteinCals = protein * 4;
+    const fatCals = fat * 9;
+    const carbs = (goalCalories - proteinCals - fatCals) / 4;
     const waterMultipliers: Record<string, number> = { low: 30, medium: 35, high: 40 };
     const water = weight * (waterMultipliers[activityLevel] ?? 35);
     const calculated = {

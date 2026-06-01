@@ -11,6 +11,7 @@ enum DailySummaryState {
     case idle
     case loading
     case loaded(DailySummary)
+    case empty
     case error(Error)
 }
 
