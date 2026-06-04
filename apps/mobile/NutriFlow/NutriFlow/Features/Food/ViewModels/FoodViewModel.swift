@@ -72,7 +72,8 @@ final class FoodViewModel {
                 fat: Int(fat),
                 carbs: Int(carbs)
             )
-            
+
+            AnalyticsService.shared.track(.foodAdded(name: name, calories: caloriesInt))
             await loadToday()
             clearForm()
             
@@ -90,6 +91,7 @@ final class FoodViewModel {
         
         do {
             _ = try await service.deleteFoodEntry(token: token, id: id)
+            AnalyticsService.shared.track(.foodDeleted)
             await loadToday()
             
         } catch {

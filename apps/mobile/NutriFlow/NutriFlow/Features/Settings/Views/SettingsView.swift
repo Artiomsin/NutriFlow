@@ -22,9 +22,9 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal, AppTheme.paddingHorizontal)
 
-                Spacer()
-                    .frame(height: 100)
-            }
+        Spacer()
+            .frame(height: 100)
         }
     }
+}
 }

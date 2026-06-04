@@ -40,6 +40,7 @@ final class AuthViewModel {
             )
 
             state = .authenticated
+            AnalyticsService.shared.track(.loggedIn)
 
         } catch {
             state = .error(error.localizedDescription)
@@ -63,6 +64,7 @@ final class AuthViewModel {
             )
 
             state = .authenticated
+            AnalyticsService.shared.track(.registered)
 
         } catch {
             state = .error(error.localizedDescription)
@@ -80,9 +82,11 @@ final class AuthViewModel {
             _ = try await authService.logout(accessToken: token)
             sessionManager.logout()
             state = .unauthenticated
+            AnalyticsService.shared.track(.loggedOut)
         } catch {
             sessionManager.logout()
             state = .unauthenticated
+            AnalyticsService.shared.track(.loggedOut)
         }
     }
 

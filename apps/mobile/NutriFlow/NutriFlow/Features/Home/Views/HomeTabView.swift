@@ -15,7 +15,7 @@ struct HomeTabView: View {
             VStack(spacing: 24) {
 
                 header
-
+                
                 DailySummarySection(viewModel: homeViewModel.dailyViewModel)
                     .padding(.horizontal, AppTheme.paddingHorizontal)
 
