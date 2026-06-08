@@ -1,7 +1,8 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @Bindable var session: SessionManager
+    @Bindable var viewModel: ProfileViewModel
+    @State private var showProfile = false
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -16,15 +17,30 @@ struct SettingsView: View {
                     .frame(height: 20)
 
                 VStack(spacing: 16) {
-                    SettingsRow(icon: "person", title: "Account")
-                    SettingsRow(icon: "bell", title: "Notifications")
-                    SettingsRow(icon: "lock", title: "Privacy")
+                    Button {
+                        showProfile = true
+                    } label: {
+                        SettingsRow(icon: "person", title: "Profile")
+                    }
+
+                    Button {
+                        Task { await viewModel.logout() }
+                    } label: {
+                        SettingsRow(icon: "arrow.right.square", title: "Logout")
+                    }
                 }
                 .padding(.horizontal, AppTheme.paddingHorizontal)
 
-        Spacer()
-            .frame(height: 100)
+                Spacer()
+                    .frame(height: 100)
+            }
+        }
+        .onAppear {
+            AnalyticsService.shared.track(.screenView(screen: "settings"))
+            Task { await viewModel.loadData() }
+        }
+        .fullScreenCover(isPresented: $showProfile) {
+            ProfileDisplayView(viewModel: viewModel)
         }
     }
-}
 }

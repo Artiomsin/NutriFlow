@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ProfileFormView: View {
     @Bindable var viewModel: ProfileViewModel
-    @Binding var isCompleted: Bool
     
     var body: some View {
         ZStack {
@@ -82,10 +81,6 @@ struct ProfileFormView: View {
                     PrimaryButton(title: "Save") {
                         Task {
                             await viewModel.createProfile()
-                            
-                            if case .loaded = viewModel.state {
-                                isCompleted = true
-                            }
                         }
                     }
                     .padding(.horizontal, AppTheme.paddingHorizontal)
@@ -99,6 +94,7 @@ struct ProfileFormView: View {
                 }
             }
         }
+        .onAppear { AnalyticsService.shared.track(.screenView(screen: "profile_form")) }
     }
 }
 

@@ -1,9 +1,9 @@
 import Foundation
 
-protocol FoodServiceProtocol {
+protocol FoodServiceProtocol: Sendable {
 
+    @discardableResult
     func createFoodEntry(
-        token: String,
         name: String,
         calories: Int,
         protein: Int?,
@@ -11,12 +11,9 @@ protocol FoodServiceProtocol {
         carbs: Int?
     ) async throws -> FoodEntry
 
-    func getTodayFood(
-        token: String
-    ) async throws -> [FoodEntry]
+    func getTodayFood() async throws -> [FoodEntry]
 
     func deleteFoodEntry(
-        token: String,
         id: String
-    ) async throws -> EmptyResponse
+    ) async throws
 }

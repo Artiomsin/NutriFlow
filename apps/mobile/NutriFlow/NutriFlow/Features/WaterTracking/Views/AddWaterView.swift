@@ -41,11 +41,12 @@ struct AddWaterView: View {
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
-        .background(Color.black.opacity(0.95).ignoresSafeArea())
+        .background(AppTheme.background.ignoresSafeArea())
         .onAppear {
             waterViewModel.amountMl = "\(Int(selectedAmount))"
             animatedAmount = selectedAmount
             animateWave = true
+            AnalyticsService.shared.track(.screenView(screen: "add_water"))
         }
         .onChange(of: selectedAmount) { _, newValue in
             waterViewModel.amountMl = "\(Int(newValue))"
@@ -241,14 +242,11 @@ struct AddWaterView: View {
 
 struct AddWaterViewPreview: View {
     var body: some View {
-        let session = SessionManager(tokenStorage: TokenStorage(keychain: KeychainService()))
-
         let waterVM = WaterViewModel(
-            session: session,
             service: MockWaterService()
         )
 
-        return AddWaterView(
+        AddWaterView(
             waterViewModel: waterVM,
             onSave: {}
         )

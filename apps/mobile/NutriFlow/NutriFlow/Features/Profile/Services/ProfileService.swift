@@ -1,65 +1,44 @@
-
 import Foundation
 
-final class ProfileService: ProfileServiceProtocol {
+final class ProfileService: ProfileServiceProtocol, Sendable {
 
     private let client: HTTPClient
 
-    init(client: HTTPClient = URLSessionHTTPClient()) {
+    init(client: HTTPClient) {
         self.client = client
     }
 
-    func getMyProfile(token: String) async throws -> UserProfile {
-        let request = APIRequest(
+    func getMyProfile() async throws -> UserProfile {
+        let request = APIRequest<NeverBody>(
             path: ProfileEndpoints.getMyProfile,
-            method: .GET,
-            body: nil as EmptyBody?,
-            headers: ["Authorization": "Bearer \(token)"]
+            method: .GET
         )
         return try await client.send(request)
     }
 
-    func createProfile(
-            token: String,
-            weight: Double?,
-            height: Int?,
-            age: Int?,
-            goal: Goal?,
-            activityLevel: ActivityLevel?
-        ) async throws -> UserProfile {
+    func createProfile(weight: Double?, height: Int?, age: Int?, goal: Goal?, activityLevel: ActivityLevel?) async throws -> UserProfile {
         let request = APIRequest(
             path: ProfileEndpoints.createProfile,
             method: .POST,
-            body: CreateProfileRequest(weight: weight, height: height, age: age, goal: goal, activityLevel: activityLevel),
-            headers: ["Authorization": "Bearer \(token)"]
+            body: CreateProfileRequest(weight: weight, height: height, age: age, goal: goal, activityLevel: activityLevel)
         )
         return try await client.send(request)
     }
 
-    func updateMyProfile(
-            token: String,
-            weight: Double?,
-            height: Int?,
-            age: Int?,
-            goal: Goal?,
-            activityLevel: ActivityLevel?
-        ) async throws -> UserProfile {
+    func updateMyProfile(weight: Double?, height: Int?, age: Int?, goal: Goal?, activityLevel: ActivityLevel?) async throws -> UserProfile {
         let request = APIRequest(
             path: ProfileEndpoints.updateMyProfile,
             method: .PUT,
-            body: UpdateProfileRequest(weight: weight, height: height, age: age, goal: goal, activityLevel: activityLevel),
-            headers: ["Authorization": "Bearer \(token)"]
+            body: UpdateProfileRequest(weight: weight, height: height, age: age, goal: goal, activityLevel: activityLevel)
         )
         return try await client.send(request)
     }
 
-    func deleteMyProfile(token: String) async throws -> EmptyResponse {
-        let request = APIRequest(
+    func deleteMyProfile() async throws {
+        let request = APIRequest<NeverBody>(
             path: ProfileEndpoints.deleteMyProfile,
-            method: .DELETE,
-            body: nil as EmptyBody?,
-            headers: ["Authorization": "Bearer \(token)"]
+            method: .DELETE
         )
-        return try await client.send(request)
+        try await client.sendVoid(request)
     }
 }

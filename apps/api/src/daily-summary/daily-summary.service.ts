@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { db } from '../db/db';
 import { dailySummary } from '../db/schema/dailySummary';
+import { foodEntries } from '../db/schema/foodEntries';
+import { waterEntries } from '../db/schema/waterEntries';
 
 import { eq, and, sql } from 'drizzle-orm';
 
@@ -54,6 +56,46 @@ export class DailySummaryService {
       .orderBy(dailySummary.date);
 
     return result;
+  }
+
+  async findTodayDashboard(userId: string) {
+    const [summary] = await db
+      .select()
+      .from(dailySummary)
+      .where(
+        and(
+          eq(dailySummary.userId, userId),
+          sql`DATE(${dailySummary.date}) = CURRENT_DATE`,
+        ),
+      )
+      .limit(1);
+
+    const [food, water] = await Promise.all([
+      db
+        .select()
+        .from(foodEntries)
+        .where(
+          and(
+            eq(foodEntries.userId, userId),
+            sql`DATE(${foodEntries.createdAt}) = CURRENT_DATE`,
+          ),
+        ),
+      db
+        .select()
+        .from(waterEntries)
+        .where(
+          and(
+            eq(waterEntries.userId, userId),
+            sql`DATE(${waterEntries.createdAt}) = CURRENT_DATE`,
+          ),
+        ),
+    ]);
+
+    return {
+      dailySummary: summary ?? this.empty(),
+      foodEntries: food,
+      waterEntries: water,
+    };
   }
 
   private empty(date: Date = new Date()) {

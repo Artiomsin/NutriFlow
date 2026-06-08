@@ -1,28 +1,22 @@
 import Foundation
 
-protocol AuthServiceProtocol {
+protocol AuthServiceProtocol: Sendable {
 
     func register(
         email: String,
         password: String,
         firstName: String,
         lastName: String
-    ) async throws -> AuthTokensResponse
+    ) async throws
 
     func login(
         email: String,
         password: String
-    ) async throws -> AuthTokensResponse
+    ) async throws
 
-    func refresh(
-        refreshToken: String
-    ) async throws -> AuthTokensResponse
+    func logout() async throws
 
-    func logout(
-        accessToken: String
-    ) async throws -> LogoutResponse
+    func logoutAll() async throws
 
-    func logoutAll(
-        accessToken: String
-    ) async throws -> LogoutResponse
+    func refresh(refreshToken: String) async throws -> AuthTokensResponse
 }

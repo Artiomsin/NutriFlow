@@ -58,5 +58,6 @@ struct AuthView: View {
                 .frame(maxWidth: .infinity)
             }
         }
+        .onAppear { AnalyticsService.shared.track(.screenView(screen: "auth")) }
     }
 }

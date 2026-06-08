@@ -8,45 +8,24 @@ final class WaterViewModel {
     var state: WaterState = .idle
     var amountMl: String = ""
     
-    @ObservationIgnored private let session: SessionManager
     @ObservationIgnored private let service: WaterTrackingServiceProtocol
-    @ObservationIgnored var onUnauthorized: (() -> Void)?
     
-    init(session: SessionManager, service: WaterTrackingServiceProtocol) {
-        self.session = session
+    init(service: WaterTrackingServiceProtocol) {
         self.service = service
     }
     
     func loadToday() async {
-        guard let token = session.accessToken() else {
-            state = .error(APIError.unauthorized)
-            return
-        }
-
         state = .loading
 
         do {
-            let entries = try await service.getTodayWater(token: token)
+            let entries = try await service.getTodayWater()
             state = .loaded(entries)
-
-        } catch let error as APIError {
-            if case .unauthorized = error {
-                session.logout()
-                onUnauthorized?()
-            }
-            state = .error(error)
-
         } catch {
             state = .error(error)
         }
     }
 
     func createWater() async {
-        guard let token = session.accessToken() else {
-            state = .error(APIError.unauthorized)
-            return
-        }
-
         guard let ml = Int(amountMl) else {
             state = .error(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Количество должно быть числом"]))
             return
@@ -55,39 +34,20 @@ final class WaterViewModel {
         state = .saving
 
         do {
-            _ = try await service.createWaterEntry(token: token, amountMl: ml)
+            try await service.createWaterEntry(amountMl: ml)
+            AnalyticsService.shared.track(.waterAdded(amountMl: ml))
             await loadToday()
             clearForm()
-
-        } catch let error as APIError {
-            if case .unauthorized = error {
-                session.logout()
-                onUnauthorized?()
-            }
-            state = .error(error)
-
         } catch {
             state = .error(error)
         }
     }
 
     func deleteWater(id: String) async {
-        guard let token = session.accessToken() else {
-            state = .error(APIError.unauthorized)
-            return
-        }
-
         do {
-            _ = try await service.deleteWaterEntry(token: token, id: id)
+            try await service.deleteWaterEntry(id: id)
+            AnalyticsService.shared.track(.waterDeleted)
             await loadToday()
-
-        } catch let error as APIError {
-            if case .unauthorized = error {
-                session.logout()
-                onUnauthorized?()
-            }
-            state = .error(error)
-
         } catch {
             state = .error(error)
         }

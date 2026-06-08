@@ -1,18 +1,15 @@
 import Foundation
 
-protocol WaterTrackingServiceProtocol {
+protocol WaterTrackingServiceProtocol: Sendable {
 
+    @discardableResult
     func createWaterEntry(
-        token: String,
         amountMl: Int
     ) async throws -> WaterEntry
 
-    func getTodayWater(
-        token: String
-    ) async throws -> [WaterEntry]
+    func getTodayWater() async throws -> [WaterEntry]
 
     func deleteWaterEntry(
-        token: String,
         id: String
-    ) async throws -> EmptyResponse
+    ) async throws
 }

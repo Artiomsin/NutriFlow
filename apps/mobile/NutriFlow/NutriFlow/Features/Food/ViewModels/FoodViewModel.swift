@@ -13,49 +13,24 @@ final class FoodViewModel {
     var fat: String = ""
     var carbs: String = ""
     
-    @ObservationIgnored private let session: SessionManager
     @ObservationIgnored private let service: FoodServiceProtocol
-    @ObservationIgnored var onUnauthorized: (() -> Void)?
     
-    init(session: SessionManager, service: FoodServiceProtocol) {
-        self.session = session
+    init(service: FoodServiceProtocol) {
         self.service = service
     }
     
     func loadToday() async {
-        
-        guard let token = session.accessToken() else {
-            state = .error(APIError.unauthorized)
-            return
-        }
-        
         state = .loading
         
         do {
-            let food = try await service.getTodayFood(token: token)
+            let food = try await service.getTodayFood()
             state = .loaded(food)
-            
-        } catch let error as APIError {
-            
-            if case .unauthorized = error {
-                session.logout()
-                onUnauthorized?()
-            }
-            
-            state = .error(error)
-            
         } catch {
             state = .error(error)
         }
     }
     
     func createFood() async {
-        
-        guard let token = session.accessToken() else {
-            state = .error(APIError.unauthorized)
-            return
-        }
-        
         guard let caloriesInt = Int(calories) else {
             state = .error(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Калории должны быть числом"]))
             return
@@ -64,8 +39,7 @@ final class FoodViewModel {
         state = .saving
         
         do {
-            _ = try await service.createFoodEntry(
-                token: token,
+            try await service.createFoodEntry(
                 name: name,
                 calories: caloriesInt,
                 protein: Int(protein),
@@ -76,24 +50,16 @@ final class FoodViewModel {
             AnalyticsService.shared.track(.foodAdded(name: name, calories: caloriesInt))
             await loadToday()
             clearForm()
-            
         } catch {
             state = .error(error)
         }
     }
     
     func deleteFood(id: String) async {
-        
-        guard let token = session.accessToken() else {
-            state = .error(APIError.unauthorized)
-            return
-        }
-        
         do {
-            _ = try await service.deleteFoodEntry(token: token, id: id)
+            try await service.deleteFoodEntry(id: id)
             AnalyticsService.shared.track(.foodDeleted)
             await loadToday()
-            
         } catch {
             state = .error(error)
         }

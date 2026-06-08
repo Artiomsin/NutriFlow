@@ -106,10 +106,7 @@ struct WaterSection: View {
 
 struct WaterSectionPreview: View {
     var body: some View {
-        let session = SessionManager(tokenStorage: TokenStorage(keychain: KeychainService()))
-
         let waterVM = WaterViewModel(
-            session: session,
             service: MockWaterService()
         )
         waterVM.setPreviewState(.loaded([

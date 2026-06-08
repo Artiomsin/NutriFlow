@@ -3,7 +3,6 @@ import SwiftUI
 struct EditProfileView: View {
 
     @Bindable var viewModel: ProfileViewModel
-    @Environment(\.dismiss) private var dismiss
     var onDismiss: (() -> Void)?
 
     var body: some View {
@@ -15,29 +14,19 @@ struct EditProfileView: View {
             VStack(spacing: 0) {
 
                 HStack {
+                    Text("Edit Profile")
+                        .font(.title2.bold())
+                        .foregroundColor(AppTheme.textPrimary)
+
+                    Spacer()
 
                     Button {
                         onDismiss?()
-                        dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .foregroundColor(AppTheme.textPrimary)
-                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(AppTheme.textSecondary)
                     }
-
-                    Spacer()
-
-                    Text("Edit Profile")
-                        .foregroundColor(AppTheme.textPrimary)
-                        .font(.headline)
-
-                    Spacer()
-
-                    Spacer()
-                        .frame(width: 24)
                 }
-                .padding()
-                .background(AppTheme.headerBackground)
 
                 ScrollView {
 
@@ -49,12 +38,10 @@ struct EditProfileView: View {
                         AppTextField(title: "Height", text: $viewModel.height)
                         AppTextField(title: "Age", text: $viewModel.age)
                         PrimaryButton(title: "Save") {
-
                             Task {
                                 await viewModel.updateUser()
                                 await viewModel.updateProfile()
                                 onDismiss?()
-                                dismiss()
                             }
                         }
                         .padding(.top, 10)
@@ -63,5 +50,6 @@ struct EditProfileView: View {
                 }
             }
         }
+        .onAppear { AnalyticsService.shared.track(.screenView(screen: "edit_profile")) }
     }
 }

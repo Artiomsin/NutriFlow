@@ -25,6 +25,7 @@ struct AddFoodView: View {
         }
         .padding()
         .background(AppTheme.background.ignoresSafeArea())
+        .onAppear { AnalyticsService.shared.track(.screenView(screen: "add_food")) }
     }
 
     private var header: some View {
@@ -115,17 +116,13 @@ struct AddFoodView: View {
 }
 
 struct AddFoodViewPreview: View {
-    @State private var dismissed = false
 
     var body: some View {
-        let session = SessionManager(tokenStorage: TokenStorage(keychain: KeychainService()))
-
         let foodVM = FoodViewModel(
-            session: session,
             service: MockFoodService()
         )
 
-        return AddFoodView(
+        AddFoodView(
             foodViewModel: foodVM,
             onSave: {}
         )

@@ -1,33 +1,48 @@
+//
+//  TokenStorage.swift
+//  Nutriflow
+//
+//  Created by Artem on 4.06.26.
+//
 
-final class TokenStorage: TokenStorageProtocol {
+import Foundation
+
+protocol TokenStorage: Sendable {
+    func getAccessToken() -> String?
+    func getRefreshToken() -> String?
+
+    func saveAccessToken(_ token: String)
+    func saveRefreshToken(_ token: String)
+
+    func clear()
+}
+
+final class KeychainTokenStorage: TokenStorage, @unchecked Sendable {
 
     private let keychain: KeychainService
-
-    private let accessKey = "access_token"
-    private let refreshKey = "refresh_token"
 
     init(keychain: KeychainService) {
         self.keychain = keychain
     }
 
-    func saveAccessToken(_ token: String) throws {
-        try keychain.save(token, for: accessKey)
+    func getAccessToken() -> String? {
+        try? keychain.read("access_token")
     }
 
-    func saveRefreshToken(_ token: String) throws {
-        try keychain.save(token, for: refreshKey)
+    func getRefreshToken() -> String? {
+        try? keychain.read("refresh_token")
     }
 
-    func getAccessToken() throws -> String? {
-        try keychain.read(accessKey)
+    func saveAccessToken(_ token: String) {
+        try? keychain.save(token, for: "access_token")
     }
 
-    func getRefreshToken() throws -> String? {
-        try keychain.read(refreshKey)
+    func saveRefreshToken(_ token: String) {
+        try? keychain.save(token, for: "refresh_token")
     }
 
-    func clear() throws {
-        try keychain.delete(accessKey)
-        try keychain.delete(refreshKey)
+    func clear() {
+        try? keychain.delete("access_token")
+        try? keychain.delete("refresh_token")
     }
 }
