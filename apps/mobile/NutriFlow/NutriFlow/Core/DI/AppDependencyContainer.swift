@@ -17,6 +17,7 @@ final class AppDependencyContainer: AppDependency {
     let waterTrackingService: WaterTrackingServiceProtocol
     let dailySummaryService: DailySummaryServiceProtocol
     let goalsService: GoalsServiceProtocol
+    let analyticsService: AnalyticsServiceProtocol
 
     init() {
         let keychain = KeychainService()
@@ -45,7 +46,8 @@ final class AppDependencyContainer: AppDependency {
         self.waterTrackingService = WaterTrackingService(client: httpClient)
         self.dailySummaryService = DailySummaryService(client: httpClient)
         self.goalsService = GoalsService(client: httpClient)
-        
+        self.analyticsService = AnalyticsService(client: httpClient)
+
         self.sessionBootstrapService = SessionBootstrapService(
             profileService: profile,
             sessionService: session

@@ -21,8 +21,18 @@ final class URLSessionHTTPClient: HTTPClient, @unchecked Sendable {
         self.session = URLSession(configuration: configuration)
     }
 
+    private func shouldRetryAfter401<Body: Encodable & Sendable>(
+        _ request: APIRequest<Body>,
+        retryCount: Int
+    ) async throws -> Bool {
+        guard retryCount > 0, request.path != AuthEndpoints.refresh else { return false }
+        try await refreshService?.refresh()
+        return true
+    }
+
     func send<T: Decodable & Sendable, Body: Encodable & Sendable>(
-        _ request: APIRequest<Body>
+        _ request: APIRequest<Body>,
+        retryCount: Int = 1
     ) async throws -> T {
         var urlRequest = try buildURLRequest(from: request)
 
@@ -37,9 +47,8 @@ final class URLSessionHTTPClient: HTTPClient, @unchecked Sendable {
         }
 
         if http.statusCode == 401,
-           request.path != AuthEndpoints.refresh {
-            try await refreshService?.refresh()
-            return try await send(request)
+           try await shouldRetryAfter401(request, retryCount: retryCount) {
+            return try await send(request, retryCount: retryCount - 1)
         }
 
         switch http.statusCode {
@@ -59,7 +68,8 @@ final class URLSessionHTTPClient: HTTPClient, @unchecked Sendable {
     }
 
     func sendVoid<Body: Encodable & Sendable>(
-        _ request: APIRequest<Body>
+        _ request: APIRequest<Body>,
+        retryCount: Int = 1
     ) async throws {
         var urlRequest = try buildURLRequest(from: request)
 
@@ -74,9 +84,8 @@ final class URLSessionHTTPClient: HTTPClient, @unchecked Sendable {
         }
 
         if http.statusCode == 401,
-           request.path != AuthEndpoints.refresh {
-            try await refreshService?.refresh()
-            return try await sendVoid(request)
+           try await shouldRetryAfter401(request, retryCount: retryCount) {
+            return try await sendVoid(request, retryCount: retryCount - 1)
         }
 
         switch http.statusCode {

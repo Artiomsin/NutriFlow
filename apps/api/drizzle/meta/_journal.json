@@ -22,6 +22,13 @@
       "when": 1779459023296,
       "tag": "0002_massive_echo",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1780954444787,
+      "tag": "0003_dry_selene",
+      "breakpoints": true
     }
   ]
 }

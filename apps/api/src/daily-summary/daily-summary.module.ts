@@ -5,5 +5,6 @@ import { DailySummaryController } from './daily-summary.controller';
 @Module({
   controllers: [DailySummaryController],
   providers: [DailySummaryService],
+  exports: [DailySummaryService],
 })
 export class DailySummaryModule {}

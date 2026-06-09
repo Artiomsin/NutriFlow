@@ -1,5 +1,17 @@
 import Foundation
 
+enum Gender: String, Codable, CaseIterable {
+    case male
+    case female
+
+    var displayName: String {
+        switch self {
+        case .male: "Male"
+        case .female: "Female"
+        }
+    }
+}
+
 struct UserProfile: Codable, Identifiable {
     let id: String
     let userId: String
@@ -9,6 +21,7 @@ struct UserProfile: Codable, Identifiable {
     let weight: Double?
     let height: Int?
     let age: Int?
+    let gender: Gender?
     let goal: Goal?
     let activityLevel: ActivityLevel?
     let createdAt: String?
@@ -47,6 +60,7 @@ struct CreateProfileRequest: Codable {
     let weight: Double?
     let height: Int?
     let age: Int?
+    let gender: Gender?
     let goal: Goal?
     let activityLevel: ActivityLevel?
 }
@@ -55,6 +69,7 @@ struct UpdateProfileRequest: Codable {
     let weight: Double?
     let height: Int?
     let age: Int?
+    let gender: Gender?
     let goal: Goal?
     let activityLevel: ActivityLevel?
 }

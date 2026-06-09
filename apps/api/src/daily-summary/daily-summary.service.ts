@@ -9,6 +9,60 @@ import { eq, and, sql } from 'drizzle-orm';
 @Injectable()
 export class DailySummaryService {
 
+  async recalculate(userId: string) {
+    const [foodRow] = await db
+      .select({
+        calories: sql<number>`COALESCE(SUM(${foodEntries.calories}), 0)`,
+        protein: sql<number>`COALESCE(SUM(${foodEntries.protein}), 0)`,
+        fat: sql<number>`COALESCE(SUM(${foodEntries.fat}), 0)`,
+        carbs: sql<number>`COALESCE(SUM(${foodEntries.carbs}), 0)`,
+      })
+      .from(foodEntries)
+      .where(
+        and(
+          eq(foodEntries.userId, userId),
+          sql`DATE(${foodEntries.createdAt}) = CURRENT_DATE`,
+        ),
+      );
+
+    const [waterRow] = await db
+      .select({
+        total: sql<number>`COALESCE(SUM(${waterEntries.amountMl}), 0)`,
+      })
+      .from(waterEntries)
+      .where(
+        and(
+          eq(waterEntries.userId, userId),
+          sql`DATE(${waterEntries.createdAt}) = CURRENT_DATE`,
+        ),
+      );
+
+    const food = foodRow ?? { calories: 0, protein: 0, fat: 0, carbs: 0 };
+    const water = waterRow?.total ?? 0;
+
+    await db
+      .insert(dailySummary)
+      .values({
+        userId,
+        date: sql`CURRENT_DATE`,
+        totalCalories: food.calories,
+        totalProtein: food.protein,
+        totalFat: food.fat,
+        totalCarbs: food.carbs,
+        totalWaterMl: water,
+      })
+      .onConflictDoUpdate({
+        target: [dailySummary.userId, dailySummary.date],
+        set: {
+          totalCalories: food.calories,
+          totalProtein: food.protein,
+          totalFat: food.fat,
+          totalCarbs: food.carbs,
+          totalWaterMl: water,
+        },
+      });
+  }
+
   async findToday(userId: string) {
     const [summary] = await db
       .select()
@@ -16,7 +70,7 @@ export class DailySummaryService {
       .where(
         and(
           eq(dailySummary.userId, userId),
-          sql`DATE(${dailySummary.date}) = CURRENT_DATE`,
+          eq(dailySummary.date, sql`CURRENT_DATE`),
         ),
       )
       .limit(1);
@@ -33,7 +87,7 @@ export class DailySummaryService {
       .where(
         and(
           eq(dailySummary.userId, userId),
-          sql`DATE(${dailySummary.date}) = ${date}::date`,
+          eq(dailySummary.date, sql`${date}::date`),
         ),
       )
       .limit(1);
@@ -49,8 +103,8 @@ export class DailySummaryService {
       .where(
         and(
           eq(dailySummary.userId, userId),
-          sql`DATE(${dailySummary.date}) >= ${from}::date`,
-          sql`DATE(${dailySummary.date}) <= ${to}::date`,
+          sql`${dailySummary.date} >= ${from}::date`,
+          sql`${dailySummary.date} <= ${to}::date`,
         ),
       )
       .orderBy(dailySummary.date);
@@ -65,7 +119,7 @@ export class DailySummaryService {
       .where(
         and(
           eq(dailySummary.userId, userId),
-          sql`DATE(${dailySummary.date}) = CURRENT_DATE`,
+          eq(dailySummary.date, sql`CURRENT_DATE`),
         ),
       )
       .limit(1);

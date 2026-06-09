@@ -41,7 +41,7 @@ final class AuthViewModel {
             }
 
             state = .authenticated
-            AnalyticsService.shared.track(.loggedIn)
+            AmplitudeService.shared.track(.loggedIn)
         } catch {
             state = .error(error.localizedDescription)
         }
@@ -58,7 +58,7 @@ final class AuthViewModel {
                 lastName: lastName
             )
             state = .authenticated
-            AnalyticsService.shared.track(.registered)
+            AmplitudeService.shared.track(.registered)
             coordinator.goToProfileForm()
         } catch {
             state = .error(error.localizedDescription)
@@ -69,11 +69,11 @@ final class AuthViewModel {
         do {
             try await authService.logout()
             state = .unauthenticated
-            AnalyticsService.shared.track(.loggedOut)
+            AmplitudeService.shared.track(.loggedOut)
             coordinator.goToAuth()
         } catch {
             state = .unauthenticated
-            AnalyticsService.shared.track(.loggedOut)
+            AmplitudeService.shared.track(.loggedOut)
             coordinator.goToAuth()
         }
     }

@@ -17,5 +17,5 @@ protocol AppDependency {
     var waterTrackingService: WaterTrackingServiceProtocol { get }
     var dailySummaryService: DailySummaryServiceProtocol { get }
     var goalsService: GoalsServiceProtocol { get }
-    
+    var analyticsService: AnalyticsServiceProtocol { get }
 }

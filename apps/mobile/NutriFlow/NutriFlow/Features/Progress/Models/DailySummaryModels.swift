@@ -15,9 +15,9 @@ struct DailySummary: Codable, Identifiable {
     let date: String
 
     let totalCalories: Int
-    let totalProtein: Double
-    let totalFat: Double
-    let totalCarbs: Double
+    let totalProtein: Int
+    let totalFat: Int
+    let totalCarbs: Int
     let totalWaterMl: Int
 
     let createdAt: String?

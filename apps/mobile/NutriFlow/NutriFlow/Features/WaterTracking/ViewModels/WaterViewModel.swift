@@ -35,7 +35,7 @@ final class WaterViewModel {
 
         do {
             try await service.createWaterEntry(amountMl: ml)
-            AnalyticsService.shared.track(.waterAdded(amountMl: ml))
+            AmplitudeService.shared.track(.waterAdded(amountMl: ml))
             await loadToday()
             clearForm()
         } catch {
@@ -46,7 +46,7 @@ final class WaterViewModel {
     func deleteWater(id: String) async {
         do {
             try await service.deleteWaterEntry(id: id)
-            AnalyticsService.shared.track(.waterDeleted)
+            AmplitudeService.shared.track(.waterDeleted)
             await loadToday()
         } catch {
             state = .error(error)

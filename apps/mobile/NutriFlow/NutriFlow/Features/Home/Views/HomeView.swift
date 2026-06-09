@@ -46,7 +46,10 @@ struct HomeView: View {
         .task {
             await homeViewModel.loadAll()
         }
-        .onAppear { AnalyticsService.shared.track(.screenView(screen: "home")) }
+        .onAppear {
+            AmplitudeService.shared.track(.screenView(screen: "home"))
+            Task { await homeViewModel.reloadGoals() }
+        }
         .fullScreenCover(isPresented: $showAddFood) {
             AddFoodView(
                 foodViewModel: homeViewModel.foodViewModel,
@@ -69,7 +72,7 @@ struct HomeView: View {
         }
     }
 
-    private var header: some View {
+    private var header: some View { 
         VStack(spacing: 6) {
             Text("Home")
                 .font(.system(size: 30, weight: .semibold))

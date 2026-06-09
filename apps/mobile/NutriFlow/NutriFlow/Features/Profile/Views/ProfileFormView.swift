@@ -38,6 +38,23 @@ struct ProfileFormView: View {
                         )
                         
                         VStack(alignment: .leading, spacing: 8) {
+                            Text("Gender")
+                                .font(.subheadline)
+                                .foregroundColor(AppTheme.textTertiary)
+                            
+                            HStack(spacing: 12) {
+                                ForEach(Gender.allCases, id: \.self) { gender in
+                                    SelectableChip(
+                                        title: gender.displayName,
+                                        isSelected: viewModel.gender == gender
+                                    ) {
+                                        viewModel.gender = gender
+                                    }
+                                }
+                            }
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 8) {
                             Text("Goal")
                                 .font(.subheadline)
                                 .foregroundColor(AppTheme.textTertiary)
@@ -94,7 +111,7 @@ struct ProfileFormView: View {
                 }
             }
         }
-        .onAppear { AnalyticsService.shared.track(.screenView(screen: "profile_form")) }
+        .onAppear { AmplitudeService.shared.track(.screenView(screen: "profile_form")) }
     }
 }
 

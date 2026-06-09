@@ -60,6 +60,6 @@ struct CaloriesChartView: View {
     private var maxYValue: Int {
         let max = data.map { $0.calories }.max() ?? 0
         if max == 0 { return 1000 }
-        return max + (max * 30 / 100)
+        return max + (max * 45 / 100)
     }
 }

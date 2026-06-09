@@ -71,6 +71,7 @@ export class ProfilesService {
         weight: data.weight ?? existing.weight,
         height: data.height ?? existing.height,
         age: data.age ?? existing.age,
+        gender: data.gender ?? existing.gender,
         goal: data.goal ?? existing.goal,
         activityLevel: data.activityLevel ?? existing.activityLevel,
         updatedAt: new Date(),

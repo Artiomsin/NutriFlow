@@ -11,34 +11,41 @@ private struct MainTabView: View {
     let container: AppDependency
     let coordinator: AppCoordinator
     @State private var selectedTab = 0
+    @State private var periodState = PeriodState()
+    @State private var analyticsVM: AnalyticsViewModel?
+    @State private var dailyVM: DailySummaryViewModel?
 
     var body: some View {
         ZStack(alignment: .bottom) {
             AppTheme.background.ignoresSafeArea()
 
-            Group {
-                switch selectedTab {
-                case 0:
-                    HomeFactory.make(container: container, coordinator: coordinator)
-                case 1:
-                    ProgressDashboardView(
-                        viewModel: DailySummaryViewModel(
-                            coordinator: coordinator,
-                            service: container.dailySummaryService
-                        )
-                    )
-                case 2:
-                    SettingsFactory.make(container: container, coordinator: coordinator)
-                default:
-                    Color.clear
-                }
-            }
+            content(for: selectedTab)
 
             CustomTabBar(selectedTab: $selectedTab)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 16)
         }
         .ignoresSafeArea(.container, edges: .bottom)
+        .onAppear {
+            if analyticsVM == nil {
+                analyticsVM = AnalyticsViewModel(coordinator: coordinator, service: container.analyticsService, periodState: periodState)
+                dailyVM = DailySummaryViewModel(coordinator: coordinator, service: container.dailySummaryService, periodState: periodState)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func content(for tab: Int) -> some View {
+        switch tab {
+        case 0:
+            HomeFactory.make(container: container, coordinator: coordinator)
+        case 1:
+            if let analyticsVM, let dailyVM {
+                ProgressDashboardView(analyticsVM: analyticsVM, dailyVM: dailyVM, periodState: periodState)
+            }
+        default:
+            SettingsFactory.make(container: container, coordinator: coordinator)
+        }
     }
 }
 
@@ -86,25 +93,7 @@ private struct PreviewMainTabView: View {
         return ZStack(alignment: .bottom) {
             AppTheme.background.ignoresSafeArea()
 
-            Group {
-                switch selectedTab {
-                case 0:
-                    HomeView(homeViewModel: homeVM)
-                case 1:
-                    ProgressDashboardView(
-                        viewModel: DailySummaryViewModel(
-                            coordinator: coordinator,
-                            service: MockDailySummaryService(),
-                            foodService: MockFoodService(),
-                            waterService: MockWaterService()
-                        )
-                    )
-                case 2:
-                    SettingsView(viewModel: profileVM)
-                default:
-                    Color.clear
-                }
-            }
+            previewContent(for: selectedTab, coordinator: coordinator, homeVM: homeVM, profileVM: profileVM)
 
             CustomTabBar(selectedTab: $selectedTab)
                 .padding(.horizontal, 20)
@@ -112,5 +101,32 @@ private struct PreviewMainTabView: View {
         }
         .ignoresSafeArea(.container, edges: .bottom)
         .preferredColorScheme(.dark)
+    }
+
+    @ViewBuilder
+    private func previewContent(for tab: Int, coordinator: AppCoordinator, homeVM: HomeViewModel, profileVM: ProfileViewModel) -> some View {
+        switch tab {
+        case 0:
+            HomeView(homeViewModel: homeVM)
+        case 1:
+            let periodState = PeriodState()
+            ProgressDashboardView(
+                analyticsVM: AnalyticsViewModel(
+                    coordinator: coordinator,
+                    service: MockAnalyticsService(),
+                    periodState: periodState
+                ),
+                dailyVM: DailySummaryViewModel(
+                    coordinator: coordinator,
+                    service: MockDailySummaryService(),
+                    periodState: periodState,
+                    foodService: MockFoodService(),
+                    waterService: MockWaterService()
+                ),
+                periodState: periodState
+            )
+        default:
+            SettingsView(viewModel: profileVM)
+        }
     }
 }

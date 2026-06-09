@@ -63,9 +63,9 @@ final class MockDailySummaryService: DailySummaryServiceProtocol {
                 userId: "1",
                 date: fmt.string(from: current),
                 totalCalories: Int.random(in: 1500...2500),
-                totalProtein: Double.random(in: 60...120),
-                totalFat: Double.random(in: 30...70),
-                totalCarbs: Double.random(in: 100...200),
+                totalProtein: Int.random(in: 60...120),
+                totalFat: Int.random(in: 30...70),
+                totalCarbs: Int.random(in: 100...200),
                 totalWaterMl: Int.random(in: 1500...2500),
                 createdAt: "2026-05-18T10:00:00Z",
                 updatedAt: nil
@@ -78,13 +78,13 @@ final class MockDailySummaryService: DailySummaryServiceProtocol {
 
 final class MockProfileService: ProfileServiceProtocol {
     func getMyProfile() async throws -> UserProfile {
-        UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: 82, height: 183, age: 24, goal: .gain, activityLevel: .high, createdAt: nil, updatedAt: nil)
+        UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: 82, height: 183, age: 24, gender: .male, goal: .gain, activityLevel: .high, createdAt: nil, updatedAt: nil)
     }
-    func createProfile(weight: Double?, height: Int?, age: Int?, goal: Goal?, activityLevel: ActivityLevel?) async throws -> UserProfile {
-        UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: weight, height: height, age: age, goal: goal, activityLevel: activityLevel, createdAt: nil, updatedAt: nil)
+    func createProfile(weight: Double?, height: Int?, age: Int?, gender: Gender?, goal: Goal?, activityLevel: ActivityLevel?) async throws -> UserProfile {
+        UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: weight, height: height, age: age, gender: gender, goal: goal, activityLevel: activityLevel, createdAt: nil, updatedAt: nil)
     }
-    func updateMyProfile(weight: Double?, height: Int?, age: Int?, goal: Goal?, activityLevel: ActivityLevel?) async throws -> UserProfile {
-        UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: weight, height: height, age: age, goal: goal, activityLevel: activityLevel, createdAt: nil, updatedAt: nil)
+    func updateMyProfile(weight: Double?, height: Int?, age: Int?, gender: Gender?, goal: Goal?, activityLevel: ActivityLevel?) async throws -> UserProfile {
+        UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: weight, height: height, age: age, gender: gender, goal: goal, activityLevel: activityLevel, createdAt: nil, updatedAt: nil)
     }
     func deleteMyProfile() async throws { }
 }
@@ -113,6 +113,65 @@ final class MockAuthService: AuthServiceProtocol {
     func logoutAll() async throws { }
 }
 
+
+final class MockAnalyticsService: AnalyticsServiceProtocol {
+    func getWeekAnalytics() async throws -> AnalyticsResponse {
+        makeMockResponse(period: "week")
+    }
+    func getMonthAnalytics() async throws -> AnalyticsResponse {
+        makeMockResponse(period: "month")
+    }
+    func getCustomRange(from: String, to: String) async throws -> AnalyticsResponse {
+        makeMockResponse(period: "custom")
+    }
+    private func makeMockResponse(period: String) -> AnalyticsResponse {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        let today = fmt.string(from: Date())
+        let days = (0..<7).map { i in
+            let d = Calendar.current.date(byAdding: .day, value: -i, to: Date())!
+            return AnalyticsDay(
+                date: fmt.string(from: d),
+                calories: Int.random(in: 1500...2500),
+                protein: Int.random(in: 60...120),
+                fat: Int.random(in: 30...70),
+                carbs: Int.random(in: 100...200),
+                water: Int.random(in: 1500...2500),
+                caloriesPct: Int.random(in: 60...110),
+                proteinPct: Int.random(in: 40...100),
+                fatPct: Int.random(in: 50...100),
+                carbsPct: Int.random(in: 40...90),
+                waterPct: Int.random(in: 50...100)
+            )
+        }
+        return AnalyticsResponse(
+            period: period,
+            fromDate: today,
+            toDate: today,
+            averageCalories: 1950,
+            averageProtein: 90,
+            averageFat: 50,
+            averageCarbs: 150,
+            averageWater: 2000,
+            goalCalories: 2200,
+            goalCaloriesPct: 89,
+            goalProtein: 150,
+            goalProteinPct: 60,
+            goalFat: 65,
+            goalFatPct: 77,
+            goalCarbs: 250,
+            goalCarbsPct: 60,
+            goalWater: 3000,
+            goalWaterPct: 67,
+            daysTracked: 5,
+            totalDays: 7,
+            streak: 3,
+            streakStart: today,
+            trend: .stable,
+            daily: days
+        )
+    }
+}
 
 final class MockGoalsService: GoalsServiceProtocol {
     func getGoals() async throws -> UserGoals {

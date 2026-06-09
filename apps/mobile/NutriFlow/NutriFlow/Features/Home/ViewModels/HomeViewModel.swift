@@ -48,6 +48,10 @@ final class HomeViewModel {
         checkAuth()
     }
 
+    func reloadGoals() async {
+        await goalsViewModel.loadGoals()
+    }
+
     func addFood() async {
         await foodViewModel.createFood()
         guard !checkAuth() else { return }

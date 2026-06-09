@@ -37,6 +37,23 @@ struct EditProfileView: View {
                         AppTextField(title: "Weight", text: $viewModel.weight)
                         AppTextField(title: "Height", text: $viewModel.height)
                         AppTextField(title: "Age", text: $viewModel.age)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Gender")
+                                .font(.subheadline)
+                                .foregroundColor(AppTheme.textTertiary)
+
+                            HStack(spacing: 12) {
+                                ForEach(Gender.allCases, id: \.self) { gender in
+                                    SelectableChip(
+                                        title: gender.displayName,
+                                        isSelected: viewModel.gender == gender
+                                    ) {
+                                        viewModel.gender = gender
+                                    }
+                                }
+                            }
+                        }
                         PrimaryButton(title: "Save") {
                             Task {
                                 await viewModel.updateUser()
@@ -50,6 +67,6 @@ struct EditProfileView: View {
                 }
             }
         }
-        .onAppear { AnalyticsService.shared.track(.screenView(screen: "edit_profile")) }
+        .onAppear { AmplitudeService.shared.track(.screenView(screen: "edit_profile")) }
     }
 }

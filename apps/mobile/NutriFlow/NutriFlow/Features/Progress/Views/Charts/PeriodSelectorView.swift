@@ -32,7 +32,9 @@ struct PeriodSelectorView: View {
                 showDatePicker = false
             }
         }
-        .onAppear { tempFromDate = fromDate; tempToDate = toDate }
+        .onChange(of: showDatePicker) { _, newValue in
+            if newValue { tempFromDate = fromDate; tempToDate = toDate }
+        }
     }
     private func formatDate(_ date: Date) -> String {
         let formatter = DateFormatter()
@@ -67,13 +69,12 @@ struct DateRangePickerSheet: View {
         NavigationStack {
             ZStack {
                 AppTheme.background.ignoresSafeArea()
-                VStack(spacing: 20) {
+                    VStack(spacing: 12) {
+                    CustomCalendarView(fromDate: $fromDate, toDate: $toDate)
+
                     Text("\(formatDate(fromDate)) — \(formatDate(toDate))")
                         .font(.subheadline.weight(.semibold))
                         .foregroundColor(AppTheme.textPrimary)
-                        .padding(.vertical, 8)
-
-                    CustomCalendarView(fromDate: $fromDate, toDate: $toDate)
 
                     Button("Apply") {
                         onApply(fromDate, toDate)
@@ -85,7 +86,7 @@ struct DateRangePickerSheet: View {
                     .background(AppTheme.accent)
                     .cornerRadius(12)
                 }
-                .padding()
+                .padding(.horizontal)
             }
             .toolbar {
                 ToolbarItem(placement: .principal) {

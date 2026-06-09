@@ -25,7 +25,7 @@ struct AddFoodView: View {
         }
         .padding()
         .background(AppTheme.background.ignoresSafeArea())
-        .onAppear { AnalyticsService.shared.track(.screenView(screen: "add_food")) }
+        .onAppear { AmplitudeService.shared.track(.screenView(screen: "add_food")) }
     }
 
     private var header: some View {

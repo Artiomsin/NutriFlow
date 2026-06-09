@@ -1,8 +1,9 @@
 import Foundation
 import AmplitudeUnified
 
-final class AnalyticsService: @unchecked Sendable {
-    static let shared = AnalyticsService()
+final class AmplitudeService: @unchecked Sendable {
+    static let shared = AmplitudeService()
+    static var isEnabled = false
     private let amplitude: Amplitude
 
     private init() {
@@ -13,6 +14,7 @@ final class AnalyticsService: @unchecked Sendable {
     }
 
     func track(_ event: TrackingEvent) {
+        guard Self.isEnabled else { return }
         #if DEBUG
         print("[Amplitude] Tracked: \(event.name) props: \(event.properties ?? [:])")
         #endif

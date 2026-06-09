@@ -47,7 +47,7 @@ final class FoodViewModel {
                 carbs: Int(carbs)
             )
 
-            AnalyticsService.shared.track(.foodAdded(name: name, calories: caloriesInt))
+            AmplitudeService.shared.track(.foodAdded(name: name, calories: caloriesInt))
             await loadToday()
             clearForm()
         } catch {
@@ -58,7 +58,7 @@ final class FoodViewModel {
     func deleteFood(id: String) async {
         do {
             try await service.deleteFoodEntry(id: id)
-            AnalyticsService.shared.track(.foodDeleted)
+            AmplitudeService.shared.track(.foodDeleted)
             await loadToday()
         } catch {
             state = .error(error)

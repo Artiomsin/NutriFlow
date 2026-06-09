@@ -78,6 +78,11 @@ struct ProfileDisplayView: View {
                                 value: viewModel.age.isEmpty ? "Not set" : "\(viewModel.age) years"
                             )
                             ProfileInfoCard(
+                                icon: "figure.stand",
+                                title: "Gender",
+                                value: viewModel.gender?.displayName ?? "Not set"
+                            )
+                            ProfileInfoCard(
                                 icon: "target",
                                 title: "Goal",
                                 value: viewModel.goal?.displayName ?? "Not set"
@@ -111,7 +116,7 @@ struct ProfileDisplayView: View {
             .scrollContentBackground(.hidden)
             .background(AppTheme.background)
         }
-        .onAppear { AnalyticsService.shared.track(.screenView(screen: "profile")) }
+        .onAppear { AmplitudeService.shared.track(.screenView(screen: "profile")) }
         .fullScreenCover(isPresented: $showEditProfile) {
             EditProfileView(viewModel: viewModel) {
                 showEditProfile = false

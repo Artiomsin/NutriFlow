@@ -36,7 +36,7 @@ struct SettingsView: View {
             }
         }
         .onAppear {
-            AnalyticsService.shared.track(.screenView(screen: "settings"))
+            AmplitudeService.shared.track(.screenView(screen: "settings"))
             Task { await viewModel.loadData() }
         }
         .fullScreenCover(isPresented: $showProfile) {

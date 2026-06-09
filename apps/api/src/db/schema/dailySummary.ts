@@ -3,6 +3,8 @@ import {
   uuid,
   integer,
   timestamp,
+  date,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { users } from './users';
 
@@ -15,7 +17,7 @@ export const dailySummary = app.table('daily_summary', {
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
 
-  date: timestamp('date').notNull(),
+  date: date('date').notNull(),
 
   totalCalories: integer('total_calories').default(0),
   totalProtein: integer('total_protein').default(0),
@@ -24,7 +26,9 @@ export const dailySummary = app.table('daily_summary', {
   totalWaterMl: integer('total_water_ml').default(0),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (table) => ({
+  userDateUnique: uniqueIndex('daily_summary_user_date_key').on(table.userId, table.date),
+}));
 
 export type DailySummary = typeof dailySummary.$inferSelect;
 export type NewDailySummary = typeof dailySummary.$inferInsert;

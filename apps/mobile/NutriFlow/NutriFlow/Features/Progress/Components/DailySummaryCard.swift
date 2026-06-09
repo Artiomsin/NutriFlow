@@ -33,21 +33,21 @@ struct DailySummaryCard: View {
                     unit: "kcal"
                 )
                 GoalProgressRow(
-                    current: Int(summary.totalProtein),
+                    current: summary.totalProtein,
                     goal: goals.dailyProteinGoal,
                     label: "Protein",
                     color: .blue,
                     unit: "g"
                 )
                 GoalProgressRow(
-                    current: Int(summary.totalFat),
+                    current: summary.totalFat,
                     goal: goals.dailyFatGoal,
                     label: "Fat",
                     color: .green,
                     unit: "g"
                 )
                 GoalProgressRow(
-                    current: Int(summary.totalCarbs),
+                    current: summary.totalCarbs,
                     goal: goals.dailyCarbsGoal,
                     label: "Carbs",
                     color: .purple,
@@ -68,9 +68,9 @@ struct DailySummaryCard: View {
 
             HStack(spacing: 12) {
 
-                MacroBadge(title: "P", value: Int(summary.totalProtein))
-                MacroBadge(title: "F", value: Int(summary.totalFat))
-                MacroBadge(title: "C", value: Int(summary.totalCarbs))
+                MacroBadge(title: "P", value: summary.totalProtein)
+                MacroBadge(title: "F", value: summary.totalFat)
+                MacroBadge(title: "C", value: summary.totalCarbs)
 
                 Spacer()
             }

@@ -15,6 +15,7 @@ final class ProfileViewModel {
     var firstName: String = ""
     var lastName: String = ""
     
+    var gender: Gender?
     var goal: Goal?
     var activityLevel: ActivityLevel?
     
@@ -91,13 +92,14 @@ final class ProfileViewModel {
                 weight: Double(weight),
                 height: Int(height),
                 age: Int(age),
+                gender: gender,
                 goal: goal,
                 activityLevel: activityLevel
             )
 
             mapProfile(profile)
             state = .loaded(profile)
-            AnalyticsService.shared.track(.profileCreated)
+            AmplitudeService.shared.track(.profileCreated)
             coordinator.goToMain()
 
         } catch {
@@ -113,13 +115,14 @@ final class ProfileViewModel {
                 weight: Double(weight),
                 height: Int(height),
                 age: Int(age),
+                gender: gender,
                 goal: goal,
                 activityLevel: activityLevel
             )
 
             mapProfile(profile)
             state = .loaded(profile)
-            AnalyticsService.shared.track(.profileUpdated)
+            AmplitudeService.shared.track(.profileUpdated)
 
         } catch {
             state = .error(error)
@@ -150,6 +153,7 @@ final class ProfileViewModel {
         weight = profile.weight.map { String($0) } ?? ""
         height = profile.height.map { String($0) } ?? ""
         age = profile.age.map { String($0) } ?? ""
+        gender = profile.gender
         goal = profile.goal
         activityLevel = profile.activityLevel
     }
@@ -158,6 +162,7 @@ final class ProfileViewModel {
         weight = ""
         height = ""
         age = ""
+        gender = nil
         goal = nil
         activityLevel = nil
     }

@@ -7,14 +7,12 @@ final class DailySummaryViewModel {
 
     var state: DailySummaryState = .idle
     var chartState: ChartState = .idle
-    
-    var periodType: PeriodType = .week
+
+    private let periodState: PeriodState
     var chartData: [ChartDataPoint] = []
-    
+
     var selectedDate: Date = Date()
-    var fromDate: Date = Date().addingTimeInterval(-7 * 86400)
-    var toDate: Date = Date()
-    
+
     var totalCaloriesSum: Int = 0
     var totalWaterSum: Int = 0
     var avgProtein: Double = 0
@@ -25,16 +23,18 @@ final class DailySummaryViewModel {
     @ObservationIgnored private let service: DailySummaryServiceProtocol
     @ObservationIgnored private let foodService: FoodServiceProtocol?
     @ObservationIgnored private let waterService: WaterTrackingServiceProtocol?
+    @ObservationIgnored private var loadTask: Task<Void, Never>?
     var dashboardFoodEntries: [FoodEntry] = []
     var dashboardWaterEntries: [WaterEntry] = []
-    
-    init(coordinator: AppCoordinator, service: DailySummaryServiceProtocol, foodService: FoodServiceProtocol? = nil, waterService: WaterTrackingServiceProtocol? = nil) {
+
+    init(coordinator: AppCoordinator, service: DailySummaryServiceProtocol, periodState: PeriodState = PeriodState(), foodService: FoodServiceProtocol? = nil, waterService: WaterTrackingServiceProtocol? = nil) {
         self.coordinator = coordinator
         self.service = service
+        self.periodState = periodState
         self.foodService = foodService
         self.waterService = waterService
     }
-    
+
     func loadToday() async {
         state = .loading
         do {
@@ -95,7 +95,7 @@ final class DailySummaryViewModel {
             state = .error(error)
         }
     }
-    
+
     private func aggregateHourly(food: [FoodEntry], water: [WaterEntry]) -> [ChartDataPoint] {
         var calByHour: [Int: Int] = [:]
         var protByHour: [Int: Double] = [:]
@@ -138,13 +138,13 @@ final class DailySummaryViewModel {
     }
 
     private func aggregationLevel() -> AggregationLevel {
-        switch periodType {
+        switch periodState.type {
         case .today, .week:
             return .day
         case .month:
             return .week
         case .custom:
-            let days = Calendar.current.dateComponents([.day], from: fromDate, to: toDate).day ?? 0
+            let days = Calendar.current.dateComponents([.day], from: periodState.fromDate, to: periodState.toDate).day ?? 0
             if days <= 14 { return .day }
             if days <= 60 { return .week }
             return .month
@@ -216,9 +216,10 @@ final class DailySummaryViewModel {
         chartData = []
         resetAverages()
         do {
+            try Task.checkCancellation()
             let summaries: [DailySummary]
 
-            switch periodType {
+            switch periodState.type {
             case .today:
                 if let foodService, let waterService {
                     let food = try await foodService.getTodayFood()
@@ -249,20 +250,21 @@ final class DailySummaryViewModel {
                 summaries = try await service.getDailySummaryRange(from: from, to: to)
 
             case .custom:
-                let from = formatDate(fromDate)
-                let to = formatDate(toDate)
+                let from = formatDate(periodState.fromDate)
+                let to = formatDate(periodState.toDate)
                 summaries = try await service.getDailySummaryRange(from: from, to: to)
             }
 
+            try Task.checkCancellation()
             chartData = summaries
                 .filter { $0.totalCalories > 0 || $0.totalWaterMl > 0 }
                 .map { summary in ChartDataPoint(
                 date: parseDateOnly(summary.date),
                 label: "",
                 calories: summary.totalCalories,
-                protein: summary.totalProtein,
-                fat: summary.totalFat,
-                carbs: summary.totalCarbs,
+                protein: Double(summary.totalProtein),
+                fat: Double(summary.totalFat),
+                carbs: Double(summary.totalCarbs),
                 waterMl: summary.totalWaterMl
             )
             }
@@ -277,26 +279,29 @@ final class DailySummaryViewModel {
             }
             chartState = .error(error)
         } catch {
+            if error is CancellationError { return }
             chartState = .error(error)
         }
     }
-    
+
     func setPeriod(_ period: PeriodType) {
-        periodType = period
-        Task {
+        periodState.type = period
+        loadTask?.cancel()
+        loadTask = Task {
             await loadChartData()
         }
     }
-    
+
     func setCustomRange(from: Date, to: Date) {
-        fromDate = from
-        toDate = to
-        periodType = .custom
-        Task {
+        periodState.fromDate = from
+        periodState.toDate = to
+        periodState.type = .custom
+        loadTask?.cancel()
+        loadTask = Task {
             await loadChartData()
         }
     }
-    
+
     private func calculateAverages() {
         guard !chartData.isEmpty else { return }
         daysCount = chartData.count
@@ -311,7 +316,7 @@ final class DailySummaryViewModel {
         avgFat = sums.fat / Double(daysCount)
         avgCarbs = sums.carbs / Double(daysCount)
     }
-    
+
     private func resetAverages() {
         totalCaloriesSum = 0
         totalWaterSum = 0
@@ -320,18 +325,18 @@ final class DailySummaryViewModel {
         avgCarbs = 0
         daysCount = 0
     }
-    
+
     private func formatDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         formatter.timeZone = TimeZone(abbreviation: "UTC")
         return formatter.string(from: date)
     }
-    
+
     private func parseDateOnly(_ dateString: String) -> Date {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
-        f.timeZone = TimeZone.current
+        f.timeZone = TimeZone(abbreviation: "UTC")
         return f.date(from: String(dateString.prefix(10))) ?? Date()
     }
 
@@ -347,7 +352,7 @@ final class DailySummaryViewModel {
         f.dateFormat = "yyyy-MM-dd"
         return f.date(from: String(dateString.prefix(10)))
     }
-    
+
     func setPreviewState(_ newState: DailySummaryState) {
         state = newState
     }
