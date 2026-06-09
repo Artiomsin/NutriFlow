@@ -36,10 +36,13 @@ struct PeriodSelectorView: View {
             if newValue { tempFromDate = fromDate; tempToDate = toDate }
         }
     }
+    private static let formatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMM d"
+        return f
+    }()
     private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
-        return formatter.string(from: date)
+        Self.formatter.string(from: date)
     }
 }
 struct PeriodChip: View {
@@ -103,10 +106,13 @@ struct DateRangePickerSheet: View {
         }
     }
 
+    private static let formatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMM d"
+        return f
+    }()
     private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
-        return formatter.string(from: date)
+        Self.formatter.string(from: date)
     }
 }
 

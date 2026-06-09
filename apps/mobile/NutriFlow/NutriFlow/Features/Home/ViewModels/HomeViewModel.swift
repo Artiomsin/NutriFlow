@@ -38,10 +38,14 @@ final class HomeViewModel {
             group.addTask { await self.goalsViewModel.loadGoals() }
         }
 
-        if case .loaded = dailyViewModel.state {
+        switch dailyViewModel.state {
+        case .loaded:
             foodViewModel.state = .loaded(dailyViewModel.dashboardFoodEntries)
             waterViewModel.state = .loaded(dailyViewModel.dashboardWaterEntries)
-        } else if case .empty = dailyViewModel.state {
+        case .empty, .error:
+            foodViewModel.state = .loaded([])
+            waterViewModel.state = .loaded([])
+        case .idle, .loading:
             foodViewModel.state = .loaded([])
             waterViewModel.state = .loaded([])
         }

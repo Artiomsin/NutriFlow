@@ -51,13 +51,4 @@ final class AuthService: AuthServiceProtocol, Sendable {
         try await client.sendVoid(request)
         sessionService.clear()
     }
-
-    func refresh(refreshToken: String) async throws -> AuthTokensResponse {
-        let request = APIRequest(
-            path: AuthEndpoints.refresh,
-            method: .POST,
-            body: RefreshDTO(refreshToken: refreshToken)
-        )
-        return try await client.send(request)
-    }
 }

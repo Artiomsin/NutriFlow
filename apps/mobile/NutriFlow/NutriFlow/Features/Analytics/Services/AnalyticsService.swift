@@ -19,8 +19,12 @@ final class AnalyticsService: AnalyticsServiceProtocol, Sendable {
     }
 
     func getCustomRange(from: String, to: String) async throws -> AnalyticsResponse {
-        let path = AnalyticsEndpoints.getCustomRange(from: from, to: to)
-        let request = APIRequest<NeverBody>(path: path, method: .GET)
+        let endpoint = AnalyticsEndpoints.getCustomRange(from: from, to: to)
+        let request = APIRequest<NeverBody>(
+            path: endpoint.path,
+            method: .GET,
+            queryItems: endpoint.query
+        )
         return try await client.send(request)
     }
 }

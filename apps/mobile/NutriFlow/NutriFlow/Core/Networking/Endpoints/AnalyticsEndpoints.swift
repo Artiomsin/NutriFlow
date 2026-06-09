@@ -13,12 +13,10 @@ enum AnalyticsEndpoints {
     static let getMonth = "/analytics/month"
     static let getCustom = "/analytics/custom"
 
-    static func getCustomRange(from: String, to: String) -> String {
-        var components = URLComponents(string: "/analytics/custom")!
-        components.queryItems = [
+    static func getCustomRange(from: String, to: String) -> (path: String, query: [URLQueryItem]) {
+        (path: "/analytics/custom", query: [
             URLQueryItem(name: "from", value: from),
             URLQueryItem(name: "to", value: to)
-        ]
-        return components.url?.absoluteString ?? "/analytics/custom"
+        ])
     }
 }

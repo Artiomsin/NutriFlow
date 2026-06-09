@@ -1,6 +1,6 @@
 import Foundation
 
-final class URLSessionHTTPClient: HTTPClient, @unchecked Sendable {
+final class URLSessionHTTPClient: HTTPClient, Sendable {
     private let session: URLSession
     private let interceptors: [RequestInterceptor]
     private let refreshService: AuthRefreshService?
@@ -22,18 +22,45 @@ final class URLSessionHTTPClient: HTTPClient, @unchecked Sendable {
     }
 
     private func shouldRetryAfter401<Body: Encodable & Sendable>(
-        _ request: APIRequest<Body>,
-        retryCount: Int
+        _ request: APIRequest<Body>
     ) async throws -> Bool {
-        guard retryCount > 0, request.path != AuthEndpoints.refresh else { return false }
+        guard request.path != AuthEndpoints.refresh else { return false }
         try await refreshService?.refresh()
         return true
     }
 
     func send<T: Decodable & Sendable, Body: Encodable & Sendable>(
-        _ request: APIRequest<Body>,
-        retryCount: Int = 1
+        _ request: APIRequest<Body>
     ) async throws -> T {
+        let (data, http) = try await execute(request, retryOn401: true)
+        switch http.statusCode {
+        case 200...299: return try JSONDecoder().decode(T.self, from: data)
+        case 401: throw APIError.unauthorized
+        case 403: throw APIError.forbidden
+        case 404: throw APIError.notFound
+        case 500...599: throw APIError.serverError(statusCode: http.statusCode)
+        default: throw APIError.unknown
+        }
+    }
+
+    func sendVoid<Body: Encodable & Sendable>(
+        _ request: APIRequest<Body>
+    ) async throws {
+        let (_, http) = try await execute(request, retryOn401: true)
+        switch http.statusCode {
+        case 200...299: return
+        case 401: throw APIError.unauthorized
+        case 403: throw APIError.forbidden
+        case 404: throw APIError.notFound
+        case 500...599: throw APIError.serverError(statusCode: http.statusCode)
+        default: throw APIError.unknown
+        }
+    }
+
+    private func execute<Body: Encodable & Sendable>(
+        _ request: APIRequest<Body>,
+        retryOn401: Bool
+    ) async throws -> (Data, HTTPURLResponse) {
         var urlRequest = try buildURLRequest(from: request)
 
         for interceptor in interceptors {
@@ -46,62 +73,12 @@ final class URLSessionHTTPClient: HTTPClient, @unchecked Sendable {
             throw APIError.requestFailed
         }
 
-        if http.statusCode == 401,
-           try await shouldRetryAfter401(request, retryCount: retryCount) {
-            return try await send(request, retryCount: retryCount - 1)
+        if retryOn401, http.statusCode == 401,
+           try await shouldRetryAfter401(request) {
+            return try await execute(request, retryOn401: false)
         }
 
-        switch http.statusCode {
-        case 200...299:
-            return try JSONDecoder().decode(T.self, from: data)
-        case 401:
-            throw APIError.unauthorized
-        case 403:
-            throw APIError.forbidden
-        case 404:
-            throw APIError.notFound
-        case 500...599:
-            throw APIError.serverError(statusCode: http.statusCode)
-        default:
-            throw APIError.unknown
-        }
-    }
-
-    func sendVoid<Body: Encodable & Sendable>(
-        _ request: APIRequest<Body>,
-        retryCount: Int = 1
-    ) async throws {
-        var urlRequest = try buildURLRequest(from: request)
-
-        for interceptor in interceptors {
-            try await interceptor.adapt(&urlRequest)
-        }
-
-        let (_, response) = try await session.data(for: urlRequest)
-
-        guard let http = response as? HTTPURLResponse else {
-            throw APIError.requestFailed
-        }
-
-        if http.statusCode == 401,
-           try await shouldRetryAfter401(request, retryCount: retryCount) {
-            return try await sendVoid(request, retryCount: retryCount - 1)
-        }
-
-        switch http.statusCode {
-        case 200...299:
-            return
-        case 401:
-            throw APIError.unauthorized
-        case 403:
-            throw APIError.forbidden
-        case 404:
-            throw APIError.notFound
-        case 500...599:
-            throw APIError.serverError(statusCode: http.statusCode)
-        default:
-            throw APIError.unknown
-        }
+        return (data, http)
     }
 
     private func buildURLRequest<Body: Encodable & Sendable>(

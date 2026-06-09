@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct CreateFoodRequest: Codable {
+struct CreateFoodRequest: Codable, Sendable {
     let name: String
     let calories: Int
     let protein: Int?
@@ -15,7 +15,7 @@ struct CreateFoodRequest: Codable {
     let carbs: Int?
 }
 
-struct UpdateFoodEntryRequest: Codable {
+struct UpdateFoodEntryRequest: Codable, Sendable {
 
     let name: String?
 
@@ -25,7 +25,7 @@ struct UpdateFoodEntryRequest: Codable {
     let carbs: Int?
 }
 
-struct FoodEntry: Codable, Identifiable {
+struct FoodEntry: Codable, Identifiable, Sendable {
 
     let id: String
     let userId: String

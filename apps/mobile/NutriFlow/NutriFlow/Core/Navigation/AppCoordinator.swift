@@ -9,6 +9,15 @@ final class AppCoordinator {
 
     init(container: AppDependency) {
         self.container = container
+        NotificationCenter.default.addObserver(
+            forName: .sessionExpired,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.route = .auth
+            }
+        }
     }
 
     @ViewBuilder

@@ -8,10 +8,13 @@ struct CustomCalendarView: View {
     private let calendar = Calendar.current
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
 
+    private static let monthYearFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMMM yyyy"
+        return f
+    }()
     private var monthYearString: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
-        return formatter.string(from: currentMonth)
+        Self.monthYearFormatter.string(from: currentMonth)
     }
 
     private var daySymbols: [String] {

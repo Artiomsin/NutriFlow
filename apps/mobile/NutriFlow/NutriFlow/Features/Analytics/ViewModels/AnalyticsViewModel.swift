@@ -12,6 +12,13 @@ final class AnalyticsViewModel {
     @ObservationIgnored private let coordinator: AppCoordinator
     @ObservationIgnored private let service: AnalyticsServiceProtocol
     @ObservationIgnored private var loadTask: Task<Void, Never>?
+    @ObservationIgnored private var loadTaskID = 0
+    private static let formatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.timeZone = TimeZone(abbreviation: "UTC")
+        return f
+    }()
 
     init(coordinator: AppCoordinator, service: AnalyticsServiceProtocol, periodState: PeriodState = PeriodState()) {
         self.coordinator = coordinator
@@ -20,13 +27,17 @@ final class AnalyticsViewModel {
     }
 
     func loadAnalytics() async {
+        let currentID = loadTaskID
+
         if periodState.type == .today {
             state = .idle
             return
         }
-        state = .loading
         do {
             try Task.checkCancellation()
+            guard currentID == loadTaskID else { return }
+            state = .loading
+
             let result: AnalyticsResponse
             switch periodState.type {
             case .week:
@@ -48,6 +59,8 @@ final class AnalyticsViewModel {
             }
 
             try Task.checkCancellation()
+            guard currentID == loadTaskID else { return }
+
             let hasData = result.daysTracked > 0
                 && result.daily.contains { $0.calories > 0 || $0.water > 0 }
 
@@ -60,9 +73,11 @@ final class AnalyticsViewModel {
             if case .unauthorized = error {
                 coordinator.goToAuth()
             }
+            guard currentID == loadTaskID else { return }
             state = .error(error)
         } catch {
             if error is CancellationError { return }
+            guard currentID == loadTaskID else { return }
             state = .error(error)
         }
     }
@@ -87,6 +102,7 @@ final class AnalyticsViewModel {
             }
         }
         loadTask?.cancel()
+        loadTaskID &+= 1
         loadTask = Task { await loadAnalytics() }
     }
 
@@ -100,13 +116,11 @@ final class AnalyticsViewModel {
             return
         }
         loadTask?.cancel()
+        loadTaskID &+= 1
         loadTask = Task { await loadAnalytics() }
     }
 
     private func formatDate(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.timeZone = TimeZone(abbreviation: "UTC")
-        return f.string(from: date)
+        Self.formatter.string(from: date)
     }
 }

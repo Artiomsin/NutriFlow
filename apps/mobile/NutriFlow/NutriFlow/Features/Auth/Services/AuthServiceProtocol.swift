@@ -17,6 +17,4 @@ protocol AuthServiceProtocol: Sendable {
     func logout() async throws
 
     func logoutAll() async throws
-
-    func refresh(refreshToken: String) async throws -> AuthTokensResponse
 }

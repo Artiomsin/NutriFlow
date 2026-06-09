@@ -1,13 +1,13 @@
 import Foundation
 
-enum TrendType: String, Codable {
+enum TrendType: String, Codable, Sendable {
     case increasing
     case decreasing
     case stable
     case insufficientData = "insufficient_data"
 }
 
-struct AnalyticsResponse: Codable {
+struct AnalyticsResponse: Codable, Sendable {
     let period: String
     let fromDate: String
     let toDate: String
@@ -39,7 +39,7 @@ struct AnalyticsResponse: Codable {
     let daily: [AnalyticsDay]
 }
 
-struct AnalyticsDay: Codable {
+struct AnalyticsDay: Codable, Sendable {
     let date: String
     let calories: Int
     let protein: Int

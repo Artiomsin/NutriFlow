@@ -24,6 +24,23 @@ final class DailySummaryViewModel {
     @ObservationIgnored private let foodService: FoodServiceProtocol?
     @ObservationIgnored private let waterService: WaterTrackingServiceProtocol?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
+    @ObservationIgnored private var loadTaskID = 0
+    private static let dateOnlyFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.timeZone = TimeZone(abbreviation: "UTC")
+        return f
+    }()
+    private static let labelFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "E"
+        return f
+    }()
+    private static let monthFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMM"
+        return f
+    }()
     var dashboardFoodEntries: [FoodEntry] = []
     var dashboardWaterEntries: [WaterEntry] = []
 
@@ -158,15 +175,11 @@ final class DailySummaryViewModel {
 
         switch level {
         case .day:
-            let f = DateFormatter()
-            f.dateFormat = "d.M"
             return sorted.map { pt in
-                ChartDataPoint(date: pt.date, label: f.string(from: pt.date), calories: pt.calories, protein: pt.protein, fat: pt.fat, carbs: pt.carbs, waterMl: pt.waterMl)
+                ChartDataPoint(date: pt.date, label: Self.labelFormatter.string(from: pt.date), calories: pt.calories, protein: pt.protein, fat: pt.fat, carbs: pt.carbs, waterMl: pt.waterMl)
             }
 
         case .week:
-            let f = DateFormatter()
-            f.dateFormat = "d.M"
             var grouped: [Date: [ChartDataPoint]] = [:]
             for pt in sorted {
                 let comps = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: pt.date)
@@ -178,7 +191,7 @@ final class DailySummaryViewModel {
                 let end = calendar.date(byAdding: .day, value: 6, to: start) ?? start
                 return ChartDataPoint(
                     date: start,
-                    label: "\(f.string(from: start))-\(f.string(from: end))",
+                    label: "\(Self.labelFormatter.string(from: start))-\(Self.labelFormatter.string(from: end))",
                     calories: pts.reduce(0) { $0 + $1.calories } / pts.count,
                     protein: pts.reduce(0.0) { $0 + $1.protein } / Double(pts.count),
                     fat: pts.reduce(0.0) { $0 + $1.fat } / Double(pts.count),
@@ -188,8 +201,6 @@ final class DailySummaryViewModel {
             }
 
         case .month:
-            let f = DateFormatter()
-            f.dateFormat = "MMM"
             var grouped: [Date: [ChartDataPoint]] = [:]
             for pt in sorted {
                 let comps = calendar.dateComponents([.year, .month], from: pt.date)
@@ -200,7 +211,7 @@ final class DailySummaryViewModel {
                 let pts = grouped[start]!
                 return ChartDataPoint(
                     date: start,
-                    label: f.string(from: start).capitalized,
+                    label: Self.monthFormatter.string(from: start).capitalized,
                     calories: pts.reduce(0) { $0 + $1.calories } / pts.count,
                     protein: pts.reduce(0.0) { $0 + $1.protein } / Double(pts.count),
                     fat: pts.reduce(0.0) { $0 + $1.fat } / Double(pts.count),
@@ -212,11 +223,14 @@ final class DailySummaryViewModel {
     }
 
     func loadChartData() async {
-        chartState = .loading
-        chartData = []
-        resetAverages()
+        let currentID = loadTaskID
+
         do {
             try Task.checkCancellation()
+            guard currentID == loadTaskID else { return }
+            chartState = .loading
+            chartData = []
+            resetAverages()
             let summaries: [DailySummary]
 
             switch periodState.type {
@@ -231,6 +245,7 @@ final class DailySummaryViewModel {
                     avgFat = chartData.reduce(0) { $0 + $1.fat }
                     avgCarbs = chartData.reduce(0) { $0 + $1.carbs }
                     daysCount = 1
+                    guard currentID == loadTaskID else { return }
                     chartState = .loaded(chartData)
                     return
                 }
@@ -271,15 +286,18 @@ final class DailySummaryViewModel {
             calculateAverages()
             let level = aggregationLevel()
             let aggregated = aggregateData(chartData, level: level)
+            guard currentID == loadTaskID else { return }
             chartState = .loaded(aggregated)
 
         } catch let error as APIError {
             if case .unauthorized = error {
                 coordinator.goToAuth()
             }
+            guard currentID == loadTaskID else { return }
             chartState = .error(error)
         } catch {
             if error is CancellationError { return }
+            guard currentID == loadTaskID else { return }
             chartState = .error(error)
         }
     }
@@ -287,6 +305,7 @@ final class DailySummaryViewModel {
     func setPeriod(_ period: PeriodType) {
         periodState.type = period
         loadTask?.cancel()
+        loadTaskID &+= 1
         loadTask = Task {
             await loadChartData()
         }
@@ -297,6 +316,7 @@ final class DailySummaryViewModel {
         periodState.toDate = to
         periodState.type = .custom
         loadTask?.cancel()
+        loadTaskID &+= 1
         loadTask = Task {
             await loadChartData()
         }
@@ -327,30 +347,34 @@ final class DailySummaryViewModel {
     }
 
     private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.timeZone = TimeZone(abbreviation: "UTC")
-        return formatter.string(from: date)
+        Self.dateOnlyFormatter.string(from: date)
     }
 
     private func parseDateOnly(_ dateString: String) -> Date {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.timeZone = TimeZone(abbreviation: "UTC")
-        return f.date(from: String(dateString.prefix(10))) ?? Date()
+        Self.dateOnlyFormatter.date(from: String(dateString.prefix(10))) ?? Date()
     }
 
-    private func parseDate(_ dateString: String) -> Date? {
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let d = iso.date(from: dateString) { return d }
+    private static let isoFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+    private static let dateTimeFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
-        if let d = f.date(from: dateString) { return d }
+        return f
+    }()
+    private static let dateTimeShortFormatter: DateFormatter = {
+        let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
-        if let d = f.date(from: dateString) { return d }
-        f.dateFormat = "yyyy-MM-dd"
-        return f.date(from: String(dateString.prefix(10)))
+        return f
+    }()
+
+    private func parseDate(_ dateString: String) -> Date? {
+        if let d = Self.isoFormatter.date(from: dateString) { return d }
+        if let d = Self.dateTimeFormatter.date(from: dateString) { return d }
+        if let d = Self.dateTimeShortFormatter.date(from: dateString) { return d }
+        return Self.dateOnlyFormatter.date(from: String(dateString.prefix(10)))
     }
 
     func setPreviewState(_ newState: DailySummaryState) {

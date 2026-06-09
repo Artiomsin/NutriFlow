@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct DailySummary: Codable, Identifiable {
+struct DailySummary: Codable, Identifiable, Sendable {
 
     let id: String?
     let userId: String?
@@ -24,7 +24,7 @@ struct DailySummary: Codable, Identifiable {
     let updatedAt: String?
 }
 
-enum PeriodType: String, CaseIterable {
+enum PeriodType: String, CaseIterable, Sendable {
     case today
     case week
     case month
@@ -39,13 +39,13 @@ enum PeriodType: String, CaseIterable {
         }
     }
 }
-struct DashboardTodayResponse: Codable {
+struct DashboardTodayResponse: Codable, Sendable {
     let dailySummary: DailySummary
     let foodEntries: [FoodEntry]
     let waterEntries: [WaterEntry]
 }
 
-struct ChartDataPoint: Identifiable {
+struct ChartDataPoint: Identifiable, Sendable {
     let id = UUID()
     let date: Date
     let label: String
@@ -57,7 +57,7 @@ struct ChartDataPoint: Identifiable {
 }
 
 
-enum AggregationLevel {
+enum AggregationLevel: Sendable {
     case day
     case week
     case month

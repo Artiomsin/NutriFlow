@@ -1,14 +1,12 @@
-//
-//  AuthRefreshService.swift
-//  Nutriflow
-//
-//  Created by Artem on 4.06.26.
-//
-
 import Foundation
 
 enum AuthError: Error {
     case noSession
+    case sessionExpired
+}
+
+extension Notification.Name {
+    static let sessionExpired = Notification.Name("sessionExpired")
 }
 
 final class AuthRefreshService: Sendable {
@@ -32,9 +30,14 @@ final class AuthRefreshService: Sendable {
             body: RefreshDTO(refreshToken: refresh)
         )
 
-        let response: AuthTokensResponse = try await client.send(request)
-
-        session.saveSession(access: response.accessToken,
-                            refresh: response.refreshToken)
+        do {
+            let response: AuthTokensResponse = try await client.send(request)
+            session.saveSession(access: response.accessToken,
+                                refresh: response.refreshToken)
+        } catch {
+            session.clear()
+            NotificationCenter.default.post(name: .sessionExpired, object: nil)
+            throw AuthError.sessionExpired
+        }
     }
 }

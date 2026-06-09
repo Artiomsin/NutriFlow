@@ -1,6 +1,6 @@
 import Foundation
 
-enum Gender: String, Codable, CaseIterable {
+enum Gender: String, Codable, CaseIterable, Sendable {
     case male
     case female
 
@@ -12,7 +12,7 @@ enum Gender: String, Codable, CaseIterable {
     }
 }
 
-struct UserProfile: Codable, Identifiable {
+struct UserProfile: Codable, Identifiable, Sendable {
     let id: String
     let userId: String
     let email: String?
@@ -28,7 +28,7 @@ struct UserProfile: Codable, Identifiable {
     let updatedAt: String?
 }
 
-enum Goal: String, Codable, CaseIterable {
+enum Goal: String, Codable, CaseIterable, Sendable {
     case lose
     case gain
     case maintain
@@ -42,7 +42,7 @@ enum Goal: String, Codable, CaseIterable {
     }
 }
 
-enum ActivityLevel: String, Codable, CaseIterable {
+enum ActivityLevel: String, Codable, CaseIterable, Sendable {
     case low
     case medium
     case high
@@ -56,7 +56,7 @@ enum ActivityLevel: String, Codable, CaseIterable {
     }
 }
 
-struct CreateProfileRequest: Codable {
+struct CreateProfileRequest: Codable, Sendable {
     let weight: Double?
     let height: Int?
     let age: Int?
@@ -65,7 +65,7 @@ struct CreateProfileRequest: Codable {
     let activityLevel: ActivityLevel?
 }
 
-struct UpdateProfileRequest: Codable {
+struct UpdateProfileRequest: Codable, Sendable {
     let weight: Double?
     let height: Int?
     let age: Int?
@@ -74,14 +74,14 @@ struct UpdateProfileRequest: Codable {
     let activityLevel: ActivityLevel?
 }
 
-struct CreateUserRequest: Codable {
+struct CreateUserRequest: Codable, Sendable {
     let email: String
     let password: String
     let firstName: String?
     let lastName: String?
 }
 
-struct UpdateUserRequest: Codable {
+struct UpdateUserRequest: Codable, Sendable {
     let email: String?
     let password: String?
     let firstName: String?

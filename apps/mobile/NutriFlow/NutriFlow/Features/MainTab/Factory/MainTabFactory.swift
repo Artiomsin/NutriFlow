@@ -19,32 +19,35 @@ private struct MainTabView: View {
         ZStack(alignment: .bottom) {
             AppTheme.background.ignoresSafeArea()
 
-            content(for: selectedTab)
+            tabContent
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             CustomTabBar(selectedTab: $selectedTab)
                 .padding(.horizontal, 20)
-                .padding(.bottom, 16)
         }
-        .ignoresSafeArea(.container, edges: .bottom)
+        .preferredColorScheme(.dark)
+        .ignoresSafeArea(.keyboard)
         .onAppear {
             if analyticsVM == nil {
                 analyticsVM = AnalyticsViewModel(coordinator: coordinator, service: container.analyticsService, periodState: periodState)
-                dailyVM = DailySummaryViewModel(coordinator: coordinator, service: container.dailySummaryService, periodState: periodState)
+                dailyVM = DailySummaryViewModel(coordinator: coordinator, service: container.dailySummaryService, periodState: periodState, foodService: container.foodService, waterService: container.waterTrackingService)
             }
         }
     }
 
     @ViewBuilder
-    private func content(for tab: Int) -> some View {
-        switch tab {
+    private var tabContent: some View {
+        switch selectedTab {
         case 0:
             HomeFactory.make(container: container, coordinator: coordinator)
         case 1:
             if let analyticsVM, let dailyVM {
                 ProgressDashboardView(analyticsVM: analyticsVM, dailyVM: dailyVM, periodState: periodState)
             }
-        default:
+        case 2:
             SettingsFactory.make(container: container, coordinator: coordinator)
+        default:
+            EmptyView()
         }
     }
 }
@@ -90,43 +93,36 @@ private struct PreviewMainTabView: View {
             userService: MockUserService()
         )
 
-        return ZStack(alignment: .bottom) {
+        return ZStack {
             AppTheme.background.ignoresSafeArea()
 
-            previewContent(for: selectedTab, coordinator: coordinator, homeVM: homeVM, profileVM: profileVM)
+            TabView(selection: $selectedTab) {
+                HomeView(homeViewModel: homeVM)
+                    .tabItem { Label("Home", systemImage: "house") }
+                    .tag(0)
 
-            CustomTabBar(selectedTab: $selectedTab)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 16)
+                ProgressDashboardView(
+                    analyticsVM: AnalyticsViewModel(
+                        coordinator: coordinator,
+                        service: MockAnalyticsService(),
+                        periodState: PeriodState()
+                    ),
+                    dailyVM: DailySummaryViewModel(
+                        coordinator: coordinator,
+                        service: MockDailySummaryService()
+                    ),
+                    periodState: PeriodState()
+                )
+                .tabItem { Label("Progress", systemImage: "chart.bar.fill") }
+                .tag(1)
+
+                SettingsView(viewModel: profileVM)
+                    .tabItem { Label("Settings", systemImage: "gearshape") }
+                    .tag(2)
+            }
         }
-        .ignoresSafeArea(.container, edges: .bottom)
         .preferredColorScheme(.dark)
     }
 
-    @ViewBuilder
-    private func previewContent(for tab: Int, coordinator: AppCoordinator, homeVM: HomeViewModel, profileVM: ProfileViewModel) -> some View {
-        switch tab {
-        case 0:
-            HomeView(homeViewModel: homeVM)
-        case 1:
-            let periodState = PeriodState()
-            ProgressDashboardView(
-                analyticsVM: AnalyticsViewModel(
-                    coordinator: coordinator,
-                    service: MockAnalyticsService(),
-                    periodState: periodState
-                ),
-                dailyVM: DailySummaryViewModel(
-                    coordinator: coordinator,
-                    service: MockDailySummaryService(),
-                    periodState: periodState,
-                    foodService: MockFoodService(),
-                    waterService: MockWaterService()
-                ),
-                periodState: periodState
-            )
-        default:
-            SettingsView(viewModel: profileVM)
-        }
-    }
+
 }

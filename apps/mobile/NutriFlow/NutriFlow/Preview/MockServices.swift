@@ -102,11 +102,8 @@ final class MockUserService: UserServiceProtocol {
     }
 }
 
-final class MockAuthService: AuthServiceProtocol {
-    func refresh(refreshToken: String) async throws -> AuthTokensResponse {
-        AuthTokensResponse(accessToken: "mock_access", refreshToken: "mock_refresh")
-    }
     
+final class MockAuthService: AuthServiceProtocol {
     func register(email: String, password: String, firstName: String, lastName: String) async throws { }
     func login(email: String, password: String) async throws { }
     func logout() async throws { }

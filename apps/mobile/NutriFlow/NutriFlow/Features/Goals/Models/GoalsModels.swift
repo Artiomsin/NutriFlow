@@ -1,6 +1,6 @@
 import Foundation
 
-struct UserGoals: Codable {
+struct UserGoals: Codable, Sendable {
     let id: String?
     let userId: String?
     let dailyCaloriesGoal: Int?
@@ -13,7 +13,7 @@ struct UserGoals: Codable {
     let updatedAt: String?
 }
 
-struct UpdateGoalsRequest: Codable {
+struct UpdateGoalsRequest: Codable, Sendable {
     let dailyCaloriesGoal: Int?
     let dailyProteinGoal: Int?
     let dailyFatGoal: Int?
