@@ -7,6 +7,7 @@ struct ProgressDashboardView: View {
 
     @State private var searchDate = Date()
     @State private var showSearch = false
+    @State private var searchDidRun = false
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -64,9 +65,6 @@ struct ProgressDashboardView: View {
         VStack(spacing: 16) {
             Button {
                 withAnimation { showSearch.toggle() }
-                if showSearch {
-                    Task { await dailyVM.loadSearch(date: searchDate) }
-                }
             } label: {
                 HStack {
                     Image(systemName: "magnifyingglass")
@@ -88,11 +86,17 @@ struct ProgressDashboardView: View {
                     .datePickerStyle(.compact)
                     .preferredColorScheme(.dark)
                     .onChange(of: searchDate) { _, newDate in
+                        searchDidRun = true
                         Task { await dailyVM.loadSearch(date: newDate) }
                     }
 
                 if dailyVM.searchIsLoading {
                     ProgressView().tint(.white).padding(.vertical, 20)
+                } else if !searchDidRun {
+                    Text("Select a date to view details")
+                        .font(.subheadline)
+                        .foregroundColor(AppTheme.textTertiary)
+                        .padding(.vertical, 20)
                 } else if !dailyVM.searchFood.isEmpty || !dailyVM.searchWater.isEmpty || dailyVM.searchGoals != nil {
                     searchResultContent
                 } else {
@@ -101,6 +105,11 @@ struct ProgressDashboardView: View {
                         .foregroundColor(AppTheme.textTertiary)
                         .padding(.vertical, 20)
                 }
+            }
+        }
+        .onChange(of: showSearch) { _, newValue in
+            if !newValue {
+                searchDidRun = false
             }
         }
     }
