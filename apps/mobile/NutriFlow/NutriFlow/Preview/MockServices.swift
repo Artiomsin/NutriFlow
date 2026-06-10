@@ -15,6 +15,9 @@ final class MockFoodService: FoodServiceProtocol {
             FoodEntry(id: "7", userId: "1", name: "Greek yogurt", calories: 150, protein: 15, fat: 4, carbs: 10, createdAt: "2026-05-18T19:00:00Z", updatedAt: nil)
         ]
     }
+    func getFoodByDate(date: String) async throws -> [FoodEntry] {
+        try await getTodayFood()
+    }
     func deleteFoodEntry(id: String) async throws { }
 }
 
@@ -31,6 +34,9 @@ final class MockWaterService: WaterTrackingServiceProtocol {
             WaterEntry(id: "5", userId: "1", amountMl: 250, createdAt: "2026-05-18T18:00:00Z", updatedAt: nil),
             WaterEntry(id: "6", userId: "1", amountMl: 200, createdAt: "2026-05-18T21:00:00Z", updatedAt: nil)
         ]
+    }
+    func getWaterByDate(date: String) async throws -> [WaterEntry] {
+        try await getTodayWater()
     }
     func deleteWaterEntry(id: String) async throws { }
 }

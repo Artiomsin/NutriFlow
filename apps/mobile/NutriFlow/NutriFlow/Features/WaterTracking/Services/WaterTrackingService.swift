@@ -25,6 +25,16 @@ final class WaterTrackingService: WaterTrackingServiceProtocol, Sendable {
         return try await client.send(request)
     }
 
+    func getWaterByDate(date: String) async throws -> [WaterEntry] {
+        let endpoint = WaterTrackingEndpoints.getWaterByDate(date: date)
+        let request = APIRequest<NeverBody>(
+            path: endpoint.path,
+            method: .GET,
+            queryItems: endpoint.query
+        )
+        return try await client.send(request)
+    }
+
     func deleteWaterEntry(id: String) async throws {
         let request = APIRequest<NeverBody>(
             path: WaterTrackingEndpoints.deleteWaterTracking(id: id),

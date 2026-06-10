@@ -9,6 +9,8 @@ protocol WaterTrackingServiceProtocol: Sendable {
 
     func getTodayWater() async throws -> [WaterEntry]
 
+    func getWaterByDate(date: String) async throws -> [WaterEntry]
+
     func deleteWaterEntry(
         id: String
     ) async throws

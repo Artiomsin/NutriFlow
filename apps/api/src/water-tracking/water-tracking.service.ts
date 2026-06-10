@@ -38,6 +38,18 @@ export class WaterTrackingService {
       );
   }
 
+  async getByDate(userId: string, date: string) {
+    return db
+      .select()
+      .from(waterEntries)
+      .where(
+        and(
+          eq(waterEntries.userId, userId),
+          sql`DATE(${waterEntries.createdAt}) = ${date}::date`,
+        ),
+      );
+  }
+
   async delete(userId: string, id: string) {
     const [deleted] = await db
       .delete(waterEntries)

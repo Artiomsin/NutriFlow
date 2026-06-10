@@ -42,6 +42,18 @@ export class FoodService {
       );
   }
 
+  async getByDate(userId: string, date: string) {
+    return db
+      .select()
+      .from(foodEntries)
+      .where(
+        and(
+          eq(foodEntries.userId, userId),
+          sql`DATE(${foodEntries.createdAt}) = ${date}::date`,
+        ),
+      );
+  }
+
   async delete(userId: string, id: string) {
     const [deleted] = await db
       .delete(foodEntries)

@@ -5,10 +5,14 @@ struct ProgressDashboardView: View {
     @Bindable var dailyVM: DailySummaryViewModel
     @Bindable var periodState: PeriodState
 
+    @State private var searchDate = Date()
+    @State private var showSearch = false
+
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
                 header
+                dateSearchSection
                 PeriodSelectorView(
                     selectedPeriod: periodState.type,
                     fromDate: periodState.fromDate,
@@ -34,6 +38,14 @@ struct ProgressDashboardView: View {
             async let charts: () = dailyVM.loadChartData()
             (_, _) = await (analytics, charts)
         }
+        .sheet(isPresented: $dailyVM.showDaySheet) {
+            DayDetailSheet(
+                dateStr: dailyVM.selectedDateStr,
+                food: dailyVM.selectedDateFood,
+                water: dailyVM.selectedDateWater,
+                goals: dailyVM.selectedDateGoals
+            )
+        }
     }
 
     private var header: some View {
@@ -45,6 +57,150 @@ struct ProgressDashboardView: View {
             Text("Your nutrition trends")
                 .font(.footnote)
                 .foregroundColor(AppTheme.textSecondary)
+        }
+    }
+
+    private var dateSearchSection: some View {
+        VStack(spacing: 16) {
+            Button {
+                withAnimation { showSearch.toggle() }
+                if showSearch {
+                    Task { await dailyVM.loadSearch(date: searchDate) }
+                }
+            } label: {
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(AppTheme.accent)
+                    Text("Search by date")
+                        .foregroundColor(AppTheme.textPrimary)
+                    Spacer()
+                    Image(systemName: showSearch ? "chevron.up" : "chevron.down")
+                        .foregroundColor(AppTheme.textTertiary)
+                        .font(.caption)
+                }
+                .padding(12)
+                .background(AppTheme.cardBackground)
+                .cornerRadius(AppTheme.cornerRadiusSmall)
+            }
+
+            if showSearch {
+                DatePicker("Select date", selection: $searchDate, displayedComponents: .date)
+                    .datePickerStyle(.compact)
+                    .preferredColorScheme(.dark)
+                    .onChange(of: searchDate) { _, newDate in
+                        Task { await dailyVM.loadSearch(date: newDate) }
+                    }
+
+                if dailyVM.searchIsLoading {
+                    ProgressView().tint(.white).padding(.vertical, 20)
+                } else if !dailyVM.searchFood.isEmpty || !dailyVM.searchWater.isEmpty || dailyVM.searchGoals != nil {
+                    searchResultContent
+                } else {
+                    Text("No entries for this date")
+                        .font(.subheadline)
+                        .foregroundColor(AppTheme.textTertiary)
+                        .padding(.vertical, 20)
+                }
+            }
+        }
+    }
+
+    private var searchResultContent: some View {
+        VStack(spacing: 16) {
+            let totalCal = dailyVM.searchFood.reduce(0) { $0 + $1.calories }
+            let totalWater = dailyVM.searchWater.reduce(0) { $0 + $1.amountMl }
+
+            HStack(spacing: 24) {
+                DetailStatCard(icon: "flame.fill", color: .orange, value: "\(totalCal)", unit: "kcal")
+                DetailStatCard(icon: "drop.fill", color: .cyan, value: "\(totalWater)", unit: "ml")
+                DetailStatCard(icon: "fork.knife", color: .green, value: "\(dailyVM.searchFood.count)", unit: "meals")
+            }
+
+            if let goals = dailyVM.searchGoals {
+                goalsSection(goals, calories: totalCal, water: totalWater)
+            }
+
+            foodList
+            waterList
+        }
+    }
+
+    private func goalsSection(_ goals: UserGoals, calories: Int, water: Int) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            sectionLabel("Daily Goals", icon: "target")
+            GoalBar(title: "Calories", current: calories, goal: goals.dailyCaloriesGoal ?? 0, unit: "kcal", color: .orange, icon: "flame.fill")
+            GoalBar(title: "Protein", current: dailyVM.searchFood.reduce(0) { $0 + ($1.protein ?? 0) }, goal: goals.dailyProteinGoal ?? 0, unit: "g", color: .indigo, icon: "bolt.fill")
+            GoalBar(title: "Fat", current: dailyVM.searchFood.reduce(0) { $0 + ($1.fat ?? 0) }, goal: goals.dailyFatGoal ?? 0, unit: "g", color: .green, icon: "drop.degreesign.fill")
+            GoalBar(title: "Carbs", current: dailyVM.searchFood.reduce(0) { $0 + ($1.carbs ?? 0) }, goal: goals.dailyCarbsGoal ?? 0, unit: "g", color: .purple, icon: "leaf.arrow.circlepath")
+            GoalBar(title: "Water", current: water, goal: goals.dailyWaterGoal ?? 0, unit: "ml", color: .cyan, icon: "drop.fill")
+        }
+        .padding()
+        .background(AppTheme.cardBackground)
+        .cornerRadius(AppTheme.cornerRadiusMedium)
+    }
+
+    private var foodList: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel("Food", icon: "fork.knife")
+            if dailyVM.searchFood.isEmpty {
+                emptyRow("No food entries")
+            } else {
+                ForEach(dailyVM.searchFood) { entry in
+                    FoodRow(entry: entry)
+                    if entry.id != dailyVM.searchFood.last?.id {
+                        Divider().background(AppTheme.textTertiary.opacity(0.15))
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(AppTheme.cardBackground)
+        .cornerRadius(AppTheme.cornerRadiusMedium)
+    }
+
+    private var waterList: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel("Water", icon: "drop.fill")
+            if dailyVM.searchWater.isEmpty {
+                emptyRow("No water entries")
+            } else {
+                ForEach(dailyVM.searchWater) { entry in
+                    WaterRow(entry: entry)
+                    if entry.id != dailyVM.searchWater.last?.id {
+                        Divider().background(AppTheme.textTertiary.opacity(0.15))
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(AppTheme.cardBackground)
+        .cornerRadius(AppTheme.cornerRadiusMedium)
+    }
+
+    private func sectionLabel(_ text: String, icon: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.caption)
+                .foregroundColor(AppTheme.accent)
+            Text(text)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(AppTheme.textPrimary)
+        }
+    }
+
+    private func emptyRow(_ text: String) -> some View {
+        HStack {
+            Spacer()
+            VStack(spacing: 6) {
+                Image(systemName: "tray")
+                    .font(.title3)
+                    .foregroundColor(AppTheme.textTertiary)
+                Text(text)
+                    .font(.subheadline)
+                    .foregroundColor(AppTheme.textTertiary)
+            }
+            .padding(.vertical, 20)
+            Spacer()
         }
     }
 
@@ -86,9 +242,9 @@ struct ProgressDashboardView: View {
         case .loaded(let data):
             if !data.isEmpty {
                 VStack(spacing: 20) {
-                    CaloriesChartView(data: data)
-                    WaterChartView(data: data)
-                    NutritionChartView(data: data)
+                    CaloriesChartView(data: data, canTap: dailyVM.canTapBars, onBarTap: { dailyVM.handleBarTap(label: $0) })
+                    WaterChartView(data: data, canTap: dailyVM.canTapBars, onBarTap: { dailyVM.handleBarTap(label: $0) })
+                    NutritionChartView(data: data, canTap: dailyVM.canTapBars, onBarTap: { dailyVM.handleBarTap(label: $0) })
                 }
             } else {
                 emptyState
@@ -176,7 +332,10 @@ struct ProgressDashboardView: View {
     let dailyVM = DailySummaryViewModel(
         coordinator: coordinator,
         service: MockDailySummaryService(),
-        periodState: periodState
+        periodState: periodState,
+        foodService: MockFoodService(),
+        waterService: MockWaterService(),
+        goalsService: MockGoalsService()
     )
     return ProgressDashboardView(analyticsVM: analyticsVM, dailyVM: dailyVM, periodState: periodState)
         .background(AppTheme.background)

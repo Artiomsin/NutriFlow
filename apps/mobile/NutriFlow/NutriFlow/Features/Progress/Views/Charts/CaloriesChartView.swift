@@ -10,6 +10,15 @@ import Charts
 
 struct CaloriesChartView: View {
     let data: [ChartDataPoint]
+    let canTap: Bool
+    let onBarTap: ((String) -> Void)?
+    @State private var selection: String?
+
+    init(data: [ChartDataPoint], canTap: Bool = false, onBarTap: ((String) -> Void)? = nil) {
+        self.data = data
+        self.canTap = canTap
+        self.onBarTap = onBarTap
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -38,6 +47,13 @@ struct CaloriesChartView: View {
                     AxisMarks { _ in
                         AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.15))
                         AxisValueLabel().foregroundStyle(AppTheme.textTertiary)
+                    }
+                }
+                .chartXSelection(value: $selection)
+                .onChange(of: selection) { _, newVal in
+                    if canTap, let label = newVal {
+                        onBarTap?(label)
+                        DispatchQueue.main.async { selection = nil }
                     }
                 }
             }

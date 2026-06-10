@@ -5,6 +5,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   UsePipes,
   ParseUUIDPipe,
@@ -38,6 +39,12 @@ export class WaterTrackingController {
   @Get('today')
   findToday(@User() user: AuthPayload) {
     return this.waterService.getToday(user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get()
+  getByDate(@User() user: AuthPayload, @Query('date') date: string) {
+    return this.waterService.getByDate(user.userId, date);
   }
 
   @UseGuards(JwtAuthGuard)

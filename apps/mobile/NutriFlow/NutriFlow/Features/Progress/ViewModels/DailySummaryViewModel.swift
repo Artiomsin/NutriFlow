@@ -23,8 +23,49 @@ final class DailySummaryViewModel {
     @ObservationIgnored private let service: DailySummaryServiceProtocol
     @ObservationIgnored private let foodService: FoodServiceProtocol?
     @ObservationIgnored private let waterService: WaterTrackingServiceProtocol?
+    @ObservationIgnored private let goalsService: GoalsServiceProtocol?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var loadTaskID = 0
+    @ObservationIgnored private var searchTaskID = 0
+
+    var showDaySheet = false
+    var selectedDateFood: [FoodEntry] = []
+    var selectedDateWater: [WaterEntry] = []
+    var selectedDateStr: String = ""
+    var selectedDateGoals: UserGoals?
+
+    var searchFood: [FoodEntry] = []
+    var searchWater: [WaterEntry] = []
+    var searchGoals: UserGoals?
+    var searchIsLoading = false
+
+    func loadSearch(date: Date) async {
+        let myID = searchTaskID &+ 1
+        searchTaskID = myID
+        searchIsLoading = true
+
+        let dateStr = Self.dateOnlyFormatter.string(from: date)
+        async let food = foodService?.getFoodByDate(date: dateStr) ?? []
+        async let water = waterService?.getWaterByDate(date: dateStr) ?? []
+        async let goals = goalsService?.getGoals()
+
+        do {
+            let (f, w, g) = try await (food, water, goals)
+            guard searchTaskID == myID else { return }
+            (searchFood, searchWater, searchGoals) = (f, w, g)
+        } catch {
+            guard searchTaskID == myID else { return }
+            searchFood = []
+            searchWater = []
+            searchGoals = nil
+        }
+        searchIsLoading = false
+    }
+
+    var canTapBars: Bool {
+        periodState.type != .today && aggregationLevel() == .day
+    }
+
     private static let dateOnlyFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
@@ -33,7 +74,7 @@ final class DailySummaryViewModel {
     }()
     private static let labelFormatter: DateFormatter = {
         let f = DateFormatter()
-        f.dateFormat = "E"
+        f.dateFormat = "d.M"
         return f
     }()
     private static let monthFormatter: DateFormatter = {
@@ -44,12 +85,13 @@ final class DailySummaryViewModel {
     var dashboardFoodEntries: [FoodEntry] = []
     var dashboardWaterEntries: [WaterEntry] = []
 
-    init(coordinator: AppCoordinator, service: DailySummaryServiceProtocol, periodState: PeriodState = PeriodState(), foodService: FoodServiceProtocol? = nil, waterService: WaterTrackingServiceProtocol? = nil) {
+    init(coordinator: AppCoordinator, service: DailySummaryServiceProtocol, periodState: PeriodState = PeriodState(), foodService: FoodServiceProtocol? = nil, waterService: WaterTrackingServiceProtocol? = nil, goalsService: GoalsServiceProtocol? = nil) {
         self.coordinator = coordinator
         self.service = service
         self.periodState = periodState
         self.foodService = foodService
         self.waterService = waterService
+        self.goalsService = goalsService
     }
 
     func loadToday() async {
@@ -113,6 +155,40 @@ final class DailySummaryViewModel {
         }
     }
 
+    func loadDayDetail(date: String) async {
+        selectedDateStr = date
+        selectedDateFood = []
+        selectedDateWater = []
+        selectedDateGoals = nil
+
+        async let food = foodService?.getFoodByDate(date: date) ?? []
+        async let water = waterService?.getWaterByDate(date: date) ?? []
+        async let goals = goalsService?.getGoals()
+
+        do {
+            let (f, w, g) = try await (food, water, goals)
+            (selectedDateFood, selectedDateWater, selectedDateGoals) = (f, w, g)
+        } catch {
+            selectedDateFood = []
+            selectedDateWater = []
+            selectedDateGoals = nil
+        }
+        showDaySheet = true
+    }
+
+    func handleBarTap(label: String) {
+        guard canTapBars else { return }
+        let points: [ChartDataPoint]
+        if case .loaded(let data) = chartState {
+            points = data
+        } else {
+            points = chartData
+        }
+        guard let point = points.first(where: { $0.label == label }) else { return }
+        let dateStr = Self.dateOnlyFormatter.string(from: point.date)
+        Task { await loadDayDetail(date: dateStr) }
+    }
+
     private func aggregateHourly(food: [FoodEntry], water: [WaterEntry]) -> [ChartDataPoint] {
         var calByHour: [Int: Int] = [:]
         var protByHour: [Int: Double] = [:]
@@ -162,7 +238,7 @@ final class DailySummaryViewModel {
             return .week
         case .custom:
             let days = Calendar.current.dateComponents([.day], from: periodState.fromDate, to: periodState.toDate).day ?? 0
-            if days <= 14 { return .day }
+            if days <= 7 { return .day }
             if days <= 60 { return .week }
             return .month
         }

@@ -8,4 +8,7 @@ enum FoodEndpoints {
         let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
         return "/food-entry/\(encoded)"
     }
+    static func getFoodByDate(date: String) -> (path: String, query: [URLQueryItem]) {
+        (path: "/food-entry", query: [URLQueryItem(name: "date", value: date)])
+    }
 }

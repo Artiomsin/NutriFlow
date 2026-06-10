@@ -25,6 +25,16 @@ final class FoodService: FoodServiceProtocol, Sendable {
         return try await client.send(request)
     }
 
+    func getFoodByDate(date: String) async throws -> [FoodEntry] {
+        let endpoint = FoodEndpoints.getFoodByDate(date: date)
+        let request = APIRequest<NeverBody>(
+            path: endpoint.path,
+            method: .GET,
+            queryItems: endpoint.query
+        )
+        return try await client.send(request)
+    }
+
     func deleteFoodEntry(id: String) async throws {
         let request = APIRequest<NeverBody>(
             path: FoodEndpoints.deleteFoodEntry(id: id),

@@ -13,6 +13,8 @@ protocol FoodServiceProtocol: Sendable {
 
     func getTodayFood() async throws -> [FoodEntry]
 
+    func getFoodByDate(date: String) async throws -> [FoodEntry]
+
     func deleteFoodEntry(
         id: String
     ) async throws
