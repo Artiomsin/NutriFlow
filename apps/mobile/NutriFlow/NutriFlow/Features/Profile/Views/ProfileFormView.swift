@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ProfileFormView: View {
     @Bindable var viewModel: ProfileViewModel
-    @Binding var isCompleted: Bool
     
     var body: some View {
         ZStack {
@@ -37,6 +36,23 @@ struct ProfileFormView: View {
                             text: $viewModel.age,
                             keyboardType: .numberPad
                         )
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Gender")
+                                .font(.subheadline)
+                                .foregroundColor(AppTheme.textTertiary)
+                            
+                            HStack(spacing: 12) {
+                                ForEach(Gender.allCases, id: \.self) { gender in
+                                    SelectableChip(
+                                        title: gender.displayName,
+                                        isSelected: viewModel.gender == gender
+                                    ) {
+                                        viewModel.gender = gender
+                                    }
+                                }
+                            }
+                        }
                         
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Goal")
@@ -82,10 +98,6 @@ struct ProfileFormView: View {
                     PrimaryButton(title: "Save") {
                         Task {
                             await viewModel.createProfile()
-                            
-                            if case .loaded = viewModel.state {
-                                isCompleted = true
-                            }
                         }
                     }
                     .padding(.horizontal, AppTheme.paddingHorizontal)
@@ -99,6 +111,7 @@ struct ProfileFormView: View {
                 }
             }
         }
+        .onAppear { AmplitudeService.shared.track(.screenView(screen: "profile_form")) }
     }
 }
 

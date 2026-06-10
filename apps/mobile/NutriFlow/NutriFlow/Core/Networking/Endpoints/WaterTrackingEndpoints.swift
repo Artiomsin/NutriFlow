@@ -9,4 +9,7 @@ enum WaterTrackingEndpoints {
         let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
         return "/water-tracking/\(encoded)"
     }
+    static func getWaterByDate(date: String) -> (path: String, query: [URLQueryItem]) {
+        (path: "/water-tracking", query: [URLQueryItem(name: "date", value: date)])
+    }
 }

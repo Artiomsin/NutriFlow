@@ -2,9 +2,9 @@ import SwiftUI
 
 struct ProfileDisplayView: View {
     @Bindable var viewModel: ProfileViewModel
-    @Bindable var session: SessionManager
-    var onLogout: (() -> Void)?
     @State private var showEditProfile = false
+
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ZStack {
@@ -12,6 +12,20 @@ struct ProfileDisplayView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
+                    HStack {
+                        Text("Profile")
+                            .font(.title2.bold())
+                            .foregroundColor(AppTheme.textPrimary)
+
+                        Spacer()
+
+                        Button {
+                            dismiss()
+                        } label: {
+                            Image(systemName: "xmark")
+                                .foregroundColor(AppTheme.textSecondary)
+                        }
+                    }
                     if case .loaded = viewModel.state {
                         VStack(spacing: 16) {
                             Image(systemName: "person.circle.fill")
@@ -64,6 +78,11 @@ struct ProfileDisplayView: View {
                                 value: viewModel.age.isEmpty ? "Not set" : "\(viewModel.age) years"
                             )
                             ProfileInfoCard(
+                                icon: "figure.stand",
+                                title: "Gender",
+                                value: viewModel.gender?.displayName ?? "Not set"
+                            )
+                            ProfileInfoCard(
                                 icon: "target",
                                 title: "Goal",
                                 value: viewModel.goal?.displayName ?? "Not set"
@@ -89,23 +108,6 @@ struct ProfileDisplayView: View {
                     } else if case .error(let error) = viewModel.state {
                         ErrorMessageView(text: error.localizedDescription)
                     }
-
-                    Button {
-                        onLogout?()
-                    } label: {
-                        Text("Logout")
-                            .font(.headline)
-                            .foregroundColor(AppTheme.logoutBorder)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(AppTheme.logoutBackground)
-                            .cornerRadius(AppTheme.cornerRadiusMedium)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                                    .stroke(AppTheme.logoutBorder, lineWidth: 1)
-                            )
-                    }
-                    .padding(.top, 12)
                 }
                 .padding(.horizontal, AppTheme.paddingHorizontal)
                 .padding(.bottom, AppTheme.bottomPadding)
@@ -114,6 +116,7 @@ struct ProfileDisplayView: View {
             .scrollContentBackground(.hidden)
             .background(AppTheme.background)
         }
+        .onAppear { AmplitudeService.shared.track(.screenView(screen: "profile")) }
         .fullScreenCover(isPresented: $showEditProfile) {
             EditProfileView(viewModel: viewModel) {
                 showEditProfile = false

@@ -7,6 +7,8 @@ import {
 import { db } from '../db/db';
 import { userProfiles } from '../db/schema/userProfiles';
 import { eq } from 'drizzle-orm';
+import { GoalsService } from '../goals/goals.service';
+
 
 import type {
   CreateProfileDto,
@@ -15,6 +17,8 @@ import type {
 
 @Injectable()
 export class ProfilesService {
+  constructor(private goalsService: GoalsService) {} 
+  
   async create(data: CreateProfileDto & { userId: string }) {
     const existing = await this.findByUserIdSafe(data.userId);
 
@@ -34,6 +38,12 @@ export class ProfilesService {
         activityLevel: data.activityLevel,
       })
       .returning();
+
+    try {
+      await this.goalsService.calculate(data.userId);
+    } catch (e) {
+      console.error('Goals calculation skipped:', (e as Error).message);
+    }
 
     return profile;
   }
@@ -61,6 +71,7 @@ export class ProfilesService {
         weight: data.weight ?? existing.weight,
         height: data.height ?? existing.height,
         age: data.age ?? existing.age,
+        gender: data.gender ?? existing.gender,
         goal: data.goal ?? existing.goal,
         activityLevel: data.activityLevel ?? existing.activityLevel,
         updatedAt: new Date(),
@@ -68,6 +79,14 @@ export class ProfilesService {
       .where(eq(userProfiles.userId, userId))
       .returning();
 
+
+    try {
+      await this.goalsService.calculate(userId);
+    } catch (e) {
+      console.error('Goals calculation skipped:', (e as Error).message);
+    }
+
+    
     return profile;
   }
 

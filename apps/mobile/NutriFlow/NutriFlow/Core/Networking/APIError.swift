@@ -1,6 +1,6 @@
 import Foundation
 
-enum APIError: Error {
+enum APIError: Error, Equatable, Sendable {
     case invalidURL
     case requestFailed
     case unauthorized

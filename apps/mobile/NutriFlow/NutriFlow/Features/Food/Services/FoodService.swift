@@ -1,64 +1,45 @@
-//
-//  FoodService.swift
-//  Nutriflow
-//
-//  Created by Artem on 18.05.26.
-//
-
 import Foundation
 
+final class FoodService: FoodServiceProtocol, Sendable {
 
-struct FoodService:FoodServiceProtocol {
-    
-    
     private let client: HTTPClient
-    
-    init(client: HTTPClient=URLSessionHTTPClient()) {
+
+    init(client: HTTPClient) {
         self.client = client
     }
-    
-    func createFoodEntry(token: String, name: String, calories: Int, protein: Int?, fat: Int?, carbs: Int?) async throws -> FoodEntry {
+
+    func createFoodEntry(name: String, calories: Int, protein: Int?, fat: Int?, carbs: Int?) async throws -> FoodEntry {
         let request = APIRequest(
             path: FoodEndpoints.createFoodEntry,
             method: .POST,
-            body: CreateFoodRequest(
-                name: name,
-                calories: calories,
-                protein: protein,
-                fat: fat,
-                carbs: carbs
-            ),
-            headers: ["Authorization": "Bearer \(token)"]
-            
+            body: CreateFoodRequest(name: name, calories: calories, protein: protein, fat: fat, carbs: carbs)
         )
         return try await client.send(request)
     }
-    
-    func getTodayFood(token: String) async throws -> [FoodEntry] {
-        let request=APIRequest(
+
+    func getTodayFood() async throws -> [FoodEntry] {
+        let request = APIRequest<NeverBody>(
             path: FoodEndpoints.getTodayFood,
-            method: .GET,
-            body: nil as EmptyBody?,
-            headers: [
-                "Authorization": "Bearer \(token)"
-            ]
-            
+            method: .GET
         )
         return try await client.send(request)
     }
-    
-    func deleteFoodEntry(token: String, id: String) async throws -> EmptyResponse {
 
-            let request = APIRequest(
-                path: FoodEndpoints.deleteFoodEntry(id: id),
-                method: .DELETE,
-                body: nil as EmptyBody?,
-                headers: [
-                    "Authorization": "Bearer \(token)"
-                ]
-            )
+    func getFoodByDate(date: String) async throws -> [FoodEntry] {
+        let endpoint = FoodEndpoints.getFoodByDate(date: date)
+        let request = APIRequest<NeverBody>(
+            path: endpoint.path,
+            method: .GET,
+            queryItems: endpoint.query
+        )
+        return try await client.send(request)
+    }
 
-            return try await client.send(request)
-        }
-    
+    func deleteFoodEntry(id: String) async throws {
+        let request = APIRequest<NeverBody>(
+            path: FoodEndpoints.deleteFoodEntry(id: id),
+            method: .DELETE
+        )
+        try await client.sendVoid(request)
+    }
 }

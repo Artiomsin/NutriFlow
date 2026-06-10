@@ -48,6 +48,11 @@ export class DailySummaryController {
     );
   }
 
+  @Get('dashboard')
+  findTodayDashboard(@User() user: AuthPayload) {
+    return this.dailySummaryService.findTodayDashboard(user.userId);
+  }
+
   @Get('range')
   findRange(
     @User() user: AuthPayload,

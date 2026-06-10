@@ -4,43 +4,44 @@ import Observation
 @Observable
 @MainActor
 final class AuthViewModel {
-    
+
     var state: AuthState = .idle
     var email: String = ""
     var password: String = ""
     var firstName: String = ""
     var lastName: String = ""
-    
-    @ObservationIgnored private let authService: AuthServiceProtocol
-    @ObservationIgnored private let sessionManager: SessionManager
-    
-    init(
-        authService: AuthServiceProtocol,
-        sessionManager: SessionManager
-    ) {
-        self.authService = authService
-        self.sessionManager = sessionManager
 
-        if case .authenticated = sessionManager.state {
-            self.state = .authenticated
-        } else {
-            self.state = .unauthenticated
-        }
+    @ObservationIgnored private let authService: AuthServiceProtocol
+    @ObservationIgnored private let profileService: ProfileServiceProtocol
+    @ObservationIgnored private let coordinator: AppCoordinator
+
+    init(authService: AuthServiceProtocol, profileService: ProfileServiceProtocol, coordinator: AppCoordinator) {
+        self.authService = authService
+        self.profileService = profileService
+        self.coordinator = coordinator
     }
 
     func login() async {
         state = .loading
 
         do {
-            let response = try await authService.login(email: email, password: password)
+            try await authService.login(email: email, password: password)
 
-            sessionManager.setSession(
-                accessToken: response.accessToken,
-                refreshToken: response.refreshToken
-            )
+            do {
+                _ = try await profileService.getMyProfile()
+                coordinator.goToMain()
+            } catch let profileError as APIError {
+                if case .notFound = profileError {
+                    coordinator.goToProfileForm()
+                } else {
+                    coordinator.goToMain()
+                }
+            } catch {
+                coordinator.goToMain()
+            }
 
             state = .authenticated
-
+            AmplitudeService.shared.track(.loggedIn)
         } catch {
             state = .error(error.localizedDescription)
         }
@@ -50,59 +51,30 @@ final class AuthViewModel {
         state = .loading
 
         do {
-            let response = try await authService.register(
+            try await authService.register(
                 email: email,
                 password: password,
                 firstName: firstName,
                 lastName: lastName
             )
-
-            sessionManager.setSession(
-                accessToken: response.accessToken,
-                refreshToken: response.refreshToken
-            )
-
             state = .authenticated
-
+            AmplitudeService.shared.track(.registered)
+            coordinator.goToProfileForm()
         } catch {
             state = .error(error.localizedDescription)
         }
     }
 
     func logout() async {
-        guard let token = sessionManager.accessToken() else {
-            sessionManager.logout()
-            state = .unauthenticated
-            return
-        }
-
         do {
-            _ = try await authService.logout(accessToken: token)
-            sessionManager.logout()
+            try await authService.logout()
             state = .unauthenticated
+            AmplitudeService.shared.track(.loggedOut)
+            coordinator.goToAuth()
         } catch {
-            sessionManager.logout()
             state = .unauthenticated
-        }
-    }
-
-    func refreshTokenIfNeeded() async -> Bool {
-        guard let refreshToken = sessionManager.refreshToken() else {
-            return false
-        }
-
-        do {
-            let response = try await authService.refresh(refreshToken: refreshToken)
-
-            sessionManager.setSession(
-                accessToken: response.accessToken,
-                refreshToken: response.refreshToken
-            )
-
-            return true
-        } catch {
-            sessionManager.logout()
-            return false
+            AmplitudeService.shared.track(.loggedOut)
+            coordinator.goToAuth()
         }
     }
 }

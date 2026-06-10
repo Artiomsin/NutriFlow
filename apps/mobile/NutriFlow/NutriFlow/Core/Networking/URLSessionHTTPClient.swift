@@ -1,22 +1,98 @@
 import Foundation
 
-final class URLSessionHTTPClient: HTTPClient {
-
+final class URLSessionHTTPClient: HTTPClient, Sendable {
     private let session: URLSession
+    private let interceptors: [RequestInterceptor]
+    private let refreshService: AuthRefreshService?
 
-    init() {
-        let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 15
-        config.timeoutIntervalForResource = 30
-        config.waitsForConnectivity = true
-        self.session = URLSession(configuration: config)
+    init(
+        interceptors: [RequestInterceptor] = [],
+        refreshService: AuthRefreshService? = nil,
+        configuration: URLSessionConfiguration = {
+            let config = URLSessionConfiguration.default
+            config.timeoutIntervalForRequest = 15
+            config.timeoutIntervalForResource = 30
+            config.waitsForConnectivity = true
+            return config
+        }()
+    ) {
+        self.interceptors = interceptors
+        self.refreshService = refreshService
+        self.session = URLSession(configuration: configuration)
     }
 
-    func send<T: Decodable, Body: Encodable>(
+    private func shouldRetryAfter401<Body: Encodable & Sendable>(
+        _ request: APIRequest<Body>
+    ) async throws -> Bool {
+        guard request.path != AuthEndpoints.refresh else { return false }
+        try await refreshService?.refresh()
+        return true
+    }
+
+    func send<T: Decodable & Sendable, Body: Encodable & Sendable>(
         _ request: APIRequest<Body>
     ) async throws -> T {
+        let (data, http) = try await execute(request, retryOn401: true)
+        switch http.statusCode {
+        case 200...299: return try JSONDecoder().decode(T.self, from: data)
+        case 401: throw APIError.unauthorized
+        case 403: throw APIError.forbidden
+        case 404: throw APIError.notFound
+        case 500...599: throw APIError.serverError(statusCode: http.statusCode)
+        default: throw APIError.unknown
+        }
+    }
 
-        guard let url = URL(string: APIConfig.baseURL + request.path) else {
+    func sendVoid<Body: Encodable & Sendable>(
+        _ request: APIRequest<Body>
+    ) async throws {
+        let (_, http) = try await execute(request, retryOn401: true)
+        switch http.statusCode {
+        case 200...299: return
+        case 401: throw APIError.unauthorized
+        case 403: throw APIError.forbidden
+        case 404: throw APIError.notFound
+        case 500...599: throw APIError.serverError(statusCode: http.statusCode)
+        default: throw APIError.unknown
+        }
+    }
+
+    private func execute<Body: Encodable & Sendable>(
+        _ request: APIRequest<Body>,
+        retryOn401: Bool
+    ) async throws -> (Data, HTTPURLResponse) {
+        var urlRequest = try buildURLRequest(from: request)
+
+        for interceptor in interceptors {
+            try await interceptor.adapt(&urlRequest)
+        }
+
+        let (data, response) = try await session.data(for: urlRequest)
+
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.requestFailed
+        }
+
+        if retryOn401, http.statusCode == 401,
+           try await shouldRetryAfter401(request) {
+            return try await execute(request, retryOn401: false)
+        }
+
+        return (data, http)
+    }
+
+    private func buildURLRequest<Body: Encodable & Sendable>(
+        from request: APIRequest<Body>
+    ) throws -> URLRequest {
+        guard var components = URLComponents(string: APIConfig.baseURL + request.path) else {
+            throw APIError.invalidURL
+        }
+
+        if !request.queryItems.isEmpty {
+            components.queryItems = request.queryItems
+        }
+
+        guard let url = components.url else {
             throw APIError.invalidURL
         }
 
@@ -32,25 +108,6 @@ final class URLSessionHTTPClient: HTTPClient {
             urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
 
-        let (data, response) = try await session.data(for: urlRequest)
-
-        guard let http = response as? HTTPURLResponse else {
-            throw APIError.requestFailed
-        }
-
-        switch http.statusCode {
-        case 200...299:
-            return try JSONDecoder().decode(T.self, from: data)
-        case 401:
-            throw APIError.unauthorized
-        case 403:
-            throw APIError.forbidden
-        case 404:
-            throw APIError.notFound
-        case 500...599:
-            throw APIError.serverError(statusCode: http.statusCode)
-        default:
-            throw APIError.unknown
-        }
+        return urlRequest
     }
 }

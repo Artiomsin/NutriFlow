@@ -1,12 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { db } from '../db/db';
 import { waterEntries } from '../db/schema/waterEntries';
-import { dailySummary } from '../db/schema/dailySummary';
 import { eq, and, sql } from 'drizzle-orm';
+import { redis } from '../redis';
+import { DailySummaryService } from '../daily-summary/daily-summary.service';
 import type { CreateWaterEntryDto } from './water-tracking.schema';
 
 @Injectable()
-export class WaterTrackingService {async create(userId: string, dto: CreateWaterEntryDto) {
+export class WaterTrackingService {
+
+  constructor(private readonly dailySummaryService: DailySummaryService) {}
+
+  async create(userId: string, dto: CreateWaterEntryDto) {
     const [entry] = await db
       .insert(waterEntries)
       .values({
@@ -15,7 +20,8 @@ export class WaterTrackingService {async create(userId: string, dto: CreateWater
       })
       .returning();
 
-    await this.recalculateDailyWater(userId);
+    await this.dailySummaryService.recalculate(userId);
+    await this.invalidateAnalyticsCache(userId);
 
     return entry;
   }
@@ -28,6 +34,18 @@ export class WaterTrackingService {async create(userId: string, dto: CreateWater
         and(
           eq(waterEntries.userId, userId),
           sql`DATE(${waterEntries.createdAt}) = CURRENT_DATE`,
+        ),
+      );
+  }
+
+  async getByDate(userId: string, date: string) {
+    return db
+      .select()
+      .from(waterEntries)
+      .where(
+        and(
+          eq(waterEntries.userId, userId),
+          sql`DATE(${waterEntries.createdAt}) = ${date}::date`,
         ),
       );
   }
@@ -47,66 +65,14 @@ export class WaterTrackingService {async create(userId: string, dto: CreateWater
       throw new NotFoundException('Water entry not found');
     }
 
-    await this.recalculateDailyWater(userId);
+    await this.dailySummaryService.recalculate(userId);
+    await this.invalidateAnalyticsCache(userId);
 
     return { message: 'Deleted' };
   }
 
-  // =========================
-  // DAILY SUMMARY UPDATE
-  // =========================
-
-  private async recalculateDailyWater(userId: string) {
-    const entries = await db
-      .select()
-      .from(waterEntries)
-      .where(
-        and(
-          eq(waterEntries.userId, userId),
-          sql`DATE(${waterEntries.createdAt}) = CURRENT_DATE`,
-        ),
-      );
-
-    const totalWaterMl = entries.reduce(
-      (acc, e) => acc + e.amountMl,
-      0,
-    );
-
-    const existing = await db
-      .select()
-      .from(dailySummary)
-      .where(
-        and(
-          eq(dailySummary.userId, userId),
-          sql`DATE(${dailySummary.date}) = CURRENT_DATE`,
-        ),
-      )
-      .limit(1);
-
-    if (existing.length === 0) {
-      await db.insert(dailySummary).values({
-        userId,
-        date: sql`CURRENT_DATE`,
-        totalCalories: 0,
-        totalProtein: 0,
-        totalFat: 0,
-        totalCarbs: 0,
-        totalWaterMl,
-      });
-
-      return;
-    }
-
-    await db
-      .update(dailySummary)
-      .set({
-        totalWaterMl,
-      })
-      .where(
-        and(
-          eq(dailySummary.userId, userId),
-          sql`DATE(${dailySummary.date}) = CURRENT_DATE`,
-        ),
-      );
+  private async invalidateAnalyticsCache(userId: string) {
+    await redis.del(`analytics:${userId}:week`);
+    await redis.del(`analytics:${userId}:month`);
   }
 }

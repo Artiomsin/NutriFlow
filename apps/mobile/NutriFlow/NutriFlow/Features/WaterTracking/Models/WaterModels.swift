@@ -1,11 +1,11 @@
 
 import Foundation
 
-struct CreateWaterRequest: Codable {
+struct CreateWaterRequest: Codable, Sendable {
     let amountMl: Int
 }
 
-struct WaterEntry: Codable, Identifiable {
+struct WaterEntry: Codable, Identifiable, Sendable {
 
     let id: String
     let userId: String

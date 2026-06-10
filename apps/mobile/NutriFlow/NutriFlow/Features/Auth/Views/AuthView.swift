@@ -58,5 +58,6 @@ struct AuthView: View {
                 .frame(maxWidth: .infinity)
             }
         }
+        .onAppear { AmplitudeService.shared.track(.screenView(screen: "auth")) }
     }
 }

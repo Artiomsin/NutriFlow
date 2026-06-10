@@ -4,6 +4,7 @@ import { dailySummary } from '../db/schema/dailySummary';
 import { userGoals } from '../db/schema/userGoals';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { redis } from '../redis';
+
 @Injectable()
 export class AnalyticsService {
   async getAnalytics(userId: string, period: 'week' | 'month') {
@@ -13,11 +14,10 @@ export class AnalyticsService {
       return JSON.parse(cached);
     }
     const now = new Date();
-    const toDate = new Date(now);
-    toDate.setHours(23, 59, 59, 999);
-    const fromDate = new Date(now);
-    fromDate.setHours(0, 0, 0, 0);
-    fromDate.setDate(fromDate.getDate() - (period === 'week' ? 6 : 29));
+    const toDate = this.toDateStr(now);
+    const from = new Date(now);
+    from.setDate(from.getDate() - (period === 'week' ? 6 : 29));
+    const fromDate = this.toDateStr(from);
     const result = await this.computeAnalytics(userId, fromDate, toDate, period);
     await redis.setex(cacheKey, 300, JSON.stringify(result));
     return result;
@@ -28,18 +28,14 @@ export class AnalyticsService {
     if (cached) {
       return JSON.parse(cached);
     }
-    const fromDate = new Date(from);
-    fromDate.setHours(0, 0, 0, 0);
-    const toDate = new Date(to);
-    toDate.setHours(23, 59, 59, 999);
-    const result = await this.computeAnalytics(userId, fromDate, toDate, 'custom');
+    const result = await this.computeAnalytics(userId, from, to, 'custom');
     await redis.setex(cacheKey, 300, JSON.stringify(result));
     return result;
   }
   private async computeAnalytics(
     userId: string,
-    fromDate: Date,
-    toDate: Date,
+    fromDate: string,
+    toDate: string,
     period: string,
   ) {
     const days = await db
@@ -58,8 +54,10 @@ export class AnalyticsService {
       .from(userGoals)
       .where(eq(userGoals.userId, userId))
       .limit(1);
+    const fromMs = new Date(fromDate).getTime();
+    const toMs = new Date(toDate).getTime();
     const totalDays = Math.round(
-      (toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24),
+      (toMs - fromMs) / (1000 * 60 * 60 * 24),
     );
     const daysTracked = days.length;
     const avgCalories = daysTracked > 0
@@ -71,14 +69,28 @@ export class AnalyticsService {
     const avgWater = daysTracked > 0
       ? Math.round(days.reduce((s, d) => s + (d.totalWaterMl ?? 0), 0) / daysTracked)
       : 0;
+    const avgFat = daysTracked > 0
+      ? Math.round(days.reduce((s, d) => s + (d.totalFat ?? 0), 0) / daysTracked)
+      : 0;
+    const avgCarbs = daysTracked > 0
+      ? Math.round(days.reduce((s, d) => s + (d.totalCarbs ?? 0), 0) / daysTracked)
+      : 0;
     const goalCalories = goals?.dailyCaloriesGoal ?? null;
     const goalProtein = goals?.dailyProteinGoal ?? null;
+    const goalFat = goals?.dailyFatGoal ?? null;
+    const goalCarbs = goals?.dailyCarbsGoal ?? null;
     const goalWater = goals?.dailyWaterGoal ?? null;
     const goalCaloriesPct = goalCalories && goalCalories > 0
       ? Math.round((avgCalories / goalCalories) * 100)
       : null;
     const goalProteinPct = goalProtein && goalProtein > 0
       ? Math.round((avgProtein / goalProtein) * 100)
+      : null;
+    const goalFatPct = goalFat && goalFat > 0
+      ? Math.round((avgFat / goalFat) * 100)
+      : null;
+    const goalCarbsPct = goalCarbs && goalCarbs > 0
+      ? Math.round((avgCarbs / goalCarbs) * 100)
       : null;
     const goalWaterPct = goalWater && goalWater > 0
       ? Math.round((avgWater / goalWater) * 100)
@@ -88,31 +100,45 @@ export class AnalyticsService {
     const daily = days.map((d) => {
       const cals = d.totalCalories ?? 0;
       const prot = d.totalProtein ?? 0;
+      const ft = d.totalFat ?? 0;
+      const crb = d.totalCarbs ?? 0;
       const wat = d.totalWaterMl ?? 0;
       return {
         date: d.date,
         calories: cals,
         protein: prot,
+        fat: ft,
+        carbs: crb,
         water: wat,
         caloriesPct: goalCalories && goalCalories > 0
           ? Math.round((cals / goalCalories) * 100) : null,
         proteinPct: goalProtein && goalProtein > 0
           ? Math.round((prot / goalProtein) * 100) : null,
+        fatPct: goalFat && goalFat > 0
+          ? Math.round((ft / goalFat) * 100) : null,
+        carbsPct: goalCarbs && goalCarbs > 0
+          ? Math.round((crb / goalCarbs) * 100) : null,
         waterPct: goalWater && goalWater > 0
           ? Math.round((wat / goalWater) * 100) : null,
       };
     });
     return {
       period,
-      fromDate: fromDate.toISOString(),
-      toDate: toDate.toISOString(),
+      fromDate,
+      toDate,
       averageCalories: avgCalories,
       averageProtein: avgProtein,
+      averageFat: avgFat,
+      averageCarbs: avgCarbs,
       averageWater: avgWater,
       goalCalories,
       goalCaloriesPct,
       goalProtein,
       goalProteinPct,
+      goalFat,
+      goalFatPct,
+      goalCarbs,
+      goalCarbsPct,
       goalWater,
       goalWaterPct,
       daysTracked,
@@ -123,23 +149,21 @@ export class AnalyticsService {
       daily,
     };
   }
-  private calculateStreak(days: { date: Date; totalCalories: number | null }[]) {
+  private calculateStreak(days: { date: string; totalCalories: number | null }[]) {
     if (days.length === 0) {
       return { count: 0, start: null };
     }
     let count = 0;
     let start = '';
     const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const todayStr = this.toDateStr(today);
     const dateSet = new Set(
-      days.map((d) => {
-        return `${d.date.getFullYear()}-${String(d.date.getMonth() + 1).padStart(2, '0')}-${String(d.date.getDate()).padStart(2, '0')}`;
-      }),
+      days.map((d) => d.date),
     );
     for (let i = 0; i < 365; i++) {
       const check = new Date(today);
       check.setDate(check.getDate() - i);
-      const checkStr = `${check.getFullYear()}-${String(check.getMonth() + 1).padStart(2, '0')}-${String(check.getDate()).padStart(2, '0')}`;
+      const checkStr = this.toDateStr(check);
       if (dateSet.has(checkStr)) {
         count++;
         start = check.toISOString();
@@ -163,5 +187,9 @@ export class AnalyticsService {
     if (diff > 5) return 'increasing';
     if (diff < -5) return 'decreasing';
     return 'stable';
+  }
+
+  private toDateStr(date: Date): string {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   }
 }

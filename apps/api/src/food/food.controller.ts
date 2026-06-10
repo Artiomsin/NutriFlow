@@ -5,6 +5,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 
@@ -34,6 +35,11 @@ export class FoodController {
   @Get('today')
   getToday(@User() user: AuthPayload) {
     return this.foodService.getToday(user.userId);
+  }
+
+  @Get()
+  getByDate(@User() user: AuthPayload, @Query('date') date: string) {
+    return this.foodService.getByDate(user.userId, date);
   }
 
   @Delete(':id')

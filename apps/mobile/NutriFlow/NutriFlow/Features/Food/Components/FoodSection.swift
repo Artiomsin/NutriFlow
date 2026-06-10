@@ -106,10 +106,7 @@ struct FoodSection: View {
 
 struct FoodSectionPreview: View {
     var body: some View {
-        let session = SessionManager(tokenStorage: TokenStorage(keychain: KeychainService()))
-
         let foodVM = FoodViewModel(
-            session: session,
             service: MockFoodService()
         )
         foodVM.setPreviewState(.loaded([

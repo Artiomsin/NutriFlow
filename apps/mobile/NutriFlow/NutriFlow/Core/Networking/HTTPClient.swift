@@ -1,7 +1,11 @@
 import Foundation
 
-protocol HTTPClient {
-    func send<T: Decodable, Body: Encodable>(
+protocol HTTPClient: Sendable {
+    func send<T: Decodable & Sendable, Body: Encodable & Sendable>(
         _ request: APIRequest<Body>
     ) async throws -> T
+
+    func sendVoid<Body: Encodable & Sendable>(
+        _ request: APIRequest<Body>
+    ) async throws
 }

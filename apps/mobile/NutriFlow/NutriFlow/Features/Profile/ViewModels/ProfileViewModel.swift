@@ -15,36 +15,33 @@ final class ProfileViewModel {
     var firstName: String = ""
     var lastName: String = ""
     
+    var gender: Gender?
     var goal: Goal?
     var activityLevel: ActivityLevel?
     
+    @ObservationIgnored private let authService: AuthServiceProtocol
     @ObservationIgnored private let profileService: ProfileServiceProtocol
     @ObservationIgnored private let userService: UserServiceProtocol
-    @ObservationIgnored private var session: SessionManager
-    @ObservationIgnored var onUnauthorized: (() -> Void)?
-    
+    @ObservationIgnored private let coordinator: AppCoordinator
+
     init(
-        session: SessionManager,
+        coordinator: AppCoordinator,
+        authService: AuthServiceProtocol,
         profileService: ProfileServiceProtocol,
         userService: UserServiceProtocol
     ) {
-        self.session = session
+        self.coordinator = coordinator
+        self.authService = authService
         self.profileService = profileService
         self.userService = userService
     }
-    
-    func loadData() async {
-        guard let token = session.accessToken() else {
-            clearForm()
-            state = .empty
-            return
-        }
 
+    func loadData() async {
         state = .loading
 
         do {
-            async let user = userService.getMe(token: token)
-            async let profile = profileService.getMyProfile(token: token)
+            async let user = userService.getMe()
+            async let profile = profileService.getMyProfile()
 
             let (userResult, profileResult) = try await (user, profile)
 
@@ -56,8 +53,7 @@ final class ProfileViewModel {
 
         } catch let error as APIError {
             if case .unauthorized = error {
-                session.logout()
-                onUnauthorized?()
+                coordinator.goToAuth()
             }
             if case .notFound = error {
                 clearForm()
@@ -69,16 +65,10 @@ final class ProfileViewModel {
             state = .error(error)
         }
     }
-    
-    func updateUser() async {
-        guard let token = session.accessToken() else {
-            state = .error(APIError.unauthorized)
-            return
-        }
 
+    func updateUser() async {
         do {
             let user = try await userService.updateMe(
-                token: token,
                 email: email.isEmpty ? nil : email,
                 password: nil,
                 firstName: firstName.isEmpty ? nil : firstName,
@@ -93,27 +83,24 @@ final class ProfileViewModel {
             state = .error(error)
         }
     }
-    
-    func createProfile() async {
-        guard let token = session.accessToken() else {
-            state = .error(APIError.unauthorized)
-            return
-        }
 
+    func createProfile() async {
         state = .saving(nil)
 
         do {
             let profile = try await profileService.createProfile(
-                token: token,
                 weight: Double(weight),
                 height: Int(height),
                 age: Int(age),
+                gender: gender,
                 goal: goal,
                 activityLevel: activityLevel
             )
 
             mapProfile(profile)
             state = .loaded(profile)
+            AmplitudeService.shared.track(.profileCreated)
+            coordinator.goToMain()
 
         } catch {
             state = .error(error)
@@ -121,41 +108,39 @@ final class ProfileViewModel {
     }
 
     func updateProfile() async {
-        guard let token = session.accessToken() else {
-            state = .error(APIError.unauthorized)
-            return
-        }
-
         state = .saving(nil)
 
         do {
             let profile = try await profileService.updateMyProfile(
-                token: token,
                 weight: Double(weight),
                 height: Int(height),
                 age: Int(age),
+                gender: gender,
                 goal: goal,
                 activityLevel: activityLevel
             )
 
             mapProfile(profile)
             state = .loaded(profile)
+            AmplitudeService.shared.track(.profileUpdated)
 
         } catch {
             state = .error(error)
         }
     }
 
-    func deleteProfile() async {
-        guard let token = session.accessToken() else {
-            state = .error(APIError.unauthorized)
-            return
-        }
+    func logout() async {
+        do {
+            try await authService.logout()
+        } catch {}
+        coordinator.goToAuth()
+    }
 
+    func deleteProfile() async {
         state = .saving(nil)
 
         do {
-            _ = try await profileService.deleteMyProfile(token: token)
+            try await profileService.deleteMyProfile()
             clearForm()
             state = .empty
 
@@ -168,6 +153,7 @@ final class ProfileViewModel {
         weight = profile.weight.map { String($0) } ?? ""
         height = profile.height.map { String($0) } ?? ""
         age = profile.age.map { String($0) } ?? ""
+        gender = profile.gender
         goal = profile.goal
         activityLevel = profile.activityLevel
     }
@@ -176,6 +162,7 @@ final class ProfileViewModel {
         weight = ""
         height = ""
         age = ""
+        gender = nil
         goal = nil
         activityLevel = nil
     }
