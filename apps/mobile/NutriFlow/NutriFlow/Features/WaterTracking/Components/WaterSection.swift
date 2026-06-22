@@ -107,6 +107,7 @@ struct WaterSection: View {
 struct WaterSectionPreview: View {
     var body: some View {
         let waterVM = WaterViewModel(
+            coordinator: AppCoordinator(container: AppDependencyContainer()),
             service: MockWaterService()
         )
         waterVM.setPreviewState(.loaded([

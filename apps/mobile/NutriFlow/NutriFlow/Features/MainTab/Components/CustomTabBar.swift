@@ -19,7 +19,7 @@ struct CustomTabBar: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
-        .background(AppTheme.cardBackground)
+        .background(AppTheme.tabBarBackground)
         .cornerRadius(AppTheme.cornerRadiusTabBar)
     }
 }

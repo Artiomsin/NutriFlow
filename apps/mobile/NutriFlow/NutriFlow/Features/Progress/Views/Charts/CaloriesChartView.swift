@@ -29,43 +29,37 @@ struct CaloriesChartView: View {
                 Text("\(totalCalories) kcal").font(.subheadline).foregroundColor(AppTheme.textSecondary)
             }
             
-            ScrollView(.horizontal, showsIndicators: false) {
-                Chart(data) { point in
-                    BarMark(x: .value("Date", point.label), y: .value("Calories", point.calories), width: .fixed(16))
-                        .foregroundStyle(LinearGradient(colors: [.orange, .red], startPoint: .top, endPoint: .bottom))
-                        .cornerRadius(4)
+            Chart(data) { point in
+                BarMark(x: .value("Date", point.label), y: .value("Calories", point.calories), width: .fixed(16))
+                    .foregroundStyle(LinearGradient(colors: [.orange, .red], startPoint: .top, endPoint: .bottom))
+                    .cornerRadius(4)
+            }
+            .frame(height: 180)
+            .chartYScale(domain: 0 ... Double(maxYValue))
+            .chartYAxis {
+                AxisMarks(position: .leading, values: .automatic(desiredCount: 5)) { _ in
+                    AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.3))
+                    AxisValueLabel().foregroundStyle(AppTheme.textTertiary)
                 }
-                .frame(width: chartWidth, height: 180)
-                .chartYScale(domain: 0 ... Double(maxYValue))
-                .chartYAxis {
-                    AxisMarks(position: .leading, values: .automatic(desiredCount: 5)) { _ in
-                        AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.3))
-                        AxisValueLabel().foregroundStyle(AppTheme.textTertiary)
-                    }
+            }
+            .chartXAxis {
+                AxisMarks { _ in
+                    AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.15))
+                    AxisValueLabel().foregroundStyle(AppTheme.textTertiary)
                 }
-                .chartXAxis {
-                    AxisMarks { _ in
-                        AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.15))
-                        AxisValueLabel().foregroundStyle(AppTheme.textTertiary)
-                    }
-                }
-                .chartXSelection(value: $selection)
-                .onChange(of: selection) { _, newVal in
-                    if canTap, let label = newVal {
-                        onBarTap?(label)
-                        DispatchQueue.main.async { selection = nil }
-                    }
+            }
+            .chartXSelection(value: $selection)
+            .chartScrollableAxes(.horizontal)
+            .onChange(of: selection) { _, newVal in
+                if canTap, let label = newVal {
+                    onBarTap?(label)
+                    DispatchQueue.main.async { selection = nil }
                 }
             }
         }
         .padding()
         .background(AppTheme.cardBackground)
         .cornerRadius(AppTheme.cornerRadiusMedium)
-    }
-
-    private var chartWidth: CGFloat {
-        let perBar: CGFloat = data.count <= 10 ? 80 : 100
-        return max(360, CGFloat(data.count) * perBar)
     }
 
     private var totalCalories: Int {

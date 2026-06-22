@@ -9,10 +9,15 @@ final class WaterViewModel {
     var amountMl: String = ""
     
     @ObservationIgnored private let service: WaterTrackingServiceProtocol
+    @ObservationIgnored private weak var coordinator: AppCoordinator?
     
-    init(service: WaterTrackingServiceProtocol) {
+    init(coordinator: AppCoordinator, service: WaterTrackingServiceProtocol) {
+        print("WaterViewModel init")
+        self.coordinator = coordinator
         self.service = service
     }
+
+    deinit { print("WaterViewModel deinit") }
     
     func loadToday() async {
         state = .loading
@@ -35,9 +40,14 @@ final class WaterViewModel {
 
         do {
             try await service.createWaterEntry(amountMl: ml)
-            AmplitudeService.shared.track(.waterAdded(amountMl: ml))
+            AnalyticsManager.shared.track(.waterAdded(amountMl: ml))
             await loadToday()
             clearForm()
+        } catch let error as APIError {
+            if case .unauthorized = error {
+                coordinator?.goToAuth()
+            }
+            state = .error(error)
         } catch {
             state = .error(error)
         }
@@ -46,8 +56,13 @@ final class WaterViewModel {
     func deleteWater(id: String) async {
         do {
             try await service.deleteWaterEntry(id: id)
-            AmplitudeService.shared.track(.waterDeleted)
+            AnalyticsManager.shared.track(.waterDeleted)
             await loadToday()
+        } catch let error as APIError {
+            if case .unauthorized = error {
+                coordinator?.goToAuth()
+            }
+            state = .error(error)
         } catch {
             state = .error(error)
         }

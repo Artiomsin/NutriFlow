@@ -14,10 +14,15 @@ final class FoodViewModel {
     var carbs: String = ""
     
     @ObservationIgnored private let service: FoodServiceProtocol
+    @ObservationIgnored private weak var coordinator: AppCoordinator?
     
-    init(service: FoodServiceProtocol) {
+    init(coordinator: AppCoordinator, service: FoodServiceProtocol) {
+        print("FoodViewModel init")
+        self.coordinator = coordinator
         self.service = service
     }
+
+    deinit { print("FoodViewModel deinit") }
     
     func loadToday() async {
         state = .loading
@@ -47,9 +52,14 @@ final class FoodViewModel {
                 carbs: Int(carbs)
             )
 
-            AmplitudeService.shared.track(.foodAdded(name: name, calories: caloriesInt))
+            AnalyticsManager.shared.track(.foodAdded(name: name, calories: caloriesInt))
             await loadToday()
             clearForm()
+        } catch let error as APIError {
+            if case .unauthorized = error {
+                coordinator?.goToAuth()
+            }
+            state = .error(error)
         } catch {
             state = .error(error)
         }
@@ -58,8 +68,13 @@ final class FoodViewModel {
     func deleteFood(id: String) async {
         do {
             try await service.deleteFoodEntry(id: id)
-            AmplitudeService.shared.track(.foodDeleted)
+            AnalyticsManager.shared.track(.foodDeleted)
             await loadToday()
+        } catch let error as APIError {
+            if case .unauthorized = error {
+                coordinator?.goToAuth()
+            }
+            state = .error(error)
         } catch {
             state = .error(error)
         }

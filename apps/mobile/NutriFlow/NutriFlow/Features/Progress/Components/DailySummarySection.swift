@@ -1,13 +1,8 @@
-//
-//  DailySummarySection.swift
-//  Nutriflow
-//
-
 import SwiftUI
 
 struct DailySummarySection: View {
 
-    @Bindable var viewModel: DailySummaryViewModel
+    let state: DailySummaryState
     let goals: UserGoals?
 
     var body: some View {
@@ -32,7 +27,7 @@ struct DailySummarySection: View {
     @ViewBuilder
     private var content: some View {
 
-        switch viewModel.state {
+        switch state {
 
         case .idle, .loading:
             ProgressView()
@@ -88,26 +83,23 @@ struct DailySummarySection: View {
 
 struct DailySummarySectionPreview: View {
     var body: some View {
-        let dailyVM = DailySummaryViewModel(
-            coordinator: AppCoordinator(container: AppDependencyContainer()),
-            service: MockDailySummaryService()
+        DailySummarySection(
+            state: .loaded(DailySummary(
+                id: "1",
+                userId: "1",
+                date: "2026-05-18",
+                totalCalories: 1250,
+                totalProtein: 85,
+                totalFat: 42,
+                totalCarbs: 120,
+                totalWaterMl: 1750,
+                createdAt: "2026-05-18T10:00:00Z",
+                updatedAt: nil
+            )),
+            goals: nil
         )
-        dailyVM.setPreviewState(.loaded(DailySummary(
-            id: "1",
-            userId: "1",
-            date: "2026-05-18",
-            totalCalories: 1250,
-            totalProtein: 85,
-            totalFat: 42,
-            totalCarbs: 120,
-            totalWaterMl: 1750,
-            createdAt: "2026-05-18T10:00:00Z",
-            updatedAt: nil
-        )))
-
-        return DailySummarySection(viewModel: dailyVM, goals: nil)
-            .padding()
-            .background(AppTheme.background)
-            .preferredColorScheme(.dark)
+        .padding()
+        .background(AppTheme.background)
+        .preferredColorScheme(.dark)
     }
 }

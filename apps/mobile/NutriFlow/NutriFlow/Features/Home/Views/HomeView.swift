@@ -8,12 +8,13 @@ struct HomeView: View {
     @State private var showAddWater = false
 
     var body: some View {
+        let _ = print("HomeView body")
         ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
                 header
 
                 DailySummarySection(
-                    viewModel: homeViewModel.dailyViewModel,
+                    state: homeViewModel.dailySummaryState,
                     goals: homeViewModel.userGoals
                 )
                 .padding(.horizontal, AppTheme.paddingHorizontal)
@@ -47,7 +48,7 @@ struct HomeView: View {
             await homeViewModel.loadAll()
         }
         .onAppear {
-            AmplitudeService.shared.track(.screenView(screen: "home"))
+            AnalyticsManager.shared.track(.screenView(screen: "home"))
             Task { await homeViewModel.reloadGoals() }
         }
         .fullScreenCover(isPresented: $showAddFood) {
@@ -55,7 +56,7 @@ struct HomeView: View {
                 foodViewModel: homeViewModel.foodViewModel,
                 onSave: {
                     Task {
-                        await homeViewModel.dailyViewModel.loadToday()
+                        await homeViewModel.loadToday()
                     }
                 }
             )
@@ -65,14 +66,14 @@ struct HomeView: View {
                 waterViewModel: homeViewModel.waterViewModel,
                 onSave: {
                     Task {
-                        await homeViewModel.dailyViewModel.loadToday()
+                        await homeViewModel.loadToday()
                     }
                 }
             )
         }
     }
 
-    private var header: some View { 
+    private var header: some View {
         VStack(spacing: 6) {
             Text("Home")
                 .font(.system(size: 30, weight: .semibold))
@@ -86,65 +87,41 @@ struct HomeView: View {
     HomePreviewContent()
 }
 
-struct HomePreviewContent: View {
+private struct HomePreviewContent: View {
     var body: some View {
-        let foodVM = FoodViewModel(
-            service: MockFoodService()
-        )
+        return HomeView(homeViewModel: makePreviewHomeVM())
+            .background(AppTheme.background)
+            .preferredColorScheme(.dark)
+    }
+
+    private func makePreviewHomeVM() -> HomeViewModel {
+        let coordinator = AppCoordinator(container: AppDependencyContainer())
+        let foodVM = FoodViewModel(coordinator: coordinator, service: MockFoodService())
         foodVM.setPreviewState(.loaded([
             FoodEntry(id: "1", userId: "1", name: "Chicken breast", calories: 165, protein: 31, fat: 4, carbs: 0, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
             FoodEntry(id: "2", userId: "1", name: "Rice", calories: 200, protein: 4, fat: 1, carbs: 45, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil)
         ]))
 
-        let waterVM = WaterViewModel(
-            service: MockWaterService()
-        )
+        let waterVM = WaterViewModel(coordinator: coordinator, service: MockWaterService())
         waterVM.setPreviewState(.loaded([
             WaterEntry(id: "1", userId: "1", amountMl: 250, createdAt: "2026-05-18T08:00:00Z", updatedAt: nil),
             WaterEntry(id: "2", userId: "1", amountMl: 500, createdAt: "2026-05-18T10:30:00Z", updatedAt: nil)
         ]))
 
-        let dailyVM = DailySummaryViewModel(
-            coordinator: AppCoordinator(container: AppDependencyContainer()),
-            service: MockDailySummaryService()
-        )
-        dailyVM.setPreviewState(.loaded(DailySummary(
-            id: "1",
-            userId: "1",
-            date: "2026-05-20",
-            totalCalories: 1250,
-            totalProtein: 85,
-            totalFat: 42,
-            totalCarbs: 120,
-            totalWaterMl: 1750,
-            createdAt: "2026-05-20T10:00:00Z",
-            updatedAt: nil
-        )))
-
-        let goalsVM = GoalsViewModel(service: MockGoalsService())
+        let goalsVM = GoalsViewModel(coordinator: coordinator, service: MockGoalsService())
         goalsVM.state = .loaded(UserGoals(
-            id: "1",
-            userId: "1",
-            dailyCaloriesGoal: 2200,
-            dailyProteinGoal: 150,
-            dailyFatGoal: 65,
-            dailyCarbsGoal: 250,
-            dailyWaterGoal: 3000,
-            source: "auto",
-            createdAt: nil,
-            updatedAt: nil
+            id: "1", userId: "1",
+            dailyCaloriesGoal: 2200, dailyProteinGoal: 150,
+            dailyFatGoal: 65, dailyCarbsGoal: 250, dailyWaterGoal: 3000,
+            source: "auto", createdAt: nil, updatedAt: nil
         ))
 
-        let homeVM = HomeViewModel(
-            coordinator: AppCoordinator(container: AppDependencyContainer()),
+        return HomeViewModel(
+            coordinator: coordinator,
+            dailySummaryService: MockDailySummaryService(),
             foodViewModel: foodVM,
             waterViewModel: waterVM,
-            dailyViewModel: dailyVM,
             goalsViewModel: goalsVM
         )
-
-        return HomeView(homeViewModel: homeVM)
-            .background(AppTheme.background)
-            .preferredColorScheme(.dark)
     }
 }

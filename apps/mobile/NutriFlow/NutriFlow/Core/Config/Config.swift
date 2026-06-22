@@ -2,6 +2,6 @@
 import Foundation
 
 enum APIConfig {
-    static let baseURL = "https://MacBook-Air-4.local:3000/api"
+    static let baseURL = "http://MacBook-Air-4.local:3000/api"
     static let amplitudeApiKey = "1d7c4424dcf6e04bb551287531645d84"
 }

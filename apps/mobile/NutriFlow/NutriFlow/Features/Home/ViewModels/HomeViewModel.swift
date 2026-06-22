@@ -7,41 +7,47 @@ final class HomeViewModel {
 
     let foodViewModel: FoodViewModel
     let waterViewModel: WaterViewModel
-    let dailyViewModel: DailySummaryViewModel
     let goalsViewModel: GoalsViewModel
+
+    var dailySummaryState: DailySummaryState = .idle
+    var dashboardFoodEntries: [FoodEntry] = []
+    var dashboardWaterEntries: [WaterEntry] = []
 
     var userGoals: UserGoals? {
         if case .loaded(let goals) = goalsViewModel.state { return goals }
         return nil
     }
-    
-    @ObservationIgnored private let coordinator: AppCoordinator
+
+    @ObservationIgnored private weak var coordinator: AppCoordinator?
+    @ObservationIgnored private let dailySummaryService: DailySummaryServiceProtocol
 
     init(
         coordinator: AppCoordinator,
+        dailySummaryService: DailySummaryServiceProtocol,
         foodViewModel: FoodViewModel,
         waterViewModel: WaterViewModel,
-        dailyViewModel: DailySummaryViewModel,
         goalsViewModel: GoalsViewModel
-        
     ) {
+        print("HomeViewModel init")
         self.coordinator = coordinator
+        self.dailySummaryService = dailySummaryService
         self.foodViewModel = foodViewModel
         self.waterViewModel = waterViewModel
-        self.dailyViewModel = dailyViewModel
         self.goalsViewModel = goalsViewModel
     }
 
+    deinit { print("HomeViewModel deinit") }
+
     func loadAll() async {
         await withDiscardingTaskGroup { [self] group in
-            group.addTask { await self.dailyViewModel.loadDashboardToday() }
+            group.addTask { await self.loadDashboardToday() }
             group.addTask { await self.goalsViewModel.loadGoals() }
         }
 
-        switch dailyViewModel.state {
+        switch dailySummaryState {
         case .loaded:
-            foodViewModel.state = .loaded(dailyViewModel.dashboardFoodEntries)
-            waterViewModel.state = .loaded(dailyViewModel.dashboardWaterEntries)
+            foodViewModel.state = .loaded(dashboardFoodEntries)
+            waterViewModel.state = .loaded(dashboardWaterEntries)
         case .empty, .error:
             foodViewModel.state = .loaded([])
             waterViewModel.state = .loaded([])
@@ -49,7 +55,6 @@ final class HomeViewModel {
             foodViewModel.state = .loaded([])
             waterViewModel.state = .loaded([])
         }
-        checkAuth()
     }
 
     func reloadGoals() async {
@@ -58,40 +63,63 @@ final class HomeViewModel {
 
     func addFood() async {
         await foodViewModel.createFood()
-        guard !checkAuth() else { return }
-        await dailyViewModel.loadToday()
+        await loadToday()
     }
-    
+
     func deleteFood(id: String) async {
         await foodViewModel.deleteFood(id: id)
-        guard !checkAuth() else { return }
-        await dailyViewModel.loadToday()
+        await loadToday()
     }
 
     func addWater() async {
         await waterViewModel.createWater()
-        guard !checkAuth() else { return }
-        await dailyViewModel.loadToday()
+        await loadToday()
     }
-    
+
     func deleteWater(id: String) async {
         await waterViewModel.deleteWater(id: id)
-        guard !checkAuth() else { return }
-        await dailyViewModel.loadToday()
+        await loadToday()
     }
-    
-    @discardableResult
-    private func checkAuth() -> Bool {
-        if case .error(let error) = foodViewModel.state,
-           (error as? APIError) == .unauthorized {
-            coordinator.goToAuth()
-            return true
+
+    func loadDashboardToday() async {
+        dailySummaryState = .loading
+        dashboardFoodEntries = []
+        dashboardWaterEntries = []
+        do {
+            let dashboard = try await dailySummaryService.getDashboardToday()
+            if dashboard.dailySummary.id == nil {
+                dailySummaryState = .empty
+            } else {
+                dailySummaryState = .loaded(dashboard.dailySummary)
+            }
+            dashboardFoodEntries = dashboard.foodEntries
+            dashboardWaterEntries = dashboard.waterEntries
+        } catch let error as APIError {
+            if case .unauthorized = error {
+                coordinator?.goToAuth()
+            }
+            dailySummaryState = .error(error)
+        } catch {
+            dailySummaryState = .error(error)
         }
-        if case .error(let error) = waterViewModel.state,
-           (error as? APIError) == .unauthorized {
-            coordinator.goToAuth()
-            return true
+    }
+
+    func loadToday() async {
+        dailySummaryState = .loading
+        do {
+            let result = try await dailySummaryService.getTodayDailySummary()
+            if result.id == nil {
+                dailySummaryState = .empty
+            } else {
+                dailySummaryState = .loaded(result)
+            }
+        } catch let error as APIError {
+            if case .unauthorized = error {
+                coordinator?.goToAuth()
+            }
+            dailySummaryState = .error(error)
+        } catch {
+            dailySummaryState = .error(error)
         }
-        return false
     }
 }

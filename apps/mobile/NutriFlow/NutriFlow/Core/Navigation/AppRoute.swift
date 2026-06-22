@@ -8,7 +8,8 @@
 import Foundation
 
 enum AppRoute: Equatable {
-    case loading
+    case onboarding
+    case splash
     case auth
     case profileForm
     case main

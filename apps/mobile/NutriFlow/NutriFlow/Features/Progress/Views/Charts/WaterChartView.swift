@@ -27,40 +27,34 @@ struct WaterChartView: View {
                 Spacer()
                 Text("\(totalWater) ml").font(.subheadline).foregroundColor(AppTheme.textSecondary)
             }
-            ScrollView(.horizontal, showsIndicators: false) {
-                Chart(data) { point in
-                    LineMark(x: .value("Date", point.label), y: .value("Water", point.waterMl))
-                        .foregroundStyle(.blue).interpolationMethod(.catmullRom)
-                    AreaMark(x: .value("Date", point.label), y: .value("Water", point.waterMl))
-                        .foregroundStyle(LinearGradient(colors: [.blue.opacity(0.3), .blue.opacity(0.05)], startPoint: .top, endPoint: .bottom))
-                        .interpolationMethod(.catmullRom)
-                    PointMark(x: .value("Date", point.label), y: .value("Water", point.waterMl))
-                        .foregroundStyle(.blue).symbolSize(30)
+            Chart(data) { point in
+                LineMark(x: .value("Date", point.label), y: .value("Water", point.waterMl))
+                    .foregroundStyle(.blue).interpolationMethod(.catmullRom)
+                AreaMark(x: .value("Date", point.label), y: .value("Water", point.waterMl))
+                    .foregroundStyle(LinearGradient(colors: [.blue.opacity(0.3), .blue.opacity(0.05)], startPoint: .top, endPoint: .bottom))
+                    .interpolationMethod(.catmullRom)
+                PointMark(x: .value("Date", point.label), y: .value("Water", point.waterMl))
+                    .foregroundStyle(.blue).symbolSize(30)
+            }
+            .frame(height: 180)
+            .chartYScale(domain: 0 ... Double(maxWaterValue))
+            .chartYAxis { AxisMarks(position: .leading) { _ in AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.3)); AxisValueLabel().foregroundStyle(AppTheme.textTertiary) } }
+            .chartXAxis {
+                AxisMarks { _ in
+                    AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.15))
+                    AxisValueLabel().foregroundStyle(AppTheme.textTertiary)
                 }
-                .frame(width: chartWidth, height: 180)
-                .chartYScale(domain: 0 ... Double(maxWaterValue))
-                .chartYAxis { AxisMarks(position: .leading) { _ in AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.3)); AxisValueLabel().foregroundStyle(AppTheme.textTertiary) } }
-                .chartXAxis {
-                    AxisMarks { _ in
-                        AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.15))
-                        AxisValueLabel().foregroundStyle(AppTheme.textTertiary)
-                    }
-                }
-                .chartXSelection(value: $selection)
-                .onChange(of: selection) { _, newVal in
-                    if canTap, let label = newVal {
-                        onBarTap?(label)
-                        DispatchQueue.main.async { selection = nil }
-                    }
+            }
+            .chartXSelection(value: $selection)
+            .chartScrollableAxes(.horizontal)
+            .onChange(of: selection) { _, newVal in
+                if canTap, let label = newVal {
+                    onBarTap?(label)
+                    DispatchQueue.main.async { selection = nil }
                 }
             }
         }
         .padding().background(AppTheme.cardBackground).cornerRadius(AppTheme.cornerRadiusMedium)
-    }
-
-    private var chartWidth: CGFloat {
-        let perBar: CGFloat = data.count <= 10 ? 80 : 100
-        return max(360, CGFloat(data.count) * perBar)
     }
 
     private var totalWater: Int { data.reduce(0) { $0 + $1.waterMl } }

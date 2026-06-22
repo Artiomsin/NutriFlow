@@ -3,12 +3,9 @@ import Observation
 
 @Observable
 @MainActor
-final class DailySummaryViewModel {
+final class ProgressChartViewModel {
 
-    var state: DailySummaryState = .idle
     var chartState: ChartState = .idle
-
-    private let periodState: PeriodState
     var chartData: [ChartDataPoint] = []
 
     var selectedDate: Date = Date()
@@ -19,48 +16,20 @@ final class DailySummaryViewModel {
     var avgFat: Double = 0
     var avgCarbs: Double = 0
     var daysCount: Int = 0
-    @ObservationIgnored private let coordinator: AppCoordinator
+    @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let service: DailySummaryServiceProtocol
     @ObservationIgnored private let foodService: FoodServiceProtocol?
     @ObservationIgnored private let waterService: WaterTrackingServiceProtocol?
     @ObservationIgnored private let goalsService: GoalsServiceProtocol?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var loadTaskID = 0
-    @ObservationIgnored private var searchTaskID = 0
+    @ObservationIgnored private let periodState: PeriodState
 
     var showDaySheet = false
     var selectedDateFood: [FoodEntry] = []
     var selectedDateWater: [WaterEntry] = []
     var selectedDateStr: String = ""
     var selectedDateGoals: UserGoals?
-
-    var searchFood: [FoodEntry] = []
-    var searchWater: [WaterEntry] = []
-    var searchGoals: UserGoals?
-    var searchIsLoading = false
-
-    func loadSearch(date: Date) async {
-        let myID = searchTaskID &+ 1
-        searchTaskID = myID
-        searchIsLoading = true
-
-        let dateStr = Self.dateOnlyFormatter.string(from: date)
-        async let food = foodService?.getFoodByDate(date: dateStr) ?? []
-        async let water = waterService?.getWaterByDate(date: dateStr) ?? []
-        async let goals = goalsService?.getGoals()
-
-        do {
-            let (f, w, g) = try await (food, water, goals)
-            guard searchTaskID == myID else { return }
-            (searchFood, searchWater, searchGoals) = (f, w, g)
-        } catch {
-            guard searchTaskID == myID else { return }
-            searchFood = []
-            searchWater = []
-            searchGoals = nil
-        }
-        searchIsLoading = false
-    }
 
     var canTapBars: Bool {
         periodState.type != .today && aggregationLevel() == .day
@@ -82,10 +51,9 @@ final class DailySummaryViewModel {
         f.dateFormat = "MMM"
         return f
     }()
-    var dashboardFoodEntries: [FoodEntry] = []
-    var dashboardWaterEntries: [WaterEntry] = []
 
-    init(coordinator: AppCoordinator, service: DailySummaryServiceProtocol, periodState: PeriodState = PeriodState(), foodService: FoodServiceProtocol? = nil, waterService: WaterTrackingServiceProtocol? = nil, goalsService: GoalsServiceProtocol? = nil) {
+    init(coordinator: AppCoordinator, service: DailySummaryServiceProtocol, periodState: PeriodState, foodService: FoodServiceProtocol? = nil, waterService: WaterTrackingServiceProtocol? = nil, goalsService: GoalsServiceProtocol? = nil) {
+        print("ProgressChartViewModel init")
         self.coordinator = coordinator
         self.service = service
         self.periodState = periodState
@@ -94,65 +62,9 @@ final class DailySummaryViewModel {
         self.goalsService = goalsService
     }
 
-    func loadToday() async {
-        state = .loading
-        do {
-            let result = try await service.getTodayDailySummary()
-            if result.id == nil {
-                state = .empty
-            } else {
-                state = .loaded(result)
-            }
-        } catch let error as APIError {
-            if case .unauthorized = error {
-                coordinator.goToAuth()
-            }
-            state = .error(error)
-        } catch {
-            state = .error(error)
-        }
-    }
-
-    func loadDashboardToday() async {
-        state = .loading
-        dashboardFoodEntries = []
-        dashboardWaterEntries = []
-        do {
-            let dashboard = try await service.getDashboardToday()
-            if dashboard.dailySummary.id == nil {
-                state = .empty
-            } else {
-                state = .loaded(dashboard.dailySummary)
-            }
-            dashboardFoodEntries = dashboard.foodEntries
-            dashboardWaterEntries = dashboard.waterEntries
-        } catch let error as APIError {
-            if case .unauthorized = error {
-                coordinator.goToAuth()
-            }
-            state = .error(error)
-        } catch {
-            state = .error(error)
-        }
-    }
-
-    func loadByDate(date: String) async {
-        state = .loading
-        do {
-            let result = try await service.getDailySummaryByDate(date: date)
-            if result.id == nil {
-                state = .empty
-            } else {
-                state = .loaded(result)
-            }
-        } catch let error as APIError {
-            if case .unauthorized = error {
-                coordinator.goToAuth()
-            }
-            state = .error(error)
-        } catch {
-            state = .error(error)
-        }
+    deinit {
+        loadTask?.cancel()
+        print("ProgressChartViewModel deinit")
     }
 
     func loadDayDetail(date: String) async {
@@ -367,7 +279,7 @@ final class DailySummaryViewModel {
 
         } catch let error as APIError {
             if case .unauthorized = error {
-                coordinator.goToAuth()
+                coordinator?.goToAuth()
             }
             guard currentID == loadTaskID else { return }
             chartState = .error(error)
@@ -451,9 +363,5 @@ final class DailySummaryViewModel {
         if let d = Self.dateTimeFormatter.date(from: dateString) { return d }
         if let d = Self.dateTimeShortFormatter.date(from: dateString) { return d }
         return Self.dateOnlyFormatter.date(from: String(dateString.prefix(10)))
-    }
-
-    func setPreviewState(_ newState: DailySummaryState) {
-        state = newState
     }
 }

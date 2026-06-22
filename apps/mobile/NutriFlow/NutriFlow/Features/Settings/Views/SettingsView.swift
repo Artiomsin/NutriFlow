@@ -5,6 +5,7 @@ struct SettingsView: View {
     @State private var showProfile = false
 
     var body: some View {
+        let _ = print("SettingsView body")
         ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
 
@@ -35,9 +36,9 @@ struct SettingsView: View {
                     .frame(height: 100)
             }
         }
-        .onAppear {
-            AmplitudeService.shared.track(.screenView(screen: "settings"))
-            Task { await viewModel.loadData() }
+        .task {
+            AnalyticsManager.shared.track(.screenView(screen: "settings"))
+            await viewModel.loadData()
         }
         .fullScreenCover(isPresented: $showProfile) {
             ProfileDisplayView(viewModel: viewModel)

@@ -9,7 +9,7 @@ final class AnalyticsViewModel {
 
     private let periodState: PeriodState
 
-    @ObservationIgnored private let coordinator: AppCoordinator
+    @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let service: AnalyticsServiceProtocol
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var loadTaskID = 0
@@ -21,9 +21,15 @@ final class AnalyticsViewModel {
     }()
 
     init(coordinator: AppCoordinator, service: AnalyticsServiceProtocol, periodState: PeriodState = PeriodState()) {
+        print("AnalyticsViewModel init")
         self.coordinator = coordinator
         self.service = service
         self.periodState = periodState
+    }
+
+    deinit {
+        loadTask?.cancel()
+        print("AnalyticsViewModel deinit")
     }
 
     func loadAnalytics() async {
@@ -71,7 +77,7 @@ final class AnalyticsViewModel {
             }
         } catch let error as APIError {
             if case .unauthorized = error {
-                coordinator.goToAuth()
+                coordinator?.goToAuth()
             }
             guard currentID == loadTaskID else { return }
             state = .error(error)

@@ -32,37 +32,31 @@ struct NutritionChartView: View {
                 MacroSummaryItem(title: "Carbs", value: avgCarbs, color: .green)
             }
             .padding(.vertical, 8)
-            ScrollView(.horizontal, showsIndicators: false) {
-                Chart(data) { point in
-                    BarMark(x: .value("Date", point.label), y: .value("Protein", point.protein), width: .fixed(14)).foregroundStyle(.blue)
-                    BarMark(x: .value("Date", point.label), y: .value("Fat", point.fat), width: .fixed(14)).foregroundStyle(.yellow)
-                    BarMark(x: .value("Date", point.label), y: .value("Carbs", point.carbs), width: .fixed(14)).foregroundStyle(.green)
+            Chart(data) { point in
+                BarMark(x: .value("Date", point.label), y: .value("Protein", point.protein), width: .fixed(14)).foregroundStyle(.blue)
+                BarMark(x: .value("Date", point.label), y: .value("Fat", point.fat), width: .fixed(14)).foregroundStyle(.yellow)
+                BarMark(x: .value("Date", point.label), y: .value("Carbs", point.carbs), width: .fixed(14)).foregroundStyle(.green)
+            }
+            .frame(height: 180)
+            .chartYScale(domain: 0 ... Double(maxMacroValue))
+            .chartLegend(position: .bottom) { HStack(spacing: 20) { LegendItem(color: .blue, label: "Protein"); LegendItem(color: .yellow, label: "Fat"); LegendItem(color: .green, label: "Carbs") } }
+            .chartYAxis { AxisMarks(position: .leading) { _ in AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.3)); AxisValueLabel().foregroundStyle(AppTheme.textTertiary) } }
+            .chartXAxis {
+                AxisMarks { _ in
+                    AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.15))
+                    AxisValueLabel().foregroundStyle(AppTheme.textTertiary)
                 }
-                .frame(width: chartWidth, height: 180)
-                .chartYScale(domain: 0 ... Double(maxMacroValue))
-                .chartLegend(position: .bottom) { HStack(spacing: 20) { LegendItem(color: .blue, label: "Protein"); LegendItem(color: .yellow, label: "Fat"); LegendItem(color: .green, label: "Carbs") } }
-                .chartYAxis { AxisMarks(position: .leading) { _ in AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.3)); AxisValueLabel().foregroundStyle(AppTheme.textTertiary) } }
-                .chartXAxis {
-                    AxisMarks { _ in
-                        AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.15))
-                        AxisValueLabel().foregroundStyle(AppTheme.textTertiary)
-                    }
-                }
-                .chartXSelection(value: $selection)
-                .onChange(of: selection) { _, newVal in
-                    if canTap, let label = newVal {
-                        onBarTap?(label)
-                        DispatchQueue.main.async { selection = nil }
-                    }
+            }
+            .chartXSelection(value: $selection)
+            .chartScrollableAxes(.horizontal)
+            .onChange(of: selection) { _, newVal in
+                if canTap, let label = newVal {
+                    onBarTap?(label)
+                    DispatchQueue.main.async { selection = nil }
                 }
             }
         }
         .padding().background(AppTheme.cardBackground).cornerRadius(AppTheme.cornerRadiusMedium)
-    }
-
-    private var chartWidth: CGFloat {
-        let perBar: CGFloat = data.count <= 10 ? 80 : 100
-        return max(360, CGFloat(data.count) * perBar)
     }
 
     private var avgProtein: Int { guard !data.isEmpty else { return 0 }; return Int(data.reduce(0) { $0 + $1.protein } / Double(data.count)) }

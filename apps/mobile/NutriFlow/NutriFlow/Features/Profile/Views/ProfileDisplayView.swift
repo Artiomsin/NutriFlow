@@ -116,7 +116,7 @@ struct ProfileDisplayView: View {
             .scrollContentBackground(.hidden)
             .background(AppTheme.background)
         }
-        .onAppear { AmplitudeService.shared.track(.screenView(screen: "profile")) }
+        .onAppear { AnalyticsManager.shared.track(.screenView(screen: "profile")) }
         .fullScreenCover(isPresented: $showEditProfile) {
             EditProfileView(viewModel: viewModel) {
                 showEditProfile = false

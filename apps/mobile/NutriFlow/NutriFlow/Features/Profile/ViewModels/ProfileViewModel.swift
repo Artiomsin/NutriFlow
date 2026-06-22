@@ -22,7 +22,7 @@ final class ProfileViewModel {
     @ObservationIgnored private let authService: AuthServiceProtocol
     @ObservationIgnored private let profileService: ProfileServiceProtocol
     @ObservationIgnored private let userService: UserServiceProtocol
-    @ObservationIgnored private let coordinator: AppCoordinator
+    @ObservationIgnored private weak var coordinator: AppCoordinator?
 
     init(
         coordinator: AppCoordinator,
@@ -30,11 +30,14 @@ final class ProfileViewModel {
         profileService: ProfileServiceProtocol,
         userService: UserServiceProtocol
     ) {
+        print("ProfileViewModel init")
         self.coordinator = coordinator
         self.authService = authService
         self.profileService = profileService
         self.userService = userService
     }
+
+    deinit { print("ProfileViewModel deinit") }
 
     func loadData() async {
         state = .loading
@@ -44,6 +47,7 @@ final class ProfileViewModel {
             async let profile = profileService.getMyProfile()
 
             let (userResult, profileResult) = try await (user, profile)
+            try Task.checkCancellation()
 
             email = userResult.email
             firstName = userResult.firstName
@@ -53,7 +57,7 @@ final class ProfileViewModel {
 
         } catch let error as APIError {
             if case .unauthorized = error {
-                coordinator.goToAuth()
+                coordinator?.goToAuth()
             }
             if case .notFound = error {
                 clearForm()
@@ -99,8 +103,8 @@ final class ProfileViewModel {
 
             mapProfile(profile)
             state = .loaded(profile)
-            AmplitudeService.shared.track(.profileCreated)
-            coordinator.goToMain()
+            AnalyticsManager.shared.track(.profileCreated)
+            coordinator?.goToMain()
 
         } catch {
             state = .error(error)
@@ -122,7 +126,7 @@ final class ProfileViewModel {
 
             mapProfile(profile)
             state = .loaded(profile)
-            AmplitudeService.shared.track(.profileUpdated)
+            AnalyticsManager.shared.track(.profileUpdated)
 
         } catch {
             state = .error(error)
@@ -133,7 +137,7 @@ final class ProfileViewModel {
         do {
             try await authService.logout()
         } catch {}
-        coordinator.goToAuth()
+        coordinator?.goToAuth()
     }
 
     func deleteProfile() async {

@@ -18,6 +18,7 @@ final class AppDependencyContainer: AppDependency {
     let dailySummaryService: DailySummaryServiceProtocol
     let goalsService: GoalsServiceProtocol
     let analyticsService: AnalyticsServiceProtocol
+    let analyticsManager: AnalyticsManager
 
     init() {
         let keychain = KeychainService()
@@ -52,6 +53,12 @@ final class AppDependencyContainer: AppDependency {
             profileService: profile,
             sessionService: session
         )
-        
+
+        #if DEBUG
+        AnalyticsManager.shared.setMode(.debug)
+        #else
+        AnalyticsManager.shared.setMode(.live)
+        #endif
+        self.analyticsManager = AnalyticsManager.shared
     }
 }

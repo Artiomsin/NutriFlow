@@ -46,7 +46,7 @@ struct AddWaterView: View {
             waterViewModel.amountMl = "\(Int(selectedAmount))"
             animatedAmount = selectedAmount
             animateWave = true
-            AmplitudeService.shared.track(.screenView(screen: "add_water"))
+            AnalyticsManager.shared.track(.screenView(screen: "add_water"))
         }
         .onChange(of: selectedAmount) { _, newValue in
             waterViewModel.amountMl = "\(Int(newValue))"
@@ -243,6 +243,7 @@ struct AddWaterView: View {
 struct AddWaterViewPreview: View {
     var body: some View {
         let waterVM = WaterViewModel(
+            coordinator: AppCoordinator(container: AppDependencyContainer()),
             service: MockWaterService()
         )
 

@@ -16,9 +16,8 @@ export const users = app.table('users', {
   passwordHash: varchar('password_hash', { length: 255 }).notNull(),
 
   firstName: varchar('first_name', { length: 50 }),
+  
   lastName: varchar('last_name', { length: 50 }),
-
-  isActive: boolean('is_active').default(true).notNull(),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
 
