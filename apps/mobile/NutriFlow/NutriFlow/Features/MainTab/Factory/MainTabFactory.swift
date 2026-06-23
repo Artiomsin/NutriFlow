@@ -13,8 +13,6 @@ private struct MainTabView: View {
     let isGuest: Bool
     @State private var selectedTab = 0
     @State private var periodState: PeriodState
-    @State private var analyticsVM: AnalyticsViewModel
-    @State private var profileVM: ProfileViewModel
 
     init(container: AppDependency, coordinator: AppCoordinator, isGuest: Bool) {
         self.container = container
@@ -24,19 +22,6 @@ private struct MainTabView: View {
         let period = PeriodState()
         if isGuest { period.type = .today }
         self._periodState = State(initialValue: period)
-
-        self._analyticsVM = State(initialValue: AnalyticsViewModel(
-            coordinator: coordinator,
-            service: container.analyticsService,
-            periodState: period
-        ))
-
-        self._profileVM = State(initialValue: ProfileViewModel(
-            coordinator: coordinator,
-            authService: container.authService,
-            profileService: container.profileService,
-            userService: container.userService
-        ))
     }
 
     var body: some View {
@@ -59,10 +44,7 @@ private struct MainTabView: View {
         case 0:
             HomeFactory.make(
                 coordinator: coordinator,
-                foodService: container.foodService,
-                waterService: container.waterTrackingService,
-                goalsService: container.goalsService,
-                dailySummaryService: container.dailySummaryService,
+                container: container,
                 isGuest: isGuest
             )
         case 1:
@@ -70,11 +52,10 @@ private struct MainTabView: View {
                 coordinator: coordinator,
                 container: container,
                 periodState: periodState,
-                analyticsVM: analyticsVM,
                 isGuest: isGuest
             )
         case 2:
-            SettingsFactory.make(profileViewModel: profileVM, coordinator: coordinator)
+            SettingsFactory.make(container: container, coordinator: coordinator)
         default:
             EmptyView()
         }
@@ -100,17 +81,6 @@ private struct PreviewMainTabView: View {
         ))
         return vm
     }()
-    @State private var profileVM = ProfileViewModel(
-        coordinator: AppCoordinator(container: AppDependencyContainer()),
-        authService: MockAuthService(),
-        profileService: MockProfileService(),
-        userService: MockUserService()
-    )
-    @State private var analyticsVM = AnalyticsViewModel(
-        coordinator: AppCoordinator(container: AppDependencyContainer()),
-        service: MockAnalyticsService(),
-        periodState: PeriodState()
-    )
 
     var body: some View {
         let homeVM = HomeViewModel(
@@ -130,7 +100,11 @@ private struct PreviewMainTabView: View {
                     HomeView(homeViewModel: homeVM, isGuest: false)
                 case 1:
                     ProgressDashboardView(
-                        analyticsVM: analyticsVM,
+                        analyticsVM: AnalyticsViewModel(
+                            coordinator: AppCoordinator(container: AppDependencyContainer()),
+                            service: MockAnalyticsService(),
+                            periodState: PeriodState()
+                        ),
                         chartVM: ProgressChartViewModel(
                             coordinator: AppCoordinator(container: AppDependencyContainer()),
                             service: MockDailySummaryService(),
@@ -143,7 +117,15 @@ private struct PreviewMainTabView: View {
                         isGuest: false
                     )
                 case 2:
-                    SettingsView(viewModel: profileVM, coordinator: nil)
+                    SettingsView(
+                        viewModel: ProfileViewModel(
+                            coordinator: AppCoordinator(container: AppDependencyContainer()),
+                            authService: MockAuthService(),
+                            profileService: MockProfileService(),
+                            userService: MockUserService()
+                        ),
+                        coordinator: nil
+                    )
                 default:
                     EmptyView()
                 }

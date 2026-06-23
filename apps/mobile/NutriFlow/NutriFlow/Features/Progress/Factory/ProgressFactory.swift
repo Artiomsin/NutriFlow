@@ -6,9 +6,13 @@ enum ProgressFactory {
         coordinator: AppCoordinator,
         container: AppDependency,
         periodState: PeriodState,
-        analyticsVM: AnalyticsViewModel,
         isGuest: Bool
     ) -> some View {
+        let analyticsVM = AnalyticsViewModel(
+            coordinator: coordinator,
+            service: container.analyticsService,
+            periodState: periodState
+        )
         let chartVM = ProgressChartViewModel(
             coordinator: coordinator,
             service: container.dailySummaryService,
