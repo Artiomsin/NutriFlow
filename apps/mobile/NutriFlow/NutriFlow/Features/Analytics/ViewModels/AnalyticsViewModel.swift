@@ -27,6 +27,10 @@ final class AnalyticsViewModel {
         self.periodState = periodState
     }
 
+    func goToAuth() {
+        coordinator?.goToAuth()
+    }
+
     deinit {
         loadTask?.cancel()
         print("AnalyticsViewModel deinit")

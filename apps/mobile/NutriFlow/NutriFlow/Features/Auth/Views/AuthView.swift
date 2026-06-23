@@ -34,6 +34,17 @@ struct AuthView: View {
                             .foregroundColor(AppTheme.textSecondary)
                     }
                     
+                    if isLogin {
+                        Button {
+                            viewModel.continueAsGuest()
+                        } label: {
+                            Text("Continue as Guest")
+                                .font(.footnote.weight(.medium))
+                                .foregroundColor(AppTheme.accent)
+                        }
+                        .padding(.top, 4)
+                    }
+
                     if case .error(let message) = viewModel.state {
                         ErrorMessageView(text: message)
                     }

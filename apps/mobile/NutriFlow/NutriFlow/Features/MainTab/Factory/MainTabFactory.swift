@@ -2,24 +2,27 @@ import SwiftUI
 
 enum MainTabFactory {
     @MainActor @ViewBuilder
-    static func make(container: AppDependency, coordinator: AppCoordinator) -> some View {
-        MainTabView(container: container, coordinator: coordinator)
+    static func make(container: AppDependency, coordinator: AppCoordinator, isGuest: Bool) -> some View {
+        MainTabView(container: container, coordinator: coordinator, isGuest: isGuest)
     }
 }
 
 private struct MainTabView: View {
     let container: AppDependency
     let coordinator: AppCoordinator
+    let isGuest: Bool
     @State private var selectedTab = 0
     @State private var periodState: PeriodState
     @State private var analyticsVM: AnalyticsViewModel
     @State private var profileVM: ProfileViewModel
 
-    init(container: AppDependency, coordinator: AppCoordinator) {
+    init(container: AppDependency, coordinator: AppCoordinator, isGuest: Bool) {
         self.container = container
         self.coordinator = coordinator
+        self.isGuest = isGuest
 
         let period = PeriodState()
+        if isGuest { period.type = .today }
         self._periodState = State(initialValue: period)
 
         self._analyticsVM = State(initialValue: AnalyticsViewModel(
@@ -59,17 +62,19 @@ private struct MainTabView: View {
                 foodService: container.foodService,
                 waterService: container.waterTrackingService,
                 goalsService: container.goalsService,
-                dailySummaryService: container.dailySummaryService
+                dailySummaryService: container.dailySummaryService,
+                isGuest: isGuest
             )
         case 1:
             ProgressFactory.make(
                 coordinator: coordinator,
                 container: container,
                 periodState: periodState,
-                analyticsVM: analyticsVM
+                analyticsVM: analyticsVM,
+                isGuest: isGuest
             )
         case 2:
-            SettingsFactory.make(profileViewModel: profileVM)
+            SettingsFactory.make(profileViewModel: profileVM, coordinator: coordinator)
         default:
             EmptyView()
         }
@@ -122,7 +127,7 @@ private struct PreviewMainTabView: View {
             Group {
                 switch selectedTab {
                 case 0:
-                    HomeView(homeViewModel: homeVM)
+                    HomeView(homeViewModel: homeVM, isGuest: false)
                 case 1:
                     ProgressDashboardView(
                         analyticsVM: analyticsVM,
@@ -134,10 +139,11 @@ private struct PreviewMainTabView: View {
                             waterService: MockWaterService(),
                             goalsService: MockGoalsService()
                         ),
-                        periodState: periodState
+                        periodState: periodState,
+                        isGuest: false
                     )
                 case 2:
-                    SettingsView(viewModel: profileVM)
+                    SettingsView(viewModel: profileVM, coordinator: nil)
                 default:
                     EmptyView()
                 }

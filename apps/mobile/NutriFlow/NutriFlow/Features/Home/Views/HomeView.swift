@@ -3,6 +3,7 @@ import SwiftUI
 struct HomeView: View {
 
     @Bindable var homeViewModel: HomeViewModel
+    let isGuest: Bool
 
     @State private var showAddFood = false
     @State private var showAddWater = false
@@ -12,6 +13,10 @@ struct HomeView: View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
                 header
+
+                if isGuest {
+                    GuestBanner(onRegister: { homeViewModel.goToAuth() })
+                }
 
                 DailySummarySection(
                     state: homeViewModel.dailySummaryState,
@@ -50,6 +55,7 @@ struct HomeView: View {
         .onAppear {
             AnalyticsManager.shared.track(.screenView(screen: "home"))
             Task { await homeViewModel.reloadGoals() }
+            homeViewModel.checkExpiredDay()
         }
         .fullScreenCover(isPresented: $showAddFood) {
             AddFoodView(
@@ -71,6 +77,15 @@ struct HomeView: View {
                 }
             )
         }
+        .sheet(isPresented: $homeViewModel.showExpiredWarning, onDismiss: {
+            homeViewModel.handleSheetDismiss()
+            Task { await homeViewModel.loadAll() }
+        }) {
+            ExpiredDaySheet(
+                onRegister: { homeViewModel.goToAuthFromSheet() },
+                onDismiss: { homeViewModel.dismissExpiredDay() }
+            )
+        }
     }
 
     private var header: some View {
@@ -81,6 +96,70 @@ struct HomeView: View {
                 .padding(.top, AppTheme.headerPaddingTop)
         }
     }
+
+}
+
+struct GuestBanner: View {
+    let onRegister: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "person.badge.plus")
+                .foregroundColor(AppTheme.accent)
+            Text("Guest mode — register to save your data")
+                .font(.footnote)
+                .foregroundColor(AppTheme.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button("Register", action: onRegister)
+                .font(.footnote.weight(.semibold))
+                .foregroundColor(.black)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(AppTheme.accent)
+                .cornerRadius(16)
+        }
+        .padding(12)
+        .background(AppTheme.cardBackground)
+        .cornerRadius(12)
+        .padding(.horizontal, 20)
+    }
+}
+
+struct ExpiredDaySheet: View {
+    let onRegister: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "calendar.badge.exclamationmark")
+                .font(.system(size: 40))
+                .foregroundColor(AppTheme.accent)
+
+            Text("New day started")
+                .font(.title2.weight(.semibold))
+                .foregroundColor(AppTheme.textPrimary)
+
+            Text("Your guest data from yesterday will be lost. Register to keep tracking your progress.")
+                .font(.subheadline)
+                .foregroundColor(AppTheme.textSecondary)
+                .multilineTextAlignment(.center)
+
+            Button("Register", action: onRegister)
+                .font(.headline)
+                .foregroundColor(.black)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(AppTheme.accent)
+                .cornerRadius(12)
+
+            Button("Continue as Guest", action: onDismiss)
+                .font(.subheadline)
+                .foregroundColor(AppTheme.textSecondary)
+        }
+        .padding(24)
+        .background(AppTheme.background)
+        .presentationDetents([.height(320)])
+    }
 }
 
 #Preview {
@@ -89,7 +168,7 @@ struct HomeView: View {
 
 private struct HomePreviewContent: View {
     var body: some View {
-        return HomeView(homeViewModel: makePreviewHomeVM())
+        return HomeView(homeViewModel: makePreviewHomeVM(), isGuest: false)
             .background(AppTheme.background)
             .preferredColorScheme(.dark)
     }

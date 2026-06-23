@@ -4,16 +4,23 @@ struct ProgressDashboardView: View {
     @Bindable var analyticsVM: AnalyticsViewModel
     @Bindable var chartVM: ProgressChartViewModel
     @Bindable var periodState: PeriodState
+    let isGuest: Bool
 
     var body: some View {
         let _ = print("ProgressDashboardView body")
         ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
                 header
+
+                if isGuest {
+                    GuestBanner(onRegister: { analyticsVM.goToAuth() })
+                }
+
                 PeriodSelectorView(
                     selectedPeriod: periodState.type,
                     fromDate: periodState.fromDate,
                     toDate: periodState.toDate,
+                    isGuest: isGuest,
                     onPeriodChange: {
                         analyticsVM.setPeriod($0)
                         chartVM.setPeriod($0)
@@ -179,7 +186,7 @@ struct ProgressDashboardView: View {
 private struct ProgressPreviewContent: View {
     var body: some View {
         let data = makePreviewData()
-        return ProgressDashboardView(analyticsVM: data.analytics, chartVM: data.chart, periodState: data.period)
+        return ProgressDashboardView(analyticsVM: data.analytics, chartVM: data.chart, periodState: data.period, isGuest: false)
             .background(AppTheme.background)
     }
 

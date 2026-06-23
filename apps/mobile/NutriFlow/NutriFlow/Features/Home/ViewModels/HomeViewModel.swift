@@ -20,13 +20,18 @@ final class HomeViewModel {
 
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let dailySummaryService: DailySummaryServiceProtocol
+    @ObservationIgnored private let guestStore: GuestStore?
+    @ObservationIgnored private var isGoingToAuthFromSheet = false
+
+    var showExpiredWarning = false
 
     init(
         coordinator: AppCoordinator,
         dailySummaryService: DailySummaryServiceProtocol,
         foodViewModel: FoodViewModel,
         waterViewModel: WaterViewModel,
-        goalsViewModel: GoalsViewModel
+        goalsViewModel: GoalsViewModel,
+        guestStore: GuestStore? = nil
     ) {
         print("HomeViewModel init")
         self.coordinator = coordinator
@@ -34,6 +39,35 @@ final class HomeViewModel {
         self.foodViewModel = foodViewModel
         self.waterViewModel = waterViewModel
         self.goalsViewModel = goalsViewModel
+        self.guestStore = guestStore
+    }
+
+    func goToAuth() {
+        coordinator?.goToAuth()
+    }
+
+    func goToAuthFromSheet() {
+        isGoingToAuthFromSheet = true
+        coordinator?.goToAuth()
+    }
+
+    func checkExpiredDay() {
+        guard let store = guestStore, store.isExpired, !store.didShowExpiredWarning else { return }
+        store.didShowExpiredWarning = true
+        showExpiredWarning = true
+    }
+
+    func dismissExpiredDay() {
+        guestStore?.initializeNewDay()
+        showExpiredWarning = false
+    }
+
+    func handleSheetDismiss() {
+        guard !isGoingToAuthFromSheet else {
+            isGoingToAuthFromSheet = false
+            return
+        }
+        dismissExpiredDay()
     }
 
     deinit { print("HomeViewModel deinit") }

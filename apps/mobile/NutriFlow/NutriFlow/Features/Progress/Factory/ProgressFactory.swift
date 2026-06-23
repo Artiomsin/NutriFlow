@@ -6,7 +6,8 @@ enum ProgressFactory {
         coordinator: AppCoordinator,
         container: AppDependency,
         periodState: PeriodState,
-        analyticsVM: AnalyticsViewModel
+        analyticsVM: AnalyticsViewModel,
+        isGuest: Bool
     ) -> some View {
         let chartVM = ProgressChartViewModel(
             coordinator: coordinator,
@@ -19,7 +20,8 @@ enum ProgressFactory {
         ProgressDashboardView(
             analyticsVM: analyticsVM,
             chartVM: chartVM,
-            periodState: periodState
+            periodState: periodState,
+            isGuest: isGuest
         )
     }
 }

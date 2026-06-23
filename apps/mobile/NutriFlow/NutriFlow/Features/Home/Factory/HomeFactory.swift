@@ -7,7 +7,8 @@ enum HomeFactory {
         foodService: FoodServiceProtocol,
         waterService: WaterTrackingServiceProtocol,
         goalsService: GoalsServiceProtocol,
-        dailySummaryService: DailySummaryServiceProtocol
+        dailySummaryService: DailySummaryServiceProtocol,
+        isGuest: Bool
     ) -> some View {
         let foodVM = FoodViewModel(coordinator: coordinator, service: foodService)
         let waterVM = WaterViewModel(coordinator: coordinator, service: waterService)
@@ -18,8 +19,9 @@ enum HomeFactory {
             dailySummaryService: dailySummaryService,
             foodViewModel: foodVM,
             waterViewModel: waterVM,
-            goalsViewModel: goalsVM
+            goalsViewModel: goalsVM,
+            guestStore: isGuest ? GuestStore.shared : nil
         )
-        HomeView(homeViewModel: homeVM)
+        HomeView(homeViewModel: homeVM, isGuest: isGuest)
     }
 }

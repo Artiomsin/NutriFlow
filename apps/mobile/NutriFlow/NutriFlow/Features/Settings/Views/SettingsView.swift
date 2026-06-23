@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Bindable var viewModel: ProfileViewModel
+    let coordinator: AppCoordinator?
     @State private var showProfile = false
 
     var body: some View {
@@ -18,16 +19,24 @@ struct SettingsView: View {
                     .frame(height: 20)
 
                 VStack(spacing: 16) {
-                    Button {
-                        showProfile = true
-                    } label: {
-                        SettingsRow(icon: "person", title: "Profile")
-                    }
+                    if coordinator?.isGuest == true {
+                        Button {
+                            coordinator?.goToAuth()
+                        } label: {
+                            SettingsRow(icon: "person", title: "Login or Register")
+                        }
+                    } else {
+                        Button {
+                            showProfile = true
+                        } label: {
+                            SettingsRow(icon: "person", title: "Profile")
+                        }
 
-                    Button {
-                        Task { await viewModel.logout() }
-                    } label: {
-                        SettingsRow(icon: "arrow.right.square", title: "Logout")
+                        Button {
+                            Task { await viewModel.logout() }
+                        } label: {
+                            SettingsRow(icon: "arrow.right.square", title: "Logout")
+                        }
                     }
                 }
                 .padding(.horizontal, AppTheme.paddingHorizontal)
