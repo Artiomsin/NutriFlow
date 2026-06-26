@@ -2,28 +2,25 @@ import SwiftUI
 
 enum HomeFactory {
     @MainActor @ViewBuilder
-    static func make(container: AppDependency, coordinator: AppCoordinator) -> some View {
-        let foodVM = FoodViewModel(
-            service: container.foodService
-        )
-        let waterVM = WaterViewModel(
-            service: container.waterTrackingService
-        )
-        let dailyVM = DailySummaryViewModel(
-            coordinator: coordinator,
-            service: container.dailySummaryService,
-            foodService: container.foodService,
-            waterService: container.waterTrackingService
-        )
-        let goalsVM = GoalsViewModel(service: container.goalsService)
-        
+    static func make(
+        coordinator: AppCoordinator,
+        container: AppDependency,
+        isGuest: Bool
+    ) -> some View {
+        let cache = container.cacheService
+        let foodVM = FoodViewModel(coordinator: coordinator, service: container.foodService, cacheService: cache)
+        let waterVM = WaterViewModel(coordinator: coordinator, service: container.waterTrackingService, cacheService: cache)
+        let goalsVM = GoalsViewModel(coordinator: coordinator, service: container.goalsService, cacheService: cache)
+
         let homeVM = HomeViewModel(
             coordinator: coordinator,
+            dailySummaryService: container.dailySummaryService,
             foodViewModel: foodVM,
             waterViewModel: waterVM,
-            dailyViewModel: dailyVM,
-            goalsViewModel: goalsVM
+            goalsViewModel: goalsVM,
+            guestStore: isGuest ? GuestStore.shared : nil,
+            cacheService: cache
         )
-        HomeView(homeViewModel: homeVM)
+        HomeView(homeViewModel: homeVM, isGuest: isGuest)
     }
 }

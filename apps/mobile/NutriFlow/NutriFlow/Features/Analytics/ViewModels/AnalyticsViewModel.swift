@@ -9,21 +9,33 @@ final class AnalyticsViewModel {
 
     private let periodState: PeriodState
 
-    @ObservationIgnored private let coordinator: AppCoordinator
+    @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let service: AnalyticsServiceProtocol
+    @ObservationIgnored private let cacheService: CacheService?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var loadTaskID = 0
     private static let formatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
-        f.timeZone = TimeZone(abbreviation: "UTC")
+        f.timeZone = TimeZone.current
         return f
     }()
 
-    init(coordinator: AppCoordinator, service: AnalyticsServiceProtocol, periodState: PeriodState = PeriodState()) {
+    init(coordinator: AppCoordinator, service: AnalyticsServiceProtocol, periodState: PeriodState = PeriodState(), cacheService: CacheService? = nil) {
+        print("AnalyticsViewModel init")
         self.coordinator = coordinator
         self.service = service
         self.periodState = periodState
+        self.cacheService = cacheService
+    }
+
+    func goToAuth() {
+        coordinator?.goToAuth()
+    }
+
+    deinit {
+        loadTask?.cancel()
+        print("AnalyticsViewModel deinit")
     }
 
     func loadAnalytics() async {
@@ -33,17 +45,45 @@ final class AnalyticsViewModel {
             state = .idle
             return
         }
+
+        let cacheKey: String = {
+            switch periodState.type {
+            case .week: return "analytics_week"
+            case .month: return "analytics_month"
+            case .custom: return "analytics_custom_\(formatDate(periodState.fromDate))_\(formatDate(periodState.toDate))"
+            default: return ""
+            }
+        }()
+
+        if let cached: AnalyticsResponse = try? await cacheService?.get(cacheKey) {
+            state = .loaded(cached)
+            return
+        }
+        if (try? await cacheService?.get(cacheKey + "_empty") as Bool?) == true {
+            state = .empty
+            return
+        }
+
         do {
             try Task.checkCancellation()
             guard currentID == loadTaskID else { return }
             state = .loading
 
             let result: AnalyticsResponse
+            let cacheKey: String
             switch periodState.type {
             case .week:
+                #if DEBUG
+                print("[Network] AnalyticsVM getWeekAnalytics")
+                #endif
                 result = try await service.getWeekAnalytics()
+                cacheKey = "analytics_week"
             case .month:
+                #if DEBUG
+                print("[Network] AnalyticsVM getMonthAnalytics")
+                #endif
                 result = try await service.getMonthAnalytics()
+                cacheKey = "analytics_month"
             case .custom:
                 let days = Calendar.current.dateComponents([.day], from: periodState.fromDate, to: periodState.toDate).day ?? 0
                 if days < 6 {
@@ -52,7 +92,11 @@ final class AnalyticsViewModel {
                 }
                 let from = formatDate(periodState.fromDate)
                 let to = formatDate(periodState.toDate)
+                #if DEBUG
+                print("[Network] AnalyticsVM getCustomRange")
+                #endif
                 result = try await service.getCustomRange(from: from, to: to)
+                cacheKey = "analytics_custom_\(from)_\(to)"
             default:
                 state = .idle
                 return
@@ -64,21 +108,46 @@ final class AnalyticsViewModel {
             let hasData = result.daysTracked > 0
                 && result.daily.contains { $0.calories > 0 || $0.water > 0 }
 
+            if hasData {
+                try? await cacheService?.set(cacheKey, result, ttl: 900)
+            }
+
             if !hasData {
+                try? await cacheService?.set(cacheKey + "_empty", true, ttl: 900)
                 state = .empty
             } else {
                 state = .loaded(result)
             }
         } catch let error as APIError {
             if case .unauthorized = error {
-                coordinator.goToAuth()
+                coordinator?.goToAuth()
             }
             guard currentID == loadTaskID else { return }
-            state = .error(error)
+            let key = cacheKey
+            if let cached: AnalyticsResponse = try? await cacheService?.get(key, ignoreTTL: true) {
+                state = .loaded(cached)
+            } else {
+                let isEmpty: Bool? = try? await cacheService?.get(key + "_empty", ignoreTTL: true)
+                if isEmpty == true {
+                    state = .empty
+                } else {
+                    state = .error(error)
+                }
+            }
         } catch {
             if error is CancellationError { return }
             guard currentID == loadTaskID else { return }
-            state = .error(error)
+            let key = cacheKey
+            if let cached: AnalyticsResponse = try? await cacheService?.get(key, ignoreTTL: true) {
+                state = .loaded(cached)
+            } else {
+                let isEmpty: Bool? = try? await cacheService?.get(key + "_empty", ignoreTTL: true)
+                if isEmpty == true {
+                    state = .empty
+                } else {
+                    state = .error(error)
+                }
+            }
         }
     }
 

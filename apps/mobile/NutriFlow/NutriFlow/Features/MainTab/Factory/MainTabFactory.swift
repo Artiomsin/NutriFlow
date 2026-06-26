@@ -2,18 +2,27 @@ import SwiftUI
 
 enum MainTabFactory {
     @MainActor @ViewBuilder
-    static func make(container: AppDependency, coordinator: AppCoordinator) -> some View {
-        MainTabView(container: container, coordinator: coordinator)
+    static func make(container: AppDependency, coordinator: AppCoordinator, isGuest: Bool) -> some View {
+        MainTabView(container: container, coordinator: coordinator, isGuest: isGuest)
     }
 }
 
 private struct MainTabView: View {
     let container: AppDependency
     let coordinator: AppCoordinator
+    let isGuest: Bool
     @State private var selectedTab = 0
-    @State private var periodState = PeriodState()
-    @State private var analyticsVM: AnalyticsViewModel?
-    @State private var dailyVM: DailySummaryViewModel?
+    @State private var periodState: PeriodState
+
+    init(container: AppDependency, coordinator: AppCoordinator, isGuest: Bool) {
+        self.container = container
+        self.coordinator = coordinator
+        self.isGuest = isGuest
+
+        let period = PeriodState()
+        if isGuest { period.type = .today }
+        self._periodState = State(initialValue: period)
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -27,23 +36,24 @@ private struct MainTabView: View {
         }
         .preferredColorScheme(.dark)
         .ignoresSafeArea(.keyboard)
-        .onAppear {
-            if analyticsVM == nil {
-                analyticsVM = AnalyticsViewModel(coordinator: coordinator, service: container.analyticsService, periodState: periodState)
-                dailyVM = DailySummaryViewModel(coordinator: coordinator, service: container.dailySummaryService, periodState: periodState, foodService: container.foodService, waterService: container.waterTrackingService, goalsService: container.goalsService)
-            }
-        }
     }
 
     @ViewBuilder
     private var tabContent: some View {
         switch selectedTab {
         case 0:
-            HomeFactory.make(container: container, coordinator: coordinator)
+            HomeFactory.make(
+                coordinator: coordinator,
+                container: container,
+                isGuest: isGuest
+            )
         case 1:
-            if let analyticsVM, let dailyVM {
-                ProgressDashboardView(analyticsVM: analyticsVM, dailyVM: dailyVM, periodState: periodState)
-            }
+            ProgressFactory.make(
+                coordinator: coordinator,
+                container: container,
+                periodState: periodState,
+                isGuest: isGuest
+            )
         case 2:
             SettingsFactory.make(container: container, coordinator: coordinator)
         default:
@@ -59,16 +69,10 @@ private struct MainTabView: View {
 private struct PreviewMainTabView: View {
     @State private var selectedTab = 0
     @State private var periodState = PeriodState()
-    @State private var foodVM = FoodViewModel(service: MockFoodService())
-    @State private var waterVM = WaterViewModel(service: MockWaterService())
-    @State private var dailyVM = DailySummaryViewModel(
-        coordinator: AppCoordinator(container: AppDependencyContainer()),
-        service: MockDailySummaryService(),
-        foodService: MockFoodService(),
-        waterService: MockWaterService()
-    )
+    @State private var foodVM = FoodViewModel(coordinator: AppCoordinator(container: AppDependencyContainer()), service: MockFoodService())
+    @State private var waterVM = WaterViewModel(coordinator: AppCoordinator(container: AppDependencyContainer()), service: MockWaterService())
     @State private var goalsVM: GoalsViewModel = {
-        let vm = GoalsViewModel(service: MockGoalsService())
+        let vm = GoalsViewModel(coordinator: AppCoordinator(container: AppDependencyContainer()), service: MockGoalsService())
         vm.state = .loaded(UserGoals(
             id: "1", userId: "1",
             dailyCaloriesGoal: 2200, dailyProteinGoal: 150,
@@ -77,32 +81,13 @@ private struct PreviewMainTabView: View {
         ))
         return vm
     }()
-    @State private var profileVM = ProfileViewModel(
-        coordinator: AppCoordinator(container: AppDependencyContainer()),
-        authService: MockAuthService(),
-        profileService: MockProfileService(),
-        userService: MockUserService()
-    )
-    @State private var analyticsVM = AnalyticsViewModel(
-        coordinator: AppCoordinator(container: AppDependencyContainer()),
-        service: MockAnalyticsService(),
-        periodState: PeriodState()
-    )
-    @State private var progressDailyVM = DailySummaryViewModel(
-        coordinator: AppCoordinator(container: AppDependencyContainer()),
-        service: MockDailySummaryService(),
-        periodState: PeriodState(),
-        foodService: MockFoodService(),
-        waterService: MockWaterService(),
-        goalsService: MockGoalsService()
-    )
 
     var body: some View {
         let homeVM = HomeViewModel(
             coordinator: AppCoordinator(container: AppDependencyContainer()),
+            dailySummaryService: MockDailySummaryService(),
             foodViewModel: foodVM,
             waterViewModel: waterVM,
-            dailyViewModel: dailyVM,
             goalsViewModel: goalsVM
         )
 
@@ -112,15 +97,35 @@ private struct PreviewMainTabView: View {
             Group {
                 switch selectedTab {
                 case 0:
-                    HomeView(homeViewModel: homeVM)
+                    HomeView(homeViewModel: homeVM, isGuest: false)
                 case 1:
                     ProgressDashboardView(
-                        analyticsVM: analyticsVM,
-                        dailyVM: progressDailyVM,
-                        periodState: periodState
+                        analyticsVM: AnalyticsViewModel(
+                            coordinator: AppCoordinator(container: AppDependencyContainer()),
+                            service: MockAnalyticsService(),
+                            periodState: PeriodState()
+                        ),
+                        chartVM: ProgressChartViewModel(
+                            coordinator: AppCoordinator(container: AppDependencyContainer()),
+                            service: MockDailySummaryService(),
+                            periodState: periodState,
+                            foodService: MockFoodService(),
+                            waterService: MockWaterService(),
+                            goalsService: MockGoalsService()
+                        ),
+                        periodState: periodState,
+                        isGuest: false
                     )
                 case 2:
-                    SettingsView(viewModel: profileVM)
+                    SettingsView(
+                        viewModel: ProfileViewModel(
+                            coordinator: AppCoordinator(container: AppDependencyContainer()),
+                            authService: MockAuthService(),
+                            profileService: MockProfileService(),
+                            userService: MockUserService()
+                        ),
+                        coordinator: nil
+                    )
                 default:
                     EmptyView()
                 }

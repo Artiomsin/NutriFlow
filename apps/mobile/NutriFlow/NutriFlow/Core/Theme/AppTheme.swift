@@ -16,6 +16,7 @@ enum AppTheme {
     static let logoutBorder = Color.red
     static let logoutBackground = Color.red.opacity(0.1)
     static let headerBackground = Color.black.opacity(0.3)
+    static let tabBarBackground = Color(red: 0.14, green: 0.15, blue: 0.20)
     static let cornerRadiusSmall: CGFloat = 10
     static let cornerRadiusMedium: CGFloat = 12
     static let cornerRadiusLarge: CGFloat = 14

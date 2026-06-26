@@ -3,17 +3,23 @@ import SwiftUI
 struct HomeView: View {
 
     @Bindable var homeViewModel: HomeViewModel
+    let isGuest: Bool
 
     @State private var showAddFood = false
     @State private var showAddWater = false
 
     var body: some View {
+        let _ = print("HomeView body")
         ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
                 header
 
+                if isGuest {
+                    GuestBanner(onRegister: { homeViewModel.goToAuth() })
+                }
+
                 DailySummarySection(
-                    viewModel: homeViewModel.dailyViewModel,
+                    state: homeViewModel.dailySummaryState,
                     goals: homeViewModel.userGoals
                 )
                 .padding(.horizontal, AppTheme.paddingHorizontal)
@@ -47,15 +53,16 @@ struct HomeView: View {
             await homeViewModel.loadAll()
         }
         .onAppear {
-            AmplitudeService.shared.track(.screenView(screen: "home"))
+            AnalyticsManager.shared.track(.screenView(screen: "home"))
             Task { await homeViewModel.reloadGoals() }
+            homeViewModel.checkExpiredDay()
         }
         .fullScreenCover(isPresented: $showAddFood) {
             AddFoodView(
                 foodViewModel: homeViewModel.foodViewModel,
                 onSave: {
                     Task {
-                        await homeViewModel.dailyViewModel.loadToday()
+                        await homeViewModel.loadToday()
                     }
                 }
             )
@@ -65,14 +72,23 @@ struct HomeView: View {
                 waterViewModel: homeViewModel.waterViewModel,
                 onSave: {
                     Task {
-                        await homeViewModel.dailyViewModel.loadToday()
+                        await homeViewModel.loadToday()
                     }
                 }
             )
         }
+        .sheet(isPresented: $homeViewModel.showExpiredWarning, onDismiss: {
+            Task { await homeViewModel.handleSheetDismiss() }
+            Task { await homeViewModel.loadAll() }
+        }) {
+            ExpiredDaySheet(
+                onRegister: { homeViewModel.goToAuthFromSheet() },
+                onDismiss: { Task { await homeViewModel.dismissExpiredDay() } }
+            )
+        }
     }
 
-    private var header: some View { 
+    private var header: some View {
         VStack(spacing: 6) {
             Text("Home")
                 .font(.system(size: 30, weight: .semibold))
@@ -80,71 +96,111 @@ struct HomeView: View {
                 .padding(.top, AppTheme.headerPaddingTop)
         }
     }
+
+}
+
+struct GuestBanner: View {
+    let onRegister: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "person.badge.plus")
+                .foregroundColor(AppTheme.accent)
+            Text("Guest mode — register to save your data")
+                .font(.footnote)
+                .foregroundColor(AppTheme.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button("Register", action: onRegister)
+                .font(.footnote.weight(.semibold))
+                .foregroundColor(.black)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(AppTheme.accent)
+                .cornerRadius(16)
+        }
+        .padding(12)
+        .background(AppTheme.cardBackground)
+        .cornerRadius(12)
+        .padding(.horizontal, 20)
+    }
+}
+
+struct ExpiredDaySheet: View {
+    let onRegister: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "calendar.badge.exclamationmark")
+                .font(.system(size: 40))
+                .foregroundColor(AppTheme.accent)
+
+            Text("New day started")
+                .font(.title2.weight(.semibold))
+                .foregroundColor(AppTheme.textPrimary)
+
+            Text("Your guest data from yesterday will be lost. Register to keep tracking your progress.")
+                .font(.subheadline)
+                .foregroundColor(AppTheme.textSecondary)
+                .multilineTextAlignment(.center)
+
+            Button("Register", action: onRegister)
+                .font(.headline)
+                .foregroundColor(.black)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(AppTheme.accent)
+                .cornerRadius(12)
+
+            Button("Continue as Guest", action: onDismiss)
+                .font(.subheadline)
+                .foregroundColor(AppTheme.textSecondary)
+        }
+        .padding(24)
+        .background(AppTheme.background)
+        .presentationDetents([.height(320)])
+    }
 }
 
 #Preview {
     HomePreviewContent()
 }
 
-struct HomePreviewContent: View {
+private struct HomePreviewContent: View {
     var body: some View {
-        let foodVM = FoodViewModel(
-            service: MockFoodService()
-        )
+        return HomeView(homeViewModel: makePreviewHomeVM(), isGuest: false)
+            .background(AppTheme.background)
+            .preferredColorScheme(.dark)
+    }
+
+    private func makePreviewHomeVM() -> HomeViewModel {
+        let coordinator = AppCoordinator(container: AppDependencyContainer())
+        let foodVM = FoodViewModel(coordinator: coordinator, service: MockFoodService())
         foodVM.setPreviewState(.loaded([
             FoodEntry(id: "1", userId: "1", name: "Chicken breast", calories: 165, protein: 31, fat: 4, carbs: 0, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
             FoodEntry(id: "2", userId: "1", name: "Rice", calories: 200, protein: 4, fat: 1, carbs: 45, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil)
         ]))
 
-        let waterVM = WaterViewModel(
-            service: MockWaterService()
-        )
+        let waterVM = WaterViewModel(coordinator: coordinator, service: MockWaterService())
         waterVM.setPreviewState(.loaded([
             WaterEntry(id: "1", userId: "1", amountMl: 250, createdAt: "2026-05-18T08:00:00Z", updatedAt: nil),
             WaterEntry(id: "2", userId: "1", amountMl: 500, createdAt: "2026-05-18T10:30:00Z", updatedAt: nil)
         ]))
 
-        let dailyVM = DailySummaryViewModel(
-            coordinator: AppCoordinator(container: AppDependencyContainer()),
-            service: MockDailySummaryService()
-        )
-        dailyVM.setPreviewState(.loaded(DailySummary(
-            id: "1",
-            userId: "1",
-            date: "2026-05-20",
-            totalCalories: 1250,
-            totalProtein: 85,
-            totalFat: 42,
-            totalCarbs: 120,
-            totalWaterMl: 1750,
-            createdAt: "2026-05-20T10:00:00Z",
-            updatedAt: nil
-        )))
-
-        let goalsVM = GoalsViewModel(service: MockGoalsService())
+        let goalsVM = GoalsViewModel(coordinator: coordinator, service: MockGoalsService())
         goalsVM.state = .loaded(UserGoals(
-            id: "1",
-            userId: "1",
-            dailyCaloriesGoal: 2200,
-            dailyProteinGoal: 150,
-            dailyFatGoal: 65,
-            dailyCarbsGoal: 250,
-            dailyWaterGoal: 3000,
-            source: "auto",
-            createdAt: nil,
-            updatedAt: nil
+            id: "1", userId: "1",
+            dailyCaloriesGoal: 2200, dailyProteinGoal: 150,
+            dailyFatGoal: 65, dailyCarbsGoal: 250, dailyWaterGoal: 3000,
+            source: "auto", createdAt: nil, updatedAt: nil
         ))
 
-        let homeVM = HomeViewModel(
-            coordinator: AppCoordinator(container: AppDependencyContainer()),
+        return HomeViewModel(
+            coordinator: coordinator,
+            dailySummaryService: MockDailySummaryService(),
             foodViewModel: foodVM,
             waterViewModel: waterVM,
-            dailyViewModel: dailyVM,
             goalsViewModel: goalsVM
         )
-
-        return HomeView(homeViewModel: homeVM)
-            .background(AppTheme.background)
-            .preferredColorScheme(.dark)
     }
 }

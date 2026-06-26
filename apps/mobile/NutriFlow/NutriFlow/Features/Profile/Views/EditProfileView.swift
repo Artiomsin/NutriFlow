@@ -67,6 +67,6 @@ struct EditProfileView: View {
                 }
             }
         }
-        .onAppear { AmplitudeService.shared.track(.screenView(screen: "edit_profile")) }
+        .onAppear { AnalyticsManager.shared.track(.screenView(screen: "edit_profile")) }
     }
 }

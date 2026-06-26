@@ -4,8 +4,10 @@ import Observation
 @Observable
 @MainActor
 final class AppCoordinator {
-    var route: AppRoute = .loading
+    var route: AppRoute = .splash
     private let container: AppDependency
+    private(set) var isGuest: Bool = false
+    private var guestContainer: GuestDependencyContainer?
 
     init(container: AppDependency) {
         self.container = container
@@ -15,7 +17,9 @@ final class AppCoordinator {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                self?.route = .auth
+                guard let self, !self.isGuest else { return }
+                await self.container.cacheService.clear()
+                self.route = .auth
             }
         }
     }
@@ -23,39 +27,91 @@ final class AppCoordinator {
     @ViewBuilder
     func startView() -> some View {
         switch route {
-        case .loading:
-            ProgressView()
-                .tint(.white)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(AppTheme.background)
-                .ignoresSafeArea()
+        case .splash:
+            SplashView()
+
+        case .onboarding:
+            OnboardingView(onComplete: { [weak self] in
+                self?.goToAuth()
+            })
 
         case .auth:
-            AuthFactory.make(container: container, coordinator: self)
+            AuthFactory.make(container: activeContainer, coordinator: self)
 
         case .profileForm:
-            ProfileFormFactory.make(container: container, coordinator: self)
+            ProfileFormFactory.make(container: activeContainer, coordinator: self)
 
         case .main:
-            MainTabFactory.make(container: container, coordinator: self)
+            MainTabFactory.make(container: activeContainer, coordinator: self, isGuest: isGuest)
         }
     }
 
     func bootstrap() async {
-        let result = await container.sessionBootstrapService.restoreSession()
+        try? await Task.sleep(nanoseconds: 2_000_000_000)
 
-        switch result {
-        case .auth:
-            route = .auth
-        case .profileForm:
-            route = .profileForm
-        case .main:
+        if !UserDefaults.standard.bool(forKey: "onboardingShown") {
+            route = .onboarding
+            return
+        }
+
+        if UserDefaults.standard.bool(forKey: "isGuest") {
+            print("[Coordinator] bootstrap: isGuest=true — вхожу как гость")
+            enterGuestMode()
             route = .main
+            return
+        }
+
+        let result = await container.sessionBootstrapService.restoreSession()
+        route = switch result {
+        case .auth: .auth
+        case .profileForm: .profileForm
+        case .main: .main
         }
     }
 
-    func goToAuth() { route = .auth }
-    func goToProfileForm() { route = .profileForm }
-    func goToMain() { route = .main }
-}
+    func continueAsGuest() {
+        print("[Coordinator] continueAsGuest — включаю гостевой режим")
+        UserDefaults.standard.set(true, forKey: "isGuest")
+        enterGuestMode()
+        route = .main
+    }
 
+    func goToAuth() {
+        print("[Coordinator] goToAuth\(isGuest ? " (гость)" : "")")
+        route = .auth
+    }
+
+    func goToProfileForm() {
+        checkGuestTransition()
+        route = .profileForm
+    }
+
+    func goToMain() {
+        checkGuestTransition()
+        route = .main
+    }
+
+
+    private func enterGuestMode() {
+        Task { await container.cacheService.clear() }
+        isGuest = true
+        guestContainer = GuestDependencyContainer(store: .shared)
+    }
+
+    private var activeContainer: AppDependency {
+        guestContainer ?? container
+    }
+
+    private func checkGuestTransition() {
+        guard isGuest, container.tokenStorage.getAccessToken() != nil else { return }
+        isGuest = false
+        guestContainer = nil
+        UserDefaults.standard.removeObject(forKey: "isGuest")
+    }
+    
+    deinit {
+            #if DEBUG
+            print("AppCoordinator УНИЧТОЖЕН!")
+            #endif
+        }
+}

@@ -18,4 +18,6 @@ protocol AppDependency {
     var dailySummaryService: DailySummaryServiceProtocol { get }
     var goalsService: GoalsServiceProtocol { get }
     var analyticsService: AnalyticsServiceProtocol { get }
+    var analyticsManager: AnalyticsManager { get }
+    var cacheService: CacheService { get }
 }

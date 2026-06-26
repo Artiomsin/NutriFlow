@@ -30,6 +30,6 @@ struct AuthFormView: View {
                     text: $viewModel.lastName
                 )
             }
-        }
+        }.tint(.green)
     }
 }

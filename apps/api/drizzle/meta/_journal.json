@@ -5,29 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1778003875325,
-      "tag": "0000_vengeful_stryfe",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1778071813435,
-      "tag": "0001_left_martin_li",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1779459023296,
-      "tag": "0002_massive_echo",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1780954444787,
-      "tag": "0003_dry_selene",
+      "when": 1781617326195,
+      "tag": "0000_strange_lockheed",
       "breakpoints": true
     }
   ]

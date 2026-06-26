@@ -107,6 +107,7 @@ struct FoodSection: View {
 struct FoodSectionPreview: View {
     var body: some View {
         let foodVM = FoodViewModel(
+            coordinator: AppCoordinator(container: AppDependencyContainer()),
             service: MockFoodService()
         )
         foodVM.setPreviewState(.loaded([

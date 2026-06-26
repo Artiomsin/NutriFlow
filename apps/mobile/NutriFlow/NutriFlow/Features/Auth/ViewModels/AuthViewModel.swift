@@ -13,7 +13,7 @@ final class AuthViewModel {
 
     @ObservationIgnored private let authService: AuthServiceProtocol
     @ObservationIgnored private let profileService: ProfileServiceProtocol
-    @ObservationIgnored private let coordinator: AppCoordinator
+    @ObservationIgnored private weak var coordinator: AppCoordinator?
 
     init(authService: AuthServiceProtocol, profileService: ProfileServiceProtocol, coordinator: AppCoordinator) {
         self.authService = authService
@@ -29,19 +29,19 @@ final class AuthViewModel {
 
             do {
                 _ = try await profileService.getMyProfile()
-                coordinator.goToMain()
+                coordinator?.goToMain()
             } catch let profileError as APIError {
                 if case .notFound = profileError {
-                    coordinator.goToProfileForm()
+                    coordinator?.goToProfileForm()
                 } else {
-                    coordinator.goToMain()
+                    coordinator?.goToMain()
                 }
             } catch {
-                coordinator.goToMain()
+                coordinator?.goToMain()
             }
 
             state = .authenticated
-            AmplitudeService.shared.track(.loggedIn)
+            AnalyticsManager.shared.track(.loggedIn)
         } catch {
             state = .error(error.localizedDescription)
         }
@@ -58,23 +58,31 @@ final class AuthViewModel {
                 lastName: lastName
             )
             state = .authenticated
-            AmplitudeService.shared.track(.registered)
-            coordinator.goToProfileForm()
+            AnalyticsManager.shared.track(.registered)
+            coordinator?.goToProfileForm()
         } catch {
             state = .error(error.localizedDescription)
         }
+    }
+
+    func continueAsGuest() {
+        coordinator?.continueAsGuest()
     }
 
     func logout() async {
         do {
             try await authService.logout()
             state = .unauthenticated
-            AmplitudeService.shared.track(.loggedOut)
-            coordinator.goToAuth()
+            AnalyticsManager.shared.track(.loggedOut)
+            coordinator?.goToAuth()
         } catch {
             state = .unauthenticated
-            AmplitudeService.shared.track(.loggedOut)
-            coordinator.goToAuth()
+            AnalyticsManager.shared.track(.loggedOut)
+            coordinator?.goToAuth()
         }
     }
+    
+    deinit {
+           print("AuthViewModel УНИЧТОЖЕН!")
+       }
 }

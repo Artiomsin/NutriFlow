@@ -25,7 +25,7 @@ struct AddFoodView: View {
         }
         .padding()
         .background(AppTheme.background.ignoresSafeArea())
-        .onAppear { AmplitudeService.shared.track(.screenView(screen: "add_food")) }
+        .onAppear { AnalyticsManager.shared.track(.screenView(screen: "add_food")) }
     }
 
     private var header: some View {
@@ -119,6 +119,7 @@ struct AddFoodViewPreview: View {
 
     var body: some View {
         let foodVM = FoodViewModel(
+            coordinator: AppCoordinator(container: AppDependencyContainer()),
             service: MockFoodService()
         )
 

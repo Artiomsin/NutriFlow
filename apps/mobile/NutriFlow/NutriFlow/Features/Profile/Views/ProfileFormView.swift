@@ -111,7 +111,7 @@ struct ProfileFormView: View {
                 }
             }
         }
-        .onAppear { AmplitudeService.shared.track(.screenView(screen: "profile_form")) }
+        .onAppear { AnalyticsManager.shared.track(.screenView(screen: "profile_form")) }
     }
 }
 
