@@ -16,12 +16,14 @@ final class GuestDependencyContainer: AppDependency {
     let goalsService: GoalsServiceProtocol
     let analyticsService: AnalyticsServiceProtocol
     let analyticsManager: AnalyticsManager
+    let cacheService: CacheService
 
     deinit {
         print("[GuestDependencyContainer] УНИЧТОЖЕН (выход из гостевого режима)")
     }
 
     init(store: GuestStore) {
+        self.cacheService = CacheService()
         let keychain = KeychainService()
         let storage = KeychainTokenStorage(keychain: keychain)
         self.tokenStorage = storage
@@ -37,7 +39,7 @@ final class GuestDependencyContainer: AppDependency {
             sessionService: session
         )
 
-        self.authService = GuestAuthService(store: store, httpClient: httpClient, sessionService: session)
+        self.authService = GuestAuthService(store: store, httpClient: httpClient, sessionService: session, cacheService: cacheService)
         self.profileService = StubProfileService()
         self.userService = StubUserService()
 

@@ -78,12 +78,12 @@ struct HomeView: View {
             )
         }
         .sheet(isPresented: $homeViewModel.showExpiredWarning, onDismiss: {
-            homeViewModel.handleSheetDismiss()
+            Task { await homeViewModel.handleSheetDismiss() }
             Task { await homeViewModel.loadAll() }
         }) {
             ExpiredDaySheet(
                 onRegister: { homeViewModel.goToAuthFromSheet() },
-                onDismiss: { homeViewModel.dismissExpiredDay() }
+                onDismiss: { Task { await homeViewModel.dismissExpiredDay() } }
             )
         }
     }

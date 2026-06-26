@@ -18,6 +18,7 @@ final class AppCoordinator {
         ) { [weak self] _ in
             Task { @MainActor in
                 guard let self, !self.isGuest else { return }
+                await self.container.cacheService.clear()
                 self.route = .auth
             }
         }
@@ -92,6 +93,7 @@ final class AppCoordinator {
 
 
     private func enterGuestMode() {
+        Task { await container.cacheService.clear() }
         isGuest = true
         guestContainer = GuestDependencyContainer(store: .shared)
     }

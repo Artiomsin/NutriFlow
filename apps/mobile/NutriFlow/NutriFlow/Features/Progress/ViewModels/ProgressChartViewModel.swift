@@ -21,6 +21,7 @@ final class ProgressChartViewModel {
     @ObservationIgnored private let foodService: FoodServiceProtocol?
     @ObservationIgnored private let waterService: WaterTrackingServiceProtocol?
     @ObservationIgnored private let goalsService: GoalsServiceProtocol?
+    @ObservationIgnored private let cacheService: CacheService?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var loadTaskID = 0
     @ObservationIgnored private let periodState: PeriodState
@@ -38,7 +39,7 @@ final class ProgressChartViewModel {
     private static let dateOnlyFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
-        f.timeZone = TimeZone(abbreviation: "UTC")
+        f.timeZone = TimeZone.current
         return f
     }()
     private static let labelFormatter: DateFormatter = {
@@ -52,7 +53,7 @@ final class ProgressChartViewModel {
         return f
     }()
 
-    init(coordinator: AppCoordinator, service: DailySummaryServiceProtocol, periodState: PeriodState, foodService: FoodServiceProtocol? = nil, waterService: WaterTrackingServiceProtocol? = nil, goalsService: GoalsServiceProtocol? = nil) {
+    init(coordinator: AppCoordinator, service: DailySummaryServiceProtocol, periodState: PeriodState, foodService: FoodServiceProtocol? = nil, waterService: WaterTrackingServiceProtocol? = nil, goalsService: GoalsServiceProtocol? = nil, cacheService: CacheService? = nil) {
         print("ProgressChartViewModel init")
         self.coordinator = coordinator
         self.service = service
@@ -60,6 +61,7 @@ final class ProgressChartViewModel {
         self.foodService = foodService
         self.waterService = waterService
         self.goalsService = goalsService
+        self.cacheService = cacheService
     }
 
     deinit {
@@ -73,8 +75,17 @@ final class ProgressChartViewModel {
         selectedDateWater = []
         selectedDateGoals = nil
 
+        #if DEBUG
+        print("[Network] ChartVM getFoodByDate")
+        #endif
         async let food = foodService?.getFoodByDate(date: date) ?? []
+        #if DEBUG
+        print("[Network] ChartVM getWaterByDate")
+        #endif
         async let water = waterService?.getWaterByDate(date: date) ?? []
+        #if DEBUG
+        print("[Network] ChartVM getGoals")
+        #endif
         async let goals = goalsService?.getGoals()
 
         do {
@@ -212,6 +223,32 @@ final class ProgressChartViewModel {
 
     func loadChartData() async {
         let currentID = loadTaskID
+        let summariesKey = chartSummariesKey
+
+        if let cached: [DailySummary] = try? await cacheService?.get(summariesKey), periodState.type != .today {
+            let points = cached.filter { $0.totalCalories > 0 || $0.totalWaterMl > 0 }.map {
+                ChartDataPoint(date: parseDateOnly($0.date), label: "", calories: $0.totalCalories, protein: Double($0.totalProtein), fat: Double($0.totalFat), carbs: Double($0.totalCarbs), waterMl: $0.totalWaterMl)
+            }
+            chartData = points
+            calculateAverages()
+            chartState = .loaded(aggregateData(points, level: aggregationLevel()))
+            return
+        }
+
+        if periodState.type == .today, let cached: ChartTodayData = try? await cacheService?.get("chart_today") {
+            #if DEBUG
+            print("[ChartVM] today → cache HIT")
+            #endif
+            chartData = aggregateHourly(food: cached.food, water: cached.water)
+            totalCaloriesSum = chartData.reduce(0) { $0 + $1.calories }
+            totalWaterSum = chartData.reduce(0) { $0 + $1.waterMl }
+            avgProtein = chartData.reduce(0) { $0 + $1.protein }
+            avgFat = chartData.reduce(0) { $0 + $1.fat }
+            avgCarbs = chartData.reduce(0) { $0 + $1.carbs }
+            daysCount = 1
+            chartState = .loaded(chartData)
+            return
+        }
 
         do {
             try Task.checkCancellation()
@@ -224,8 +261,15 @@ final class ProgressChartViewModel {
             switch periodState.type {
             case .today:
                 if let foodService, let waterService {
+                    #if DEBUG
+                    print("[Network] ChartVM getTodayFood")
+                    #endif
                     let food = try await foodService.getTodayFood()
+                    #if DEBUG
+                    print("[Network] ChartVM getTodayWater")
+                    #endif
                     let water = try await waterService.getTodayWater()
+                    try? await cacheService?.set("chart_today", ChartTodayData(food: food, water: water), ttl: 300)
                     chartData = aggregateHourly(food: food, water: water)
                     totalCaloriesSum = chartData.reduce(0) { $0 + $1.calories }
                     totalWaterSum = chartData.reduce(0) { $0 + $1.waterMl }
@@ -237,6 +281,9 @@ final class ProgressChartViewModel {
                     chartState = .loaded(chartData)
                     return
                 }
+                #if DEBUG
+                print("[Network] ChartVM getTodayDailySummary")
+                #endif
                 let summary = try await service.getTodayDailySummary()
                 summaries = summary.id == nil ? [] : [summary]
 
@@ -244,17 +291,26 @@ final class ProgressChartViewModel {
                 let cal = Calendar.current
                 let from = formatDate(cal.date(byAdding: .day, value: -6, to: Date()) ?? Date())
                 let to = formatDate(Date())
+                #if DEBUG
+                print("[Network] ChartVM getDailySummaryRange week")
+                #endif
                 summaries = try await service.getDailySummaryRange(from: from, to: to)
 
             case .month:
                 let cal = Calendar.current
                 let from = formatDate(cal.date(byAdding: .day, value: -29, to: Date()) ?? Date())
                 let to = formatDate(Date())
+                #if DEBUG
+                print("[Network] ChartVM getDailySummaryRange month")
+                #endif
                 summaries = try await service.getDailySummaryRange(from: from, to: to)
 
             case .custom:
                 let from = formatDate(periodState.fromDate)
                 let to = formatDate(periodState.toDate)
+                #if DEBUG
+                print("[Network] ChartVM getDailySummaryRange custom")
+                #endif
                 summaries = try await service.getDailySummaryRange(from: from, to: to)
             }
 
@@ -276,17 +332,36 @@ final class ProgressChartViewModel {
             let aggregated = aggregateData(chartData, level: level)
             guard currentID == loadTaskID else { return }
             chartState = .loaded(aggregated)
+            try? await cacheService?.set(summariesKey, summaries, ttl: 600)
 
         } catch let error as APIError {
             if case .unauthorized = error {
                 coordinator?.goToAuth()
             }
             guard currentID == loadTaskID else { return }
-            chartState = .error(error)
+            if let cached: [DailySummary] = try? await cacheService?.get(summariesKey, ignoreTTL: true) {
+                let points = cached.filter { $0.totalCalories > 0 || $0.totalWaterMl > 0 }.map {
+                    ChartDataPoint(date: parseDateOnly($0.date), label: "", calories: $0.totalCalories, protein: Double($0.totalProtein), fat: Double($0.totalFat), carbs: Double($0.totalCarbs), waterMl: $0.totalWaterMl)
+                }
+                chartData = points
+                calculateAverages()
+                chartState = .loaded(aggregateData(points, level: aggregationLevel()))
+            } else {
+                chartState = .error(error)
+            }
         } catch {
             if error is CancellationError { return }
             guard currentID == loadTaskID else { return }
-            chartState = .error(error)
+            if let cached: [DailySummary] = try? await cacheService?.get(summariesKey, ignoreTTL: true) {
+                let points = cached.filter { $0.totalCalories > 0 || $0.totalWaterMl > 0 }.map {
+                    ChartDataPoint(date: parseDateOnly($0.date), label: "", calories: $0.totalCalories, protein: Double($0.totalProtein), fat: Double($0.totalFat), carbs: Double($0.totalCarbs), waterMl: $0.totalWaterMl)
+                }
+                chartData = points
+                calculateAverages()
+                chartState = .loaded(aggregateData(points, level: aggregationLevel()))
+            } else {
+                chartState = .error(error)
+            }
         }
     }
 
@@ -323,6 +398,15 @@ final class ProgressChartViewModel {
         avgProtein = sums.prot / Double(daysCount)
         avgFat = sums.fat / Double(daysCount)
         avgCarbs = sums.carbs / Double(daysCount)
+    }
+
+    private var chartSummariesKey: String {
+        switch periodState.type {
+        case .week: return "chart_summaries_week"
+        case .month: return "chart_summaries_month"
+        case .custom: return "chart_summaries_custom_\(formatDate(periodState.fromDate))_\(formatDate(periodState.toDate))"
+        case .today: return "chart_summaries_today"
+        }
     }
 
     private func resetAverages() {

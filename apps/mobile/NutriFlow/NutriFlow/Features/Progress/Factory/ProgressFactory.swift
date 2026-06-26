@@ -8,10 +8,12 @@ enum ProgressFactory {
         periodState: PeriodState,
         isGuest: Bool
     ) -> some View {
+        let cache = container.cacheService
         let analyticsVM = AnalyticsViewModel(
             coordinator: coordinator,
             service: container.analyticsService,
-            periodState: periodState
+            periodState: periodState,
+            cacheService: cache
         )
         let chartVM = ProgressChartViewModel(
             coordinator: coordinator,
@@ -19,7 +21,8 @@ enum ProgressFactory {
             periodState: periodState,
             foodService: container.foodService,
             waterService: container.waterTrackingService,
-            goalsService: container.goalsService
+            goalsService: container.goalsService,
+            cacheService: cache
         )
         ProgressDashboardView(
             analyticsVM: analyticsVM,

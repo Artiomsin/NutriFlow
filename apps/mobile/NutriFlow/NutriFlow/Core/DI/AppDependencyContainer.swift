@@ -19,8 +19,10 @@ final class AppDependencyContainer: AppDependency {
     let goalsService: GoalsServiceProtocol
     let analyticsService: AnalyticsServiceProtocol
     let analyticsManager: AnalyticsManager
+    let cacheService: CacheService
 
     init() {
+        self.cacheService = CacheService()
         let keychain = KeychainService()
         self.tokenStorage = KeychainTokenStorage(keychain: keychain)
 

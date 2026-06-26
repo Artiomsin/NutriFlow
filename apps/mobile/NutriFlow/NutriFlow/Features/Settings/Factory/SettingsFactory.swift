@@ -7,7 +7,8 @@ enum SettingsFactory {
             coordinator: coordinator,
             authService: container.authService,
             profileService: container.profileService,
-            userService: container.userService
+            userService: container.userService,
+            cacheService: container.cacheService
         )
         SettingsView(viewModel: viewModel, coordinator: coordinator)
     }

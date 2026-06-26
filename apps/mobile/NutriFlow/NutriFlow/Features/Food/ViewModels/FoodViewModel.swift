@@ -15,23 +15,49 @@ final class FoodViewModel {
     
     @ObservationIgnored private let service: FoodServiceProtocol
     @ObservationIgnored private weak var coordinator: AppCoordinator?
+    @ObservationIgnored private let cacheService: CacheService?
     
-    init(coordinator: AppCoordinator, service: FoodServiceProtocol) {
+    init(coordinator: AppCoordinator, service: FoodServiceProtocol, cacheService: CacheService? = nil) {
         print("FoodViewModel init")
         self.coordinator = coordinator
         self.service = service
+        self.cacheService = cacheService
     }
 
     deinit { print("FoodViewModel deinit") }
     
     func loadToday() async {
+        if let cached: [FoodEntry] = try? await cacheService?.get("food_today") {
+            #if DEBUG
+            print("[FoodVM] loadToday → cache HIT (\(cached.count) entries)")
+            #endif
+            state = .loaded(cached)
+            return
+        }
+
         state = .loading
-        
         do {
+            #if DEBUG
+            print("[Network] FoodVM loadToday")
+            #endif
             let food = try await service.getTodayFood()
+            try? await cacheService?.set("food_today", food, ttl: 300)
+            #if DEBUG
+            print("[FoodVM] loadToday → network OK (\(food.count) entries)")
+            #endif
             state = .loaded(food)
         } catch {
-            state = .error(error)
+            if let cached: [FoodEntry] = try? await cacheService?.get("food_today", ignoreTTL: true) {
+                #if DEBUG
+                print("[FoodVM] loadToday → fallback to stale cache (\(cached.count) entries)")
+                #endif
+                state = .loaded(cached)
+            } else {
+                #if DEBUG
+                print("[FoodVM] loadToday → FAIL, no cache")
+                #endif
+                state = .error(error)
+            }
         }
     }
     
@@ -44,6 +70,9 @@ final class FoodViewModel {
         state = .saving
         
         do {
+            #if DEBUG
+            print("[Network] FoodVM createFood")
+            #endif
             try await service.createFoodEntry(
                 name: name,
                 calories: caloriesInt,
@@ -53,6 +82,12 @@ final class FoodViewModel {
             )
 
             AnalyticsManager.shared.track(.foodAdded(name: name, calories: caloriesInt))
+            await cacheService?.remove("food_today")
+            await cacheService?.remove("dashboard_today")
+            await cacheService?.remove("summary_today")
+            await cacheService?.remove("chart_today")
+            await cacheService?.removeByPrefix("chart_summaries")
+            await cacheService?.removeByPrefix("analytics_")
             await loadToday()
             clearForm()
         } catch let error as APIError {
@@ -67,8 +102,17 @@ final class FoodViewModel {
     
     func deleteFood(id: String) async {
         do {
+            #if DEBUG
+            print("[Network] FoodVM deleteFood")
+            #endif
             try await service.deleteFoodEntry(id: id)
             AnalyticsManager.shared.track(.foodDeleted)
+            await cacheService?.remove("food_today")
+            await cacheService?.remove("dashboard_today")
+            await cacheService?.remove("summary_today")
+            await cacheService?.remove("chart_today")
+            await cacheService?.removeByPrefix("chart_summaries")
+            await cacheService?.removeByPrefix("analytics_")
             await loadToday()
         } catch let error as APIError {
             if case .unauthorized = error {

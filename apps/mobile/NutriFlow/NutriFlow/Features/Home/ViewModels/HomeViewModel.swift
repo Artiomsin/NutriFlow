@@ -21,6 +21,7 @@ final class HomeViewModel {
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let dailySummaryService: DailySummaryServiceProtocol
     @ObservationIgnored private let guestStore: GuestStore?
+    @ObservationIgnored private let cacheService: CacheService?
     @ObservationIgnored private var isGoingToAuthFromSheet = false
 
     var showExpiredWarning = false
@@ -31,7 +32,8 @@ final class HomeViewModel {
         foodViewModel: FoodViewModel,
         waterViewModel: WaterViewModel,
         goalsViewModel: GoalsViewModel,
-        guestStore: GuestStore? = nil
+        guestStore: GuestStore? = nil,
+        cacheService: CacheService? = nil
     ) {
         print("HomeViewModel init")
         self.coordinator = coordinator
@@ -40,6 +42,7 @@ final class HomeViewModel {
         self.waterViewModel = waterViewModel
         self.goalsViewModel = goalsViewModel
         self.guestStore = guestStore
+        self.cacheService = cacheService
     }
 
     func goToAuth() {
@@ -57,17 +60,24 @@ final class HomeViewModel {
         showExpiredWarning = true
     }
 
-    func dismissExpiredDay() {
+    func dismissExpiredDay() async {
         guestStore?.initializeNewDay()
+        await cacheService?.remove("dashboard_today")
+        await cacheService?.remove("summary_today")
+        await cacheService?.remove("chart_today")
+        await cacheService?.remove("food_today")
+        await cacheService?.remove("water_today")
+        await cacheService?.removeByPrefix("chart_summaries")
+        await cacheService?.removeByPrefix("analytics_")
         showExpiredWarning = false
     }
 
-    func handleSheetDismiss() {
+    func handleSheetDismiss() async {
         guard !isGoingToAuthFromSheet else {
             isGoingToAuthFromSheet = false
             return
         }
-        dismissExpiredDay()
+        await dismissExpiredDay()
     }
 
     deinit { print("HomeViewModel deinit") }
@@ -116,11 +126,28 @@ final class HomeViewModel {
     }
 
     func loadDashboardToday() async {
+        if let cached: DashboardTodayResponse = try? await cacheService?.get("dashboard_today") {
+            #if DEBUG
+            print("[HomeVM] loadDashboard → cache HIT")
+            #endif
+            dailySummaryState = cached.dailySummary.id == nil ? .empty : .loaded(cached.dailySummary)
+            dashboardFoodEntries = cached.foodEntries
+            dashboardWaterEntries = cached.waterEntries
+            return
+        }
+
         dailySummaryState = .loading
         dashboardFoodEntries = []
         dashboardWaterEntries = []
         do {
+            #if DEBUG
+            print("[Network] HomeVM loadDashboardToday")
+            #endif
             let dashboard = try await dailySummaryService.getDashboardToday()
+            try? await cacheService?.set("dashboard_today", dashboard, ttl: 300)
+            #if DEBUG
+            print("[HomeVM] loadDashboard → network OK")
+            #endif
             if dashboard.dailySummary.id == nil {
                 dailySummaryState = .empty
             } else {
@@ -132,16 +159,55 @@ final class HomeViewModel {
             if case .unauthorized = error {
                 coordinator?.goToAuth()
             }
-            dailySummaryState = .error(error)
+            if let cached: DashboardTodayResponse = try? await cacheService?.get("dashboard_today", ignoreTTL: true) {
+                #if DEBUG
+                print("[HomeVM] loadDashboard → fallback to stale cache")
+                #endif
+                dailySummaryState = cached.dailySummary.id == nil ? .empty : .loaded(cached.dailySummary)
+                dashboardFoodEntries = cached.foodEntries
+                dashboardWaterEntries = cached.waterEntries
+            } else {
+                #if DEBUG
+                print("[HomeVM] loadDashboard → FAIL, no cache")
+                #endif
+                dailySummaryState = .error(error)
+            }
         } catch {
-            dailySummaryState = .error(error)
+            if let cached: DashboardTodayResponse = try? await cacheService?.get("dashboard_today", ignoreTTL: true) {
+                #if DEBUG
+                print("[HomeVM] loadDashboard → fallback to stale cache")
+                #endif
+                dailySummaryState = cached.dailySummary.id == nil ? .empty : .loaded(cached.dailySummary)
+                dashboardFoodEntries = cached.foodEntries
+                dashboardWaterEntries = cached.waterEntries
+            } else {
+                #if DEBUG
+                print("[HomeVM] loadDashboard → FAIL, no cache")
+                #endif
+                dailySummaryState = .error(error)
+            }
         }
     }
 
     func loadToday() async {
+        if let cached: DailySummary = try? await cacheService?.get("summary_today") {
+            #if DEBUG
+            print("[HomeVM] loadToday → cache HIT")
+            #endif
+            dailySummaryState = cached.id == nil ? .empty : .loaded(cached)
+            return
+        }
+
         dailySummaryState = .loading
         do {
+            #if DEBUG
+            print("[Network] HomeVM loadToday")
+            #endif
             let result = try await dailySummaryService.getTodayDailySummary()
+            try? await cacheService?.set("summary_today", result, ttl: 300)
+            #if DEBUG
+            print("[HomeVM] loadToday → network OK")
+            #endif
             if result.id == nil {
                 dailySummaryState = .empty
             } else {
@@ -151,9 +217,29 @@ final class HomeViewModel {
             if case .unauthorized = error {
                 coordinator?.goToAuth()
             }
-            dailySummaryState = .error(error)
+            if let cached: DailySummary = try? await cacheService?.get("summary_today", ignoreTTL: true) {
+                #if DEBUG
+                print("[HomeVM] loadToday → fallback to stale cache")
+                #endif
+                dailySummaryState = cached.id == nil ? .empty : .loaded(cached)
+            } else {
+                #if DEBUG
+                print("[HomeVM] loadToday → FAIL, no cache")
+                #endif
+                dailySummaryState = .error(error)
+            }
         } catch {
-            dailySummaryState = .error(error)
+            if let cached: DailySummary = try? await cacheService?.get("summary_today", ignoreTTL: true) {
+                #if DEBUG
+                print("[HomeVM] loadToday → fallback to stale cache")
+                #endif
+                dailySummaryState = cached.id == nil ? .empty : .loaded(cached)
+            } else {
+                #if DEBUG
+                print("[HomeVM] loadToday → FAIL, no cache")
+                #endif
+                dailySummaryState = .error(error)
+            }
         }
     }
 }
