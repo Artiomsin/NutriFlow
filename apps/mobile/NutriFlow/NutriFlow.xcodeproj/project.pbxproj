@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AC2E0F252FEF1B0100F3A07E /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = AC2E0F242FEF1B0100F3A07E /* GoogleSignIn */; };
 		AC8A5D172FCF94E300D92697 /* AmplitudeUnified in Frameworks */ = {isa = PBXBuildFile; productRef = AC8A5D162FCF94E300D92697 /* AmplitudeUnified */; };
 /* End PBXBuildFile section */
 
@@ -41,6 +42,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AC8A5D172FCF94E300D92697 /* AmplitudeUnified in Frameworks */,
+				AC2E0F252FEF1B0100F3A07E /* GoogleSignIn in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -84,6 +86,7 @@
 			name = Nutriflow;
 			packageProductDependencies = (
 				AC8A5D162FCF94E300D92697 /* AmplitudeUnified */,
+				AC2E0F242FEF1B0100F3A07E /* GoogleSignIn */,
 			);
 			productName = Nutriflow;
 			productReference = AC48618F2FAB3A5C00BB4495 /* Nutriflow.app */;
@@ -115,6 +118,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				AC8A5D152FCF94E300D92697 /* XCRemoteSwiftPackageReference "AmplitudeUnified-Swift" */,
+				AC2E0F232FEF1B0100F3A07E /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AC4861902FAB3A5C00BB4495 /* Products */;
@@ -360,6 +364,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		AC2E0F232FEF1B0100F3A07E /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.2.0;
+			};
+		};
 		AC8A5D152FCF94E300D92697 /* XCRemoteSwiftPackageReference "AmplitudeUnified-Swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/amplitude/AmplitudeUnified-Swift";
@@ -371,6 +383,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		AC2E0F242FEF1B0100F3A07E /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AC2E0F232FEF1B0100F3A07E /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
 		AC8A5D162FCF94E300D92697 /* AmplitudeUnified */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = AC8A5D152FCF94E300D92697 /* XCRemoteSwiftPackageReference "AmplitudeUnified-Swift" */;

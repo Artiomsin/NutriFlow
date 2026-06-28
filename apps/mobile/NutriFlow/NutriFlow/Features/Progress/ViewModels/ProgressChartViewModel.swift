@@ -221,6 +221,14 @@ final class ProgressChartViewModel {
         }
     }
 
+    func refreshData() async {
+        await cacheService?.remove(chartSummariesKey)
+        await cacheService?.remove("chart_today")
+        loadTask?.cancel()
+        loadTaskID &+= 1
+        await loadChartData()
+    }
+
     func loadChartData() async {
         let currentID = loadTaskID
         let summariesKey = chartSummariesKey

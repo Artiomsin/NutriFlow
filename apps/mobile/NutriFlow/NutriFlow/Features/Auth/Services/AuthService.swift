@@ -32,6 +32,17 @@ final class AuthService: AuthServiceProtocol, Sendable {
         sessionService.saveSession(access: response.accessToken, refresh: response.refreshToken)
     }
 
+    func signInWithGoogle(idToken: String) async throws {
+        let request = APIRequest(
+            path: AuthEndpoints.google,
+            method: .POST,
+            body: GoogleLoginDTO(idToken: idToken)
+        )
+
+        let response: AuthTokensResponse = try await client.send(request)
+        sessionService.saveSession(access: response.accessToken, refresh: response.refreshToken)
+    }
+
     func logout() async throws {
         let request = APIRequest<NeverBody>(
             path: AuthEndpoints.logout,

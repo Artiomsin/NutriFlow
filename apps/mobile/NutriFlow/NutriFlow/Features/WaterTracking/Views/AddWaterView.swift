@@ -62,7 +62,7 @@ struct AddWaterView: View {
 
         HStack {
             Text("Water")
-                .font(.title3.bold())
+                .font(Font.h3)
                 .foregroundColor(.white)
 
             Spacer()

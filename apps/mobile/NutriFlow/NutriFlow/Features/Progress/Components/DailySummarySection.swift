@@ -18,7 +18,7 @@ struct DailySummarySection: View {
     private var header: some View {
         HStack {
             Text("Today's Overview")
-                .font(.title3.bold())
+                .font(Font.h3)
                 .foregroundColor(AppTheme.textPrimary)
             Spacer()
         }
@@ -62,7 +62,7 @@ struct DailySummarySection: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "chart.bar.xaxis")
-                .font(.system(size: 50))
+                .font(Font.largeNumber)
                 .foregroundColor(AppTheme.textSecondary)
             Text("No data for this period")
                 .font(.headline)

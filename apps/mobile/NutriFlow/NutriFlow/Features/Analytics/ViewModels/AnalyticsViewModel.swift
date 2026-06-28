@@ -151,6 +151,21 @@ final class AnalyticsViewModel {
         }
     }
 
+    func refreshData() async {
+        let key: String
+        switch periodState.type {
+        case .week: key = "analytics_week"
+        case .month: key = "analytics_month"
+        case .custom: key = "analytics_custom_\(formatDate(periodState.fromDate))_\(formatDate(periodState.toDate))"
+        default: key = ""
+        }
+        await cacheService?.remove(key)
+        await cacheService?.remove(key + "_empty")
+        loadTask?.cancel()
+        loadTaskID &+= 1
+        await loadAnalytics()
+    }
+
     func setPeriod(_ period: PeriodType) {
         periodState.type = period
         switch period {

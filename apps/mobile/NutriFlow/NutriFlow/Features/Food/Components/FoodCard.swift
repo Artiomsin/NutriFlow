@@ -8,58 +8,51 @@ struct FoodCard: View {
     @State private var showDeleteAlert = false
 
     var body: some View {
+        HStack(spacing: 14) {
+            VStack(spacing: 8) {
+                Text("\(entry.calories)")
+                    .font(.title3.weight(.bold))
+                    .foregroundColor(AppTheme.accent)
+                Text("kcal")
+                    .font(.caption2)
+                    .foregroundColor(AppTheme.textSecondary)
+            }
+            .frame(width: 56, height: 56)
+            .background(AppTheme.background)
+            .cornerRadius(12)
 
-        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(entry.name)
+                    .font(.headline)
+                    .foregroundColor(AppTheme.textPrimary)
 
-            HStack(alignment: .top) {
-
-                VStack(alignment: .leading, spacing: 4) {
-
-                    Text(entry.name)
-                        .font(.headline)
-                        .foregroundColor(AppTheme.textPrimary)
-
-                    Text(formatDate(entry.createdAt))
+                HStack(spacing: 6) {
+                    Image(systemName: "clock")
+                        .font(.caption2)
+                        .foregroundColor(AppTheme.textSecondary)
+                    Text(formatTime(entry.createdAt))
                         .font(.caption)
                         .foregroundColor(AppTheme.textSecondary)
                 }
 
-                Spacer()
-
-                Text("\(entry.calories) kcal")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(AppTheme.accent)
-            }
-
-            HStack(spacing: 12) {
-
-                MacroBadge(
-                    title: "P",
-                    value: entry.protein ?? 0
-                )
-
-                MacroBadge(
-                    title: "F",
-                    value: entry.fat ?? 0
-                )
-
-                MacroBadge(
-                    title: "C",
-                    value: entry.carbs ?? 0
-                )
-
-                Spacer()
-
-                Button {
-                    showDeleteAlert = true
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.system(size: 16))
-                        .foregroundColor(AppTheme.error)
+                HStack(spacing: 8) {
+                    MacroBadge(title: "P", value: entry.protein ?? 0)
+                    MacroBadge(title: "F", value: entry.fat ?? 0)
+                    MacroBadge(title: "C", value: entry.carbs ?? 0)
                 }
             }
+
+            Spacer()
+
+            Button {
+                showDeleteAlert = true
+            } label: {
+                Image(systemName: "trash")
+                    .font(.system(size: 14))
+                    .foregroundColor(AppTheme.error.opacity(0.6))
+            }
         }
-        .padding()
+        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(AppTheme.cardBackground)
         .cornerRadius(AppTheme.cornerRadiusMedium)
@@ -76,8 +69,15 @@ struct FoodCard: View {
         }
     }
 
-    private func formatDate(_ value: String) -> String {
-        value.prefix(10).description
+    private func formatTime(_ value: String) -> String {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = iso.date(from: value) ?? ISO8601DateFormatter().date(from: value) {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm"
+            return formatter.string(from: date)
+        }
+        return String(value.dropFirst(11).prefix(5))
     }
 }
 

@@ -1,6 +1,5 @@
 import Foundation
 
-@MainActor
 final class GuestDependencyContainer: AppDependency {
     let httpClient: HTTPClient
     let tokenStorage: TokenStorage
@@ -17,6 +16,7 @@ final class GuestDependencyContainer: AppDependency {
     let analyticsService: AnalyticsServiceProtocol
     let analyticsManager: AnalyticsManager
     let cacheService: CacheService
+    let googleSignInService: GoogleSignInService
 
     deinit {
         print("[GuestDependencyContainer] УНИЧТОЖЕН (выход из гостевого режима)")
@@ -49,6 +49,7 @@ final class GuestDependencyContainer: AppDependency {
         self.waterTrackingService = GuestWaterService(store: store)
         self.goalsService = GuestGoalsService()
         self.analyticsService = GuestAnalyticsService(summaryService: dailySummary, store: store)
+        self.googleSignInService = GoogleSignInService()
         self.analyticsManager = .shared
     }
 }

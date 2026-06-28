@@ -1,4 +1,5 @@
 import SwiftUI
+import GoogleSignIn
 
 @main
 struct NutriflowApp: App {
@@ -23,6 +24,9 @@ struct NutriflowApp: App {
             }
             .task {
                 await coordinator.bootstrap()
+            }
+            .onOpenURL { url in
+                GIDSignIn.sharedInstance.handle(url)
             }
         }
     }

@@ -9,7 +9,7 @@ struct AuthHeaderView: View {
         VStack(spacing: 6) {
             
             Text(isLogin ? "Welcome back" : "Create account")
-                .font(.system(size: 30, weight: .semibold))
+                .font(Font.h1)
                 .foregroundColor(AppTheme.textPrimary)
             
             Text(

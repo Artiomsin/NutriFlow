@@ -20,6 +20,7 @@ final class AppDependencyContainer: AppDependency {
     let analyticsService: AnalyticsServiceProtocol
     let analyticsManager: AnalyticsManager
     let cacheService: CacheService
+    let googleSignInService: GoogleSignInService
 
     init() {
         self.cacheService = CacheService()
@@ -55,6 +56,8 @@ final class AppDependencyContainer: AppDependency {
             profileService: profile,
             sessionService: session
         )
+
+        self.googleSignInService = GoogleSignInService()
 
         #if DEBUG
         AnalyticsManager.shared.setMode(.debug)

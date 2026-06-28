@@ -42,7 +42,7 @@ final class AppCoordinator {
             ProfileFormFactory.make(container: activeContainer, coordinator: self)
 
         case .main:
-            MainTabFactory.make(container: activeContainer, coordinator: self, isGuest: isGuest)
+            MainTabView(container: activeContainer, coordinator: self, isGuest: isGuest)
         }
     }
 

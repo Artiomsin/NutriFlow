@@ -1,18 +1,21 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
 
 import { db } from '../db/db';
 import { users } from '../db/schema/users';
-import { eq } from 'drizzle-orm';
+import { eq, or } from 'drizzle-orm';
 
-import  type { AuthPayload } from './types/auth.types';
+import type { AuthPayload } from './types/auth.types';
 import { env } from '../config/env';
 import { redis } from '../redis';
 
 @Injectable()
 export class AuthService {
+  private googleClient = new OAuth2Client(env.GOOGLE_CLIENT_ID);
+
   constructor(private jwtService: JwtService) {}
 
   async register(data: {
@@ -59,7 +62,7 @@ export class AuthService {
 
     if (!user) throw new UnauthorizedException();
 
-    const valid = await bcrypt.compare(data.password, user.passwordHash);
+    const valid = await bcrypt.compare(data.password, user.passwordHash ?? '');
 
     if (!valid) throw new UnauthorizedException();
 
@@ -72,6 +75,53 @@ export class AuthService {
     return tokens;
   }
 
+  async googleLogin(data: { idToken: string }) {
+    const ticket = await this.googleClient.verifyIdToken({
+      idToken: data.idToken,
+      audience: env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+
+    if (!payload?.email) {
+      throw new UnauthorizedException('Google email not available');
+    }
+
+    const googleId = payload.sub;
+    const email = payload.email;
+    const firstName = payload.given_name ?? '';
+    const lastName = payload.family_name ?? '';
+    const avatarUrl = payload.picture ?? null;
+
+    const existing = await db
+      .select()
+      .from(users)
+      .where(or(eq(users.googleId, googleId), eq(users.email, email)))
+      .limit(1)
+      .then((r) => r[0]);
+
+    let userId: string;
+
+    if (existing) {
+      userId = existing.id;
+      await db
+        .update(users)
+        .set({ googleId, firstName, lastName, avatarUrl })
+        .where(eq(users.id, existing.id));
+    } else {
+      const created = await db
+        .insert(users)
+        .values({ email, googleId, firstName, lastName, avatarUrl })
+        .returning();
+      userId = created[0].id;
+    }
+
+    const sessionId = randomUUID();
+    const tokens = this.generateTokens(userId, sessionId);
+    await this.saveRefresh(userId, sessionId, tokens.refreshToken);
+
+    return tokens;
+  }
 
   async refresh(refreshToken: string) {
     try {

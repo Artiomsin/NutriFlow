@@ -1,0 +1,4 @@
+ALTER TABLE "app"."users" ALTER COLUMN "password_hash" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "app"."users" ADD COLUMN "google_id" varchar(255);--> statement-breakpoint
+ALTER TABLE "app"."users" ADD COLUMN "avatar_url" varchar(500);--> statement-breakpoint
+ALTER TABLE "app"."users" ADD CONSTRAINT "users_google_id_unique" UNIQUE("google_id");

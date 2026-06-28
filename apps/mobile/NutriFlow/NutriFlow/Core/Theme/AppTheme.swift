@@ -1,5 +1,13 @@
 import SwiftUI
 
+extension Font {
+    static let h1 = Font.system(size: 30, weight: .semibold)
+    static let h2 = Font.title2.weight(.semibold)
+    static let h3 = Font.title3.bold()
+    static let largeNumber = Font.system(size: 50, weight: .bold)
+    static let title1 = Font.system(size: 34, weight: .bold)
+}
+
 enum AppTheme {
     static let background = Color(red: 0.03, green: 0.04, blue: 0.06)
     static let accent = Color.green

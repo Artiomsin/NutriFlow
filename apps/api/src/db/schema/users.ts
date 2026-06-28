@@ -2,7 +2,6 @@ import {
   pgSchema,
   uuid,
   varchar,
-  boolean,
   timestamp,
 } from 'drizzle-orm/pg-core';
 
@@ -13,11 +12,15 @@ export const users = app.table('users', {
 
   email: varchar('email', { length: 120 }).notNull().unique(),
 
-  passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+  passwordHash: varchar('password_hash', { length: 255 }),
+
+  googleId: varchar('google_id', { length: 255 }).unique(),
 
   firstName: varchar('first_name', { length: 50 }),
   
   lastName: varchar('last_name', { length: 50 }),
+
+  avatarUrl: varchar('avatar_url', { length: 500 }),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
 
