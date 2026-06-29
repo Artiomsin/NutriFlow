@@ -15,6 +15,20 @@
       "when": 1782503360138,
       "tag": "0001_dashing_dormammu",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782731840957,
+      "tag": "0002_tricky_karen_page",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1782736129684,
+      "tag": "0003_daily_drax",
+      "breakpoints": true
     }
   ]
 }

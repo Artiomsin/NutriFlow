@@ -1,39 +1,38 @@
 import {
   pgSchema,
   uuid,
-  varchar,
   integer,
   timestamp,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { users } from './users';
 import { foods } from './foods';
 
 const app = pgSchema('app');
 
-export const foodEntries = app.table('food_entries', {
+export const userFoodStats = app.table('user_food_stats', {
   id: uuid('id').primaryKey().defaultRandom(),
 
   userId: uuid('user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
 
-  foodId: uuid('food_id').references(() => foods.id),
+  foodId: uuid('food_id')
+    .notNull()
+    .references(() => foods.id, { onDelete: 'cascade' }),
 
-  name: varchar('name', { length: 120 }).notNull(),
+  frequency: integer('frequency').default(0),
 
-  grams: integer('grams'),
-
-  calories: integer('calories').notNull(),
-  protein: integer('protein').default(0),
-  fat: integer('fat').default(0),
-  carbs: integer('carbs').default(0),
+  lastUsedAt: timestamp('last_used_at').defaultNow(),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at')
     .defaultNow()
     .$onUpdate(() => new Date())
     .notNull(),
-});
+}, (table) => ({
+  userFoodIdx: uniqueIndex().on(table.userId, table.foodId),
+}));
 
-export type FoodEntry = typeof foodEntries.$inferSelect;
-export type NewFoodEntry = typeof foodEntries.$inferInsert;
+export type UserFoodStat = typeof userFoodStats.$inferSelect;
+export type NewUserFoodStat = typeof userFoodStats.$inferInsert;
