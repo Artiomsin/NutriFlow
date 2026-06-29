@@ -1,13 +1,11 @@
-import SwiftUI
-
 enum ProgressFactory {
-    @MainActor @ViewBuilder
+    @MainActor
     static func make(
         coordinator: AppCoordinator,
         container: AppDependency,
         periodState: PeriodState,
         isGuest: Bool
-    ) -> some View {
+    ) -> (AnalyticsViewModel, ProgressChartViewModel) {
         let cache = container.cacheService
         let analyticsVM = AnalyticsViewModel(
             coordinator: coordinator,
@@ -24,11 +22,6 @@ enum ProgressFactory {
             goalsService: container.goalsService,
             cacheService: cache
         )
-        ProgressDashboardView(
-            analyticsVM: analyticsVM,
-            chartVM: chartVM,
-            periodState: periodState,
-            isGuest: isGuest
-        )
+        return (analyticsVM, chartVM)
     }
 }

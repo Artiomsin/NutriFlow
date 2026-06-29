@@ -13,11 +13,13 @@ final class AuthViewModel {
 
     @ObservationIgnored private let authService: AuthServiceProtocol
     @ObservationIgnored private let profileService: ProfileServiceProtocol
+    @ObservationIgnored private let googleSignInService: GoogleSignInService
     @ObservationIgnored private weak var coordinator: AppCoordinator?
 
-    init(authService: AuthServiceProtocol, profileService: ProfileServiceProtocol, coordinator: AppCoordinator) {
+    init(authService: AuthServiceProtocol, profileService: ProfileServiceProtocol, googleSignInService: GoogleSignInService, coordinator: AppCoordinator) {
         self.authService = authService
         self.profileService = profileService
+        self.googleSignInService = googleSignInService
         self.coordinator = coordinator
     }
 
@@ -60,6 +62,39 @@ final class AuthViewModel {
             state = .authenticated
             AnalyticsManager.shared.track(.registered)
             coordinator?.goToProfileForm()
+        } catch {
+            state = .error(error.localizedDescription)
+        }
+    }
+
+    func signInWithGoogle() async {
+        state = .loading
+
+        do {
+            let idToken = try await googleSignInService.signIn()
+            try await authService.signInWithGoogle(idToken: idToken)
+
+            do {
+                _ = try await profileService.getMyProfile()
+                coordinator?.goToMain()
+            } catch let profileError as APIError {
+                if case .notFound = profileError {
+                    coordinator?.goToProfileForm()
+                } else {
+                    coordinator?.goToMain()
+                }
+            } catch {
+                coordinator?.goToMain()
+            }
+
+            state = .authenticated
+            AnalyticsManager.shared.track(.loggedIn)
+        } catch let error as GoogleSignInError {
+            if case .cancelled = error {
+                state = .idle
+            } else {
+                state = .error(error.localizedDescription)
+            }
         } catch {
             state = .error(error.localizedDescription)
         }

@@ -12,12 +12,14 @@ import {
   registerSchema,
   loginSchema,
   refreshSchema,
+  googleLoginSchema,
 } from './auth.schema';
 
 import type {
   RegisterDto,
   LoginDto,
   RefreshDto,
+  GoogleLoginDto,
 } from './auth.schema';
 
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
@@ -47,6 +49,12 @@ export class AuthController {
     return this.authService.refresh(data.refreshToken);
   }
 
+  @Post('google')
+  @UsePipes(new ZodValidationPipe(googleLoginSchema))
+  googleLogin(@Body() data: GoogleLoginDto) {
+    return this.authService.googleLogin(data);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Post('logout')
   logout(@User() user: AuthPayload) {
@@ -59,3 +67,6 @@ export class AuthController {
     return this.authService.logoutAll(user.userId);
   }
 }
+
+
+

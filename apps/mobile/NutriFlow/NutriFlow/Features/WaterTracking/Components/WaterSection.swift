@@ -13,7 +13,7 @@ struct WaterSection: View {
             HStack {
 
                 Text("Water")
-                    .font(.title3.bold())
+                    .font(Font.h3)
                     .foregroundColor(AppTheme.textPrimary)
 
                 Spacer()

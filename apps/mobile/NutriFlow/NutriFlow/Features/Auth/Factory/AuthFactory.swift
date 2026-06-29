@@ -13,6 +13,7 @@ enum AuthFactory {
         let viewModel = AuthViewModel(
             authService: container.authService,
             profileService: container.profileService,
+            googleSignInService: container.googleSignInService,
             coordinator: coordinator
         )
         AuthView(viewModel: viewModel)

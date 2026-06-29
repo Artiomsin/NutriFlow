@@ -88,7 +88,10 @@ final class FoodViewModel {
             await cacheService?.remove("chart_today")
             await cacheService?.removeByPrefix("chart_summaries")
             await cacheService?.removeByPrefix("analytics_")
-            await loadToday()
+
+            let food = try await service.getTodayFood()
+            try? await cacheService?.set("food_today", food, ttl: 300)
+            state = .loaded(food)
             clearForm()
         } catch let error as APIError {
             if case .unauthorized = error {
@@ -113,7 +116,10 @@ final class FoodViewModel {
             await cacheService?.remove("chart_today")
             await cacheService?.removeByPrefix("chart_summaries")
             await cacheService?.removeByPrefix("analytics_")
-            await loadToday()
+
+            let food = try await service.getTodayFood()
+            try? await cacheService?.set("food_today", food, ttl: 300)
+            state = .loaded(food)
         } catch let error as APIError {
             if case .unauthorized = error {
                 coordinator?.goToAuth()

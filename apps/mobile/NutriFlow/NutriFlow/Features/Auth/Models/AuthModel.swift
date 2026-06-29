@@ -12,6 +12,10 @@ struct RegisterDTO: Encodable, Sendable {
     let lastName: String
 }
 
+struct GoogleLoginDTO: Encodable, Sendable {
+    let idToken: String
+}
+
 struct RefreshDTO: Encodable, Sendable {
     let refreshToken: String
 }

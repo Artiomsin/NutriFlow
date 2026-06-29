@@ -36,6 +36,11 @@ struct ProgressDashboardView: View {
             }
             .padding(.horizontal, AppTheme.paddingHorizontal)
         }
+        .refreshable {
+            async let analytics: () = analyticsVM.refreshData()
+            async let charts: () = chartVM.refreshData()
+            (_, _) = await (analytics, charts)
+        }
         .onAppear { AnalyticsManager.shared.track(.screenView(screen: "progress")) }
         .task {
             async let analytics: () = analyticsVM.loadAnalytics()
@@ -55,7 +60,7 @@ struct ProgressDashboardView: View {
     private var header: some View {
         VStack(spacing: 6) {
             Text("Progress")
-                .font(.system(size: 30, weight: .semibold))
+                .font(Font.h1)
                 .foregroundColor(AppTheme.textPrimary)
                 .padding(.top, AppTheme.headerPaddingTop)
             Text("Your nutrition trends")
@@ -165,7 +170,7 @@ struct ProgressDashboardView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "chart.bar.xaxis")
-                .font(.system(size: 50))
+                .font(Font.largeNumber)
                 .foregroundColor(AppTheme.textSecondary)
             Text("No data for this period")
                 .font(.headline)

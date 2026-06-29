@@ -82,6 +82,17 @@ final class HomeViewModel {
 
     deinit { print("HomeViewModel deinit") }
 
+    func refreshAll() async {
+        await cacheService?.remove("food_today")
+        await cacheService?.remove("water_today")
+        await cacheService?.remove("dashboard_today")
+        await cacheService?.remove("summary_today")
+        await cacheService?.remove("chart_today")
+        await cacheService?.removeByPrefix("chart_summaries")
+        await cacheService?.removeByPrefix("analytics_")
+        await loadAll()
+    }
+
     func loadAll() async {
         await withDiscardingTaskGroup { [self] group in
             group.addTask { await self.loadDashboardToday() }
@@ -136,7 +147,7 @@ final class HomeViewModel {
             return
         }
 
-        dailySummaryState = .loading
+        if case .loaded = dailySummaryState {} else { dailySummaryState = .loading }
         dashboardFoodEntries = []
         dashboardWaterEntries = []
         do {
@@ -198,7 +209,7 @@ final class HomeViewModel {
             return
         }
 
-        dailySummaryState = .loading
+        if case .loaded = dailySummaryState {} else { dailySummaryState = .loading }
         do {
             #if DEBUG
             print("[Network] HomeVM loadToday")

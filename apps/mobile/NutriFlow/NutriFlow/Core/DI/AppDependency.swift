@@ -20,4 +20,5 @@ protocol AppDependency {
     var analyticsService: AnalyticsServiceProtocol { get }
     var analyticsManager: AnalyticsManager { get }
     var cacheService: CacheService { get }
+    var googleSignInService: GoogleSignInService { get }
 }

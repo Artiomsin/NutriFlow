@@ -11,7 +11,7 @@ struct SettingsView: View {
             VStack(spacing: 24) {
 
                 Text("Settings")
-                    .font(.system(size: 30, weight: .semibold))
+                    .font(Font.h1)
                     .foregroundColor(AppTheme.textPrimary)
                     .padding(.top, AppTheme.headerPaddingTop)
 
@@ -45,6 +45,7 @@ struct SettingsView: View {
                     .frame(height: 100)
             }
         }
+        .refreshable { await viewModel.loadData() }
         .task {
             AnalyticsManager.shared.track(.screenView(screen: "settings"))
             await viewModel.loadData()

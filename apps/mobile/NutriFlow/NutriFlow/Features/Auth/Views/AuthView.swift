@@ -8,7 +8,7 @@ struct AuthView: View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 20) {
                 AuthHeaderView(isLogin: isLogin)
-                AuthFormView(viewModel: viewModel, isLogin: isLogin)
+                AuthFormView(viewModel: viewModel, isLogin: isLogin) 
 
                 PrimaryButton(title: isLogin ? "Sign in" : "Create account") {
                     Task {
@@ -17,6 +17,28 @@ struct AuthView: View {
                         } else {
                             await viewModel.register()
                         }
+                    }
+                }
+
+                if isLogin {
+                    Button {
+                        Task { await viewModel.signInWithGoogle() }
+                    } label: {
+                        HStack {
+                            Image(systemName: "g.circle.fill")
+                                .font(.title2)
+                            Text("Sign in with Google")
+                                .fontWeight(.medium)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(.white)
+                        .foregroundColor(.black)
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                        )
                     }
                 }
 
@@ -61,10 +83,12 @@ struct AuthView: View {
 }
 
 #Preview("AuthView") {
+    let container = AppDependencyContainer()
     let viewModel = AuthViewModel(
         authService: MockAuthService(),
         profileService: MockProfileService(),
-        coordinator: AppCoordinator(container: AppDependencyContainer())
+        googleSignInService: container.googleSignInService,
+        coordinator: AppCoordinator(container: container)
     )
     
     AuthView(viewModel: viewModel)

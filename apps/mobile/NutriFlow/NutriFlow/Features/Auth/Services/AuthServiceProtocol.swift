@@ -14,6 +14,8 @@ protocol AuthServiceProtocol: Sendable {
         password: String
     ) async throws
 
+    func signInWithGoogle(idToken: String) async throws
+
     func logout() async throws
 
     func logoutAll() async throws

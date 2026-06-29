@@ -64,7 +64,10 @@ final class WaterViewModel {
             await cacheService?.remove("chart_today")
             await cacheService?.removeByPrefix("chart_summaries")
             await cacheService?.removeByPrefix("analytics_")
-            await loadToday()
+
+            let entries = try await service.getTodayWater()
+            try? await cacheService?.set("water_today", entries, ttl: 300)
+            state = .loaded(entries)
             clearForm()
         } catch let error as APIError {
             if case .unauthorized = error {
@@ -89,7 +92,10 @@ final class WaterViewModel {
             await cacheService?.remove("chart_today")
             await cacheService?.removeByPrefix("chart_summaries")
             await cacheService?.removeByPrefix("analytics_")
-            await loadToday()
+
+            let entries = try await service.getTodayWater()
+            try? await cacheService?.set("water_today", entries, ttl: 300)
+            state = .loaded(entries)
         } catch let error as APIError {
             if case .unauthorized = error {
                 coordinator?.goToAuth()

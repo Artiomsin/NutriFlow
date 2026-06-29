@@ -13,7 +13,7 @@ struct FoodSection: View {
             HStack {
 
                 Text("Today's Food")
-                    .font(.title3.bold())
+                    .font(Font.h3)
                     .foregroundColor(AppTheme.textPrimary)
 
                 Spacer()

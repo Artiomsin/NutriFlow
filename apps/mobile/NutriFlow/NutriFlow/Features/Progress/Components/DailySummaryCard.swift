@@ -21,7 +21,7 @@ struct DailySummaryCard: View {
                 .foregroundColor(AppTheme.textPrimary)
 
             Text("\(summary.totalCalories) kcal")
-                .font(.system(size: 34, weight: .bold))
+                .font(Font.title1)
                 .foregroundColor(AppTheme.accent)
 
             if let goals = goals {

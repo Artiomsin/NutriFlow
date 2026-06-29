@@ -18,40 +18,26 @@ struct HomeView: View {
                     GuestBanner(onRegister: { homeViewModel.goToAuth() })
                 }
 
-                DailySummarySection(
-                    state: homeViewModel.dailySummaryState,
-                    goals: homeViewModel.userGoals
-                )
-                .padding(.horizontal, AppTheme.paddingHorizontal)
-
-                FoodSection(
+                DailySummarySectionView(homeViewModel: homeViewModel)
+                FoodSectionView(
                     foodViewModel: homeViewModel.foodViewModel,
                     onAddFood: { showAddFood = true },
                     onDeleteFood: { id in
-                        Task {
-                            await homeViewModel.deleteFood(id: id)
-                        }
+                        Task { await homeViewModel.deleteFood(id: id) }
                     }
                 )
-                .padding(.horizontal, AppTheme.paddingHorizontal)
-
-                WaterSection(
+                WaterSectionView(
                     waterViewModel: homeViewModel.waterViewModel,
                     onAddWater: { showAddWater = true },
                     onDeleteWater: { id in
-                        Task {
-                            await homeViewModel.deleteWater(id: id)
-                        }
+                        Task { await homeViewModel.deleteWater(id: id) }
                     }
                 )
-                .padding(.horizontal, AppTheme.paddingHorizontal)
-
             }
             .padding(.bottom, 100)
         }
-        .task {
-            await homeViewModel.loadAll()
-        }
+        .refreshable { await homeViewModel.refreshAll() }
+        .task { await homeViewModel.loadAll() }
         .onAppear {
             AnalyticsManager.shared.track(.screenView(screen: "home"))
             Task { await homeViewModel.reloadGoals() }
@@ -60,21 +46,13 @@ struct HomeView: View {
         .fullScreenCover(isPresented: $showAddFood) {
             AddFoodView(
                 foodViewModel: homeViewModel.foodViewModel,
-                onSave: {
-                    Task {
-                        await homeViewModel.loadToday()
-                    }
-                }
+                onSave: { Task { await homeViewModel.loadToday() } }
             )
         }
         .fullScreenCover(isPresented: $showAddWater) {
             AddWaterView(
                 waterViewModel: homeViewModel.waterViewModel,
-                onSave: {
-                    Task {
-                        await homeViewModel.loadToday()
-                    }
-                }
+                onSave: { Task { await homeViewModel.loadToday() } }
             )
         }
         .sheet(isPresented: $homeViewModel.showExpiredWarning, onDismiss: {
@@ -91,12 +69,53 @@ struct HomeView: View {
     private var header: some View {
         VStack(spacing: 6) {
             Text("Home")
-                .font(.system(size: 30, weight: .semibold))
+                .font(Font.h1)
                 .foregroundColor(AppTheme.textPrimary)
                 .padding(.top, AppTheme.headerPaddingTop)
         }
     }
+}
 
+private struct DailySummarySectionView: View {
+    @Bindable var homeViewModel: HomeViewModel
+
+    var body: some View {
+        DailySummarySection(
+            state: homeViewModel.dailySummaryState,
+            goals: homeViewModel.userGoals
+        )
+        .padding(.horizontal, AppTheme.paddingHorizontal)
+    }
+}
+
+private struct FoodSectionView: View {
+    @Bindable var foodViewModel: FoodViewModel
+    let onAddFood: () -> Void
+    let onDeleteFood: (String) -> Void
+
+    var body: some View {
+        FoodSection(
+            foodViewModel: foodViewModel,
+            onAddFood: onAddFood,
+            onDeleteFood: onDeleteFood
+        )
+        .padding(.horizontal, AppTheme.paddingHorizontal)
+    }
+}
+
+private struct WaterSectionView: View {
+    @Bindable var waterViewModel: WaterViewModel
+    let onAddWater: () -> Void
+    let onDeleteWater: (String) -> Void
+
+    var body: some View {
+        WaterSection(
+            waterViewModel: waterViewModel,
+            onAddWater: onAddWater,
+            onDeleteWater: onDeleteWater
+        )
+        .padding(.horizontal, AppTheme.paddingHorizontal)
+    }
 }
 
 struct GuestBanner: View {
@@ -136,7 +155,7 @@ struct ExpiredDaySheet: View {
                 .foregroundColor(AppTheme.accent)
 
             Text("New day started")
-                .font(.title2.weight(.semibold))
+                .font(Font.h2)
                 .foregroundColor(AppTheme.textPrimary)
 
             Text("Your guest data from yesterday will be lost. Register to keep tracking your progress.")
