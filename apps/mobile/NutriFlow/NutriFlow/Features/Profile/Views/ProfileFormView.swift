@@ -110,6 +110,7 @@ struct ProfileFormView: View {
                     Spacer()
                 }
             }
+            .scrollDismissesKeyboard(.immediately)
         }
         .onAppear { AnalyticsManager.shared.track(.screenView(screen: "profile_form")) }
     }

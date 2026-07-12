@@ -12,6 +12,7 @@ struct CaloriesChartView: View {
     let data: [ChartDataPoint]
     let canTap: Bool
     let onBarTap: ((String) -> Void)?
+    @State private var prefsStore = PreferencesStore.shared
     @State private var selection: String?
 
     init(data: [ChartDataPoint], canTap: Bool = false, onBarTap: ((String) -> Void)? = nil) {
@@ -26,7 +27,7 @@ struct CaloriesChartView: View {
                 Image(systemName: "flame.fill").foregroundColor(.orange)
                 Text("Calories").font(.headline).foregroundColor(AppTheme.textPrimary)
                 Spacer()
-                Text("\(totalCalories) kcal").font(.subheadline).foregroundColor(AppTheme.textSecondary)
+                Text("\(UnitConversion.formatEnergyValue(kcal: totalCalories, preferred: prefsStore.preferredUnits)) \(UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits))").font(.subheadline).foregroundColor(AppTheme.textSecondary)
             }
             
             Chart(data) { point in

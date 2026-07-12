@@ -13,6 +13,7 @@ struct AddWaterView: View {
 
     @State private var selectedAmount = 250.0
     @State private var animatedAmount = 250.0
+    @State private var prefsStore = PreferencesStore.shared
 
     @State private var animateSplash = false
     @State private var animateWave = false
@@ -185,7 +186,7 @@ struct AddWaterView: View {
         Picker("", selection: $selectedAmount) {
 
             ForEach(amounts, id: \.self) { amount in
-                Text("\(Int(amount)) ml")
+                Text(UnitConversion.formatAmount(grams: Int(amount), unit: "ml", preferred: prefsStore.preferredUnits))
                     .foregroundColor(.white)
                     .tag(amount)
             }

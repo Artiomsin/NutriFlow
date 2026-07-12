@@ -5,6 +5,7 @@ struct DayDetailSheet: View {
     let food: [FoodEntry]
     let water: [WaterEntry]
     let goals: UserGoals?
+    @State private var prefsStore = PreferencesStore.shared
 
     var body: some View {
         NavigationStack {
@@ -44,8 +45,8 @@ struct DayDetailSheet: View {
         let totals = foodTotals
         let totalWater = water.reduce(0) { $0 + $1.amountMl }
         return HStack(spacing: 24) {
-            DetailStatCard(icon: "flame.fill", color: .orange, value: "\(totals.cal)", unit: "kcal")
-            DetailStatCard(icon: "drop.fill", color: .cyan, value: "\(totalWater)", unit: "ml")
+            DetailStatCard(icon: "flame.fill", color: .orange, value: "\(UnitConversion.formatEnergyValue(kcal: totals.cal, preferred: prefsStore.preferredUnits))", unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits))
+            DetailStatCard(icon: "drop.fill", color: .cyan, value: UnitConversion.formatAmount(grams: totalWater, unit: "ml", preferred: prefsStore.preferredUnits), unit: "")
             DetailStatCard(icon: "fork.knife", color: .green, value: "\(food.count)", unit: "meals")
         }
         .padding(.top, 8)
@@ -57,11 +58,11 @@ struct DayDetailSheet: View {
             sectionLabel("Daily Goals", icon: "target")
 
             VStack(spacing: 14) {
-                GoalBar(title: "Calories", current: foodTotals.cal, goal: goals.dailyCaloriesGoal ?? 0, unit: "kcal", color: .orange, icon: "flame.fill")
-                GoalBar(title: "Protein", current: foodTotals.protein, goal: goals.dailyProteinGoal ?? 0, unit: "g", color: .indigo, icon: "bolt.fill")
-                GoalBar(title: "Fat", current: foodTotals.fat, goal: goals.dailyFatGoal ?? 0, unit: "g", color: .green, icon: "drop.degreesign.fill")
-                GoalBar(title: "Carbs", current: foodTotals.carbs, goal: goals.dailyCarbsGoal ?? 0, unit: "g", color: .purple, icon: "leaf.arrow.circlepath")
-                GoalBar(title: "Water", current: water.reduce(0) { $0 + $1.amountMl }, goal: goals.dailyWaterGoal ?? 0, unit: "ml", color: .cyan, icon: "drop.fill")
+                GoalBar(title: "Calories", current: String(UnitConversion.formatEnergyValue(kcal: foodTotals.cal, preferred: prefsStore.preferredUnits)), goal: String(UnitConversion.formatEnergyValue(kcal: goals.dailyCaloriesGoal ?? 0, preferred: prefsStore.preferredUnits)), unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits), color: .orange, icon: "flame.fill")
+                GoalBar(title: "Protein", current: UnitConversion.formatMacro(grams: foodTotals.protein, preferred: prefsStore.preferredUnits), goal: UnitConversion.formatMacro(grams: goals.dailyProteinGoal ?? 0, preferred: prefsStore.preferredUnits), unit: "", color: .indigo, icon: "bolt.fill")
+                GoalBar(title: "Fat", current: UnitConversion.formatMacro(grams: foodTotals.fat, preferred: prefsStore.preferredUnits), goal: UnitConversion.formatMacro(grams: goals.dailyFatGoal ?? 0, preferred: prefsStore.preferredUnits), unit: "", color: .green, icon: "drop.degreesign.fill")
+                GoalBar(title: "Carbs", current: UnitConversion.formatMacro(grams: foodTotals.carbs, preferred: prefsStore.preferredUnits), goal: UnitConversion.formatMacro(grams: goals.dailyCarbsGoal ?? 0, preferred: prefsStore.preferredUnits), unit: "", color: .purple, icon: "leaf.arrow.circlepath")
+                GoalBar(title: "Water", current: UnitConversion.formatAmount(grams: water.reduce(0) { $0 + $1.amountMl }, unit: "ml", preferred: prefsStore.preferredUnits), goal: UnitConversion.formatAmount(grams: goals.dailyWaterGoal ?? 0, unit: "ml", preferred: prefsStore.preferredUnits), unit: "", color: .cyan, icon: "drop.fill")
             }
         }
         .padding()
@@ -170,15 +171,23 @@ struct DetailStatCard: View {
 
 struct GoalBar: View {
     let title: String
-    let current: Int
-    let goal: Int
+    let current: String
+    let goal: String
     let unit: String
     let color: Color
     let icon: String
 
+    private var rawCurrent: Double {
+        Double(current.split(separator: " ").first ?? "") ?? 0
+    }
+
+    private var rawGoal: Double {
+        Double(goal.split(separator: " ").first ?? "") ?? 0
+    }
+
     private var pct: Double {
-        guard goal > 0 else { return 0 }
-        return min(Double(current) / Double(goal), 1.0)
+        guard rawGoal > 0 else { return 0 }
+        return min(rawCurrent / rawGoal, 1.0)
     }
 
     private var pctText: String {
@@ -219,6 +228,7 @@ struct GoalBar: View {
 
 struct FoodRow: View {
     let entry: FoodEntry
+    @State private var prefsStore = PreferencesStore.shared
 
     var body: some View {
         HStack(spacing: 12) {
@@ -239,10 +249,10 @@ struct FoodRow: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: 2) {
-                Text("\(entry.calories)")
+                Text("\(UnitConversion.formatEnergyValue(kcal: entry.calories, preferred: prefsStore.preferredUnits))")
                     .font(.subheadline.weight(.semibold))
                     .foregroundColor(.orange)
-                Text("kcal")
+                Text(UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits))
                     .font(.caption2)
                     .foregroundColor(AppTheme.textTertiary)
             }
@@ -253,6 +263,7 @@ struct FoodRow: View {
 
 struct WaterRow: View {
     let entry: WaterEntry
+    @State private var prefsStore = PreferencesStore.shared
 
     var body: some View {
         HStack(spacing: 12) {
@@ -267,7 +278,7 @@ struct WaterRow: View {
 
             Spacer()
 
-            Text("\(entry.amountMl) ml")
+            Text(UnitConversion.formatAmount(grams: entry.amountMl, unit: "ml", preferred: prefsStore.preferredUnits))
                 .font(.subheadline.weight(.semibold))
                 .foregroundColor(.cyan)
         }
@@ -296,8 +307,8 @@ func formatTime(_ iso: String) -> String {
     DayDetailSheet(
         dateStr: "2026-05-18",
         food: [
-            FoodEntry(id: "1", userId: "1", name: "Oatmeal", calories: 320, protein: 12, fat: 6, carbs: 56, createdAt: "2026-05-18T08:00:00Z", updatedAt: nil),
-            FoodEntry(id: "2", userId: "1", name: "Chicken Breast", calories: 450, protein: 40, fat: 10, carbs: 0, createdAt: "2026-05-18T13:00:00Z", updatedAt: nil),
+            FoodEntry(id: "1", userId: "1", name: "Oatmeal", calories: 320, protein: 12, fat: 6, carbs: 56, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T08:00:00Z", updatedAt: nil),
+            FoodEntry(id: "2", userId: "1", name: "Chicken Breast", calories: 450, protein: 40, fat: 10, carbs: 0, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T13:00:00Z", updatedAt: nil),
         ],
         water: [
             WaterEntry(id: "1", userId: "1", amountMl: 500, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),

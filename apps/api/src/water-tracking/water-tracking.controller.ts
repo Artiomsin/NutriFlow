@@ -37,8 +37,8 @@ export class WaterTrackingController {
 
   @UseGuards(JwtAuthGuard)
   @Get('today')
-  findToday(@User() user: AuthPayload) {
-    return this.waterService.getToday(user.userId);
+  findToday(@User() user: AuthPayload, @Query('date') date?: string) {
+    return this.waterService.getToday(user.userId, date);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -52,7 +52,8 @@ export class WaterTrackingController {
   delete(
     @User() user: AuthPayload,
     @Param('id', ParseUUIDPipe) id: string,
+    @Query('date') date?: string,
   ) {
-    return this.waterService.delete(user.userId, id);
+    return this.waterService.delete(user.userId, id, date);
   }
 }

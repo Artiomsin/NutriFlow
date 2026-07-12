@@ -10,7 +10,10 @@ if (!connectionString) {
 }
 
 const pool = new Pool({
-  connectionString,
+  connectionString: `${connectionString}?statement_timeout=10000`,
+  max: 20,
+  connectionTimeoutMillis: 5000,
+  idleTimeoutMillis: 30000,
 });
 
 export const db = drizzle(pool, { schema });

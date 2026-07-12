@@ -8,18 +8,50 @@ final class FoodService: FoodServiceProtocol, Sendable {
         self.client = client
     }
 
-    func createFoodEntry(name: String, calories: Int, protein: Int?, fat: Int?, carbs: Int?) async throws -> FoodEntry {
+    // ── Food Entry ──────────────────────────────────────────────
+
+    func createFoodEntry(
+        name: String,
+        calories: Int,
+        protein: Int?,
+        fat: Int?,
+        carbs: Int?,
+        foodId: String? = nil,
+        grams: Int? = nil,
+        unit: String? = nil,
+        categoryName: String? = nil,
+        imageUrl: String? = nil,
+        date: String? = nil
+    ) async throws -> FoodEntry {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        let entryDate = date ?? df.string(from: Date())
         let request = APIRequest(
             path: FoodEndpoints.createFoodEntry,
             method: .POST,
-            body: CreateFoodRequest(name: name, calories: calories, protein: protein, fat: fat, carbs: carbs)
+            body: CreateFoodRequest(
+                name: name,
+                calories: calories,
+                protein: protein,
+                fat: fat,
+                carbs: carbs,
+                foodId: foodId,
+                grams: grams,
+                unit: unit,
+                categoryName: categoryName,
+                imageUrl: imageUrl,
+                date: entryDate
+            )
         )
         return try await client.send(request)
     }
 
     func getTodayFood() async throws -> [FoodEntry] {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        let date = df.string(from: Date())
         let request = APIRequest<NeverBody>(
-            path: FoodEndpoints.getTodayFood,
+            path: "\(FoodEndpoints.getTodayFood)?date=\(date)",
             method: .GET
         )
         return try await client.send(request)
@@ -35,11 +67,65 @@ final class FoodService: FoodServiceProtocol, Sendable {
         return try await client.send(request)
     }
 
-    func deleteFoodEntry(id: String) async throws {
+    func deleteFoodEntry(id: String, date: String? = nil) async throws {
+        let endpoint = FoodEndpoints.deleteFoodEntry(id: id)
+        let queryItems: [URLQueryItem] = date.map { [URLQueryItem(name: "date", value: $0)] } ?? []
         let request = APIRequest<NeverBody>(
-            path: FoodEndpoints.deleteFoodEntry(id: id),
-            method: .DELETE
+            path: endpoint,
+            method: .DELETE,
+            queryItems: queryItems
         )
         try await client.sendVoid(request)
+    }
+
+    // ── Food Catalog ────────────────────────────────────────────
+
+    func searchFood(query: String, limit: Int) async throws -> FoodSearchResponse {
+        let endpoint = FoodEndpoints.searchFood(query: query, limit: limit)
+        let request = APIRequest<NeverBody>(
+            path: endpoint.path,
+            method: .GET,
+            queryItems: endpoint.query
+        )
+        return try await client.send(request)
+    }
+
+    func getPopularFood() async throws -> [CatalogFood] {
+        let request = APIRequest<NeverBody>(
+            path: FoodEndpoints.getPopularFood,
+            method: .GET
+        )
+        return try await client.send(request)
+    }
+
+    func getFoodById(_ id: String) async throws -> CatalogFood {
+        let request = APIRequest<NeverBody>(
+            path: FoodEndpoints.getFoodById(id),
+            method: .GET
+        )
+        return try await client.send(request)
+    }
+
+    func createCatalogFood(_ request: CreateCatalogFoodRequest) async throws -> CatalogFood {
+        let apiRequest = APIRequest(
+            path: FoodEndpoints.createFood,
+            method: .POST,
+            body: request
+        )
+        return try await client.send(apiRequest)
+    }
+
+    func getCategories() async throws -> [FoodCategory] {
+        let request = APIRequest<NeverBody>(
+            path: FoodEndpoints.getCategories,
+            method: .GET
+        )
+        return try await client.send(request)
+    }
+
+    // ── Upload ──────────────────────────────────────────────────
+
+    func uploadImage(_ data: Data) async throws -> String {
+        try await client.sendUpload(data: data, fileName: "photo.jpg", mimeType: "image/jpeg", path: "/food/upload")
     }
 }

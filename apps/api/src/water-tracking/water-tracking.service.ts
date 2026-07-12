@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { db } from '../db/db';
 import { waterEntries } from '../db/schema/waterEntries';
 import { eq, and, sql } from 'drizzle-orm';
-import { redis } from '../redis';
+import { invalidateAnalyticsCache } from '../redis';
 import { DailySummaryService } from '../daily-summary/daily-summary.service';
 import type { CreateWaterEntryDto } from './water-tracking.schema';
 
@@ -17,23 +17,25 @@ export class WaterTrackingService {
       .values({
         userId,
         amountMl: dto.amountMl,
+        entryDate: dto.date,
       })
       .returning();
 
-    await this.dailySummaryService.recalculate(userId);
-    await this.invalidateAnalyticsCache(userId);
+    await this.dailySummaryService.adjust(userId, { waterMl: dto.amountMl, date: dto.date });
+    await invalidateAnalyticsCache(userId);
 
     return entry;
   }
 
-  async getToday(userId: string) {
+  async getToday(userId: string, dateStr?: string) {
+    const dateClause = dateStr ? sql`${dateStr}::date` : sql`CURRENT_DATE`;
     return db
       .select()
       .from(waterEntries)
       .where(
         and(
           eq(waterEntries.userId, userId),
-          sql`DATE(${waterEntries.createdAt}) = CURRENT_DATE`,
+          eq(waterEntries.entryDate, dateClause),
         ),
       );
   }
@@ -45,12 +47,12 @@ export class WaterTrackingService {
       .where(
         and(
           eq(waterEntries.userId, userId),
-          sql`DATE(${waterEntries.createdAt}) = ${date}::date`,
+          eq(waterEntries.entryDate, sql`${date}::date`),
         ),
       );
   }
 
-  async delete(userId: string, id: string) {
+  async delete(userId: string, id: string, date?: string) {
     const [deleted] = await db
       .delete(waterEntries)
       .where(
@@ -65,14 +67,14 @@ export class WaterTrackingService {
       throw new NotFoundException('Water entry not found');
     }
 
-    await this.dailySummaryService.recalculate(userId);
-    await this.invalidateAnalyticsCache(userId);
+    const deletedDate = date ?? deleted.entryDate ?? (deleted.createdAt instanceof Date
+      ? deleted.createdAt.toISOString().split('T')[0]
+      : undefined);
+
+    await this.dailySummaryService.adjust(userId, { waterMl: -deleted.amountMl, date: deletedDate });
+    await invalidateAnalyticsCache(userId);
 
     return { message: 'Deleted' };
   }
 
-  private async invalidateAnalyticsCache(userId: string) {
-    await redis.del(`analytics:${userId}:week`);
-    await redis.del(`analytics:${userId}:month`);
-  }
 }

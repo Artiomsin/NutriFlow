@@ -6,6 +6,7 @@ struct WaterCard: View {
     var onDelete: (() -> Void)?
 
     @State private var showDeleteAlert = false
+    @State private var prefsStore = PreferencesStore.shared
 
     var body: some View {
         HStack(spacing: 14) {
@@ -19,7 +20,7 @@ struct WaterCard: View {
             }
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("\(entry.amountMl) ml")
+                Text(UnitConversion.formatAmount(grams: entry.amountMl, unit: "ml", preferred: prefsStore.preferredUnits))
                     .font(.headline)
                     .foregroundColor(AppTheme.textPrimary)
 
@@ -38,19 +39,20 @@ struct WaterCard: View {
             Button {
                 showDeleteAlert = true
             } label: {
-                Image(systemName: "trash")
-                    .font(.system(size: 14))
-                    .foregroundColor(AppTheme.error.opacity(0.6))
+                Image(systemName: "trash.fill")
+                    .font(.system(size: 11))
+                    .foregroundColor(AppTheme.error)
+                    .padding(8)
+                    .background(AppTheme.error.opacity(0.12))
+                    .clipShape(Circle())
             }
+            .buttonStyle(.plain)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(AppTheme.cardBackground)
         .cornerRadius(AppTheme.cornerRadiusMedium)
         .contentShape(Rectangle())
-        .onLongPressGesture(minimumDuration: 0.5) {
-            showDeleteAlert = true
-        }
         .alert("Delete Water", isPresented: $showDeleteAlert) {
             Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {
@@ -62,12 +64,23 @@ struct WaterCard: View {
     }
 
     private func formatTime(_ value: String) -> String {
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = iso.date(from: value) ?? ISO8601DateFormatter().date(from: value) {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "HH:mm"
-            return formatter.string(from: date)
+        let formats = [
+            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss.SSSZ",
+            "yyyy-MM-dd'T'HH:mm:ssZ",
+        ]
+        for fmt in formats {
+            let df = DateFormatter()
+            df.dateFormat = fmt
+            df.locale = Locale(identifier: "en_US_POSIX")
+            df.timeZone = TimeZone(secondsFromGMT: 0)
+            if let date = df.date(from: value) {
+                let out = DateFormatter()
+                out.dateFormat = "HH:mm"
+                out.timeZone = TimeZone.current
+                return out.string(from: date)
+            }
         }
         return String(value.dropFirst(11).prefix(5))
     }

@@ -7,7 +7,7 @@ final class GuestWaterService: WaterTrackingServiceProtocol {
         self.store = store
     }
 
-    func createWaterEntry(amountMl: Int) async throws -> WaterEntry {
+    func createWaterEntry(amountMl: Int, date: String? = nil) async throws -> WaterEntry {
         let entry = WaterEntry(amountMl: amountMl)
         store.addWater(entry)
         return entry
@@ -24,7 +24,7 @@ final class GuestWaterService: WaterTrackingServiceProtocol {
         return date == today ? store.todayWater : []
     }
 
-    func deleteWaterEntry(id: String) async throws {
+    func deleteWaterEntry(id: String, date: String? = nil) async throws {
         store.removeWater(id: id)
     }
 }

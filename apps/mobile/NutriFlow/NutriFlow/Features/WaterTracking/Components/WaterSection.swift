@@ -21,17 +21,19 @@ struct WaterSection: View {
                 Button {
                     onAddWater?()
                 } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "drop.fill")
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 11, weight: .bold))
                         Text("Add")
+                            .font(.system(size: 13, weight: .semibold))
                     }
-                    .font(.subheadline.weight(.semibold))
                     .foregroundColor(.black)
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 7)
                     .background(AppTheme.accent)
-                    .cornerRadius(10)
+                    .clipShape(Capsule())
                 }
+                .buttonStyle(.plain)
             }
 
             content

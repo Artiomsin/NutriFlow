@@ -100,13 +100,19 @@ final class GuestStore: @unchecked Sendable {
                 calories: entry.calories,
                 protein: entry.protein,
                 fat: entry.fat,
-                carbs: entry.carbs
+                carbs: entry.carbs,
+                foodId: nil,
+                grams: nil,
+                unit: entry.unit,
+                categoryName: nil,
+                imageUrl: nil,
+                date: nil
             )
             print("[GuestStore] POST food OK: \(entry.name)")
         }
         for entry in waters {
             print("[GuestStore] POST water: \(entry.amountMl)ml")
-            try await waterService.createWaterEntry(amountMl: entry.amountMl)
+            try await waterService.createWaterEntry(amountMl: entry.amountMl, date: nil)
             print("[GuestStore] POST water OK: \(entry.amountMl)ml")
         }
         clear()

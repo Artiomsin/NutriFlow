@@ -1,0 +1,1 @@
+DROP TABLE "app"."raw_food_imports" CASCADE;

@@ -9,12 +9,13 @@ import SwiftUI
 struct SettingsRow: View {
     let icon: String
     let title: String
+    var tint: Color = AppTheme.accent
     
     var body: some View {
         HStack {
             Image(systemName: icon)
                 .font(.system(size: AppTheme.iconSize))
-                .foregroundColor(AppTheme.accent)
+                .foregroundColor(tint)
                 .frame(width: 30)
             
             Text(title)

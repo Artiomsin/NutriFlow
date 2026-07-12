@@ -8,6 +8,7 @@ import { userGoals } from '../db/schema/userGoals';
 import { userProfiles } from '../db/schema/userProfiles';
 import { eq } from 'drizzle-orm';
 import type { UpdateGoalsDto } from './goals.schema';
+import { invalidateAnalyticsCache } from '../redis';
 @Injectable()
 export class GoalsService {
   async findByUserId(userId: string) {
@@ -33,6 +34,7 @@ export class GoalsService {
         })
         .where(eq(userGoals.userId, userId))
         .returning();
+      await invalidateAnalyticsCache(userId);
       return goals;
     }
     const [goals] = await db
@@ -43,6 +45,7 @@ export class GoalsService {
         source: 'manual',
       })
       .returning();
+    await invalidateAnalyticsCache(userId);
     return goals;
   }
   async calculate(userId: string) {
@@ -94,6 +97,7 @@ export class GoalsService {
           .set(merged)
           .where(eq(userGoals.userId, userId))
           .returning();
+        await invalidateAnalyticsCache(userId);
         return goals;
       }
       const [goals] = await db
@@ -101,12 +105,14 @@ export class GoalsService {
         .set({ ...calculated, source: 'auto', updatedAt: new Date() })
         .where(eq(userGoals.userId, userId))
         .returning();
+      await invalidateAnalyticsCache(userId);
       return goals;
     }
     const [goals] = await db
       .insert(userGoals)
       .values({ userId, ...calculated, source: 'auto' })
       .returning();
+    await invalidateAnalyticsCache(userId);
     return goals;
   }
   private calculateBMR(weight: number, height: number, age: number, gender: string): number {

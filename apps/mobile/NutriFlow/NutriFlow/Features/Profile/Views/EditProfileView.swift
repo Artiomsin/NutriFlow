@@ -29,7 +29,6 @@ struct EditProfileView: View {
                 }
 
                 ScrollView {
-
                     VStack(spacing: 20) {
                         AppTextField(title: "Email", text: $viewModel.email)
                         AppTextField(title: "First Name", text: $viewModel.firstName)

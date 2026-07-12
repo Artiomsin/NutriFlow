@@ -5,11 +5,11 @@ final class StubProfileService: ProfileServiceProtocol {
         throw GuestError.registrationRequired
     }
 
-    func createProfile(weight: Double?, height: Int?, age: Int?, gender: Gender?, goal: Goal?, activityLevel: ActivityLevel?) async throws -> UserProfile {
+    func createProfile(weight: Double?, height: Int?, age: Int?, gender: Gender?, goal: Goal?, activityLevel: ActivityLevel?, preferredUnits: PreferredUnits?) async throws -> UserProfile {
         throw GuestError.registrationRequired
     }
 
-    func updateMyProfile(weight: Double?, height: Int?, age: Int?, gender: Gender?, goal: Goal?, activityLevel: ActivityLevel?) async throws -> UserProfile {
+    func updateMyProfile(weight: Double?, height: Int?, age: Int?, gender: Gender?, goal: Goal?, activityLevel: ActivityLevel?, preferredUnits: PreferredUnits?) async throws -> UserProfile {
         throw GuestError.registrationRequired
     }
 

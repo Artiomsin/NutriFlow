@@ -3,6 +3,7 @@ import Foundation
 
 struct CreateWaterRequest: Codable, Sendable {
     let amountMl: Int
+    let date: String?
 }
 
 struct WaterEntry: Codable, Identifiable, Sendable {

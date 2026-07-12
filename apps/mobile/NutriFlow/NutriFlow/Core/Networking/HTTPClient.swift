@@ -8,4 +8,6 @@ protocol HTTPClient: Sendable {
     func sendVoid<Body: Encodable & Sendable>(
         _ request: APIRequest<Body>
     ) async throws
+
+    func sendUpload(data: Data, fileName: String, mimeType: String, path: String) async throws -> String
 }

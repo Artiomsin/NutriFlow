@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 
 import { db } from '../db/db';
@@ -10,7 +10,7 @@ import { eq, or } from 'drizzle-orm';
 
 import type { AuthPayload } from './types/auth.types';
 import { env } from '../config/env';
-import { redis } from '../redis';
+import { cacheGet, cacheSet, cacheDel, scanKeys, redis } from '../redis';
 
 @Injectable()
 export class AuthService {
@@ -24,6 +24,17 @@ export class AuthService {
     firstName: string;
     lastName: string;
   }) {
+    const existing = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, data.email))
+      .limit(1)
+      .then((r) => r[0]);
+
+    if (existing) {
+      throw new ConflictException('Email already registered');
+    }
+
     const hash = await bcrypt.hash(data.password, 10);
   
     const user = await db
@@ -113,7 +124,9 @@ export class AuthService {
         .insert(users)
         .values({ email, googleId, firstName, lastName, avatarUrl })
         .returning();
-      userId = created[0].id;
+      const createdUser = created[0];
+      if (!createdUser) throw new Error('Failed to create user');
+      userId = createdUser.id;
     }
 
     const sessionId = randomUUID();
@@ -132,16 +145,13 @@ export class AuthService {
 
       const key = this.getKey(payload.userId, payload.sessionId);
 
-      const storedHash = await redis.get(key);
+      const storedHash = await cacheGet<string>(key);
 
       if (!storedHash) throw new UnauthorizedException();
 
-      const match = await bcrypt.compare(refreshToken, storedHash);
+      const match = storedHash === createHash('sha256').update(refreshToken).digest('hex');
 
       if (!match) throw new UnauthorizedException();
-
-     
-      await redis.del(key);
 
       const tokens = this.generateTokens(payload.userId, payload.sessionId);
 
@@ -157,40 +167,26 @@ export class AuthService {
     }
   }
 
- 
   async logout(userId: string, sessionId: string) {
-    const key = this.getKey(userId, sessionId);
-
-    await redis.del(key);
-
+    await cacheDel(this.getKey(userId, sessionId));
     return { message: 'Logged out' };
   }
 
   async logoutAll(userId: string) {
-   
-
-    const pattern = `refresh:${userId}:*`;
-
-    const keys = await this.scanKeys(pattern);
-
-    if (keys.length) {
-      await redis.del(...keys);
+    const keys = await scanKeys(`refresh:${userId}:*`);
+    for (const key of keys) {
+      await cacheDel(key);
     }
-
     return { message: 'Logged out from all devices' };
   }
-
 
   private async saveRefresh(
     userId: string,
     sessionId: string,
     refreshToken: string,
   ) {
-    const hash = await bcrypt.hash(refreshToken, 10);
-
-    const key = this.getKey(userId, sessionId);
-
-    await redis.set(key, hash, 'EX', 60 * 60 * 24 * 7);
+    const hash = createHash('sha256').update(refreshToken).digest('hex');
+    await cacheSet(this.getKey(userId, sessionId), hash, 604800);
   }
 
   private generateTokens(userId: string, sessionId: string) {
@@ -211,26 +207,5 @@ export class AuthService {
 
   private getKey(userId: string, sessionId: string) {
     return `refresh:${userId}:${sessionId}`;
-  }
-
-  private async scanKeys(pattern: string): Promise<string[]> {
-    const keys: string[] = [];
-
-    let cursor = 0;
-
-    do {
-      const [nextCursor, found] = await redis.scan(
-        cursor,
-        'MATCH',
-        pattern,
-        'COUNT',
-        100,
-      );
-
-      cursor = Number(nextCursor);
-      keys.push(...found);
-    } while (cursor !== 0);
-
-    return keys;
   }
 }

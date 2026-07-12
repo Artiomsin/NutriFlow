@@ -1,7 +1,6 @@
 import {
   Injectable,
   NotFoundException,
-  ConflictException,
 } from '@nestjs/common';
 
 import { db } from '../db/db';
@@ -20,12 +19,6 @@ export class ProfilesService {
   constructor(private goalsService: GoalsService) {} 
   
   async create(data: CreateProfileDto & { userId: string }) {
-    const existing = await this.findByUserIdSafe(data.userId);
-
-    if (existing) {
-      throw new ConflictException('Profile already exists');
-    }
-
     const [profile] = await db
       .insert(userProfiles)
       .values({
@@ -36,15 +29,21 @@ export class ProfilesService {
         gender: data.gender,
         goal: data.goal,
         activityLevel: data.activityLevel,
+        preferredUnits: data.preferredUnits ?? { weight: 'metric', volume: 'metric', energy: 'kcal' },
       })
+      .onConflictDoNothing({ target: userProfiles.userId })
       .returning();
 
-    try {
+    if (!profile) {
+      const existing = await this.findByUserIdSafe(data.userId);
+      if (!existing) {
+        throw new Error('Profile creation failed');
+      }
       await this.goalsService.calculate(data.userId);
-    } catch (e) {
-      console.error('Goals calculation skipped:', (e as Error).message);
+      return existing;
     }
 
+    await this.goalsService.calculate(data.userId);
     return profile;
   }
 
@@ -74,19 +73,14 @@ export class ProfilesService {
         gender: data.gender ?? existing.gender,
         goal: data.goal ?? existing.goal,
         activityLevel: data.activityLevel ?? existing.activityLevel,
+        preferredUnits: data.preferredUnits ?? existing.preferredUnits as any,
         updatedAt: new Date(),
       })
       .where(eq(userProfiles.userId, userId))
       .returning();
 
 
-    try {
-      await this.goalsService.calculate(userId);
-    } catch (e) {
-      console.error('Goals calculation skipped:', (e as Error).message);
-    }
-
-    
+    await this.goalsService.calculate(userId);
     return profile;
   }
 
@@ -114,10 +108,12 @@ export class ProfilesService {
     return profile;
   }
 
-  async findAll() {
+  async findAll(limit = 50, offset = 0) {
     return db
       .select()
-      .from(userProfiles);
+      .from(userProfiles)
+      .limit(limit)
+      .offset(offset);
   }
   
 }

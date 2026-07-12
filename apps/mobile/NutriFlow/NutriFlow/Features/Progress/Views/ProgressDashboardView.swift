@@ -5,6 +5,7 @@ struct ProgressDashboardView: View {
     @Bindable var chartVM: ProgressChartViewModel
     @Bindable var periodState: PeriodState
     let isGuest: Bool
+    @State private var prefsStore = PreferencesStore.shared
 
     var body: some View {
         let _ = print("ProgressDashboardView body")
@@ -129,40 +130,40 @@ struct ProgressDashboardView: View {
                 color: .orange,
                 icon: "flame.fill",
                 title: "Calories",
-                value: "\(analytics.averageCalories)",
-                unit: "kcal"
+                value: "\(UnitConversion.formatEnergyValue(kcal: analytics.averageCalories, preferred: prefsStore.preferredUnits))",
+                unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits)
             )
             RingProgressView(
                 pct: analytics.goalProteinPct ?? 0,
                 color: .indigo,
                 icon: "bolt.fill",
                 title: "Protein",
-                value: "\(analytics.averageProtein)",
-                unit: "g"
+                value: UnitConversion.formatMacro(grams: analytics.averageProtein, preferred: prefsStore.preferredUnits),
+                unit: ""
             )
             RingProgressView(
                 pct: analytics.goalFatPct ?? 0,
                 color: .green,
                 icon: "drop.degreesign.fill",
                 title: "Fat",
-                value: "\(analytics.averageFat)",
-                unit: "g"
+                value: UnitConversion.formatMacro(grams: analytics.averageFat, preferred: prefsStore.preferredUnits),
+                unit: ""
             )
             RingProgressView(
                 pct: analytics.goalCarbsPct ?? 0,
                 color: .purple,
                 icon: "leaf.arrow.circlepath",
                 title: "Carbs",
-                value: "\(analytics.averageCarbs)",
-                unit: "g"
+                value: UnitConversion.formatMacro(grams: analytics.averageCarbs, preferred: prefsStore.preferredUnits),
+                unit: ""
             )
             RingProgressView(
                 pct: analytics.goalWaterPct ?? 0,
                 color: .cyan,
                 icon: "drop.fill",
                 title: "Water",
-                value: "\(analytics.averageWater)",
-                unit: "ml"
+                value: UnitConversion.formatAmount(grams: analytics.averageWater, unit: "ml", preferred: prefsStore.preferredUnits),
+                unit: ""
             )
         }
     }

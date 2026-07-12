@@ -7,24 +7,70 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+  ParseUUIDPipe,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 import { JwtAuthGuard } from '../auth/jwt.guard';
 import { User } from '../auth/decorators/user.decorator';
 import type { AuthPayload } from '../auth/types/auth.types';
 
 import { FoodService } from './food.service';
-import { createFoodEntrySchema } from './food.schema';
+import { UploadService } from '../upload/upload.service';
+import {
+  createFoodEntrySchema,
+  createFoodSchema,
+  createFoodCategorySchema,
+  searchFoodQuerySchema,
+} from './food.schema';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
-import type { CreateFoodEntryDto } from './food.schema';
+import type {
+  CreateFoodEntryDto,
+  CreateFoodDto,
+  CreateFoodCategoryDto,
+  SearchFoodQueryDto,
+} from './food.schema';
 
 
-@Controller('food-entry')
+@Controller()
 @UseGuards(JwtAuthGuard)
 export class FoodController {
-  constructor(private readonly foodService: FoodService) {}
+  constructor(
+    private readonly foodService: FoodService,
+    private readonly uploadService: UploadService,
+  ) {}
 
-  @Post()
+  // ── Upload ───────────────────────────────────────────────────
+
+  @Post('food/upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async upload(@UploadedFile() file: { buffer: Buffer; mimetype: string; originalname: string; size: number }) {
+    if (!file) throw new BadRequestException('File is required');
+
+    const url = await this.uploadService.upload(file.buffer, file.mimetype);
+    return { url };
+  }
+
+  // ── Food Category Routes ────────────────────────────────────
+
+  @Get('food-categories')
+  getCategories() {
+    return this.foodService.getCategories();
+  }
+
+  @Post('food-categories')
+  createCategory(
+    @Body(new ZodValidationPipe(createFoodCategorySchema)) data: CreateFoodCategoryDto,
+  ) {
+    return this.foodService.createCategory(data);
+  }
+
+  // ── Food Entry Routes ────────────────────────────────────────
+
+  @Post('food-entry')
   create(
     @User() user: AuthPayload,
     @Body(new ZodValidationPipe(createFoodEntrySchema)) data: CreateFoodEntryDto,
@@ -32,18 +78,66 @@ export class FoodController {
     return this.foodService.create(user.userId, data);
   }
 
-  @Get('today')
-  getToday(@User() user: AuthPayload) {
-    return this.foodService.getToday(user.userId);
+  @Get('food-entry/today')
+  getToday(@User() user: AuthPayload, @Query('date') date?: string) {
+    return this.foodService.getToday(user.userId, date);
   }
 
-  @Get()
+  @Get('food-entry')
   getByDate(@User() user: AuthPayload, @Query('date') date: string) {
     return this.foodService.getByDate(user.userId, date);
   }
 
-  @Delete(':id')
-  delete(@User() user: AuthPayload, @Param('id') id: string) {
-    return this.foodService.delete(user.userId, id);
+  @Delete('food-entry/:id')
+  delete(
+    @User() user: AuthPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('date') date?: string,
+  ) {
+    return this.foodService.delete(user.userId, id, date);
+  }
+
+  // ── Food Catalog Routes ──────────────────────────────────────
+
+  @Get('foods')
+  getAll(
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.foodService.getAll(
+      limit ? Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200) : 50,
+      offset ? Math.max(parseInt(offset, 10) || 0, 0) : 0,
+    );
+  }
+
+  @Get('foods/search')
+  search(
+    @Query(new ZodValidationPipe(searchFoodQuerySchema)) query: SearchFoodQueryDto,
+  ) {
+    return this.foodService.search(query);
+  }
+
+  @Get('foods/popular')
+  getPopular(@User() user: AuthPayload) {
+    return this.foodService.getPopular(user.userId);
+  }
+
+  @Get('foods/barcode/:barcode')
+  getByBarcode(@Param('barcode') barcode: string) {
+    return this.foodService.getByBarcode(barcode);
+  }
+
+  @Get('foods/:id')
+  getById(@Param('id', ParseUUIDPipe) id: string) {
+    return this.foodService.getById(id);
+  }
+
+  @Post('foods')
+  createFood(
+    @User() user: AuthPayload,
+    @Body(new ZodValidationPipe(createFoodSchema)) data: CreateFoodDto,
+  ) {
+    return this.foodService.createFood(user.userId, data);
   }
 }
+

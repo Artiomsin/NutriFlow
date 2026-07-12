@@ -13,6 +13,8 @@ struct GoalProgressRow: View {
     let label: String
     let color: Color
     let unit: String
+    var displayCurrent: String? = nil
+    var displayGoal: String? = nil
 
     var body: some View {
         if let goal = goal, goal > 0 {
@@ -23,7 +25,7 @@ struct GoalProgressRow: View {
                         .font(.caption)
                         .foregroundColor(AppTheme.textSecondary)
                     Spacer()
-                    Text("\(current)/\(goal) \(unit) (\(Int(pct * 100))%)")
+                    Text("\(displayCurrent ?? "\(current)")/\(displayGoal ?? "\(goal)") \(unit) (\(Int(pct * 100))%)")
                         .font(.caption)
                         .foregroundColor(AppTheme.textPrimary)
                 }
