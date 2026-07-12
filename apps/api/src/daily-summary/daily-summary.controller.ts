@@ -32,8 +32,8 @@ export class DailySummaryController {
   ) {}
 
   @Get('today')
-  findToday(@User() user: AuthPayload) {
-    return this.dailySummaryService.findToday(user.userId);
+  findToday(@User() user: AuthPayload, @Query('date') date?: string) {
+    return this.dailySummaryService.findToday(user.userId, date);
   }
 
   @Get()
@@ -49,8 +49,8 @@ export class DailySummaryController {
   }
 
   @Get('dashboard')
-  findTodayDashboard(@User() user: AuthPayload) {
-    return this.dailySummaryService.findTodayDashboard(user.userId);
+  findTodayDashboard(@User() user: AuthPayload, @Query('date') date?: string) {
+    return this.dailySummaryService.findTodayDashboard(user.userId, date);
   }
 
   @Get('range')

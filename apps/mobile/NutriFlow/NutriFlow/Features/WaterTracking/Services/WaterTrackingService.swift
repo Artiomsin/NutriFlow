@@ -8,18 +8,24 @@ final class WaterTrackingService: WaterTrackingServiceProtocol, Sendable {
         self.client = client
     }
 
-    func createWaterEntry(amountMl: Int) async throws -> WaterEntry {
+    func createWaterEntry(amountMl: Int, date: String? = nil) async throws -> WaterEntry {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        let entryDate = date ?? df.string(from: Date())
         let request = APIRequest(
             path: WaterTrackingEndpoints.createWaterTracking,
             method: .POST,
-            body: CreateWaterRequest(amountMl: amountMl)
+            body: CreateWaterRequest(amountMl: amountMl, date: entryDate)
         )
         return try await client.send(request)
     }
 
     func getTodayWater() async throws -> [WaterEntry] {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        let date = df.string(from: Date())
         let request = APIRequest<NeverBody>(
-            path: WaterTrackingEndpoints.getTodayWater,
+            path: "\(WaterTrackingEndpoints.getTodayWater)?date=\(date)",
             method: .GET
         )
         return try await client.send(request)
@@ -35,9 +41,13 @@ final class WaterTrackingService: WaterTrackingServiceProtocol, Sendable {
         return try await client.send(request)
     }
 
-    func deleteWaterEntry(id: String) async throws {
+    func deleteWaterEntry(id: String, date: String? = nil) async throws {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        let deleteDate = date ?? df.string(from: Date())
+        let path = "\(WaterTrackingEndpoints.deleteWaterTracking(id: id))?date=\(deleteDate)"
         let request = APIRequest<NeverBody>(
-            path: WaterTrackingEndpoints.deleteWaterTracking(id: id),
+            path: path,
             method: .DELETE
         )
         try await client.sendVoid(request)

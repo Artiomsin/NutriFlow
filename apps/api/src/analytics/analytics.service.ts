@@ -3,33 +3,29 @@ import { db } from '../db/db';
 import { dailySummary } from '../db/schema/dailySummary';
 import { userGoals } from '../db/schema/userGoals';
 import { eq, and, gte, lte } from 'drizzle-orm';
-import { redis } from '../redis';
+import { cacheGet, cacheSet } from '../redis';
 
 @Injectable()
 export class AnalyticsService {
   async getAnalytics(userId: string, period: 'week' | 'month') {
     const cacheKey = `analytics:${userId}:${period}`;
-    const cached = await redis.get(cacheKey);
-    if (cached) {
-      return JSON.parse(cached);
-    }
+    const cached = await cacheGet<any>(cacheKey);
+    if (cached) return cached;
     const now = new Date();
     const toDate = this.toDateStr(now);
     const from = new Date(now);
     from.setDate(from.getDate() - (period === 'week' ? 6 : 29));
     const fromDate = this.toDateStr(from);
     const result = await this.computeAnalytics(userId, fromDate, toDate, period);
-    await redis.setex(cacheKey, 300, JSON.stringify(result));
+    await cacheSet(cacheKey, result);
     return result;
   }
   async getCustomRange(userId: string, from: string, to: string) {
     const cacheKey = `analytics:${userId}:custom:${from}:${to}`;
-    const cached = await redis.get(cacheKey);
-    if (cached) {
-      return JSON.parse(cached);
-    }
+    const cached = await cacheGet<any>(cacheKey);
+    if (cached) return cached;
     const result = await this.computeAnalytics(userId, from, to, 'custom');
-    await redis.setex(cacheKey, 300, JSON.stringify(result));
+    await cacheSet(cacheKey, result);
     return result;
   }
   private async computeAnalytics(

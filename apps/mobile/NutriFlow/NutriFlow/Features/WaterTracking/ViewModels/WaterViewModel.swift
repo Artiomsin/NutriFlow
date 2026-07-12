@@ -56,7 +56,7 @@ final class WaterViewModel {
             #if DEBUG
             print("[Network] WaterVM createWater")
             #endif
-            try await service.createWaterEntry(amountMl: ml)
+            try await service.createWaterEntry(amountMl: ml, date: nil)
             AnalyticsManager.shared.track(.waterAdded(amountMl: ml))
             await cacheService?.remove("water_today")
             await cacheService?.remove("dashboard_today")
@@ -84,7 +84,7 @@ final class WaterViewModel {
             #if DEBUG
             print("[Network] WaterVM deleteWater")
             #endif
-            try await service.deleteWaterEntry(id: id)
+            try await service.deleteWaterEntry(id: id, date: nil)
             AnalyticsManager.shared.track(.waterDeleted)
             await cacheService?.remove("water_today")
             await cacheService?.remove("dashboard_today")

@@ -1,28 +1,41 @@
 import Foundation
 
 final class MockFoodService: FoodServiceProtocol {
-    func createFoodEntry(name: String, calories: Int, protein: Int?, fat: Int?, carbs: Int?) async throws -> FoodEntry {
-        FoodEntry(id: UUID().uuidString, userId: "1", name: name, calories: calories, protein: protein, fat: fat, carbs: carbs, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil)
+    func createFoodEntry(name: String, calories: Int, protein: Int?, fat: Int?, carbs: Int?, foodId: String? = nil, grams: Int? = nil, unit: String? = nil, categoryName: String? = nil, imageUrl: String? = nil, date: String? = nil) async throws -> FoodEntry {
+        FoodEntry(id: UUID().uuidString, userId: "1", name: name, calories: calories, protein: protein, fat: fat, carbs: carbs, foodId: foodId, grams: grams, unit: unit ?? "g", categoryName: categoryName, imageUrl: imageUrl, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil)
     }
     func getTodayFood() async throws -> [FoodEntry] {
         [
-            FoodEntry(id: "1", userId: "1", name: "Oatmeal", calories: 320, protein: 12, fat: 6, carbs: 56, createdAt: "2026-05-18T08:00:00Z", updatedAt: nil),
-            FoodEntry(id: "2", userId: "1", name: "Chicken breast", calories: 165, protein: 31, fat: 4, carbs: 0, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
-            FoodEntry(id: "3", userId: "1", name: "Rice", calories: 200, protein: 4, fat: 1, carbs: 45, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil),
-            FoodEntry(id: "4", userId: "1", name: "Apple", calories: 95, protein: 0, fat: 0, carbs: 25, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil),
-            FoodEntry(id: "5", userId: "1", name: "Salmon", calories: 367, protein: 34, fat: 22, carbs: 0, createdAt: "2026-05-18T14:00:00Z", updatedAt: nil),
-            FoodEntry(id: "6", userId: "1", name: "Broccoli", calories: 55, protein: 4, fat: 1, carbs: 11, createdAt: "2026-05-18T14:00:00Z", updatedAt: nil),
-            FoodEntry(id: "7", userId: "1", name: "Greek yogurt", calories: 150, protein: 15, fat: 4, carbs: 10, createdAt: "2026-05-18T19:00:00Z", updatedAt: nil)
+            FoodEntry(id: "1", userId: "1", name: "Oatmeal", calories: 320, protein: 12, fat: 6, carbs: 56, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T08:00:00Z", updatedAt: nil),
+            FoodEntry(id: "2", userId: "1", name: "Chicken breast", calories: 165, protein: 31, fat: 4, carbs: 0, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
+            FoodEntry(id: "3", userId: "1", name: "Rice", calories: 200, protein: 4, fat: 1, carbs: 45, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil),
+            FoodEntry(id: "4", userId: "1", name: "Apple", calories: 95, protein: 0, fat: 0, carbs: 25, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil),
+            FoodEntry(id: "5", userId: "1", name: "Salmon", calories: 367, protein: 34, fat: 22, carbs: 0, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T14:00:00Z", updatedAt: nil),
+            FoodEntry(id: "6", userId: "1", name: "Broccoli", calories: 55, protein: 4, fat: 1, carbs: 11, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T14:00:00Z", updatedAt: nil),
+            FoodEntry(id: "7", userId: "1", name: "Greek yogurt", calories: 150, protein: 15, fat: 4, carbs: 10, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T19:00:00Z", updatedAt: nil)
         ]
     }
     func getFoodByDate(date: String) async throws -> [FoodEntry] {
         try await getTodayFood()
     }
-    func deleteFoodEntry(id: String) async throws { }
+    func deleteFoodEntry(id: String, date: String? = nil) async throws { }
+
+    func searchFood(query: String, limit: Int) async throws -> FoodSearchResponse {
+        FoodSearchResponse(foods: [], suggestedGrams: nil, suggestedUnit: nil)
+    }
+    func getPopularFood() async throws -> [CatalogFood] { [] }
+    func getFoodById(_ id: String) async throws -> CatalogFood {
+        CatalogFood(id: id, name: "Mock Food", categoryId: "242542", categoryName: "gjhgh", brand: nil, caloriesPer100g: 100, proteinPer100g: 10, fatPer100g: 5, carbsPer100g: 10, barcode: nil, imageUrl: nil, source: "user", createdBy: nil, createdAt: "", updatedAt: "", servings: nil)
+    }
+    func createCatalogFood(_ request: CreateCatalogFoodRequest) async throws -> CatalogFood {
+        CatalogFood(id: UUID().uuidString, name: request.name, categoryId: request.categoryId, categoryName: nil, brand: nil, caloriesPer100g: request.caloriesPer100g, proteinPer100g: request.proteinPer100g, fatPer100g: request.fatPer100g, carbsPer100g: request.carbsPer100g, barcode: request.barcode, imageUrl: request.imageUrl, source: "user", createdBy: nil, createdAt: "", updatedAt: "", servings: request.servings?.map { FoodServing(id: UUID().uuidString, foodId: "", name: $0.name, grams: $0.grams, createdAt: nil) })
+    }
+    func getCategories() async throws -> [FoodCategory] { [] }
+    func uploadImage(_ data: Data) async throws -> String { "https://example.com/mock.jpg" }
 }
 
 final class MockWaterService: WaterTrackingServiceProtocol {
-    func createWaterEntry(amountMl: Int) async throws -> WaterEntry {
+    func createWaterEntry(amountMl: Int, date: String? = nil) async throws -> WaterEntry {
         WaterEntry(id: UUID().uuidString, userId: "1", amountMl: amountMl, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil)
     }
     func getTodayWater() async throws -> [WaterEntry] {
@@ -38,7 +51,7 @@ final class MockWaterService: WaterTrackingServiceProtocol {
     func getWaterByDate(date: String) async throws -> [WaterEntry] {
         try await getTodayWater()
     }
-    func deleteWaterEntry(id: String) async throws { }
+    func deleteWaterEntry(id: String, date: String? = nil) async throws { }
 }
 
 final class MockDailySummaryService: DailySummaryServiceProtocol {
@@ -84,13 +97,13 @@ final class MockDailySummaryService: DailySummaryServiceProtocol {
 
 final class MockProfileService: ProfileServiceProtocol {
     func getMyProfile() async throws -> UserProfile {
-        UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: 82, height: 183, age: 24, gender: .male, goal: .gain, activityLevel: .high, createdAt: nil, updatedAt: nil)
+        UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: 82, height: 183, age: 24, gender: .male, goal: .gain, activityLevel: .high, preferredUnits: nil, createdAt: nil, updatedAt: nil)
     }
-    func createProfile(weight: Double?, height: Int?, age: Int?, gender: Gender?, goal: Goal?, activityLevel: ActivityLevel?) async throws -> UserProfile {
-        UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: weight, height: height, age: age, gender: gender, goal: goal, activityLevel: activityLevel, createdAt: nil, updatedAt: nil)
+    func createProfile(weight: Double?, height: Int?, age: Int?, gender: Gender?, goal: Goal?, activityLevel: ActivityLevel?, preferredUnits: PreferredUnits? = nil) async throws -> UserProfile {
+        UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: weight, height: height, age: age, gender: gender, goal: goal, activityLevel: activityLevel, preferredUnits: preferredUnits, createdAt: nil, updatedAt: nil)
     }
-    func updateMyProfile(weight: Double?, height: Int?, age: Int?, gender: Gender?, goal: Goal?, activityLevel: ActivityLevel?) async throws -> UserProfile {
-        UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: weight, height: height, age: age, gender: gender, goal: goal, activityLevel: activityLevel, createdAt: nil, updatedAt: nil)
+    func updateMyProfile(weight: Double?, height: Int?, age: Int?, gender: Gender?, goal: Goal?, activityLevel: ActivityLevel?, preferredUnits: PreferredUnits? = nil) async throws -> UserProfile {
+        UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: weight, height: height, age: age, gender: gender, goal: goal, activityLevel: activityLevel, preferredUnits: preferredUnits, createdAt: nil, updatedAt: nil)
     }
     func deleteMyProfile() async throws { }
 }

@@ -1,58 +1,57 @@
 import SwiftUI
 
+enum HomeNavRoute: Hashable {
+    case addFood
+    case foodSearch
+    case servingPicker(CatalogFood, Int?, String?)
+}
+
 struct HomeView: View {
 
     @Bindable var homeViewModel: HomeViewModel
     let isGuest: Bool
+    let foodService: FoodServiceProtocol
+    @Binding var isTabBarHidden: Bool
 
-    @State private var showAddFood = false
+    @State private var navPath: [HomeNavRoute] = []
     @State private var showAddWater = false
 
+    init(homeViewModel: HomeViewModel, isGuest: Bool, foodService: FoodServiceProtocol, isTabBarHidden: Binding<Bool> = .constant(false)) {
+        self.homeViewModel = homeViewModel
+        self.isGuest = isGuest
+        self.foodService = foodService
+        self._isTabBarHidden = isTabBarHidden
+    }
+
     var body: some View {
-        let _ = print("HomeView body")
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 24) {
-                header
-
-                if isGuest {
-                    GuestBanner(onRegister: { homeViewModel.goToAuth() })
+        NavigationStack(path: $navPath) {
+            content
+                .navigationDestination(for: HomeNavRoute.self) { route in
+                    switch route {
+                    case .addFood:
+                        AddFoodView(onSave: popToRoot, foodService: foodService, todayFoodVM: homeViewModel.todayFoodVM, onSearchCatalog: {
+                            navPath.append(HomeNavRoute.foodSearch)
+                        })
+                    case .foodSearch:
+                        FoodSearchView(
+                            foodService: foodService,
+                            onSelect: { food, suggestedGrams, suggestedUnit in
+                                navPath.append(HomeNavRoute.servingPicker(food, suggestedGrams, suggestedUnit))
+                            }
+                        )
+                    case .servingPicker(let food, let suggestedGrams, let suggestedUnit):
+                        ServingPickerView(food: food, foodService: foodService, todayFoodVM: homeViewModel.todayFoodVM, suggestedGrams: suggestedGrams, suggestedUnit: suggestedUnit, onSave: popToRoot)
+                    }
                 }
-
-                DailySummarySectionView(homeViewModel: homeViewModel)
-                FoodSectionView(
-                    foodViewModel: homeViewModel.foodViewModel,
-                    onAddFood: { showAddFood = true },
-                    onDeleteFood: { id in
-                        Task { await homeViewModel.deleteFood(id: id) }
-                    }
-                )
-                WaterSectionView(
-                    waterViewModel: homeViewModel.waterViewModel,
-                    onAddWater: { showAddWater = true },
-                    onDeleteWater: { id in
-                        Task { await homeViewModel.deleteWater(id: id) }
-                    }
-                )
-            }
-            .padding(.bottom, 100)
         }
-        .refreshable { await homeViewModel.refreshAll() }
-        .task { await homeViewModel.loadAll() }
-        .onAppear {
-            AnalyticsManager.shared.track(.screenView(screen: "home"))
-            Task { await homeViewModel.reloadGoals() }
-            homeViewModel.checkExpiredDay()
-        }
-        .fullScreenCover(isPresented: $showAddFood) {
-            AddFoodView(
-                foodViewModel: homeViewModel.foodViewModel,
-                onSave: { Task { await homeViewModel.loadToday() } }
-            )
+        .tint(AppTheme.accent)
+        .onChange(of: navPath) { _, newPath in
+            isTabBarHidden = !newPath.isEmpty
         }
         .fullScreenCover(isPresented: $showAddWater) {
             AddWaterView(
-                waterViewModel: homeViewModel.waterViewModel,
-                onSave: { Task { await homeViewModel.loadToday() } }
+                waterViewModel: homeViewModel.waterVM,
+                onSave: { Task { await homeViewModel.loadDashboardSummary() } }
             )
         }
         .sheet(isPresented: $homeViewModel.showExpiredWarning, onDismiss: {
@@ -66,6 +65,51 @@ struct HomeView: View {
         }
     }
 
+    private var content: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 24) {
+                header
+
+                if isGuest {
+                    GuestBanner(onRegister: { homeViewModel.goToAuth() })
+                }
+
+                DailySummarySectionView(homeViewModel: homeViewModel)
+                FoodSectionView(
+                    todayFoodVM: homeViewModel.todayFoodVM,
+                    onAddFood: {
+                        isTabBarHidden = true
+                        navPath.append(HomeNavRoute.addFood)
+                    },
+                    onDeleteFood: { id in
+                        Task { await homeViewModel.deleteFood(id: id) }
+                    }
+                )
+                WaterSectionView(
+                    waterVM: homeViewModel.waterVM,
+                    onAddWater: { showAddWater = true },
+                    onDeleteWater: { id in
+                        Task { await homeViewModel.deleteWater(id: id) }
+                    }
+                )
+            }
+            .padding(.bottom, 100)
+        }
+        .refreshable { await homeViewModel.refreshAll() }
+        .task {
+            await withDiscardingTaskGroup { group in
+                group.addTask { await homeViewModel.loadAll() }
+                group.addTask { await homeViewModel.todayFoodVM.loadToday() }
+                group.addTask { await homeViewModel.waterVM.loadToday() }
+            }
+        }
+        .onAppear {
+            AnalyticsManager.shared.track(.screenView(screen: "home"))
+            Task { await homeViewModel.reloadGoals() }
+            homeViewModel.checkExpiredDay()
+        }
+    }
+
     private var header: some View {
         VStack(spacing: 6) {
             Text("Home")
@@ -73,6 +117,42 @@ struct HomeView: View {
                 .foregroundColor(AppTheme.textPrimary)
                 .padding(.top, AppTheme.headerPaddingTop)
         }
+    }
+
+    private func popToRoot() {
+        navPath.removeAll()
+        isTabBarHidden = false
+        Task { await homeViewModel.loadDashboardSummary() }
+    }
+}
+
+private struct FoodSectionView: View {
+    @Bindable var todayFoodVM: TodayFoodViewModel
+    let onAddFood: () -> Void
+    let onDeleteFood: (String) -> Void
+
+    var body: some View {
+        FoodSection(
+            todayFoodVM: todayFoodVM,
+            onAddFood: onAddFood,
+            onDeleteFood: onDeleteFood
+        )
+        .padding(.horizontal, AppTheme.paddingHorizontal)
+    }
+}
+
+private struct WaterSectionView: View {
+    @Bindable var waterVM: WaterViewModel
+    let onAddWater: () -> Void
+    let onDeleteWater: (String) -> Void
+
+    var body: some View {
+        WaterSection(
+            waterViewModel: waterVM,
+            onAddWater: onAddWater,
+            onDeleteWater: onDeleteWater
+        )
+        .padding(.horizontal, AppTheme.paddingHorizontal)
     }
 }
 
@@ -83,36 +163,6 @@ private struct DailySummarySectionView: View {
         DailySummarySection(
             state: homeViewModel.dailySummaryState,
             goals: homeViewModel.userGoals
-        )
-        .padding(.horizontal, AppTheme.paddingHorizontal)
-    }
-}
-
-private struct FoodSectionView: View {
-    @Bindable var foodViewModel: FoodViewModel
-    let onAddFood: () -> Void
-    let onDeleteFood: (String) -> Void
-
-    var body: some View {
-        FoodSection(
-            foodViewModel: foodViewModel,
-            onAddFood: onAddFood,
-            onDeleteFood: onDeleteFood
-        )
-        .padding(.horizontal, AppTheme.paddingHorizontal)
-    }
-}
-
-private struct WaterSectionView: View {
-    @Bindable var waterViewModel: WaterViewModel
-    let onAddWater: () -> Void
-    let onDeleteWater: (String) -> Void
-
-    var body: some View {
-        WaterSection(
-            waterViewModel: waterViewModel,
-            onAddWater: onAddWater,
-            onDeleteWater: onDeleteWater
         )
         .padding(.horizontal, AppTheme.paddingHorizontal)
     }
@@ -187,17 +237,21 @@ struct ExpiredDaySheet: View {
 
 private struct HomePreviewContent: View {
     var body: some View {
-        return HomeView(homeViewModel: makePreviewHomeVM(), isGuest: false)
-            .background(AppTheme.background)
-            .preferredColorScheme(.dark)
+        return HomeView(
+            homeViewModel: makePreviewHomeVM(),
+            isGuest: false,
+            foodService: MockFoodService()
+        )
+        .background(AppTheme.background)
+        .preferredColorScheme(.dark)
     }
 
     private func makePreviewHomeVM() -> HomeViewModel {
         let coordinator = AppCoordinator(container: AppDependencyContainer())
-        let foodVM = FoodViewModel(coordinator: coordinator, service: MockFoodService())
-        foodVM.setPreviewState(.loaded([
-            FoodEntry(id: "1", userId: "1", name: "Chicken breast", calories: 165, protein: 31, fat: 4, carbs: 0, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
-            FoodEntry(id: "2", userId: "1", name: "Rice", calories: 200, protein: 4, fat: 1, carbs: 45, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil)
+        let todayFoodVM = TodayFoodViewModel(service: MockFoodService(), coordinator: coordinator)
+        todayFoodVM.setPreviewState(.loaded([
+            FoodEntry(id: "1", userId: "1", name: "Chicken breast", calories: 165, protein: 31, fat: 4, carbs: 0, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
+            FoodEntry(id: "2", userId: "1", name: "Rice", calories: 200, protein: 4, fat: 1, carbs: 45, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil)
         ]))
 
         let waterVM = WaterViewModel(coordinator: coordinator, service: MockWaterService())
@@ -217,9 +271,10 @@ private struct HomePreviewContent: View {
         return HomeViewModel(
             coordinator: coordinator,
             dailySummaryService: MockDailySummaryService(),
-            foodViewModel: foodVM,
-            waterViewModel: waterVM,
-            goalsViewModel: goalsVM
+            foodService: MockFoodService(),
+            todayFoodVM: todayFoodVM,
+            waterVM: waterVM,
+            goalsVM: goalsVM
         )
     }
 }

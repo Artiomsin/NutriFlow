@@ -7,6 +7,7 @@ struct MainTabView: View {
 
     @State private var selectedTab = 0
     @State private var periodState: PeriodState
+    @State private var isTabBarHidden = false
 
     @State private var homeVM: HomeViewModel
     @State private var analyticsVM: AnalyticsViewModel
@@ -50,7 +51,7 @@ struct MainTabView: View {
         ZStack(alignment: .bottom) {
             AppTheme.background.ignoresSafeArea()
 
-            HomeView(homeViewModel: homeVM, isGuest: isGuest)
+            HomeView(homeViewModel: homeVM, isGuest: isGuest, foodService: container.foodService, isTabBarHidden: $isTabBarHidden)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .opacity(selectedTab == 0 ? 1 : 0)
                 .allowsHitTesting(selectedTab == 0)
@@ -72,9 +73,12 @@ struct MainTabView: View {
 
             CustomTabBar(selectedTab: $selectedTab)
                 .padding(.horizontal, 20)
+                .opacity(isTabBarHidden ? 0 : 1)
+                .offset(y: isTabBarHidden ? 120 : 0)
         }
         .preferredColorScheme(.dark)
         .ignoresSafeArea(.keyboard)
+        .animation(.easeInOut(duration: 0.35), value: isTabBarHidden)
     }
 }
 

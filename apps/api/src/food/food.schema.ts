@@ -5,13 +5,23 @@ import { z } from 'zod';
 export const createFoodEntrySchema = z.object({
   name: z.string().min(1).max(120),
 
-  foodId: z.string().uuid().optional(),
+  foodId: z.string().optional(),
   grams: z.number().int().nonnegative().optional(),
 
   calories: z.number().int().nonnegative(),
   protein: z.number().int().nonnegative().optional(),
   fat: z.number().int().nonnegative().optional(),
   carbs: z.number().int().nonnegative().optional(),
+
+  unit: z.string().max(10).optional(),
+
+  brand: z.string().max(200).optional(),
+  imageUrl: z.string().max(500).optional(),
+  categoryName: z.string().max(100).optional(),
+  barcode: z.string().max(50).optional(),
+  servingGrams: z.number().int().nonnegative().optional(),
+
+  date: z.string().optional(),
 });
 
 export const updateFoodEntrySchema = createFoodEntrySchema.partial();

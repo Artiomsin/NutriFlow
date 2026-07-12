@@ -7,13 +7,19 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+  ParseUUIDPipe,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 import { JwtAuthGuard } from '../auth/jwt.guard';
 import { User } from '../auth/decorators/user.decorator';
 import type { AuthPayload } from '../auth/types/auth.types';
 
 import { FoodService } from './food.service';
+import { UploadService } from '../upload/upload.service';
 import {
   createFoodEntrySchema,
   createFoodSchema,
@@ -32,7 +38,21 @@ import type {
 @Controller()
 @UseGuards(JwtAuthGuard)
 export class FoodController {
-  constructor(private readonly foodService: FoodService) {}
+  constructor(
+    private readonly foodService: FoodService,
+    private readonly uploadService: UploadService,
+  ) {}
+
+  // ── Upload ───────────────────────────────────────────────────
+
+  @Post('food/upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async upload(@UploadedFile() file: { buffer: Buffer; mimetype: string; originalname: string; size: number }) {
+    if (!file) throw new BadRequestException('File is required');
+
+    const url = await this.uploadService.upload(file.buffer, file.mimetype);
+    return { url };
+  }
 
   // ── Food Category Routes ────────────────────────────────────
 
@@ -59,8 +79,8 @@ export class FoodController {
   }
 
   @Get('food-entry/today')
-  getToday(@User() user: AuthPayload) {
-    return this.foodService.getToday(user.userId);
+  getToday(@User() user: AuthPayload, @Query('date') date?: string) {
+    return this.foodService.getToday(user.userId, date);
   }
 
   @Get('food-entry')
@@ -69,23 +89,32 @@ export class FoodController {
   }
 
   @Delete('food-entry/:id')
-  delete(@User() user: AuthPayload, @Param('id') id: string) {
-    return this.foodService.delete(user.userId, id);
+  delete(
+    @User() user: AuthPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('date') date?: string,
+  ) {
+    return this.foodService.delete(user.userId, id, date);
   }
 
   // ── Food Catalog Routes ──────────────────────────────────────
 
   @Get('foods')
-  getAll() {
-    return this.foodService.getAll();
+  getAll(
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.foodService.getAll(
+      limit ? Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200) : 50,
+      offset ? Math.max(parseInt(offset, 10) || 0, 0) : 0,
+    );
   }
 
   @Get('foods/search')
   search(
-    @User() user: AuthPayload,
     @Query(new ZodValidationPipe(searchFoodQuerySchema)) query: SearchFoodQueryDto,
   ) {
-    return this.foodService.search(user.userId, query);
+    return this.foodService.search(query);
   }
 
   @Get('foods/popular')
@@ -99,7 +128,7 @@ export class FoodController {
   }
 
   @Get('foods/:id')
-  getById(@Param('id') id: string) {
+  getById(@Param('id', ParseUUIDPipe) id: string) {
     return this.foodService.getById(id);
   }
 
