@@ -4,6 +4,8 @@ import {
   varchar,
   integer,
   timestamp,
+  date,
+  index,
 } from 'drizzle-orm/pg-core';
 import { users } from './users';
 import { foods } from './foods';
@@ -23,17 +25,25 @@ export const foodEntries = app.table('food_entries', {
 
   grams: integer('grams'),
 
+  unit: varchar('unit', { length: 10 }).notNull().default('g'),
+
   calories: integer('calories').notNull(),
   protein: integer('protein').default(0),
   fat: integer('fat').default(0),
   carbs: integer('carbs').default(0),
 
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at')
+  imageUrl: varchar('image_url', { length: 500 }),
+
+  entryDate: date('entry_date'),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
     .defaultNow()
     .$onUpdate(() => new Date())
     .notNull(),
-});
+}, (table) => ({
+  userDateIdx: index('idx_food_entries_user_date').on(table.userId, table.entryDate),
+}));
 
 export type FoodEntry = typeof foodEntries.$inferSelect;
 export type NewFoodEntry = typeof foodEntries.$inferInsert;
