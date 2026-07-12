@@ -1,9 +1,12 @@
+import { sql } from 'drizzle-orm';
 import {
   pgSchema,
   uuid,
   varchar,
   integer,
   timestamp,
+  index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { users } from './users';
 import { foodCategories } from './foodCategories';
@@ -26,16 +29,23 @@ export const foods = app.table('foods', {
 
   imageUrl: varchar('image_url', { length: 500 }),
 
+  brand: varchar('brand', { length: 200 }),
+
   source: varchar('source', { length: 20 }).notNull().default('user'),
 
-  createdBy: uuid('created_by').references(() => users.id),
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at')
     .defaultNow()
     .$onUpdate(() => new Date())
     .notNull(),
-});
+}, (table) => ({
+  nameFtsIdx: index('idx_foods_name_fts')
+    .using('gin', sql`to_tsvector('simple', ${table.name})`),
+  nameUnique: uniqueIndex('idx_foods_name_unique').on(table.name),
+  categoryIdIdx: index('idx_foods_category_id').on(table.categoryId),
+}));
 
 export type Food = typeof foods.$inferSelect;
 export type NewFood = typeof foods.$inferInsert;

@@ -42,8 +42,8 @@ export class UsersService {
     return result[0];
   }
 
-  async findAll() {
-    return db.select().from(users);
+  async findAll(limit = 50, offset = 0) {
+    return db.select().from(users).limit(limit).offset(offset);
   }
 
   async findOne(id: string) {

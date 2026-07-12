@@ -18,6 +18,7 @@ final class ProfileViewModel {
     var gender: Gender?
     var goal: Goal?
     var activityLevel: ActivityLevel?
+    var preferredUnits: PreferredUnits = .default
     
     @ObservationIgnored private let authService: AuthServiceProtocol
     @ObservationIgnored private let profileService: ProfileServiceProtocol
@@ -43,12 +44,13 @@ final class ProfileViewModel {
     deinit { print("ProfileViewModel deinit") }
 
     func loadData() async {
-        if let cached: UserProfile = try? await cacheService?.get("profile") {
-            email = cached.email ?? ""
-            firstName = cached.firstName ?? ""
-            lastName = cached.lastName ?? ""
-            mapProfile(cached)
-            state = .loaded(cached)
+        if let cachedUser: User = try? await cacheService?.get("user"),
+           let cachedProfile: UserProfile = try? await cacheService?.get("profile") {
+            email = cachedUser.email
+            firstName = cachedUser.firstName
+            lastName = cachedUser.lastName
+            mapProfile(cachedProfile)
+            state = .loaded(cachedProfile)
             return
         }
         let profileEmpty: Bool? = try? await cacheService?.get("profile_empty")
@@ -77,6 +79,8 @@ final class ProfileViewModel {
             firstName = userResult.firstName
             lastName = userResult.lastName
             mapProfile(profileResult)
+            PreferencesStore.shared.updateFromProfile(profileResult)
+            try? await cacheService?.set("user", userResult, ttl: 1800)
             try? await cacheService?.set("profile", profileResult, ttl: 1800)
             await cacheService?.remove("profile_empty")
             state = .loaded(profileResult)
@@ -90,12 +94,13 @@ final class ProfileViewModel {
                 clearForm()
                 state = .empty
             } else {
-                if let cached: UserProfile = try? await cacheService?.get("profile", ignoreTTL: true) {
-                    email = cached.email ?? ""
-                    firstName = cached.firstName ?? ""
-                    lastName = cached.lastName ?? ""
-                    mapProfile(cached)
-                    state = .loaded(cached)
+                if let cachedUser: User = try? await cacheService?.get("user", ignoreTTL: true),
+                   let cachedProfile: UserProfile = try? await cacheService?.get("profile", ignoreTTL: true) {
+                    email = cachedUser.email
+                    firstName = cachedUser.firstName
+                    lastName = cachedUser.lastName
+                    mapProfile(cachedProfile)
+                    state = .loaded(cachedProfile)
                 } else {
                     let isEmptyFlag: Bool? = try? await cacheService?.get("profile_empty", ignoreTTL: true)
                     if isEmptyFlag == true {
@@ -107,12 +112,13 @@ final class ProfileViewModel {
                 }
             }
         } catch {
-            if let cached: UserProfile = try? await cacheService?.get("profile", ignoreTTL: true) {
-                email = cached.email ?? ""
-                firstName = cached.firstName ?? ""
-                lastName = cached.lastName ?? ""
-                mapProfile(cached)
-                state = .loaded(cached)
+            if let cachedUser: User = try? await cacheService?.get("user", ignoreTTL: true),
+               let cachedProfile: UserProfile = try? await cacheService?.get("profile", ignoreTTL: true) {
+                email = cachedUser.email
+                firstName = cachedUser.firstName
+                lastName = cachedUser.lastName
+                mapProfile(cachedProfile)
+                state = .loaded(cachedProfile)
             } else {
                 let isEmptyFlag: Bool? = try? await cacheService?.get("profile_empty", ignoreTTL: true)
                 if isEmptyFlag == true {
@@ -137,6 +143,7 @@ final class ProfileViewModel {
             email = user.email
             firstName = user.firstName
             lastName = user.lastName
+            await cacheService?.remove("user")
             await cacheService?.remove("profile")
 
         } catch {
@@ -154,7 +161,8 @@ final class ProfileViewModel {
                 age: Int(age),
                 gender: gender,
                 goal: goal,
-                activityLevel: activityLevel
+                activityLevel: activityLevel,
+                preferredUnits: preferredUnits
             )
 
             mapProfile(profile)
@@ -180,7 +188,8 @@ final class ProfileViewModel {
                 age: Int(age),
                 gender: gender,
                 goal: goal,
-                activityLevel: activityLevel
+                activityLevel: activityLevel,
+                preferredUnits: preferredUnits
             )
 
             mapProfile(profile)
@@ -192,6 +201,22 @@ final class ProfileViewModel {
         } catch {
             state = .error(error)
         }
+    }
+
+    func updatePreferredUnits() async {
+        let newPrefs = preferredUnits
+        do {
+            _ = try await profileService.updateMyProfile(
+                weight: nil,
+                height: nil,
+                age: nil,
+                gender: nil,
+                goal: nil,
+                activityLevel: nil,
+                preferredUnits: newPrefs
+            )
+            await cacheService?.remove("profile")
+        } catch {}
     }
 
     func logout() async {
@@ -225,6 +250,7 @@ final class ProfileViewModel {
         gender = profile.gender
         goal = profile.goal
         activityLevel = profile.activityLevel
+        preferredUnits = profile.preferredUnits ?? .default
     }
 
     private func clearForm() {

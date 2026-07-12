@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		AC2E0F252FEF1B0100F3A07E /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = AC2E0F242FEF1B0100F3A07E /* GoogleSignIn */; };
+		AC368A992FFD9E6E00D0C6A3 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = AC368A982FFD9E6E00D0C6A3 /* Kingfisher */; };
 		AC8A5D172FCF94E300D92697 /* AmplitudeUnified in Frameworks */ = {isa = PBXBuildFile; productRef = AC8A5D162FCF94E300D92697 /* AmplitudeUnified */; };
 /* End PBXBuildFile section */
 
@@ -41,6 +42,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AC368A992FFD9E6E00D0C6A3 /* Kingfisher in Frameworks */,
 				AC8A5D172FCF94E300D92697 /* AmplitudeUnified in Frameworks */,
 				AC2E0F252FEF1B0100F3A07E /* GoogleSignIn in Frameworks */,
 			);
@@ -87,6 +89,7 @@
 			packageProductDependencies = (
 				AC8A5D162FCF94E300D92697 /* AmplitudeUnified */,
 				AC2E0F242FEF1B0100F3A07E /* GoogleSignIn */,
+				AC368A982FFD9E6E00D0C6A3 /* Kingfisher */,
 			);
 			productName = Nutriflow;
 			productReference = AC48618F2FAB3A5C00BB4495 /* Nutriflow.app */;
@@ -119,6 +122,7 @@
 			packageReferences = (
 				AC8A5D152FCF94E300D92697 /* XCRemoteSwiftPackageReference "AmplitudeUnified-Swift" */,
 				AC2E0F232FEF1B0100F3A07E /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				AC368A972FFD9E6E00D0C6A3 /* XCRemoteSwiftPackageReference "Kingfisher" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AC4861902FAB3A5C00BB4495 /* Products */;
@@ -372,6 +376,14 @@
 				minimumVersion = 9.2.0;
 			};
 		};
+		AC368A972FFD9E6E00D0C6A3 /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/onevcat/Kingfisher.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.10.0;
+			};
+		};
 		AC8A5D152FCF94E300D92697 /* XCRemoteSwiftPackageReference "AmplitudeUnified-Swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/amplitude/AmplitudeUnified-Swift";
@@ -387,6 +399,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AC2E0F232FEF1B0100F3A07E /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignIn;
+		};
+		AC368A982FFD9E6E00D0C6A3 /* Kingfisher */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AC368A972FFD9E6E00D0C6A3 /* XCRemoteSwiftPackageReference "Kingfisher" */;
+			productName = Kingfisher;
 		};
 		AC8A5D162FCF94E300D92697 /* AmplitudeUnified */ = {
 			isa = XCSwiftPackageProductDependency;

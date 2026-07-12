@@ -9,8 +9,11 @@ final class DailySummaryService: DailySummaryServiceProtocol, Sendable {
     }
 
     func getTodayDailySummary() async throws -> DailySummary {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        let date = df.string(from: Date())
         let request = APIRequest<NeverBody>(
-            path: DailySummaryEndpoints.getDailySummaryToday,
+            path: "\(DailySummaryEndpoints.getDailySummaryToday)?date=\(date)",
             method: .GET
         )
 
@@ -40,8 +43,11 @@ final class DailySummaryService: DailySummaryServiceProtocol, Sendable {
     }
 
     func getDashboardToday() async throws -> DashboardTodayResponse {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        let date = df.string(from: Date())
         let request = APIRequest<NeverBody>(
-            path: DailySummaryEndpoints.getDashboardToday,
+            path: "\(DailySummaryEndpoints.getDashboardToday)?date=\(date)",
             method: .GET
         )
 

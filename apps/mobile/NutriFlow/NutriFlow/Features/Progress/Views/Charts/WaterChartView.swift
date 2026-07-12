@@ -11,6 +11,7 @@ struct WaterChartView: View {
     let data: [ChartDataPoint]
     let canTap: Bool
     let onBarTap: ((String) -> Void)?
+    @State private var prefsStore = PreferencesStore.shared
     @State private var selection: String?
 
     init(data: [ChartDataPoint], canTap: Bool = false, onBarTap: ((String) -> Void)? = nil) {
@@ -25,7 +26,7 @@ struct WaterChartView: View {
                 Image(systemName: "drop.fill").foregroundColor(.blue)
                 Text("Water Intake").font(.headline).foregroundColor(AppTheme.textPrimary)
                 Spacer()
-                Text("\(totalWater) ml").font(.subheadline).foregroundColor(AppTheme.textSecondary)
+                Text(UnitConversion.formatAmount(grams: totalWater, unit: "ml", preferred: prefsStore.preferredUnits)).font(.subheadline).foregroundColor(AppTheme.textSecondary)
             }
             Chart(data) { point in
                 LineMark(x: .value("Date", point.label), y: .value("Water", point.waterMl))

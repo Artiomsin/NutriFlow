@@ -81,6 +81,57 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         return (data, http)
     }
 
+    func sendUpload(data: Data, fileName: String, mimeType: String, path: String) async throws -> String {
+        try await executeUpload(data: data, fileName: fileName, mimeType: mimeType, path: path, retryOn401: true)
+    }
+
+    private func executeUpload(data: Data, fileName: String, mimeType: String, path: String, retryOn401: Bool) async throws -> String {
+        let boundary = UUID().uuidString
+
+        guard let components = URLComponents(string: APIConfig.baseURL + path) else {
+            throw APIError.invalidURL
+        }
+        guard let url = components.url else {
+            throw APIError.invalidURL
+        }
+
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append(data)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        urlRequest.httpBody = body
+
+        for interceptor in interceptors {
+            try await interceptor.adapt(&urlRequest)
+        }
+
+        let (responseData, response) = try await session.data(for: urlRequest)
+
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.requestFailed
+        }
+
+        if retryOn401, http.statusCode == 401, path != AuthEndpoints.refresh {
+            try await refreshService?.refresh()
+            return try await executeUpload(data: data, fileName: fileName, mimeType: mimeType, path: path, retryOn401: false)
+        }
+
+        switch http.statusCode {
+        case 200...299:
+            struct UploadResponse: Codable { let url: String }
+            let decoded = try JSONDecoder().decode(UploadResponse.self, from: responseData)
+            return decoded.url
+        case 401: throw APIError.unauthorized
+        default: throw APIError.serverError(statusCode: http.statusCode)
+        }
+    }
+
     private func buildURLRequest<Body: Encodable & Sendable>(
         from request: APIRequest<Body>
     ) throws -> URLRequest {

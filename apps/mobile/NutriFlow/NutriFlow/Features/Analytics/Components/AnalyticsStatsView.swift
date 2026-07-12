@@ -9,6 +9,8 @@ struct AnalyticsStatsView: View {
     let daysTracked: Int
     let totalDays: Int
 
+    @State private var prefsStore = PreferencesStore.shared
+
     var body: some View {
         LazyVGrid(
             columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2),
@@ -18,36 +20,36 @@ struct AnalyticsStatsView: View {
                 icon: "flame.fill",
                 iconColor: .orange,
                 title: "Avg Calories",
-                value: "\(avgCalories)",
-                unit: "kcal"
+                value: "\(UnitConversion.formatEnergyValue(kcal: avgCalories, preferred: prefsStore.preferredUnits))",
+                unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits)
             )
             StatCard(
                 icon: "drop.fill",
                 iconColor: .blue,
                 title: "Avg Water",
-                value: "\(avgWater)",
-                unit: "ml"
+                value: UnitConversion.formatAmount(grams: avgWater, unit: "ml", preferred: prefsStore.preferredUnits),
+                unit: ""
             )
             StatCard(
                 icon: "bolt.fill",
                 iconColor: .indigo,
                 title: "Avg Protein",
-                value: "\(avgProtein)",
-                unit: "g"
+                value: UnitConversion.formatMacro(grams: avgProtein, preferred: prefsStore.preferredUnits),
+                unit: ""
             )
             StatCard(
                 icon: "drop.degreesign.fill",
                 iconColor: .green,
                 title: "Avg Fat",
-                value: "\(avgFat)",
-                unit: "g"
+                value: UnitConversion.formatMacro(grams: avgFat, preferred: prefsStore.preferredUnits),
+                unit: ""
             )
             StatCard(
                 icon: "leaf.arrow.circlepath",
                 iconColor: .mint,
                 title: "Avg Carbs",
-                value: "\(avgCarbs)",
-                unit: "g"
+                value: UnitConversion.formatMacro(grams: avgCarbs, preferred: prefsStore.preferredUnits),
+                unit: ""
             )
             StatCard(
                 icon: "calendar",

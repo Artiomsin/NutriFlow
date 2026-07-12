@@ -8,4 +8,3 @@ export * from './foodCategories';
 export * from './foods';
 export * from './foodServings';
 export * from './userFoodStats';
-export * from './rawFoodImports';

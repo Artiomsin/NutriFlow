@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   UsePipes,
   ParseUUIDPipe,
@@ -46,8 +47,14 @@ export class ProfilesController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  findAll() {
-    return this.profilesService.findAll();
+  findAll(
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.profilesService.findAll(
+      limit ? Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200) : 50,
+      offset ? Math.max(parseInt(offset, 10) || 0, 0) : 0,
+    );
   } 
   
   @UseGuards(JwtAuthGuard)

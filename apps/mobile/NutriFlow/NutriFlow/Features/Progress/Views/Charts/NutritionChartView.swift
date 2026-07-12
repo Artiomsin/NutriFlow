@@ -11,6 +11,7 @@ struct NutritionChartView: View {
     let data: [ChartDataPoint]
     let canTap: Bool
     let onBarTap: ((String) -> Void)?
+    @State private var prefsStore = PreferencesStore.shared
     @State private var selection: String?
 
     init(data: [ChartDataPoint], canTap: Bool = false, onBarTap: ((String) -> Void)? = nil) {
@@ -71,10 +72,11 @@ struct NutritionChartView: View {
 }
 struct MacroSummaryItem: View {
     let title: String; let value: Int; let color: Color
+    @State private var prefsStore = PreferencesStore.shared
     var body: some View {
         VStack(spacing: 4) {
             Circle().fill(color).frame(width: 12, height: 12)
-            Text("\(value)g").font(.subheadline.bold()).foregroundColor(AppTheme.textPrimary)
+            Text(UnitConversion.formatMacro(grams: value, preferred: prefsStore.preferredUnits)).font(.subheadline.bold()).foregroundColor(AppTheme.textPrimary)
             Text(title).font(.caption2).foregroundColor(AppTheme.textSecondary)
         }
         .frame(maxWidth: .infinity)

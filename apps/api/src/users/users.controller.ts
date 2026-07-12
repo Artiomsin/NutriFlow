@@ -4,6 +4,7 @@ import {
   Post,
   Put,
   Body,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 
@@ -29,14 +30,19 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  findAll() {
-    return this.usersService.findAll();
+  findAll(
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.usersService.findAll(
+      limit ? Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200) : 50,
+      offset ? Math.max(parseInt(offset, 10) || 0, 0) : 0,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
   me(@User() user: AuthPayload) {
-    console.log('USER FROM DECORATOR:', user);
     return this.usersService.findOne(user.userId);
   }
 
@@ -46,7 +52,6 @@ export class UsersController {
     @User() user: AuthPayload,
     @Body(new ZodValidationPipe(updateUserSchema)) data: UpdateUserDto,
   ) {
-    console.log('USER FROM DECORATOR:', user);
     return this.usersService.updateMe(user.userId, data);
   }
 }

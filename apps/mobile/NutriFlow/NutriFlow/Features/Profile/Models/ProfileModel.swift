@@ -1,5 +1,43 @@
 import Foundation
 
+struct PreferredUnits: Codable, Sendable, Equatable {
+    var weight: WeightUnit
+    var volume: VolumeUnit
+    var energy: EnergyUnit
+
+    enum WeightUnit: String, Codable, CaseIterable, Sendable {
+        case metric, imperial
+        var display: String {
+            switch self {
+            case .metric: "Metric (g/kg)"
+            case .imperial: "Imperial (oz/lb)"
+            }
+        }
+    }
+
+    enum VolumeUnit: String, Codable, CaseIterable, Sendable {
+        case metric, imperial
+        var display: String {
+            switch self {
+            case .metric: "Metric (ml/l)"
+            case .imperial: "Imperial (fl oz)"
+            }
+        }
+    }
+
+    enum EnergyUnit: String, Codable, CaseIterable, Sendable {
+        case kcal, kj
+        var display: String {
+            switch self {
+            case .kcal: "Kilocalories (kcal)"
+            case .kj: "Kilojoules (kJ)"
+            }
+        }
+    }
+
+    static let `default` = PreferredUnits(weight: .metric, volume: .metric, energy: .kcal)
+}
+
 enum Gender: String, Codable, CaseIterable, Sendable {
     case male
     case female
@@ -24,6 +62,7 @@ struct UserProfile: Codable, Identifiable, Sendable {
     let gender: Gender?
     let goal: Goal?
     let activityLevel: ActivityLevel?
+    let preferredUnits: PreferredUnits?
     let createdAt: String?
     let updatedAt: String?
 }
@@ -63,6 +102,7 @@ struct CreateProfileRequest: Codable, Sendable {
     let gender: Gender?
     let goal: Goal?
     let activityLevel: ActivityLevel?
+    let preferredUnits: PreferredUnits?
 }
 
 struct UpdateProfileRequest: Codable, Sendable {
@@ -72,6 +112,7 @@ struct UpdateProfileRequest: Codable, Sendable {
     let gender: Gender?
     let goal: Goal?
     let activityLevel: ActivityLevel?
+    let preferredUnits: PreferredUnits?
 }
 
 struct CreateUserRequest: Codable, Sendable {

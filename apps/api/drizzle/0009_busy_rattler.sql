@@ -1,0 +1,1 @@
+ALTER TABLE "app"."food_entries" ADD COLUMN "unit" varchar(10) DEFAULT 'g' NOT NULL;

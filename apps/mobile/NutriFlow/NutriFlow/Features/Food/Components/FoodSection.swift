@@ -2,65 +2,60 @@ import SwiftUI
 
 struct FoodSection: View {
 
-    @Bindable var foodViewModel: FoodViewModel
+    @Bindable var todayFoodVM: TodayFoodViewModel
     var onAddFood: (() -> Void)?
     var onDeleteFood: ((String) -> Void)?
 
     var body: some View {
-
-        VStack(alignment: .leading, spacing: 20) {
-
-            HStack {
-
-                Text("Today's Food")
-                    .font(Font.h3)
-                    .foregroundColor(AppTheme.textPrimary)
-
-                Spacer()
-
-                Button {
-                    onAddFood?()
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "plus")
-                        Text("Add")
-                    }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.black)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(AppTheme.accent)
-                    .cornerRadius(10)
-                }
-            }
-
+        VStack(alignment: .leading, spacing: 14) {
+            header
             content
+        }
+    }
+
+    private var header: some View {
+        HStack {
+            Text("Today's Food")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(AppTheme.textPrimary)
+
+            Spacer()
+
+            Button {
+                onAddFood?()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 11, weight: .bold))
+                    Text("Add")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundColor(.black)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(AppTheme.accent)
+                .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
         }
     }
 
     @ViewBuilder
     private var content: some View {
-
-        switch foodViewModel.state {
+        switch todayFoodVM.state {
 
         case .idle, .loading:
-
             ProgressView()
-                .tint(.white)
+                .tint(AppTheme.accent)
                 .frame(maxWidth: .infinity)
+                .padding(.vertical, 32)
 
         case .loaded(let entries):
-
             if entries.isEmpty {
-
                 emptyState
-
             } else {
-
-                LazyVStack(spacing: 14) {
-
+                LazyVStack(spacing: 10) {
                     ForEach(sortedEntries(entries)) { entry in
-
                         FoodCard(entry: entry) {
                             onDeleteFood?(entry.id)
                         }
@@ -68,14 +63,12 @@ struct FoodSection: View {
                 }
             }
 
-        case .saving:
-
-            ProgressView()
-                .tint(.white)
-
         case .error(let error):
-
-            ErrorMessageView(text: error.localizedDescription)
+            Text(error.localizedDescription)
+                .font(.subheadline)
+                .foregroundColor(AppTheme.textSecondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 32)
         }
     }
 
@@ -85,18 +78,18 @@ struct FoodSection: View {
 
     private var emptyState: some View {
         VStack(spacing: 10) {
-            Image(systemName: "fork.knife.circle")
-                .font(.system(size: 42))
-                .foregroundColor(AppTheme.textSecondary)
+            Image(systemName: "fork.knife")
+                .font(.system(size: 32))
+                .foregroundColor(AppTheme.textTertiary)
 
-            Text("No food added today")
+            Text("No meals logged today")
                 .font(.subheadline)
                 .foregroundColor(AppTheme.textSecondary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
+        .padding(.vertical, 40)
         .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }
 
@@ -106,18 +99,18 @@ struct FoodSection: View {
 
 struct FoodSectionPreview: View {
     var body: some View {
-        let foodVM = FoodViewModel(
-            coordinator: AppCoordinator(container: AppDependencyContainer()),
-            service: MockFoodService()
+        let todayFoodVM = TodayFoodViewModel(
+            service: MockFoodService(),
+            coordinator: AppCoordinator(container: AppDependencyContainer())
         )
-        foodVM.setPreviewState(.loaded([
-            FoodEntry(id: "1", userId: "1", name: "Chicken breast", calories: 165, protein: 31, fat: 4, carbs: 0, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
-            FoodEntry(id: "2", userId: "1", name: "Rice", calories: 200, protein: 4, fat: 1, carbs: 45, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil),
-            FoodEntry(id: "3", userId: "1", name: "Salad", calories: 85, protein: 2, fat: 5, carbs: 8, createdAt: "2026-05-18T14:00:00Z", updatedAt: nil)
+        todayFoodVM.setPreviewState(.loaded([
+            FoodEntry(id: "1", userId: "1", name: "Chicken breast", calories: 165, protein: 31, fat: 4, carbs: 0, foodId: nil, grams: 200, unit: "g", categoryName: "Meat", imageUrl: nil, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
+            FoodEntry(id: "2", userId: "1", name: "Brown rice", calories: 200, protein: 4, fat: 1, carbs: 45, foodId: nil, grams: 150, unit: "g", categoryName: "Grains", imageUrl: nil, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil),
+            FoodEntry(id: "3", userId: "1", name: "Greek salad", calories: 185, protein: 6, fat: 12, carbs: 8, foodId: nil, grams: 250, unit: "g", categoryName: "Salad", imageUrl: nil, createdAt: "2026-05-18T14:00:00Z", updatedAt: nil)
         ]))
 
         return FoodSection(
-            foodViewModel: foodVM,
+            todayFoodVM: todayFoodVM,
             onAddFood: {},
             onDeleteFood: { _ in }
         )

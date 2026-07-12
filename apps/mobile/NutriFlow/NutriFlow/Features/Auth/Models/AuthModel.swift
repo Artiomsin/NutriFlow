@@ -25,7 +25,7 @@ struct AuthTokensResponse: Decodable, Sendable {
     let refreshToken: String
 }
 
-struct User: Decodable, Sendable {
+struct User: Codable, Sendable {
     let id: String
     let email: String
     let firstName: String

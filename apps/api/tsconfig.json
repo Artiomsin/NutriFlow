@@ -1,4 +1,5 @@
 {
+  "exclude": ["**/*.spec.ts", "**/*.test.ts"],
   "compilerOptions": {
     // Environment setup & latest features
     "lib": ["ESNext"],

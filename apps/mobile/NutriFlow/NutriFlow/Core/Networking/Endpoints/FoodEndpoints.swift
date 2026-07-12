@@ -2,13 +2,49 @@ import Foundation
 
 enum FoodEndpoints {
 
+    // ── Food Entry ──────────────────────────────────────────────
+
     static let createFoodEntry = "/food-entry"
     static let getTodayFood = "/food-entry/today"
+
     static func deleteFoodEntry(id: String) -> String {
         let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
         return "/food-entry/\(encoded)"
     }
+
     static func getFoodByDate(date: String) -> (path: String, query: [URLQueryItem]) {
         (path: "/food-entry", query: [URLQueryItem(name: "date", value: date)])
+    }
+
+    // ── Food Categories ─────────────────────────────────────────
+
+    static let getCategories = "/food-categories"
+    static let createCategory = "/food-categories"
+
+    // ── Food Catalog ────────────────────────────────────────────
+
+    static let getAllFoods = "/foods"
+    static let createFood = "/foods"
+
+    static func searchFood(query: String, limit: Int) -> (path: String, query: [URLQueryItem]) {
+        (
+            path: "/foods/search",
+            query: [
+                URLQueryItem(name: "q", value: query),
+                URLQueryItem(name: "limit", value: String(limit))
+            ]
+        )
+    }
+
+    static let getPopularFood = "/foods/popular"
+
+    static func getFoodByBarcode(_ barcode: String) -> String {
+        let encoded = barcode.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? barcode
+        return "/foods/barcode/\(encoded)"
+    }
+
+    static func getFoodById(_ id: String) -> String {
+        let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
+        return "/foods/\(encoded)"
     }
 }

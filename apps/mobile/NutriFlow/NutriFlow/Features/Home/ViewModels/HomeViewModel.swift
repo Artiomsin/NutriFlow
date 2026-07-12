@@ -5,21 +5,20 @@ import Observation
 @MainActor
 final class HomeViewModel {
 
-    let foodViewModel: FoodViewModel
-    let waterViewModel: WaterViewModel
-    let goalsViewModel: GoalsViewModel
+    let todayFoodVM: TodayFoodViewModel
+    let waterVM: WaterViewModel
+    let goalsVM: GoalsViewModel
 
     var dailySummaryState: DailySummaryState = .idle
-    var dashboardFoodEntries: [FoodEntry] = []
-    var dashboardWaterEntries: [WaterEntry] = []
 
     var userGoals: UserGoals? {
-        if case .loaded(let goals) = goalsViewModel.state { return goals }
+        if case .loaded(let goals) = goalsVM.state { return goals }
         return nil
     }
 
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let dailySummaryService: DailySummaryServiceProtocol
+    @ObservationIgnored let foodService: FoodServiceProtocol
     @ObservationIgnored private let guestStore: GuestStore?
     @ObservationIgnored private let cacheService: CacheService?
     @ObservationIgnored private var isGoingToAuthFromSheet = false
@@ -29,21 +28,25 @@ final class HomeViewModel {
     init(
         coordinator: AppCoordinator,
         dailySummaryService: DailySummaryServiceProtocol,
-        foodViewModel: FoodViewModel,
-        waterViewModel: WaterViewModel,
-        goalsViewModel: GoalsViewModel,
+        foodService: FoodServiceProtocol,
+        todayFoodVM: TodayFoodViewModel,
+        waterVM: WaterViewModel,
+        goalsVM: GoalsViewModel,
         guestStore: GuestStore? = nil,
         cacheService: CacheService? = nil
     ) {
         print("HomeViewModel init")
         self.coordinator = coordinator
         self.dailySummaryService = dailySummaryService
-        self.foodViewModel = foodViewModel
-        self.waterViewModel = waterViewModel
-        self.goalsViewModel = goalsViewModel
+        self.foodService = foodService
+        self.todayFoodVM = todayFoodVM
+        self.waterVM = waterVM
+        self.goalsVM = goalsVM
         self.guestStore = guestStore
         self.cacheService = cacheService
     }
+
+    deinit { print("HomeViewModel deinit") }
 
     func goToAuth() {
         coordinator?.goToAuth()
@@ -80,8 +83,6 @@ final class HomeViewModel {
         await dismissExpiredDay()
     }
 
-    deinit { print("HomeViewModel deinit") }
-
     func refreshAll() async {
         await cacheService?.remove("food_today")
         await cacheService?.remove("water_today")
@@ -95,162 +96,63 @@ final class HomeViewModel {
 
     func loadAll() async {
         await withDiscardingTaskGroup { [self] group in
-            group.addTask { await self.loadDashboardToday() }
-            group.addTask { await self.goalsViewModel.loadGoals() }
-        }
-
-        switch dailySummaryState {
-        case .loaded:
-            foodViewModel.state = .loaded(dashboardFoodEntries)
-            waterViewModel.state = .loaded(dashboardWaterEntries)
-        case .empty, .error:
-            foodViewModel.state = .loaded([])
-            waterViewModel.state = .loaded([])
-        case .idle, .loading:
-            foodViewModel.state = .loaded([])
-            waterViewModel.state = .loaded([])
+            group.addTask { await self.loadDashboardSummary() }
+            group.addTask { await self.goalsVM.loadGoals() }
         }
     }
 
-    func reloadGoals() async {
-        await goalsViewModel.loadGoals()
-    }
-
-    func addFood() async {
-        await foodViewModel.createFood()
-        await loadToday()
-    }
-
-    func deleteFood(id: String) async {
-        await foodViewModel.deleteFood(id: id)
-        await loadToday()
-    }
-
-    func addWater() async {
-        await waterViewModel.createWater()
-        await loadToday()
-    }
-
-    func deleteWater(id: String) async {
-        await waterViewModel.deleteWater(id: id)
-        await loadToday()
-    }
-
-    func loadDashboardToday() async {
-        if let cached: DashboardTodayResponse = try? await cacheService?.get("dashboard_today") {
-            #if DEBUG
-            print("[HomeVM] loadDashboard → cache HIT")
-            #endif
-            dailySummaryState = cached.dailySummary.id == nil ? .empty : .loaded(cached.dailySummary)
-            dashboardFoodEntries = cached.foodEntries
-            dashboardWaterEntries = cached.waterEntries
-            return
-        }
-
-        if case .loaded = dailySummaryState {} else { dailySummaryState = .loading }
-        dashboardFoodEntries = []
-        dashboardWaterEntries = []
-        do {
-            #if DEBUG
-            print("[Network] HomeVM loadDashboardToday")
-            #endif
-            let dashboard = try await dailySummaryService.getDashboardToday()
-            try? await cacheService?.set("dashboard_today", dashboard, ttl: 300)
-            #if DEBUG
-            print("[HomeVM] loadDashboard → network OK")
-            #endif
-            if dashboard.dailySummary.id == nil {
-                dailySummaryState = .empty
-            } else {
-                dailySummaryState = .loaded(dashboard.dailySummary)
-            }
-            dashboardFoodEntries = dashboard.foodEntries
-            dashboardWaterEntries = dashboard.waterEntries
-        } catch let error as APIError {
-            if case .unauthorized = error {
-                coordinator?.goToAuth()
-            }
-            if let cached: DashboardTodayResponse = try? await cacheService?.get("dashboard_today", ignoreTTL: true) {
-                #if DEBUG
-                print("[HomeVM] loadDashboard → fallback to stale cache")
-                #endif
-                dailySummaryState = cached.dailySummary.id == nil ? .empty : .loaded(cached.dailySummary)
-                dashboardFoodEntries = cached.foodEntries
-                dashboardWaterEntries = cached.waterEntries
-            } else {
-                #if DEBUG
-                print("[HomeVM] loadDashboard → FAIL, no cache")
-                #endif
-                dailySummaryState = .error(error)
-            }
-        } catch {
-            if let cached: DashboardTodayResponse = try? await cacheService?.get("dashboard_today", ignoreTTL: true) {
-                #if DEBUG
-                print("[HomeVM] loadDashboard → fallback to stale cache")
-                #endif
-                dailySummaryState = cached.dailySummary.id == nil ? .empty : .loaded(cached.dailySummary)
-                dashboardFoodEntries = cached.foodEntries
-                dashboardWaterEntries = cached.waterEntries
-            } else {
-                #if DEBUG
-                print("[HomeVM] loadDashboard → FAIL, no cache")
-                #endif
-                dailySummaryState = .error(error)
-            }
-        }
-    }
-
-    func loadToday() async {
+    func loadDashboardSummary() async {
         if let cached: DailySummary = try? await cacheService?.get("summary_today") {
-            #if DEBUG
-            print("[HomeVM] loadToday → cache HIT")
-            #endif
+            print("[HomeVM] loadDashboardSummary → cache HIT")
             dailySummaryState = cached.id == nil ? .empty : .loaded(cached)
             return
         }
 
         if case .loaded = dailySummaryState {} else { dailySummaryState = .loading }
         do {
-            #if DEBUG
-            print("[Network] HomeVM loadToday")
-            #endif
+            print("[Network] HomeVM loadDashboardSummary")
             let result = try await dailySummaryService.getTodayDailySummary()
             try? await cacheService?.set("summary_today", result, ttl: 300)
-            #if DEBUG
-            print("[HomeVM] loadToday → network OK")
-            #endif
-            if result.id == nil {
-                dailySummaryState = .empty
-            } else {
-                dailySummaryState = .loaded(result)
-            }
+            print("[HomeVM] loadDashboardSummary → network OK")
+            dailySummaryState = result.id == nil ? .empty : .loaded(result)
         } catch let error as APIError {
             if case .unauthorized = error {
                 coordinator?.goToAuth()
             }
             if let cached: DailySummary = try? await cacheService?.get("summary_today", ignoreTTL: true) {
-                #if DEBUG
-                print("[HomeVM] loadToday → fallback to stale cache")
-                #endif
+                print("[HomeVM] loadDashboardSummary → fallback to stale cache")
                 dailySummaryState = cached.id == nil ? .empty : .loaded(cached)
             } else {
-                #if DEBUG
-                print("[HomeVM] loadToday → FAIL, no cache")
-                #endif
+                print("[HomeVM] loadDashboardSummary → FAIL, no cache")
                 dailySummaryState = .error(error)
             }
         } catch {
             if let cached: DailySummary = try? await cacheService?.get("summary_today", ignoreTTL: true) {
-                #if DEBUG
-                print("[HomeVM] loadToday → fallback to stale cache")
-                #endif
+                print("[HomeVM] loadDashboardSummary → fallback to stale cache")
                 dailySummaryState = cached.id == nil ? .empty : .loaded(cached)
             } else {
-                #if DEBUG
-                print("[HomeVM] loadToday → FAIL, no cache")
-                #endif
+                print("[HomeVM] loadDashboardSummary → FAIL, no cache")
                 dailySummaryState = .error(error)
             }
         }
+    }
+
+    func deleteFood(id: String) async {
+        await todayFoodVM.deleteFood(id: id)
+        await loadDashboardSummary()
+    }
+
+    func addWater() async {
+        await waterVM.createWater()
+        await loadDashboardSummary()
+    }
+
+    func deleteWater(id: String) async {
+        await waterVM.deleteWater(id: id)
+        await loadDashboardSummary()
+    }
+
+    func reloadGoals() async {
+        await goalsVM.loadGoals()
     }
 }

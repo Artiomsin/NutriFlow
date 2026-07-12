@@ -19,11 +19,11 @@ struct GuestData: Codable, Sendable {
 }
 
 extension FoodEntry {
-    init(id: String = UUID().uuidString, name: String, calories: Int, protein: Int?, fat: Int?, carbs: Int?) {
+    init(id: String = UUID().uuidString, name: String, calories: Int, protein: Int?, fat: Int?, carbs: Int?, foodId: String? = nil, grams: Int? = nil, unit: String? = nil, categoryName: String? = nil, imageUrl: String? = nil) {
         let fmt = ISO8601DateFormatter()
         fmt.formatOptions = [.withInternetDateTime]
         let now = fmt.string(from: Date())
-        self.init(id: id, userId: guestUserId, name: name, calories: calories, protein: protein, fat: fat, carbs: carbs, createdAt: now, updatedAt: nil)
+        self.init(id: id, userId: guestUserId, name: name, calories: calories, protein: protein, fat: fat, carbs: carbs, foodId: foodId, grams: grams, unit: unit ?? "g", categoryName: categoryName, imageUrl: imageUrl, createdAt: now, updatedAt: nil)
     }
 }
 
