@@ -22,6 +22,7 @@ struct NutriflowApp: App {
                     .transition(.opacity)
                     .animation(.easeInOut(duration: 0.35), value: coordinator.route)
             }
+            .preferredColorScheme(.dark)
             .task {
                 await coordinator.bootstrap()
             }

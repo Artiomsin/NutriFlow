@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Delete,
   Body,
   Param,
@@ -22,6 +23,7 @@ import { FoodService } from './food.service';
 import { UploadService } from '../upload/upload.service';
 import {
   createFoodEntrySchema,
+  updateFoodEntrySchema,
   createFoodSchema,
   createFoodCategorySchema,
   searchFoodQuerySchema,
@@ -29,6 +31,7 @@ import {
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
 import type {
   CreateFoodEntryDto,
+  UpdateFoodEntryDto,
   CreateFoodDto,
   CreateFoodCategoryDto,
   SearchFoodQueryDto,
@@ -97,24 +100,36 @@ export class FoodController {
     return this.foodService.delete(user.userId, id, date);
   }
 
+  @Patch('food-entry/:id')
+  update(
+    @User() user: AuthPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(updateFoodEntrySchema)) data: UpdateFoodEntryDto,
+  ) {
+    return this.foodService.update(user.userId, id, data);
+  }
+
   // ── Food Catalog Routes ──────────────────────────────────────
 
   @Get('foods')
   getAll(
+    @User() user: AuthPayload,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
     return this.foodService.getAll(
       limit ? Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200) : 50,
       offset ? Math.max(parseInt(offset, 10) || 0, 0) : 0,
+      user.userId,
     );
   }
 
   @Get('foods/search')
   search(
+    @User() user: AuthPayload,
     @Query(new ZodValidationPipe(searchFoodQuerySchema)) query: SearchFoodQueryDto,
   ) {
-    return this.foodService.search(query);
+    return this.foodService.search(query, user.userId);
   }
 
   @Get('foods/popular')

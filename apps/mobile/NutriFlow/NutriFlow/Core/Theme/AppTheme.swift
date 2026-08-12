@@ -21,9 +21,6 @@ enum AppTheme {
     static let fieldBorder = Color.white.opacity(0.06)
     static let error = Color.red.opacity(0.85)
     static let errorBackground = Color.red.opacity(0.08)
-    static let logoutBorder = Color.red
-    static let logoutBackground = Color.red.opacity(0.1)
-    static let headerBackground = Color.black.opacity(0.3)
     static let tabBarBackground = Color(red: 0.14, green: 0.15, blue: 0.20)
     static let cornerRadiusSmall: CGFloat = 10
     static let cornerRadiusMedium: CGFloat = 12
@@ -35,7 +32,7 @@ enum AppTheme {
     static let avatarSize: CGFloat = 80
     static let paddingHorizontal: CGFloat = 20
     static let paddingVertical: CGFloat = 12
-    static let headerPaddingTop: CGFloat = 60
+    static let headerPaddingTop: CGFloat = 30
     static let bottomPadding: CGFloat = 120
     static let buttonHeight: CGFloat = 50
 }

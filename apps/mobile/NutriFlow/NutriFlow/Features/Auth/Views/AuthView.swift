@@ -3,14 +3,29 @@ import SwiftUI
 struct AuthView: View {
     @Bindable var viewModel: AuthViewModel
     @State private var isLogin = true
+    @FocusState private var emailFocused: Bool
+    @FocusState private var passwordFocused: Bool
+    @FocusState private var firstNameFocused: Bool
+    @FocusState private var lastNameFocused: Bool
+    @State private var lastEmailChange: Date?
+    @State private var lastPasswordChange: Date?
+    @State private var autoLoginTriggered = false
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 20) {
                 AuthHeaderView(isLogin: isLogin)
-                AuthFormView(viewModel: viewModel, isLogin: isLogin) 
+                AuthFormView(
+                    viewModel: viewModel,
+                    isLogin: isLogin,
+                    emailFocused: $emailFocused,
+                    passwordFocused: $passwordFocused,
+                    firstNameFocused: $firstNameFocused,
+                    lastNameFocused: $lastNameFocused
+                )
 
                 PrimaryButton(title: isLogin ? "Sign in" : "Create account") {
+                    dismissKeyboard()
                     Task {
                         if isLogin {
                             await viewModel.login()
@@ -21,64 +36,68 @@ struct AuthView: View {
                 }
 
                 if isLogin {
-                    Button {
+                    GoogleAuthButton {
+                        dismissKeyboard()
                         Task { await viewModel.signInWithGoogle() }
-                    } label: {
-                        HStack {
-                            Image(systemName: "g.circle.fill")
-                                .font(.title2)
-                            Text("Sign in with Google")
-                                .fontWeight(.medium)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(.white)
-                        .foregroundColor(.black)
-                        .cornerRadius(12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                        )
                     }
                 }
 
                 Button {
                     isLogin.toggle()
+                    lastEmailChange = nil
+                    lastPasswordChange = nil
+                    autoLoginTriggered = false
                 } label: {
                     Text(isLogin ? "No account? Register" : "Already have account? Sign in")
                         .font(.footnote)
                         .foregroundColor(AppTheme.textSecondary)
                 }
 
-                if isLogin {
-                    Button {
-                        viewModel.continueAsGuest()
-                    } label: {
-                        Text("Continue as Guest")
-                            .font(.footnote.weight(.medium))
-                            .foregroundColor(AppTheme.accent)
-                    }
-                    .padding(.top, 4)
-                }
-
                 if case .error(let message) = viewModel.state {
                     ErrorMessageView(text: message)
                 }
-
-                if case .loading = viewModel.state {
-                    ProgressView().tint(.white)
-                }
             }
+            .contentShape(Rectangle())
+            .onTapGesture { dismissKeyboard() }
             .padding(.horizontal, 20)
             .padding(.top, 80)
             .frame(maxWidth: 360)
             .frame(maxWidth: .infinity)
         }
-        .scrollDismissesKeyboard(.immediately)
         .background(AppTheme.background.ignoresSafeArea())
+        .onChange(of: viewModel.email) { _, _ in
+            lastEmailChange = Date()
+            checkAutofillLogin()
+        }
+        .onChange(of: viewModel.password) { _, _ in
+            lastPasswordChange = Date()
+            checkAutofillLogin()
+        }
         .onAppear {
             AnalyticsManager.shared.track(.screenView(screen: "auth"))
         }
+    }
+
+    private func dismissKeyboard() {
+        emailFocused = false
+        passwordFocused = false
+        firstNameFocused = false
+        lastNameFocused = false
+    }
+
+    private func checkAutofillLogin() {
+        guard isLogin,
+              !autoLoginTriggered,
+              viewModel.state != .loading,
+              viewModel.email.contains("@"),
+              viewModel.password.count > 1,
+              let emailDate = lastEmailChange,
+              let passwordDate = lastPasswordChange,
+              abs(emailDate.timeIntervalSince(passwordDate)) < 0.5
+        else { return }
+        autoLoginTriggered = true
+        dismissKeyboard()
+        Task { await viewModel.login() }
     }
 }
 

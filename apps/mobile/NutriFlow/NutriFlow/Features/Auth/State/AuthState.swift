@@ -1,6 +1,6 @@
 import Foundation
 
-enum AuthState {
+enum AuthState: Equatable {
     case idle
     case loading
     case authenticated

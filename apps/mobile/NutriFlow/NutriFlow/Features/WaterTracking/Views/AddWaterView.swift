@@ -30,8 +30,6 @@ struct AddWaterView: View {
 
         VStack(spacing: 20) {
 
-            header
-
             glassPreview
 
             amountPicker
@@ -43,6 +41,8 @@ struct AddWaterView: View {
         .padding(.horizontal, 20)
         .padding(.top, 12)
         .background(AppTheme.background.ignoresSafeArea())
+        .navigationTitle("Add Water")
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             waterViewModel.amountMl = "\(Int(selectedAmount))"
             animatedAmount = selectedAmount
@@ -55,24 +55,6 @@ struct AddWaterView: View {
 
             withAnimation(.easeInOut(duration: 0.45)) {
                 animatedAmount = newValue
-            }
-        }
-    }
-
-    private var header: some View {
-
-        HStack {
-            Text("Water")
-                .font(Font.h3)
-                .foregroundColor(.white)
-
-            Spacer()
-
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .foregroundColor(.white.opacity(0.7))
             }
         }
     }
@@ -219,8 +201,8 @@ struct AddWaterView: View {
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background(Color.cyan)
-        .cornerRadius(16)
+        .background(AppTheme.accent)
+        .cornerRadius(AppTheme.cornerRadiusMedium)
     }
 
     private func triggerSplash() {

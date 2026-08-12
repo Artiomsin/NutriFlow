@@ -19,11 +19,7 @@ final class HomeViewModel {
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let dailySummaryService: DailySummaryServiceProtocol
     @ObservationIgnored let foodService: FoodServiceProtocol
-    @ObservationIgnored private let guestStore: GuestStore?
     @ObservationIgnored private let cacheService: CacheService?
-    @ObservationIgnored private var isGoingToAuthFromSheet = false
-
-    var showExpiredWarning = false
 
     init(
         coordinator: AppCoordinator,
@@ -32,7 +28,6 @@ final class HomeViewModel {
         todayFoodVM: TodayFoodViewModel,
         waterVM: WaterViewModel,
         goalsVM: GoalsViewModel,
-        guestStore: GuestStore? = nil,
         cacheService: CacheService? = nil
     ) {
         print("HomeViewModel init")
@@ -42,46 +37,10 @@ final class HomeViewModel {
         self.todayFoodVM = todayFoodVM
         self.waterVM = waterVM
         self.goalsVM = goalsVM
-        self.guestStore = guestStore
         self.cacheService = cacheService
     }
 
     deinit { print("HomeViewModel deinit") }
-
-    func goToAuth() {
-        coordinator?.goToAuth()
-    }
-
-    func goToAuthFromSheet() {
-        isGoingToAuthFromSheet = true
-        coordinator?.goToAuth()
-    }
-
-    func checkExpiredDay() {
-        guard let store = guestStore, store.isExpired, !store.didShowExpiredWarning else { return }
-        store.didShowExpiredWarning = true
-        showExpiredWarning = true
-    }
-
-    func dismissExpiredDay() async {
-        guestStore?.initializeNewDay()
-        await cacheService?.remove("dashboard_today")
-        await cacheService?.remove("summary_today")
-        await cacheService?.remove("chart_today")
-        await cacheService?.remove("food_today")
-        await cacheService?.remove("water_today")
-        await cacheService?.removeByPrefix("chart_summaries")
-        await cacheService?.removeByPrefix("analytics_")
-        showExpiredWarning = false
-    }
-
-    func handleSheetDismiss() async {
-        guard !isGoingToAuthFromSheet else {
-            isGoingToAuthFromSheet = false
-            return
-        }
-        await dismissExpiredDay()
-    }
 
     func refreshAll() async {
         await cacheService?.remove("food_today")

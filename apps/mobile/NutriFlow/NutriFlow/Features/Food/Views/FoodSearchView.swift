@@ -2,21 +2,22 @@ import SwiftUI
 import Kingfisher
 
 struct FoodSearchView: View {
-    let foodService: FoodServiceProtocol
     let onSelect: (CatalogFood, Int?, String?) -> Void
 
     @State private var foodSearchVM: FoodSearchViewModel
+    @FocusState private var searchFocused: Bool
 
-    init(foodService: FoodServiceProtocol, onSelect: @escaping (CatalogFood, Int?, String?) -> Void) {
-        self.foodService = foodService
+    init(viewModel: FoodSearchViewModel, onSelect: @escaping (CatalogFood, Int?, String?) -> Void) {
         self.onSelect = onSelect
-        _foodSearchVM = State(initialValue: FoodSearchViewModel(service: foodService))
+        _foodSearchVM = State(initialValue: viewModel)
     }
 
     var body: some View {
         VStack(spacing: 0) {
             searchBar
             content
+                .contentShape(Rectangle())
+                .onTapGesture { searchFocused = false }
         }
         .background(AppTheme.background)
         .navigationTitle("Search Food")
@@ -30,9 +31,11 @@ struct FoodSearchView: View {
                 .foregroundColor(AppTheme.textSecondary)
 
             TextField("Search food...", text: $foodSearchVM.query)
+                .focused($searchFocused)
                 .foregroundColor(AppTheme.textPrimary)
                 .autocorrectionDisabled()
                 .onChange(of: foodSearchVM.query) { _, _ in foodSearchVM.search() }
+                .onSubmit { searchFocused = false }
 
             if !foodSearchVM.query.isEmpty {
                 Button {
@@ -205,11 +208,21 @@ struct FoodCardSearch: View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(food.name)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(AppTheme.textPrimary)
-                    .lineLimit(1)
+                    .lineLimit(2)
 
                 SourceBadge(source: food.source)
+
+                if let cat = food.categoryName {
+                    Text(cat)
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(AppTheme.accent)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(AppTheme.accent.opacity(0.1))
+                        .cornerRadius(6)
+                }
 
                 Text("\(UnitConversion.formatEnergyValue(kcal: food.caloriesPer100g, preferred: prefsStore.preferredUnits)) \(UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits))")
                     .font(.caption)
@@ -287,6 +300,16 @@ struct SourceBadge: View {
         .foregroundColor(color)
         .clipShape(Capsule())
     }
+}
+
+#Preview {
+    NavigationStack {
+        FoodSearchView(
+            viewModel: FoodSearchViewModel(service: MockFoodService()),
+            onSelect: { _, _, _ in }
+        )
+    }
+    .preferredColorScheme(.dark)
 }
 
 

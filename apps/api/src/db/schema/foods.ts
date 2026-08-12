@@ -7,6 +7,7 @@ import {
   timestamp,
   index,
   uniqueIndex,
+  foreignKey,
 } from 'drizzle-orm/pg-core';
 import { users } from './users';
 import { foodCategories } from './foodCategories';
@@ -33,6 +34,8 @@ export const foods = app.table('foods', {
 
   source: varchar('source', { length: 20 }).notNull().default('user'),
 
+  forkedFromId: uuid('forked_from_id'),
+
   createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -45,6 +48,10 @@ export const foods = app.table('foods', {
     .using('gin', sql`to_tsvector('simple', ${table.name})`),
   nameUnique: uniqueIndex('idx_foods_name_unique').on(table.name),
   categoryIdIdx: index('idx_foods_category_id').on(table.categoryId),
+  forkedFromFk: foreignKey({
+    columns: [table.forkedFromId],
+    foreignColumns: [table.id],
+  }).onDelete('set null'),
 }));
 
 export type Food = typeof foods.$inferSelect;

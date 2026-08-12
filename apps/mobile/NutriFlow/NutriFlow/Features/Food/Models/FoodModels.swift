@@ -40,6 +40,29 @@ struct UpdateFoodEntryRequest: Codable, Sendable {
     let protein: Int?
     let fat: Int?
     let carbs: Int?
+    let grams: Int?
+    let foodId: String?
+    let date: String?
+    let imageUrl: String?
+    let categoryName: String?
+
+    enum CodingKeys: String, CodingKey {
+        case name, calories, protein, fat, carbs, grams, foodId, date, imageUrl, categoryName
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(name, forKey: .name)
+        try container.encodeIfPresent(calories, forKey: .calories)
+        try container.encodeIfPresent(protein, forKey: .protein)
+        try container.encodeIfPresent(fat, forKey: .fat)
+        try container.encodeIfPresent(carbs, forKey: .carbs)
+        try container.encodeIfPresent(grams, forKey: .grams)
+        try container.encodeIfPresent(foodId, forKey: .foodId)
+        try container.encodeIfPresent(date, forKey: .date)
+        try container.encodeIfPresent(imageUrl, forKey: .imageUrl)
+        try container.encodeIfPresent(categoryName, forKey: .categoryName)
+    }
 }
 
 struct FoodEntry: Codable, Identifiable, Sendable {
@@ -57,6 +80,7 @@ struct FoodEntry: Codable, Identifiable, Sendable {
     let imageUrl: String?
     let createdAt: String
     let updatedAt: String?
+    var foodSource: String?
 }
 
 

@@ -11,13 +11,15 @@ struct NutritionChartView: View {
     let data: [ChartDataPoint]
     let canTap: Bool
     let onBarTap: ((String) -> Void)?
+    let initialScrollX: String
     @State private var prefsStore = PreferencesStore.shared
     @State private var selection: String?
 
-    init(data: [ChartDataPoint], canTap: Bool = false, onBarTap: ((String) -> Void)? = nil) {
+    init(data: [ChartDataPoint], canTap: Bool = false, onBarTap: ((String) -> Void)? = nil, initialScrollX: String = "") {
         self.data = data
         self.canTap = canTap
         self.onBarTap = onBarTap
+        self.initialScrollX = initialScrollX
     }
 
     var body: some View {
@@ -33,7 +35,7 @@ struct NutritionChartView: View {
                 MacroSummaryItem(title: "Carbs", value: avgCarbs, color: .green)
             }
             .padding(.vertical, 8)
-            Chart(data) { point in
+            Chart(filteredData) { point in
                 BarMark(x: .value("Date", point.label), y: .value("Protein", point.protein), width: .fixed(14)).foregroundStyle(.blue)
                 BarMark(x: .value("Date", point.label), y: .value("Fat", point.fat), width: .fixed(14)).foregroundStyle(.yellow)
                 BarMark(x: .value("Date", point.label), y: .value("Carbs", point.carbs), width: .fixed(14)).foregroundStyle(.green)
@@ -50,6 +52,7 @@ struct NutritionChartView: View {
             }
             .chartXSelection(value: $selection)
             .chartScrollableAxes(.horizontal)
+            .chartScrollPosition(initialX: initialScrollX)
             .onChange(of: selection) { _, newVal in
                 if canTap, let label = newVal {
                     onBarTap?(label)
@@ -63,6 +66,12 @@ struct NutritionChartView: View {
     private var avgProtein: Int { guard !data.isEmpty else { return 0 }; return Int(data.reduce(0) { $0 + $1.protein } / Double(data.count)) }
     private var avgFat: Int { guard !data.isEmpty else { return 0 }; return Int(data.reduce(0) { $0 + $1.fat } / Double(data.count)) }
     private var avgCarbs: Int { guard !data.isEmpty else { return 0 }; return Int(data.reduce(0) { $0 + $1.carbs } / Double(data.count)) }
+
+    /// Show only points that actually have macro data, so deleted-food hours
+    /// don't leave ghost bars on the x-axis. Display-only.
+    private var filteredData: [ChartDataPoint] {
+        data.filter { $0.protein > 0 || $0.fat > 0 || $0.carbs > 0 }
+    }
 
     private var maxMacroValue: Int {
         let maxVal = data.map { Swift.max($0.protein, Swift.max($0.fat, $0.carbs)) }.max() ?? 0.0

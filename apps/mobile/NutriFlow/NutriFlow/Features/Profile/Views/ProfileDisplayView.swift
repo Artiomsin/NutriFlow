@@ -2,9 +2,7 @@ import SwiftUI
 
 struct ProfileDisplayView: View {
     @Bindable var viewModel: ProfileViewModel
-    @State private var showEditProfile = false
-
-    @Environment(\.dismiss) private var dismiss
+    let onEdit: () -> Void
 
     var body: some View {
         ZStack {
@@ -12,20 +10,6 @@ struct ProfileDisplayView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
-                    HStack {
-                        Text("Profile")
-                            .font(.title2.bold())
-                            .foregroundColor(AppTheme.textPrimary)
-
-                        Spacer()
-
-                        Button {
-                            dismiss()
-                        } label: {
-                            Image(systemName: "xmark")
-                                .foregroundColor(AppTheme.textSecondary)
-                        }
-                    }
                     if case .loaded = viewModel.state {
                         VStack(spacing: 16) {
                             Image(systemName: "person.circle.fill")
@@ -44,7 +28,7 @@ struct ProfileDisplayView: View {
                                 }
 
                                 Button {
-                                    showEditProfile = true
+                                    onEdit()
                                 } label: {
                                     HStack(spacing: 6) {
                                         Image(systemName: "pencil")
@@ -65,12 +49,12 @@ struct ProfileDisplayView: View {
                             ProfileInfoCard(
                                 icon: "scalemass",
                                 title: "Weight",
-                                value: viewModel.weight.isEmpty ? "Not set" : "\(viewModel.weight) kg"
+                                value: viewModel.weight.isEmpty ? "Not set" : "\(viewModel.weight) \(UnitConversion.bodyWeightUnitLabel(preferred: viewModel.preferredUnits))"
                             )
                             ProfileInfoCard(
                                 icon: "ruler",
                                 title: "Height",
-                                value: viewModel.height.isEmpty ? "Not set" : "\(viewModel.height) cm"
+                                value: viewModel.height.isEmpty ? "Not set" : "\(viewModel.height) \(UnitConversion.heightUnitLabel(preferred: viewModel.preferredUnits))"
                             )
                             ProfileInfoCard(
                                 icon: "calendar",
@@ -116,11 +100,24 @@ struct ProfileDisplayView: View {
             .scrollContentBackground(.hidden)
             .background(AppTheme.background)
         }
+        .navigationTitle("Profile")
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear { AnalyticsManager.shared.track(.screenView(screen: "profile")) }
-        .fullScreenCover(isPresented: $showEditProfile) {
-            EditProfileView(viewModel: viewModel) {
-                showEditProfile = false
-            }
-        }
     }
+}
+
+#Preview("Profile Display") {
+    let container = AppDependencyContainer()
+    let coordinator = AppCoordinator(container: container)
+    let viewModel = ProfileViewModel(
+        coordinator: coordinator,
+        authService: MockAuthService(),
+        profileService: MockProfileService(),
+        userService: MockUserService()
+    )
+    NavigationStack {
+        ProfileDisplayView(viewModel: viewModel, onEdit: {})
+            .task { await viewModel.loadData() }
+    }
+    .preferredColorScheme(.dark)
 }

@@ -4,64 +4,67 @@ enum HomeNavRoute: Hashable {
     case addFood
     case foodSearch
     case servingPicker(CatalogFood, Int?, String?)
+    case addWater
 }
 
 struct HomeView: View {
 
     @Bindable var homeViewModel: HomeViewModel
-    let isGuest: Bool
     let foodService: FoodServiceProtocol
-    @Binding var isTabBarHidden: Bool
+    let coordinator: AppCoordinator?
+    let tabBarState: TabBarState
 
     @State private var navPath: [HomeNavRoute] = []
-    @State private var showAddWater = false
+    @State private var editingFood: FoodEntry?
 
-    init(homeViewModel: HomeViewModel, isGuest: Bool, foodService: FoodServiceProtocol, isTabBarHidden: Binding<Bool> = .constant(false)) {
+    init(homeViewModel: HomeViewModel, foodService: FoodServiceProtocol, coordinator: AppCoordinator? = nil, tabBarState: TabBarState = TabBarState()) {
         self.homeViewModel = homeViewModel
-        self.isGuest = isGuest
         self.foodService = foodService
-        self._isTabBarHidden = isTabBarHidden
+        self.coordinator = coordinator
+        self.tabBarState = tabBarState
     }
-
+    
     var body: some View {
         NavigationStack(path: $navPath) {
             content
                 .navigationDestination(for: HomeNavRoute.self) { route in
                     switch route {
                     case .addFood:
-                        AddFoodView(onSave: popToRoot, foodService: foodService, todayFoodVM: homeViewModel.todayFoodVM, onSearchCatalog: {
+                        let addFoodVM = AddFoodViewModel(service: foodService, coordinator: coordinator)
+                        AddFoodView(onSave: popToRoot, viewModel: addFoodVM, todayFoodVM: homeViewModel.todayFoodVM, onSearchCatalog: {
                             navPath.append(HomeNavRoute.foodSearch)
+                        }, onSelectPopular: { food in
+                            navPath.append(HomeNavRoute.servingPicker(food, nil, nil))
                         })
                     case .foodSearch:
+                        let searchVM = FoodSearchViewModel(service: foodService)
                         FoodSearchView(
-                            foodService: foodService,
+                            viewModel: searchVM,
                             onSelect: { food, suggestedGrams, suggestedUnit in
                                 navPath.append(HomeNavRoute.servingPicker(food, suggestedGrams, suggestedUnit))
                             }
                         )
                     case .servingPicker(let food, let suggestedGrams, let suggestedUnit):
-                        ServingPickerView(food: food, foodService: foodService, todayFoodVM: homeViewModel.todayFoodVM, suggestedGrams: suggestedGrams, suggestedUnit: suggestedUnit, onSave: popToRoot)
+                        let pickerVM = ServingPickerViewModel(food: food, service: foodService, todayFoodVM: homeViewModel.todayFoodVM, suggestedGrams: suggestedGrams, suggestedUnit: suggestedUnit, coordinator: coordinator)
+                        ServingPickerView(viewModel: pickerVM, onSave: popToRoot)
+                    case .addWater:
+                        AddWaterView(
+                            waterViewModel: homeViewModel.waterVM,
+                            onSave: { Task { await homeViewModel.loadDashboardSummary() } }
+                        )
                     }
                 }
         }
         .tint(AppTheme.accent)
         .onChange(of: navPath) { _, newPath in
-            isTabBarHidden = !newPath.isEmpty
+            tabBarState.isTabBarHidden = !newPath.isEmpty
         }
-        .fullScreenCover(isPresented: $showAddWater) {
-            AddWaterView(
-                waterViewModel: homeViewModel.waterVM,
-                onSave: { Task { await homeViewModel.loadDashboardSummary() } }
-            )
-        }
-        .sheet(isPresented: $homeViewModel.showExpiredWarning, onDismiss: {
-            Task { await homeViewModel.handleSheetDismiss() }
-            Task { await homeViewModel.loadAll() }
-        }) {
-            ExpiredDaySheet(
-                onRegister: { homeViewModel.goToAuthFromSheet() },
-                onDismiss: { Task { await homeViewModel.dismissExpiredDay() } }
-            )
+        .sheet(item: $editingFood) { entry in
+            let vm = EditFoodViewModel(entry: entry, foodService: foodService, coordinator: coordinator)
+            EditFoodView(viewModel: vm) {
+                await homeViewModel.todayFoodVM.reloadAfterAdd()
+                await homeViewModel.loadDashboardSummary()
+            }
         }
     }
 
@@ -70,16 +73,15 @@ struct HomeView: View {
             VStack(spacing: 24) {
                 header
 
-                if isGuest {
-                    GuestBanner(onRegister: { homeViewModel.goToAuth() })
-                }
-
                 DailySummarySectionView(homeViewModel: homeViewModel)
                 FoodSectionView(
                     todayFoodVM: homeViewModel.todayFoodVM,
                     onAddFood: {
-                        isTabBarHidden = true
+                        tabBarState.isTabBarHidden = true
                         navPath.append(HomeNavRoute.addFood)
+                    },
+                    onEditFood: { entry in
+                        editingFood = entry
                     },
                     onDeleteFood: { id in
                         Task { await homeViewModel.deleteFood(id: id) }
@@ -87,7 +89,10 @@ struct HomeView: View {
                 )
                 WaterSectionView(
                     waterVM: homeViewModel.waterVM,
-                    onAddWater: { showAddWater = true },
+                    onAddWater: {
+                        tabBarState.isTabBarHidden = true
+                        navPath.append(HomeNavRoute.addWater)
+                    },
                     onDeleteWater: { id in
                         Task { await homeViewModel.deleteWater(id: id) }
                     }
@@ -95,6 +100,13 @@ struct HomeView: View {
             }
             .padding(.bottom, 100)
         }
+        .minimizeTabBarOnScroll(
+            tabBarState: tabBarState,
+            isActive: { navPath.isEmpty }
+        )
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .refreshable { await homeViewModel.refreshAll() }
         .task {
             await withDiscardingTaskGroup { group in
@@ -106,7 +118,6 @@ struct HomeView: View {
         .onAppear {
             AnalyticsManager.shared.track(.screenView(screen: "home"))
             Task { await homeViewModel.reloadGoals() }
-            homeViewModel.checkExpiredDay()
         }
     }
 
@@ -121,20 +132,29 @@ struct HomeView: View {
 
     private func popToRoot() {
         navPath.removeAll()
-        isTabBarHidden = false
+        tabBarState.isTabBarHidden = false
+        tabBarState.isTabBarMinimized = false
         Task { await homeViewModel.loadDashboardSummary() }
+    }
+}
+
+extension HomeView: Equatable {
+    static func == (lhs: HomeView, rhs: HomeView) -> Bool {
+        lhs.tabBarState === rhs.tabBarState
     }
 }
 
 private struct FoodSectionView: View {
     @Bindable var todayFoodVM: TodayFoodViewModel
     let onAddFood: () -> Void
+    let onEditFood: (FoodEntry) -> Void
     let onDeleteFood: (String) -> Void
 
     var body: some View {
         FoodSection(
             todayFoodVM: todayFoodVM,
             onAddFood: onAddFood,
+            onEditFood: onEditFood,
             onDeleteFood: onDeleteFood
         )
         .padding(.horizontal, AppTheme.paddingHorizontal)
@@ -168,69 +188,6 @@ private struct DailySummarySectionView: View {
     }
 }
 
-struct GuestBanner: View {
-    let onRegister: () -> Void
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "person.badge.plus")
-                .foregroundColor(AppTheme.accent)
-            Text("Guest mode — register to save your data")
-                .font(.footnote)
-                .foregroundColor(AppTheme.textSecondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Button("Register", action: onRegister)
-                .font(.footnote.weight(.semibold))
-                .foregroundColor(.black)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(AppTheme.accent)
-                .cornerRadius(16)
-        }
-        .padding(12)
-        .background(AppTheme.cardBackground)
-        .cornerRadius(12)
-        .padding(.horizontal, 20)
-    }
-}
-
-struct ExpiredDaySheet: View {
-    let onRegister: () -> Void
-    let onDismiss: () -> Void
-
-    var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "calendar.badge.exclamationmark")
-                .font(.system(size: 40))
-                .foregroundColor(AppTheme.accent)
-
-            Text("New day started")
-                .font(Font.h2)
-                .foregroundColor(AppTheme.textPrimary)
-
-            Text("Your guest data from yesterday will be lost. Register to keep tracking your progress.")
-                .font(.subheadline)
-                .foregroundColor(AppTheme.textSecondary)
-                .multilineTextAlignment(.center)
-
-            Button("Register", action: onRegister)
-                .font(.headline)
-                .foregroundColor(.black)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(AppTheme.accent)
-                .cornerRadius(12)
-
-            Button("Continue as Guest", action: onDismiss)
-                .font(.subheadline)
-                .foregroundColor(AppTheme.textSecondary)
-        }
-        .padding(24)
-        .background(AppTheme.background)
-        .presentationDetents([.height(320)])
-    }
-}
-
 #Preview {
     HomePreviewContent()
 }
@@ -239,8 +196,8 @@ private struct HomePreviewContent: View {
     var body: some View {
         return HomeView(
             homeViewModel: makePreviewHomeVM(),
-            isGuest: false,
-            foodService: MockFoodService()
+            foodService: MockFoodService(),
+            coordinator: AppCoordinator(container: AppDependencyContainer())
         )
         .background(AppTheme.background)
         .preferredColorScheme(.dark)
@@ -250,7 +207,7 @@ private struct HomePreviewContent: View {
         let coordinator = AppCoordinator(container: AppDependencyContainer())
         let todayFoodVM = TodayFoodViewModel(service: MockFoodService(), coordinator: coordinator)
         todayFoodVM.setPreviewState(.loaded([
-            FoodEntry(id: "1", userId: "1", name: "Chicken breast", calories: 165, protein: 31, fat: 4, carbs: 0, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
+            FoodEntry(id: "1", userId: "1", name: "Chicken", calories: 165, protein: 31, fat: 4, carbs: 0, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
             FoodEntry(id: "2", userId: "1", name: "Rice", calories: 200, protein: 4, fat: 1, carbs: 45, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil)
         ]))
 

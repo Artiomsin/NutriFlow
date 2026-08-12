@@ -6,8 +6,6 @@ import Observation
 final class AppCoordinator {
     var route: AppRoute = .splash
     private let container: AppDependency
-    private(set) var isGuest: Bool = false
-    private var guestContainer: GuestDependencyContainer?
 
     init(container: AppDependency) {
         self.container = container
@@ -17,7 +15,7 @@ final class AppCoordinator {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                guard let self, !self.isGuest else { return }
+                guard let self else { return }
                 await self.container.cacheService.clear()
                 self.route = .auth
             }
@@ -36,13 +34,13 @@ final class AppCoordinator {
             })
 
         case .auth:
-            AuthFactory.make(container: activeContainer, coordinator: self)
+            AuthFactory.make(container: container, coordinator: self)
 
         case .profileForm:
-            ProfileFormFactory.make(container: activeContainer, coordinator: self)
+            ProfileFormFactory.make(container: container, coordinator: self)
 
         case .main:
-            MainTabView(container: activeContainer, coordinator: self, isGuest: isGuest)
+            MainTabView(container: container, coordinator: self)
         }
     }
 
@@ -54,13 +52,6 @@ final class AppCoordinator {
             return
         }
 
-        if UserDefaults.standard.bool(forKey: "isGuest") {
-            print("[Coordinator] bootstrap: isGuest=true — вхожу как гость")
-            enterGuestMode()
-            route = .main
-            return
-        }
-
         let result = await container.sessionBootstrapService.restoreSession()
         route = switch result {
         case .auth: .auth
@@ -69,46 +60,19 @@ final class AppCoordinator {
         }
     }
 
-    func continueAsGuest() {
-        print("[Coordinator] continueAsGuest — включаю гостевой режим")
-        UserDefaults.standard.set(true, forKey: "isGuest")
-        enterGuestMode()
-        route = .main
-    }
-
     func goToAuth() {
-        print("[Coordinator] goToAuth\(isGuest ? " (гость)" : "")")
+        print("[Coordinator] goToAuth")
         route = .auth
     }
 
     func goToProfileForm() {
-        checkGuestTransition()
         route = .profileForm
     }
 
     func goToMain() {
-        checkGuestTransition()
         route = .main
     }
 
-
-    private func enterGuestMode() {
-        Task { await container.cacheService.clear() }
-        isGuest = true
-        guestContainer = GuestDependencyContainer(store: .shared)
-    }
-
-    private var activeContainer: AppDependency {
-        guestContainer ?? container
-    }
-
-    private func checkGuestTransition() {
-        guard isGuest, container.tokenStorage.getAccessToken() != nil else { return }
-        isGuest = false
-        guestContainer = nil
-        UserDefaults.standard.removeObject(forKey: "isGuest")
-    }
-    
     deinit {
             #if DEBUG
             print("AppCoordinator УНИЧТОЖЕН!")

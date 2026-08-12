@@ -1,0 +1,2 @@
+ALTER TABLE "app"."foods" ADD COLUMN "forked_from_id" uuid;--> statement-breakpoint
+ALTER TABLE "app"."foods" ADD CONSTRAINT "foods_forked_from_id_foods_id_fk" FOREIGN KEY ("forked_from_id") REFERENCES "app"."foods"("id") ON DELETE set null ON UPDATE no action;

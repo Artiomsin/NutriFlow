@@ -1,39 +1,86 @@
 import SwiftUI
 import PhotosUI
+import Kingfisher
 
 struct AddFoodView: View {
     let onSave: () -> Void
     let todayFoodVM: TodayFoodViewModel
     let onSearchCatalog: (() -> Void)?
+    let onSelectPopular: ((CatalogFood) -> Void)?
 
-    @State private var addFoodVM: AddFoodViewModel
+    @State private var viewModel: AddFoodViewModel
     @State private var photosItem: PhotosPickerItem?
     @State private var selectedImageData: Data?
     @State private var prefsStore = PreferencesStore.shared
+    @FocusState private var nameFocused: Bool
+    @FocusState private var gramsFocused: Bool
+    @FocusState private var caloriesFocused: Bool
+    @FocusState private var proteinFocused: Bool
+    @FocusState private var fatFocused: Bool
+    @FocusState private var carbsFocused: Bool
 
-    init(onSave: @escaping () -> Void, foodService: FoodServiceProtocol, todayFoodVM: TodayFoodViewModel, onSearchCatalog: (() -> Void)? = nil) {
+    init(onSave: @escaping () -> Void, viewModel: AddFoodViewModel, todayFoodVM: TodayFoodViewModel, onSearchCatalog: (() -> Void)? = nil, onSelectPopular: ((CatalogFood) -> Void)? = nil) {
         self.onSave = onSave
         self.todayFoodVM = todayFoodVM
         self.onSearchCatalog = onSearchCatalog
-        _addFoodVM = State(initialValue: AddFoodViewModel(service: foodService, coordinator: nil))
+        self.onSelectPopular = onSelectPopular
+        _viewModel = State(initialValue: viewModel)
     }
 
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 searchCatalogButton
+                if !viewModel.popularFoods.isEmpty { popularSection }
+                if viewModel.isLoadingPopular && viewModel.popularFoods.isEmpty {
+                    ProgressView()
+                        .tint(AppTheme.accent)
+                }
                 photoPicker
-                form
-                categoryPicker
+                formSection()
+                categorySection()
                 saveButton
             }
+            .contentShape(Rectangle())
+            .onTapGesture { dismissKeyboard() }
             .padding()
         }
+        .scrollDismissesKeyboard(.interactively)
         .background(AppTheme.background.ignoresSafeArea())
         .navigationTitle("Add Food")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await addFoodVM.loadCategories() }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                if gramsFocused || caloriesFocused || proteinFocused || fatFocused || carbsFocused {
+                    Spacer()
+                    Button("Done") { dismissKeyboard() }
+                }
+            }
+        }
+        .task {
+            await viewModel.loadCategories()
+            await viewModel.loadPopular()
+        }
         .onChange(of: photosItem) { _, item in loadImage(item) }
+    }
+
+    private var popularSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Popular")
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(AppTheme.textPrimary)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(viewModel.popularFoods) { food in
+                        PopularCard(food: food, preferred: prefsStore.preferredUnits) {
+                            onSelectPopular?(food)
+                        }
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
     }
 
     private var searchCatalogButton: some View {
@@ -49,7 +96,7 @@ struct AddFoodView: View {
             }
             .padding(14)
             .background(AppTheme.cardBackground)
-            .cornerRadius(12)
+            .cornerRadius(AppTheme.cornerRadiusMedium)
         }
         .buttonStyle(.plain)
     }
@@ -60,13 +107,14 @@ struct AddFoodView: View {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
-                    .frame(height: 180)
+                    .frame(height: 250)
                     .frame(maxWidth: .infinity)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium))
             } else {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(AppTheme.cardBackground)
-                    .frame(height: 120)
+                RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
+                    .fill(AppTheme.fieldBackground)
+                    .frame(height: 250)
+                    .frame(maxWidth: .infinity)
                     .overlay {
                         VStack(spacing: 8) {
                             Image(systemName: "camera.fill")
@@ -81,79 +129,77 @@ struct AddFoodView: View {
         }
     }
 
-    private var form: some View {
-        VStack(spacing: 14) {
-            AppTextField(title: "Food name", text: $addFoodVM.name)
-
-            AppTextField(title: prefsStore.preferredUnits.weight == .imperial ? "Ounces" : "Grams", text: $addFoodVM.grams, keyboardType: .decimalPad)
-
-            AppTextField(title: "Calories", text: $addFoodVM.calories, keyboardType: .numberPad)
-
-            HStack(spacing: 12) {
-                AppTextField(title: "Protein (\(prefsStore.preferredUnits.weight == .imperial ? "oz" : "g"))", text: $addFoodVM.protein, keyboardType: .decimalPad)
-                AppTextField(title: "Fat (\(prefsStore.preferredUnits.weight == .imperial ? "oz" : "g"))", text: $addFoodVM.fat, keyboardType: .decimalPad)
-                AppTextField(title: "Carbs (\(prefsStore.preferredUnits.weight == .imperial ? "oz" : "g"))", text: $addFoodVM.carbs, keyboardType: .decimalPad)
+    private func formSection() -> some View {
+        AppCard {
+            VStack(alignment: .leading, spacing: 14) {
+                sectionLabel("Details", icon: "square.and.pencil")
+                AppTextField(title: "Food name", text: $viewModel.name, focus: $nameFocused)
+                AppTextField(title: viewModel.gramsLabel, text: $viewModel.grams, keyboardType: .decimalPad, focus: $gramsFocused)
+                AppTextField(title: viewModel.caloriesLabel, text: $viewModel.calories, keyboardType: .numberPad, focus: $caloriesFocused)
+                HStack(spacing: 12) {
+                    AppTextField(title: viewModel.proteinLabel, text: $viewModel.protein, keyboardType: .decimalPad, focus: $proteinFocused)
+                    AppTextField(title: viewModel.fatLabel, text: $viewModel.fat, keyboardType: .decimalPad, focus: $fatFocused)
+                    AppTextField(title: viewModel.carbsLabel, text: $viewModel.carbs, keyboardType: .decimalPad, focus: $carbsFocused)
+                }
             }
         }
     }
 
-    private var categoryPicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Category")
-                .font(.caption.weight(.medium))
-                .foregroundColor(AppTheme.textSecondary)
-
-            Menu {
-                Button("None") { addFoodVM.selectedCategory = nil }
-                ForEach(addFoodVM.categories) { cat in
-                    Button(cat.name) { addFoodVM.selectedCategory = cat }
+    private func categorySection() -> some View {
+        AppCard {
+            VStack(alignment: .leading, spacing: 12) {
+                sectionLabel("Category", icon: "tag.fill")
+                Menu {
+                    Button("None") { viewModel.selectedCategory = nil }
+                    ForEach(viewModel.categories) { cat in
+                        Button(cat.name) { viewModel.selectedCategory = cat }
+                    }
+                } label: {
+                    HStack {
+                        Text(viewModel.selectedCategory?.name ?? "Select category")
+                            .foregroundColor(viewModel.selectedCategory == nil ? AppTheme.textTertiary : AppTheme.textPrimary)
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .font(.caption)
+                            .foregroundColor(AppTheme.textTertiary)
+                    }
+                    .padding(14)
+                    .background(AppTheme.fieldBackground)
+                    .cornerRadius(AppTheme.cornerRadiusMedium)
                 }
-            } label: {
-                HStack {
-                    Text(addFoodVM.selectedCategory?.name ?? "Select category")
-                        .foregroundColor(addFoodVM.selectedCategory == nil ? AppTheme.textTertiary : AppTheme.textPrimary)
-                    Spacer()
-                    Image(systemName: "chevron.down")
-                        .font(.caption)
-                        .foregroundColor(AppTheme.textTertiary)
-                }
-                .padding(14)
-                .background(AppTheme.cardBackground)
-                .cornerRadius(12)
             }
+        }
+    }
+
+    private func sectionLabel(_ text: String, icon: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.caption)
+                .foregroundColor(AppTheme.accent)
+            Text(text)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(AppTheme.textPrimary)
         }
     }
 
     private var saveButton: some View {
         Button {
+            dismissKeyboard()
             Task {
-                let isImperial = prefsStore.preferredUnits.weight == .imperial
-                let toGrams: (Double) -> Int = { Int(($0 * 28.35).rounded()) }
-                let normalizedGrams = addFoodVM.grams.replacingOccurrences(of: ",", with: ".")
-                let normalizedProtein = addFoodVM.protein.replacingOccurrences(of: ",", with: ".")
-                let normalizedFat = addFoodVM.fat.replacingOccurrences(of: ",", with: ".")
-                let normalizedCarbs = addFoodVM.carbs.replacingOccurrences(of: ",", with: ".")
-                let actualGrams: Int? = {
-                    guard let value = Double(normalizedGrams), value > 0 else { return nil }
-                    return isImperial ? toGrams(value) : Int(value.rounded())
-                }()
-                let parseMacro: (String) -> Int? = { Double($0).map { isImperial ? toGrams($0) : Int($0.rounded()) } }
-                let actualProtein: Int? = parseMacro(normalizedProtein)
-                let actualFat: Int? = parseMacro(normalizedFat)
-                let actualCarbs: Int? = parseMacro(normalizedCarbs)
-
-                await addFoodVM.createEntry(imageData: selectedImageData, actualGrams: actualGrams, actualProtein: actualProtein, actualFat: actualFat, actualCarbs: actualCarbs)
-                if case .idle = addFoodVM.state {
+                await viewModel.createEntry(imageData: selectedImageData)
+                if case .idle = viewModel.state {
                     await todayFoodVM.reloadAfterAdd()
                     onSave()
                 }
             }
         } label: {
-            switch addFoodVM.state {
+            switch viewModel.state {
             case .uploading, .saving:
                 ProgressView().tint(.black)
             case .error(let e):
                 Text(e.localizedDescription).font(.caption).foregroundColor(AppTheme.error)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
             case .idle:
                 Text("Save")
                     .font(.headline)
@@ -163,12 +209,21 @@ struct AddFoodView: View {
         .frame(maxWidth: .infinity)
         .padding()
         .background(canSave ? AppTheme.accent : AppTheme.accent.opacity(0.3))
-        .cornerRadius(12)
+        .cornerRadius(AppTheme.cornerRadiusMedium)
         .disabled(!canSave)
     }
 
     private var canSave: Bool {
-        !addFoodVM.name.isEmpty && !addFoodVM.grams.isEmpty && !addFoodVM.calories.isEmpty
+        !viewModel.name.isEmpty && !viewModel.grams.isEmpty && !viewModel.calories.isEmpty
+    }
+
+    private func dismissKeyboard() {
+        nameFocused = false
+        gramsFocused = false
+        caloriesFocused = false
+        proteinFocused = false
+        fatFocused = false
+        carbsFocused = false
     }
 
     private func loadImage(_ item: PhotosPickerItem?) {
@@ -184,7 +239,134 @@ struct AddFoodView: View {
 
 #Preview {
     NavigationStack {
-        AddFoodView(onSave: {}, foodService: MockFoodService(), todayFoodVM: TodayFoodViewModel(service: MockFoodService(), coordinator: AppCoordinator(container: AppDependencyContainer())))
+        AddFoodView(onSave: {}, viewModel: AddFoodViewModel(service: MockFoodService(), coordinator: nil), todayFoodVM: TodayFoodViewModel(service: MockFoodService(), coordinator: AppCoordinator(container: AppDependencyContainer())))
     }
     .preferredColorScheme(.dark)
+}
+
+private struct PopularCard: View {
+    let food: CatalogFood
+    let preferred: PreferredUnits
+    let onTap: () -> Void
+
+    private var hasCategory: Bool {
+        guard let category = food.categoryName else { return false }
+        return !category.isEmpty && category != "NOT A BRANDED ITEM"
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            ZStack(alignment: .bottom) {
+                imageView
+                    .frame(width: 175, height: 205)
+                    .overlay(
+                        LinearGradient(
+                            colors: [.clear, .black.opacity(0.6)],
+                            startPoint: .center,
+                            endPoint: .bottom
+                        )
+                    )
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(food.name)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+
+                    HStack(spacing: 5) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 9))
+                        Text("\(UnitConversion.formatEnergyValue(kcal: food.caloriesPer100g, preferred: preferred))")
+                            .font(.system(size: 12, weight: .bold))
+                        Text("/\(UnitConversion.formatEnergyUnit(preferred: preferred))")
+                            .font(.system(size: 9))
+                        Spacer()
+                    }
+                    .foregroundColor(.white)
+
+                    HStack(spacing: 4) {
+                        macroPill(color: Color(red: 0.4, green: 0.72, blue: 1.0), label: "P", grams: food.proteinPer100g)
+                        macroPill(color: Color(red: 1.0, green: 0.6, blue: 0.3), label: "F", grams: food.fatPer100g)
+                        macroPill(color: Color(red: 0.5, green: 0.85, blue: 0.55), label: "C", grams: food.carbsPer100g)
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .padding(10)
+            }
+            .frame(width: 175, height: 205)
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+            )
+            .shadow(color: .black.opacity(0.25), radius: 10, y: 6)
+            .overlay(alignment: .topLeading) {
+                if hasCategory {
+                    Text((food.categoryName ?? "").uppercased())
+                        .font(.system(size: 8, weight: .bold))
+                        .tracking(0.6)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .padding(10)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var imageView: some View {
+        ZStack {
+            Color(red: 0.1, green: 0.15, blue: 0.25)
+            Image(systemName: "fork.knife")
+                .font(.system(size: 26))
+                .foregroundColor(Color(red: 0.3, green: 0.6, blue: 1.0).opacity(0.5))
+            if let url = food.imageUrl.flatMap({ URL(string: $0) }) {
+                KFImage(url)
+                    .fade(duration: 0.25)
+                    .resizable()
+                    .scaledToFill()
+            }
+        }
+        .clipped()
+    }
+
+    private func macroPill(color: Color, label: String, grams: Int?) -> some View {
+        let isImperial = preferred.weight == .imperial
+        let value = isImperial ? Double(grams ?? 0) / UnitConversion.gramsPerOunce : Double(grams ?? 0)
+        let unit = isImperial ? "oz" : "g"
+        return HStack(spacing: 2) {
+            Circle()
+                .fill(color)
+                .frame(width: 5, height: 5)
+            Text(label)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundColor(color)
+            Text("\(Self.smartValue(value)) \(unit)")
+                .font(.system(size: 9))
+                .foregroundColor(.white.opacity(0.95))
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(color.opacity(0.25), in: Capsule())
+    }
+
+    /// Display-only formatting: whole numbers without decimals, otherwise up to
+    /// 2 decimals with trailing zeros trimmed. Underlying values stay unchanged.
+    private static func smartValue(_ value: Double) -> String {
+        let rounded = (value * 100).rounded() / 100
+        if rounded == rounded.rounded() {
+            return String(Int(rounded))
+        }
+        var text = String(format: "%.2f", rounded)
+        while text.last == "0" { text.removeLast() }
+        if text.last == "." { text.removeLast() }
+        return text
+    }
 }

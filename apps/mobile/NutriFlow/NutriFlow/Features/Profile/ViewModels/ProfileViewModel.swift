@@ -19,7 +19,10 @@ final class ProfileViewModel {
     var goal: Goal?
     var activityLevel: ActivityLevel?
     var preferredUnits: PreferredUnits = .default
-    
+
+    private var originalWeightKg: Double?
+    private var originalWeightText: String?
+
     @ObservationIgnored private let authService: AuthServiceProtocol
     @ObservationIgnored private let profileService: ProfileServiceProtocol
     @ObservationIgnored private let userService: UserServiceProtocol
@@ -156,8 +159,8 @@ final class ProfileViewModel {
 
         do {
             let profile = try await profileService.createProfile(
-                weight: Double(weight),
-                height: Int(height),
+                weight: canonicalWeight(),
+                height: canonicalHeight(),
                 age: Int(age),
                 gender: gender,
                 goal: goal,
@@ -183,8 +186,8 @@ final class ProfileViewModel {
 
         do {
             let profile = try await profileService.updateMyProfile(
-                weight: Double(weight),
-                height: Int(height),
+                weight: canonicalWeight(),
+                height: canonicalHeight(),
                 age: Int(age),
                 gender: gender,
                 goal: goal,
@@ -244,13 +247,49 @@ final class ProfileViewModel {
     }
 
     private func mapProfile(_ profile: UserProfile) {
-        weight = profile.weight.map { String($0) } ?? ""
-        height = profile.height.map { String($0) } ?? ""
+        let units = profile.preferredUnits ?? .default
+        let formattedWeight = profile.weight.map { Self.formatBodyWeight(kg: $0, units: units) } ?? ""
+        weight = formattedWeight
+        originalWeightKg = profile.weight
+        originalWeightText = formattedWeight
+        height = profile.height.map { Self.formatBodyHeight(cm: Double($0), units: units) } ?? ""
         age = profile.age.map { String($0) } ?? ""
         gender = profile.gender
         goal = profile.goal
         activityLevel = profile.activityLevel
         preferredUnits = profile.preferredUnits ?? .default
+    }
+
+    /// Display value (kg or lb) typed by the user -> canonical kg sent to the backend.
+    private func canonicalWeight() -> Double? {
+        if weight == originalWeightText, let kg = originalWeightKg { return kg }
+        guard let value = normalized(weight) else { return nil }
+        return UnitConversion.bodyWeightToKg(value, preferred: preferredUnits)
+    }
+
+    /// Display value (cm or in) typed by the user -> canonical cm sent to the backend.
+    private func canonicalHeight() -> Int? {
+        guard let value = normalized(height) else { return nil }
+        return Int(UnitConversion.heightToCm(value, preferred: preferredUnits).rounded())
+    }
+
+    private func normalized(_ text: String) -> Double? {
+        guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
+        return Double(text.replacingOccurrences(of: ",", with: "."))
+    }
+
+    private static func formatBodyWeight(kg: Double, units: PreferredUnits) -> String {
+        if units.weight == .imperial {
+            return String(format: "%.1f", UnitConversion.bodyWeightToDisplay(kg: kg, preferred: units))
+        }
+        return String(Int(kg.rounded()))
+    }
+
+    private static func formatBodyHeight(cm: Double, units: PreferredUnits) -> String {
+        if units.weight == .imperial {
+            return String(format: "%.1f", UnitConversion.heightToDisplay(cm: cm, preferred: units))
+        }
+        return String(Int(cm.rounded()))
     }
 
     private func clearForm() {
@@ -260,6 +299,8 @@ final class ProfileViewModel {
         gender = nil
         goal = nil
         activityLevel = nil
+        originalWeightKg = nil
+        originalWeightText = nil
     }
     
     func setPreviewState(_ newState: ProfileState) {

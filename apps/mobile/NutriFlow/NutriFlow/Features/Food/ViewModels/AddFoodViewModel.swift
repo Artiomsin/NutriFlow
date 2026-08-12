@@ -24,8 +24,34 @@ final class AddFoodViewModel {
     var categories: [FoodCategory] = []
     var selectedCategory: FoodCategory?
 
+    var popularFoods: [CatalogFood] = []
+    var isLoadingPopular = false
+
     @ObservationIgnored private let service: FoodServiceProtocol
     @ObservationIgnored private weak var coordinator: AppCoordinator?
+    @ObservationIgnored private let prefsStore = PreferencesStore.shared
+
+    var gramsLabel: String {
+        prefsStore.preferredUnits.weight == .imperial ? "Ounces" : "Grams"
+    }
+
+    var caloriesLabel: String {
+        "Calories (\(UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits)))"
+    }
+
+    var macroUnit: String {
+        prefsStore.preferredUnits.weight == .imperial ? "oz" : "g"
+    }
+
+    var proteinLabel: String { "Protein (\(macroUnit))" }
+    var fatLabel: String { "Fat (\(macroUnit))" }
+    var carbsLabel: String { "Carbs (\(macroUnit))" }
+
+    private func toGrams(_ text: String) -> Int? {
+        let normalized = text.replacingOccurrences(of: ",", with: ".")
+        guard let value = Double(normalized), value > 0 else { return nil }
+        return Int(UnitConversion.grams(fromDisplay: value, baseUnit: "g", preferred: prefsStore.preferredUnits).rounded())
+    }
 
     init(service: FoodServiceProtocol, coordinator: AppCoordinator?) {
         print("AddFoodViewModel init")
@@ -40,16 +66,24 @@ final class AddFoodViewModel {
         categories = (try? await service.getCategories()) ?? []
     }
 
-    func createEntry(imageData: Data? = nil, actualGrams: Int? = nil, actualProtein: Int? = nil, actualFat: Int? = nil, actualCarbs: Int? = nil) async {
-        let gramsInt = actualGrams ?? (Double(grams).map { Int($0.rounded()) } ?? 0)
+    func loadPopular() async {
+        guard !isLoadingPopular else { return }
+        isLoadingPopular = true
+        defer { isLoadingPopular = false }
+        popularFoods = ((try? await service.getPopularFood()) ?? [])
+    }
+
+    func createEntry(imageData: Data? = nil) async {
+        let gramsInt = toGrams(grams) ?? 0
         guard gramsInt > 0 else {
             state = .error(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Граммы должны быть числом > 0"]))
             return
         }
-        guard let caloriesInt = Int(calories) else {
+        guard let caloriesValue = Double(calories.replacingOccurrences(of: ",", with: ".")) else {
             state = .error(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Калории должны быть числом"]))
             return
         }
+        let caloriesInt = Int(UnitConversion.energyToKcal(caloriesValue, preferred: prefsStore.preferredUnits).rounded())
 
         state = .uploading
 
@@ -70,9 +104,9 @@ final class AddFoodViewModel {
             try await service.createFoodEntry(
                 name: name,
                 calories: caloriesInt,
-                protein: actualProtein ?? (Double(protein).map { Int($0.rounded()) }),
-                fat: actualFat ?? (Double(fat).map { Int($0.rounded()) }),
-                carbs: actualCarbs ?? (Double(carbs).map { Int($0.rounded()) }),
+                protein: toGrams(protein),
+                fat: toGrams(fat),
+                carbs: toGrams(carbs),
                 foodId: nil,
                 grams: gramsInt,
                 unit: "g",

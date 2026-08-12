@@ -2,8 +2,7 @@ enum HomeFactory {
     @MainActor
     static func make(
         coordinator: AppCoordinator,
-        container: AppDependency,
-        isGuest: Bool
+        container: AppDependency
     ) -> HomeViewModel {
         let cache = container.cacheService
         let todayFoodVM = TodayFoodViewModel(service: container.foodService, coordinator: coordinator, cacheService: cache)
@@ -17,7 +16,6 @@ enum HomeFactory {
             todayFoodVM: todayFoodVM,
             waterVM: waterVM,
             goalsVM: goalsVM,
-            guestStore: isGuest ? GuestStore.shared : nil,
             cacheService: cache
         )
     }

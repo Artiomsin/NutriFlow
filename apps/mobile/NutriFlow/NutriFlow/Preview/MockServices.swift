@@ -18,12 +18,35 @@ final class MockFoodService: FoodServiceProtocol {
     func getFoodByDate(date: String) async throws -> [FoodEntry] {
         try await getTodayFood()
     }
+    func updateFoodEntry(
+        id: String,
+        name: String?,
+        calories: Int?,
+        protein: Int?,
+        fat: Int?,
+        carbs: Int?,
+        grams: Int?,
+        foodId: String?,
+        date: String?,
+        imageUrl: String?,
+        categoryName: String?
+    ) async throws -> FoodEntry {
+        FoodEntry(id: id, userId: "1", name: name ?? "Updated", calories: calories ?? 100, protein: protein, fat: fat, carbs: carbs, foodId: foodId, grams: grams, unit: "g", categoryName: categoryName, imageUrl: nil, createdAt: "2026-05-18T10:00:00Z", updatedAt: "2026-05-18T11:00:00Z")
+    }
     func deleteFoodEntry(id: String, date: String? = nil) async throws { }
 
     func searchFood(query: String, limit: Int) async throws -> FoodSearchResponse {
         FoodSearchResponse(foods: [], suggestedGrams: nil, suggestedUnit: nil)
     }
-    func getPopularFood() async throws -> [CatalogFood] { [] }
+    func getPopularFood() async throws -> [CatalogFood] {
+        [
+            CatalogFood(id: "1", name: "Apple", categoryId: "1", categoryName: "Fruits", brand: nil, caloriesPer100g: 52, proteinPer100g: nil, fatPer100g: nil, carbsPer100g: 14, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "2", name: "Banana", categoryId: "1", categoryName: "Fruits", brand: nil, caloriesPer100g: 89, proteinPer100g: 1, fatPer100g: nil, carbsPer100g: 23, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "3", name: "Chicken Breast", categoryId: "2", categoryName: "Meat", brand: nil, caloriesPer100g: 165, proteinPer100g: 31, fatPer100g: 4, carbsPer100g: nil, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "4", name: "Brown Rice", categoryId: "3", categoryName: "Grains", brand: nil, caloriesPer100g: 111, proteinPer100g: 3, fatPer100g: 1, carbsPer100g: 23, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "5", name: "Greek Yogurt", categoryId: "4", categoryName: "Dairy", brand: nil, caloriesPer100g: 59, proteinPer100g: 10, fatPer100g: nil, carbsPer100g: 4, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+        ]
+    }
     func getFoodById(_ id: String) async throws -> CatalogFood {
         CatalogFood(id: id, name: "Mock Food", categoryId: "242542", categoryName: "gjhgh", brand: nil, caloriesPer100g: 100, proteinPer100g: 10, fatPer100g: 5, carbsPer100g: 10, barcode: nil, imageUrl: nil, source: "user", createdBy: nil, createdAt: "", updatedAt: "", servings: nil)
     }

@@ -23,6 +23,21 @@ protocol FoodServiceProtocol: Sendable {
 
     func getFoodByDate(date: String) async throws -> [FoodEntry]
 
+    @discardableResult
+    func updateFoodEntry(
+        id: String,
+        name: String?,
+        calories: Int?,
+        protein: Int?,
+        fat: Int?,
+        carbs: Int?,
+        grams: Int?,
+        foodId: String?,
+        date: String?,
+        imageUrl: String?,
+        categoryName: String?
+    ) async throws -> FoodEntry
+
     func deleteFoodEntry(
         id: String,
         date: String?

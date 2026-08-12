@@ -2,6 +2,9 @@ import SwiftUI
 
 struct ProfileFormView: View {
     @Bindable var viewModel: ProfileViewModel
+    @FocusState private var weightFocused: Bool
+    @FocusState private var heightFocused: Bool
+    @FocusState private var ageFocused: Bool
     
     var body: some View {
         ZStack {
@@ -20,21 +23,24 @@ struct ProfileFormView: View {
                     
                     VStack(spacing: 16) {
                         AppTextField(
-                            title: "Weight (kg)",
+                            title: "Weight (\(UnitConversion.bodyWeightUnitLabel(preferred: viewModel.preferredUnits)))",
                             text: $viewModel.weight,
-                            keyboardType: .decimalPad
+                            keyboardType: .decimalPad,
+                            focus: $weightFocused
                         )
                         
                         AppTextField(
-                            title: "Height (cm)",
+                            title: "Height (\(UnitConversion.heightUnitLabel(preferred: viewModel.preferredUnits)))",
                             text: $viewModel.height,
-                            keyboardType: .numberPad
+                            keyboardType: .decimalPad,
+                            focus: $heightFocused
                         )
                         
                         AppTextField(
                             title: "Age",
                             text: $viewModel.age,
-                            keyboardType: .numberPad
+                            keyboardType: .numberPad,
+                            focus: $ageFocused
                         )
                         
                         VStack(alignment: .leading, spacing: 8) {
@@ -96,6 +102,7 @@ struct ProfileFormView: View {
                     }
                     
                     PrimaryButton(title: "Save") {
+                        dismissKeyboard()
                         Task {
                             await viewModel.createProfile()
                         }
@@ -109,10 +116,27 @@ struct ProfileFormView: View {
                     
                     Spacer()
                 }
+                .contentShape(Rectangle())
+                .onTapGesture { dismissKeyboard() }
             }
-            .scrollDismissesKeyboard(.immediately)
+            .scrollDismissesKeyboard(.interactively)
+        }
+        .tint(AppTheme.accent)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                if weightFocused || heightFocused || ageFocused {
+                    Spacer()
+                    Button("Done") { dismissKeyboard() }
+                }
+            }
         }
         .onAppear { AnalyticsManager.shared.track(.screenView(screen: "profile_form")) }
+    }
+
+    private func dismissKeyboard() {
+        weightFocused = false
+        heightFocused = false
+        ageFocused = false
     }
 }
 
@@ -134,5 +158,17 @@ struct SelectableChip: View {
     }
 }
 
-
-
+#Preview("Profile Form") {
+    let container = AppDependencyContainer()
+    let coordinator = AppCoordinator(container: container)
+    let viewModel = ProfileViewModel(
+        coordinator: coordinator,
+        authService: MockAuthService(),
+        profileService: MockProfileService(),
+        userService: MockUserService()
+    )
+    NavigationStack {
+        ProfileFormView(viewModel: viewModel)
+    }
+    .preferredColorScheme(.dark)
+}
