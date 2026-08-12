@@ -67,6 +67,38 @@ final class FoodService: FoodServiceProtocol, Sendable {
         return try await client.send(request)
     }
 
+    func updateFoodEntry(
+        id: String,
+        name: String?,
+        calories: Int?,
+        protein: Int?,
+        fat: Int?,
+        carbs: Int?,
+        grams: Int?,
+        foodId: String?,
+        date: String?,
+        imageUrl: String?,
+        categoryName: String?
+    ) async throws -> FoodEntry {
+        let request = APIRequest(
+            path: FoodEndpoints.updateFoodEntry(id: id),
+            method: .PATCH,
+            body: UpdateFoodEntryRequest(
+                name: name,
+                calories: calories,
+                protein: protein,
+                fat: fat,
+                carbs: carbs,
+                grams: grams,
+                foodId: foodId,
+                date: date,
+                imageUrl: imageUrl,
+                categoryName: categoryName
+            )
+        )
+        return try await client.send(request)
+    }
+
     func deleteFoodEntry(id: String, date: String? = nil) async throws {
         let endpoint = FoodEndpoints.deleteFoodEntry(id: id)
         let queryItems: [URLQueryItem] = date.map { [URLQueryItem(name: "date", value: $0)] } ?? []

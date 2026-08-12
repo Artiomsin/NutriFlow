@@ -11,13 +11,15 @@ struct WaterChartView: View {
     let data: [ChartDataPoint]
     let canTap: Bool
     let onBarTap: ((String) -> Void)?
+    let initialScrollX: String
     @State private var prefsStore = PreferencesStore.shared
     @State private var selection: String?
 
-    init(data: [ChartDataPoint], canTap: Bool = false, onBarTap: ((String) -> Void)? = nil) {
+    init(data: [ChartDataPoint], canTap: Bool = false, onBarTap: ((String) -> Void)? = nil, initialScrollX: String = "") {
         self.data = data
         self.canTap = canTap
         self.onBarTap = onBarTap
+        self.initialScrollX = initialScrollX
     }
 
     var body: some View {
@@ -28,7 +30,7 @@ struct WaterChartView: View {
                 Spacer()
                 Text(UnitConversion.formatAmount(grams: totalWater, unit: "ml", preferred: prefsStore.preferredUnits)).font(.subheadline).foregroundColor(AppTheme.textSecondary)
             }
-            Chart(data) { point in
+            Chart(filteredData) { point in
                 LineMark(x: .value("Date", point.label), y: .value("Water", point.waterMl))
                     .foregroundStyle(.blue).interpolationMethod(.catmullRom)
                 AreaMark(x: .value("Date", point.label), y: .value("Water", point.waterMl))
@@ -48,6 +50,7 @@ struct WaterChartView: View {
             }
             .chartXSelection(value: $selection)
             .chartScrollableAxes(.horizontal)
+            .chartScrollPosition(initialX: initialScrollX)
             .onChange(of: selection) { _, newVal in
                 if canTap, let label = newVal {
                     onBarTap?(label)
@@ -59,6 +62,12 @@ struct WaterChartView: View {
     }
 
     private var totalWater: Int { data.reduce(0) { $0 + $1.waterMl } }
+
+    /// Show only points that actually have water, so deleted-water hours
+    /// don't leave ghost points on the x-axis. Display-only.
+    private var filteredData: [ChartDataPoint] {
+        data.filter { $0.waterMl > 0 }
+    }
 
     private var maxWaterValue: Int {
         let max = data.map { $0.waterMl }.max() ?? 0

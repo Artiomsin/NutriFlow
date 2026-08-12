@@ -1,5 +1,29 @@
 import SwiftUI
 
+struct FocusModifier: ViewModifier {
+    var focus: FocusState<Bool>.Binding?
+
+    func body(content: Content) -> some View {
+        if let focus {
+            content.focused(focus)
+        } else {
+            content
+        }
+    }
+}
+
+struct TextContentTypeModifier: ViewModifier {
+    var contentType: UITextContentType?
+
+    func body(content: Content) -> some View {
+        if let contentType {
+            content.textContentType(contentType)
+        } else {
+            content
+        }
+    }
+}
+
 struct AppTextField: View {
     
     let title: String
@@ -7,6 +31,14 @@ struct AppTextField: View {
     @Binding var text: String
     
     var keyboardType: UIKeyboardType = .default
+    
+    var textContentType: UITextContentType? = nil
+    
+    var submitLabel: SubmitLabel = .return
+    
+    var focus: FocusState<Bool>.Binding? = nil
+    
+    var onSubmit: (() -> Void)? = nil
     
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -22,6 +54,10 @@ struct AppTextField: View {
                 .foregroundColor(AppTheme.textPrimary)
                 .padding()
                 .background(fieldBackground)
+                .modifier(FocusModifier(focus: focus))
+                .modifier(TextContentTypeModifier(contentType: textContentType))
+                .submitLabel(submitLabel)
+                .onSubmit { onSubmit?() }
         }
     }
     

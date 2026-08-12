@@ -29,10 +29,6 @@ final class AnalyticsViewModel {
         self.cacheService = cacheService
     }
 
-    func goToAuth() {
-        coordinator?.goToAuth()
-    }
-
     deinit {
         loadTask?.cancel()
         print("AnalyticsViewModel deinit")
@@ -187,7 +183,7 @@ final class AnalyticsViewModel {
         }
         loadTask?.cancel()
         loadTaskID &+= 1
-        loadTask = Task { await loadAnalytics() }
+        loadTask = Task { [weak self] in await self?.loadAnalytics() }
     }
 
     func setCustomRange(from: Date, to: Date) {
@@ -201,7 +197,7 @@ final class AnalyticsViewModel {
         }
         loadTask?.cancel()
         loadTaskID &+= 1
-        loadTask = Task { await loadAnalytics() }
+        loadTask = Task { [weak self] in await self?.loadAnalytics() }
     }
 
     private func formatDate(_ date: Date) -> String {

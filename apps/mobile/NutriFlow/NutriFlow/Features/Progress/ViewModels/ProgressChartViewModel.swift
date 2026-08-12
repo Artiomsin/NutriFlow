@@ -109,7 +109,7 @@ final class ProgressChartViewModel {
         }
         guard let point = points.first(where: { $0.label == label }) else { return }
         let dateStr = Self.dateOnlyFormatter.string(from: point.date)
-        Task { await loadDayDetail(date: dateStr) }
+        Task { [weak self] in await self?.loadDayDetail(date: dateStr) }
     }
 
     private func aggregateHourly(food: [FoodEntry], water: [WaterEntry]) -> [ChartDataPoint] {
@@ -233,7 +233,7 @@ final class ProgressChartViewModel {
         let currentID = loadTaskID
         let summariesKey = chartSummariesKey
 
-        if let cached: [DailySummary] = try? await cacheService?.get(summariesKey), periodState.type != .today {
+        if periodState.type != .today, let cached: [DailySummary] = try? await cacheService?.get(summariesKey) {
             let points = cached.filter { $0.totalCalories > 0 || $0.totalWaterMl > 0 }.map {
                 ChartDataPoint(date: parseDateOnly($0.date), label: "", calories: $0.totalCalories, protein: Double($0.totalProtein), fat: Double($0.totalFat), carbs: Double($0.totalCarbs), waterMl: $0.totalWaterMl)
             }
@@ -377,8 +377,8 @@ final class ProgressChartViewModel {
         periodState.type = period
         loadTask?.cancel()
         loadTaskID &+= 1
-        loadTask = Task {
-            await loadChartData()
+        loadTask = Task { [weak self] in
+            await self?.loadChartData()
         }
     }
 
@@ -388,8 +388,8 @@ final class ProgressChartViewModel {
         periodState.type = .custom
         loadTask?.cancel()
         loadTaskID &+= 1
-        loadTask = Task {
-            await loadChartData()
+        loadTask = Task { [weak self] in
+            await self?.loadChartData()
         }
     }
 

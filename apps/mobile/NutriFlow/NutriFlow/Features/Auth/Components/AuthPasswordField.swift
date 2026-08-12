@@ -4,6 +4,14 @@ struct AuthPasswordField: View {
     
     @Binding var password: String
     
+    var textContentType: UITextContentType? = nil
+    
+    var submitLabel: SubmitLabel = .return
+    
+    var focus: FocusState<Bool>.Binding? = nil
+    
+    var onSubmit: (() -> Void)? = nil
+    
     @State private var showPassword = false
     
     var body: some View {
@@ -17,8 +25,16 @@ struct AuthPasswordField: View {
                 
                 if showPassword {
                     TextField("", text: $password)
+                        .modifier(FocusModifier(focus: focus))
+                        .modifier(TextContentTypeModifier(contentType: textContentType))
+                        .submitLabel(submitLabel)
+                        .onSubmit { onSubmit?() }
                 } else {
                     SecureField("", text: $password)
+                        .modifier(FocusModifier(focus: focus))
+                        .modifier(TextContentTypeModifier(contentType: textContentType))
+                        .submitLabel(submitLabel)
+                        .onSubmit { onSubmit?() }
                 }
                 
                 Button {

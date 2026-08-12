@@ -2,8 +2,6 @@ import Foundation
 
 enum FoodEndpoints {
 
-    // ── Food Entry ──────────────────────────────────────────────
-
     static let createFoodEntry = "/food-entry"
     static let getTodayFood = "/food-entry/today"
 
@@ -12,16 +10,18 @@ enum FoodEndpoints {
         return "/food-entry/\(encoded)"
     }
 
+    static func updateFoodEntry(id: String) -> String {
+        let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
+        return "/food-entry/\(encoded)"
+    }
+
     static func getFoodByDate(date: String) -> (path: String, query: [URLQueryItem]) {
         (path: "/food-entry", query: [URLQueryItem(name: "date", value: date)])
     }
 
-    // ── Food Categories ─────────────────────────────────────────
 
     static let getCategories = "/food-categories"
     static let createCategory = "/food-categories"
-
-    // ── Food Catalog ────────────────────────────────────────────
 
     static let getAllFoods = "/foods"
     static let createFood = "/foods"

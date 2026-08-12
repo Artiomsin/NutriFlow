@@ -1,34 +1,57 @@
 import SwiftUI
 
+enum SettingsNavRoute: Hashable {
+    case profile
+    case editProfile
+}
+
 struct SettingsView: View {
     @Bindable var viewModel: ProfileViewModel
     let coordinator: AppCoordinator?
-    @State private var showProfile = false
+    var tabBarState: TabBarState = TabBarState()
+    @State private var navPath: [SettingsNavRoute] = []
 
     var body: some View {
         let _ = print("SettingsView body")
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 24) {
+        NavigationStack(path: $navPath) {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
 
-                header
-                    .padding(.top, 30)
+                    header
+                        .padding(.top, 30)
 
-                LazyVStack(spacing: 24) {
-                    accountSection
-                    unitsSection
+                    LazyVStack(spacing: 24) {
+                        accountSection
+                        unitsSection
+                    }
+                    .padding(.horizontal, AppTheme.paddingHorizontal)
                 }
-                .padding(.horizontal, AppTheme.paddingHorizontal)
+                .padding(.bottom, 100)
             }
-            .padding(.bottom, 100)
+            .minimizeTabBarOnScroll(
+                tabBarState: tabBarState,
+                isActive: { navPath.isEmpty }
+            )
+            .background(AppTheme.background)
+            .refreshable { await viewModel.loadData() }
+            .task {
+                AnalyticsManager.shared.track(.screenView(screen: "settings"))
+                await viewModel.loadData()
+            }
+            .navigationDestination(for: SettingsNavRoute.self) { route in
+                switch route {
+                case .profile:
+                    ProfileDisplayView(viewModel: viewModel) {
+                        navPath.append(.editProfile)
+                    }
+                case .editProfile:
+                    EditProfileView(viewModel: viewModel)
+                }
+            }
         }
-        .background(AppTheme.background)
-        .refreshable { await viewModel.loadData() }
-        .task {
-            AnalyticsManager.shared.track(.screenView(screen: "settings"))
-            await viewModel.loadData()
-        }
-        .fullScreenCover(isPresented: $showProfile) {
-            ProfileDisplayView(viewModel: viewModel)
+        .tint(AppTheme.accent)
+        .onChange(of: navPath) { _, newPath in
+            tabBarState.isTabBarHidden = !newPath.isEmpty
         }
     }
 
@@ -51,16 +74,11 @@ struct SettingsView: View {
             }
             .padding(.leading, 2)
 
-            if coordinator?.isGuest == true {
-                SettingsRow(icon: "person", title: "Sign In")
-                    .onTapGesture { coordinator?.goToAuth() }
-            } else {
-                SettingsRow(icon: "person", title: "Profile")
-                    .onTapGesture { showProfile = true }
+            SettingsRow(icon: "person", title: "Profile")
+                .onTapGesture { navPath.append(.profile) }
 
-                SettingsRow(icon: "arrow.right.square", title: "Log Out", tint: .red)
-                    .onTapGesture { Task { await viewModel.logout() } }
-            }
+            SettingsRow(icon: "arrow.right.square", title: "Log Out", tint: .red)
+                .onTapGesture { Task { await viewModel.logout() } }
         }
     }
 
@@ -158,6 +176,12 @@ struct SettingsView: View {
         }
         .padding(.horizontal, AppTheme.paddingHorizontal)
         .padding(.vertical, 12)
+    }
+}
+
+extension SettingsView: Equatable {
+    static func == (lhs: SettingsView, rhs: SettingsView) -> Bool {
+        lhs.tabBarState === rhs.tabBarState
     }
 }
 

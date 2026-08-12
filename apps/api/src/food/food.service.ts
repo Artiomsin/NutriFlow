@@ -5,11 +5,11 @@ import { foods } from '../db/schema/foods';
 import { foodServings } from '../db/schema/foodServings';
 import { userFoodStats } from '../db/schema/userFoodStats';
 import { eq, and, sql, desc, or, inArray } from 'drizzle-orm';
-import { cacheGet, cacheSet, invalidateAnalyticsCache } from '../redis';
+import { cacheGet, cacheSet, cacheDelByPrefix, invalidateAnalyticsCache } from '../redis';
 import { DailySummaryService } from '../daily-summary/daily-summary.service';
 import { foodCategories } from '../db/schema/foodCategories';
 import { env } from '../config/env';
-import type { CreateFoodEntryDto, CreateFoodDto, CreateFoodCategoryDto, SearchFoodQueryDto } from './food.schema';
+import type { CreateFoodEntryDto, UpdateFoodEntryDto, CreateFoodDto, CreateFoodCategoryDto, SearchFoodQueryDto } from './food.schema';
 
 interface OFProduct {
   id: string;
@@ -153,6 +153,7 @@ export class FoodService {
       date: data.date,
     });
     await invalidateAnalyticsCache(userId);
+    await cacheDelByPrefix('search:');
 
     return result;
   }
@@ -175,6 +176,7 @@ export class FoodService {
         updatedAt: foodEntries.updatedAt,
         categoryName: foodCategories.name,
         imageUrl: sql`COALESCE(${foodEntries.imageUrl}, ${foods.imageUrl})`,
+        foodSource: foods.source,
       })
       .from(foodEntries)
       .leftJoin(foods, eq(foodEntries.foodId, foods.id))
@@ -229,7 +231,244 @@ export class FoodService {
     return { message: 'Deleted' };
   }
 
-  async getAll(limit = 50, offset = 0) {
+  async update(userId: string, id: string, data: UpdateFoodEntryDto) {
+    const [existing] = await db
+      .select()
+      .from(foodEntries)
+      .where(and(eq(foodEntries.id, id), eq(foodEntries.userId, userId)))
+      .limit(1);
+
+    if (!existing) {
+      throw new NotFoundException('Food entry not found');
+    }
+
+    let newFoodId = existing.foodId;
+    let newName = data.name ?? existing.name;
+    let newGrams = data.grams ?? existing.grams;
+    let newCalories = existing.calories;
+    let newProtein = existing.protein ?? 0;
+    let newFat = existing.fat ?? 0;
+    let newCarbs = existing.carbs ?? 0;
+    let newEntryDate = data.date ?? existing.entryDate;
+    let newImageUrl = data.imageUrl ?? existing.imageUrl;
+
+    const [originalFood] = existing.foodId && !data.foodId
+      ? await db.select().from(foods).where(eq(foods.id, existing.foodId)).limit(1)
+      : [undefined];
+    const isUserFood = originalFood?.source === 'user' && originalFood?.createdBy === userId;
+    const needsFork = !!(originalFood && !isUserFood && !data.foodId && data.name);
+
+    const needTransaction = !!(data.name || data.foodId || data.grams !== undefined || data.calories !== undefined || data.protein !== undefined || data.fat !== undefined || data.carbs !== undefined || data.imageUrl || data.date || needsFork);
+
+    if (data.foodId) {
+      newFoodId = data.foodId;
+    }
+
+    if (needTransaction) {
+      await db.transaction(async (tx) => {
+        if (data.name && !data.foodId) {
+          const [matched] = await tx
+            .select()
+            .from(foods)
+            .where(eq(foods.name, data.name))
+            .limit(1);
+
+          if (matched) {
+            newFoodId = matched.id;
+          } else if (!matched) {
+            if (existing.foodId && (isUserFood || needsFork)) {
+              newName = data.name;
+            } else {
+              const [created] = await tx
+                .insert(foods)
+                .values({
+                  name: data.name,
+                  source: 'user',
+                  createdBy: userId,
+                  caloriesPer100g: 0,
+                  proteinPer100g: 0,
+                  fatPer100g: 0,
+                  carbsPer100g: 0,
+                })
+                .returning();
+              newFoodId = created!.id;
+              newName = data.name;
+            }
+          }
+        }
+
+        if (newFoodId) {
+          const [food] = await tx
+            .select()
+            .from(foods)
+            .where(eq(foods.id, newFoodId))
+            .limit(1);
+
+          if (food) {
+            const g = newGrams ?? 100;
+            const ratio = g > 0 ? g / 100 : 1;
+            newCalories = data.calories ?? Math.round(food.caloriesPer100g * ratio);
+            newProtein = data.protein ?? Math.round((food.proteinPer100g ?? 0) * ratio);
+            newFat = data.fat ?? Math.round((food.fatPer100g ?? 0) * ratio);
+            newCarbs = data.carbs ?? Math.round((food.carbsPer100g ?? 0) * ratio);
+
+            if (needsFork && food.source !== 'user') {
+              const per100gRatio = g > 0 ? 100 / g : 1;
+
+              const [forked] = await tx
+                .insert(foods)
+                .values({
+                  name: newName,
+                  categoryId: food.categoryId,
+                  caloriesPer100g: Math.round(newCalories * per100gRatio),
+                  proteinPer100g: Math.round(newProtein * per100gRatio),
+                  fatPer100g: Math.round(newFat * per100gRatio),
+                  carbsPer100g: Math.round(newCarbs * per100gRatio),
+                  imageUrl: newImageUrl,
+                  source: 'user',
+                  createdBy: userId,
+                  forkedFromId: food.id,
+                })
+                .returning();
+
+              newFoodId = forked!.id;
+            } else if (newFoodId === existing.foodId && food.source === 'user' && food.createdBy === userId) {
+              const foodUpdates: Record<string, unknown> = {};
+              if (data.name) foodUpdates.name = data.name;
+              if (data.imageUrl) foodUpdates.imageUrl = data.imageUrl;
+              if (data.calories !== undefined || data.protein !== undefined || data.fat !== undefined || data.carbs !== undefined) {
+                const per100gRatio = g > 0 ? 100 / g : 1;
+                if (data.calories !== undefined) foodUpdates.caloriesPer100g = Math.round(newCalories * per100gRatio);
+                if (data.protein !== undefined) foodUpdates.proteinPer100g = Math.round(newProtein * per100gRatio);
+                if (data.fat !== undefined) foodUpdates.fatPer100g = Math.round(newFat * per100gRatio);
+                if (data.carbs !== undefined) foodUpdates.carbsPer100g = Math.round(newCarbs * per100gRatio);
+              }
+              if (Object.keys(foodUpdates).length > 0) {
+                foodUpdates.updatedAt = new Date();
+                await tx.update(foods).set(foodUpdates).where(eq(foods.id, existing.foodId));
+              }
+            }
+          }
+        }
+
+        const [updated] = await tx
+          .update(foodEntries)
+          .set({
+            name: newName,
+            grams: newGrams,
+            foodId: newFoodId,
+            calories: newCalories,
+            protein: newProtein,
+            fat: newFat,
+            carbs: newCarbs,
+            imageUrl: newImageUrl,
+            entryDate: newEntryDate,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(foodEntries.id, id), eq(foodEntries.userId, userId)))
+          .returning();
+      });
+    } else {
+      await db
+        .update(foodEntries)
+        .set({
+          imageUrl: newImageUrl,
+          entryDate: newEntryDate,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(foodEntries.id, id), eq(foodEntries.userId, userId)));
+    }
+
+    if (newFoodId !== existing.foodId && existing.foodId && newFoodId) {
+      await db
+        .insert(userFoodStats)
+        .values({ userId, foodId: existing.foodId, frequency: 1 })
+        .onConflictDoUpdate({
+          target: [userFoodStats.userId, userFoodStats.foodId],
+          set: {
+            frequency: sql`GREATEST(${userFoodStats.frequency} - 1, 0)`,
+          },
+        });
+
+      await db
+        .insert(userFoodStats)
+        .values({ userId, foodId: newFoodId, frequency: 1 })
+        .onConflictDoUpdate({
+          target: [userFoodStats.userId, userFoodStats.foodId],
+          set: {
+            frequency: sql`${userFoodStats.frequency} + 1`,
+          },
+        });
+    }
+
+    const calDelta = newCalories - existing.calories;
+    const protDelta = newProtein - (existing.protein ?? 0);
+    const fatDelta = newFat - (existing.fat ?? 0);
+    const carbsDelta = newCarbs - (existing.carbs ?? 0);
+
+    if (existing.entryDate !== newEntryDate) {
+      if (existing.calories) {
+        await this.dailySummaryService.adjust(userId, {
+          calories: -existing.calories,
+          protein: -(existing.protein ?? 0),
+          fat: -(existing.fat ?? 0),
+          carbs: -(existing.carbs ?? 0),
+          date: existing.entryDate ?? undefined,
+        });
+      }
+      await this.dailySummaryService.adjust(userId, {
+        calories: newCalories,
+        protein: newProtein,
+        fat: newFat,
+        carbs: newCarbs,
+        date: newEntryDate ?? undefined,
+      });
+    } else if (calDelta || protDelta || fatDelta || carbsDelta) {
+      await this.dailySummaryService.adjust(userId, {
+        calories: calDelta,
+        protein: protDelta,
+        fat: fatDelta,
+        carbs: carbsDelta,
+        date: newEntryDate ?? undefined,
+      });
+    }
+
+    if (data.categoryName && newFoodId) {
+      const [cat] = await db
+        .insert(foodCategories)
+        .values({ name: data.categoryName })
+        .onConflictDoNothing({ target: foodCategories.name })
+        .returning();
+      const categoryId = cat?.id
+        ?? (await db.select().from(foodCategories).where(eq(foodCategories.name, data.categoryName)).limit(1))[0]?.id;
+      if (categoryId) {
+        const [food] = await db.select().from(foods).where(eq(foods.id, newFoodId)).limit(1);
+        if (food && food.source === 'user' && food.createdBy === userId) {
+          await db.update(foods).set({ categoryId }).where(eq(foods.id, newFoodId));
+        }
+      }
+    }
+
+    await invalidateAnalyticsCache(userId);
+    await cacheDelByPrefix('search:');
+
+    const [updated] = await db
+      .select()
+      .from(foodEntries)
+      .where(eq(foodEntries.id, id))
+      .limit(1);
+
+    return updated;
+  }
+
+  async getAll(limit = 50, offset = 0, userId?: string) {
+    const whereClause = userId
+      ? or(
+          sql`${foods.source} IN ('usda', 'off', 'system')`,
+          and(eq(foods.source, 'user'), eq(foods.createdBy, userId)),
+        )
+      : sql`${foods.source} IN ('usda', 'off', 'system')`;
+
     const rows = await db
       .select({
         food: foods,
@@ -239,6 +478,7 @@ export class FoodService {
       })
       .from(foods)
       .leftJoin(foodCategories, eq(foods.categoryId, foodCategories.id))
+      .where(whereClause)
       .orderBy(foods.name)
       .limit(limit)
       .offset(offset);
@@ -281,7 +521,7 @@ export class FoodService {
 
   // ── Food Catalog ──────────────────────────────────────────────
 
-  async search(query: SearchFoodQueryDto) {
+  async search(query: SearchFoodQueryDto, userId?: string) {
     const { q, limit } = query;
 
     // Extract weight from query with unit conversion
@@ -318,6 +558,13 @@ export class FoodService {
 
     // 2. Local DB search (full-text + LIKE fallback)
     const term = `%${normalizedQ}%`;
+    const visibilityClause = userId
+      ? or(
+          sql`${foods.source} IN ('usda', 'off', 'system')`,
+          and(eq(foods.source, 'user'), eq(foods.createdBy, userId)),
+        )
+      : sql`${foods.source} IN ('usda', 'off', 'system')`;
+
     const localRows = await db
       .select({
         food: foods,
@@ -326,10 +573,13 @@ export class FoodService {
       .from(foods)
       .leftJoin(foodCategories, eq(foods.categoryId, foodCategories.id))
       .where(
-        or(
-          sql`to_tsvector('simple', ${foods.name}) @@ plainto_tsquery('simple', ${normalizedQ})`,
-          sql`${foods.name} ILIKE ${term}`,
-          sql`${foods.barcode} LIKE ${term}`,
+        and(
+          visibilityClause,
+          or(
+            sql`to_tsvector('simple', ${foods.name}) @@ plainto_tsquery('simple', ${normalizedQ})`,
+            sql`${foods.name} ILIKE ${term}`,
+            sql`${foods.barcode} LIKE ${term}`,
+          ),
         ),
       )
       .orderBy(foods.name)

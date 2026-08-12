@@ -4,7 +4,7 @@ struct ProgressDashboardView: View {
     @Bindable var analyticsVM: AnalyticsViewModel
     @Bindable var chartVM: ProgressChartViewModel
     @Bindable var periodState: PeriodState
-    let isGuest: Bool
+    var tabBarState: TabBarState = TabBarState()
     @State private var prefsStore = PreferencesStore.shared
 
     var body: some View {
@@ -13,15 +13,10 @@ struct ProgressDashboardView: View {
             VStack(spacing: 24) {
                 header
 
-                if isGuest {
-                    GuestBanner(onRegister: { analyticsVM.goToAuth() })
-                }
-
                 PeriodSelectorView(
                     selectedPeriod: periodState.type,
                     fromDate: periodState.fromDate,
                     toDate: periodState.toDate,
-                    isGuest: isGuest,
                     onPeriodChange: {
                         analyticsVM.setPeriod($0)
                         chartVM.setPeriod($0)
@@ -37,6 +32,9 @@ struct ProgressDashboardView: View {
             }
             .padding(.horizontal, AppTheme.paddingHorizontal)
         }
+        .minimizeTabBarOnScroll(
+            tabBarState: tabBarState
+        )
         .refreshable {
             async let analytics: () = analyticsVM.refreshData()
             async let charts: () = chartVM.refreshData()
@@ -108,12 +106,16 @@ struct ProgressDashboardView: View {
         case .loaded(let data):
             if !data.isEmpty {
                 VStack(spacing: 20) {
-                    CaloriesChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(label: $0) })
-                    WaterChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(label: $0) })
-                    NutritionChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(label: $0) })
+                    CaloriesChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(label: $0) }, initialScrollX: data.first?.label ?? "")
+                    WaterChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(label: $0) }, initialScrollX: data.first?.label ?? "")
+                    NutritionChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(label: $0) }, initialScrollX: data.first?.label ?? "")
                 }
             } else {
-                emptyState
+                if case .empty = analyticsVM.state {
+                    EmptyView()
+                } else {
+                    emptyState
+                }
             }
         case .error:
             EmptyView()
@@ -185,6 +187,12 @@ struct ProgressDashboardView: View {
     }
 }
 
+extension ProgressDashboardView: Equatable {
+    static func == (lhs: ProgressDashboardView, rhs: ProgressDashboardView) -> Bool {
+        lhs.tabBarState === rhs.tabBarState
+    }
+}
+
 #Preview("NutriFlow Progress") {
     ProgressPreviewContent()
 }
@@ -192,7 +200,7 @@ struct ProgressDashboardView: View {
 private struct ProgressPreviewContent: View {
     var body: some View {
         let data = makePreviewData()
-        return ProgressDashboardView(analyticsVM: data.analytics, chartVM: data.chart, periodState: data.period, isGuest: false)
+        return ProgressDashboardView(analyticsVM: data.analytics, chartVM: data.chart, periodState: data.period)
             .background(AppTheme.background)
     }
 

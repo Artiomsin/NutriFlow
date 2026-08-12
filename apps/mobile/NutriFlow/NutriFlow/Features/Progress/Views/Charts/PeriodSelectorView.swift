@@ -4,7 +4,6 @@ struct PeriodSelectorView: View {
     let selectedPeriod: PeriodType
     let fromDate: Date
     let toDate: Date
-    let isGuest: Bool
     let onPeriodChange: (PeriodType) -> Void
     let onCustomRange: (Date, Date) -> Void
     @State private var showDatePicker = false
@@ -15,10 +14,8 @@ struct PeriodSelectorView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(PeriodType.allCases, id: \.self) { period in
-                        if isGuest, period != .today { } else {
-                            PeriodChip(title: period.displayName, isSelected: selectedPeriod == period) {
-                                if period == .custom { showDatePicker = true } else { onPeriodChange(period) }
-                            }
+                        PeriodChip(title: period.displayName, isSelected: selectedPeriod == period) {
+                            if period == .custom { showDatePicker = true } else { onPeriodChange(period) }
                         }
                     }
                 }
@@ -134,7 +131,6 @@ struct PeriodSelectorPreviewContent: View {
                 selectedPeriod: selectedPeriod,
                 fromDate: fromDate,
                 toDate: toDate,
-                isGuest: false,
                 onPeriodChange: { selectedPeriod = $0 },
                 onCustomRange: { from, to in
                     fromDate = from

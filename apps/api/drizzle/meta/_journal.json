@@ -99,6 +99,13 @@
       "when": 1783593353488,
       "tag": "0013_tan_golden_guardian",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1783882475254,
+      "tag": "0014_oval_skin",
+      "breakpoints": true
     }
   ]
 }

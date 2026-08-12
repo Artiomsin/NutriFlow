@@ -100,10 +100,6 @@ final class AuthViewModel {
         }
     }
 
-    func continueAsGuest() {
-        coordinator?.continueAsGuest()
-    }
-
     func logout() async {
         do {
             try await authService.logout()

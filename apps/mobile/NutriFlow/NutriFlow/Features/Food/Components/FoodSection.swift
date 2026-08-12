@@ -4,6 +4,7 @@ struct FoodSection: View {
 
     @Bindable var todayFoodVM: TodayFoodViewModel
     var onAddFood: (() -> Void)?
+    var onEditFood: ((FoodEntry) -> Void)?
     var onDeleteFood: ((String) -> Void)?
 
     var body: some View {
@@ -56,9 +57,9 @@ struct FoodSection: View {
             } else {
                 LazyVStack(spacing: 10) {
                     ForEach(sortedEntries(entries)) { entry in
-                        FoodCard(entry: entry) {
+                        FoodCard(entry: entry, onEdit: { onEditFood?(entry) }, onDelete: {
                             onDeleteFood?(entry.id)
-                        }
+                        })
                     }
                 }
             }

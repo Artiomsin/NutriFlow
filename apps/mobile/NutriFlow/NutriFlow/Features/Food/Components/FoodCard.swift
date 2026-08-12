@@ -4,6 +4,7 @@ import Kingfisher
 struct FoodCard: View {
 
     let entry: FoodEntry
+    var onEdit: (() -> Void)?
     var onDelete: (() -> Void)?
 
     @State private var showDeleteAlert = false
@@ -53,6 +54,18 @@ struct FoodCard: View {
             Spacer(minLength: 4)
 
             VStack(alignment: .trailing, spacing: 6) {
+                Button {
+                    onEdit?()
+                } label: {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 11))
+                        .foregroundColor(AppTheme.accent)
+                        .padding(8)
+                        .background(AppTheme.accent.opacity(0.12))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+
                 Button {
                     showDeleteAlert = true
                 } label: {
