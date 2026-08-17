@@ -38,6 +38,8 @@ enum FoodEndpoints {
 
     static let getPopularFood = "/foods/popular"
 
+    static let analyzeFood = "/food/analyze"
+
     static func getFoodByBarcode(_ barcode: String) -> String {
         let encoded = barcode.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? barcode
         return "/foods/barcode/\(encoded)"

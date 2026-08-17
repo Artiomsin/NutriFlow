@@ -58,4 +58,8 @@ protocol FoodServiceProtocol: Sendable {
     // ── Upload ──────────────────────────────────────────────────
 
     func uploadImage(_ data: Data) async throws -> String
+
+    // ── Scan ──────────────────────────────────────────────────
+
+    func analyzePhoto(_ data: Data) async throws -> [FoodAnalysisItem]
 }

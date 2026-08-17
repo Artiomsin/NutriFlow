@@ -21,6 +21,8 @@ import type { AuthPayload } from '../auth/types/auth.types';
 
 import { FoodService } from './food.service';
 import { UploadService } from '../upload/upload.service';
+import { FoodAnalysisService } from './food-analysis.service';
+
 import {
   createFoodEntrySchema,
   updateFoodEntrySchema,
@@ -43,18 +45,34 @@ import type {
 export class FoodController {
   constructor(
     private readonly foodService: FoodService,
+    private readonly foodAnalysisService: FoodAnalysisService,
     private readonly uploadService: UploadService,
   ) {}
 
   // ── Upload ───────────────────────────────────────────────────
 
-  @Post('food/upload')
-  @UseInterceptors(FileInterceptor('file'))
-  async upload(@UploadedFile() file: { buffer: Buffer; mimetype: string; originalname: string; size: number }) {
+  private assertImage(file?: { buffer: Buffer; mimetype: string; originalname: string; size: number }) {
     if (!file) throw new BadRequestException('File is required');
+    if (!file.mimetype?.startsWith('image/')) {
+      throw new BadRequestException('Only image files are allowed');
+    }
+    return file;
+  }
 
-    const url = await this.uploadService.upload(file.buffer, file.mimetype);
+  @Post('food/upload')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  async upload(@UploadedFile() file?: { buffer: Buffer; mimetype: string; originalname: string; size: number }) {
+    const f = this.assertImage(file);
+
+    const url = await this.uploadService.upload(f.buffer, f.mimetype);
     return { url };
+  }
+
+  @Post('food/analyze')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  async analyze(@UploadedFile() file?: { buffer: Buffer; mimetype: string; originalname: string; size: number }) {
+    const f = this.assertImage(file);
+    return this.foodAnalysisService.analyzePhoto(f);
   }
 
   // ── Food Category Routes ────────────────────────────────────

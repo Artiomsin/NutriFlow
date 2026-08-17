@@ -55,6 +55,7 @@ final class MockFoodService: FoodServiceProtocol {
     }
     func getCategories() async throws -> [FoodCategory] { [] }
     func uploadImage(_ data: Data) async throws -> String { "https://example.com/mock.jpg" }
+    func analyzePhoto(_ data: Data) async throws -> [FoodAnalysisItem] { [] }
 }
 
 final class MockWaterService: WaterTrackingServiceProtocol {

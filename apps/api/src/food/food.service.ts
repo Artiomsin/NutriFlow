@@ -77,6 +77,9 @@ export class FoodService {
           const ratio = data.grams && data.grams > 0 ? 100 / data.grams : 1;
           const source = data.brand ? 'usda' : 'user';
 
+          const per100g = (v: number) =>
+            Math.min(1000, Math.max(0, Math.round(v * ratio)));
+
           const [created] = await tx
             .insert(foods)
             .values({
@@ -85,10 +88,10 @@ export class FoodService {
               categoryId,
               barcode: data.barcode,
               imageUrl: data.imageUrl,
-              caloriesPer100g: Math.round(data.calories * ratio),
-              proteinPer100g: Math.round((data.protein ?? 0) * ratio),
-              fatPer100g: Math.round((data.fat ?? 0) * ratio),
-              carbsPer100g: Math.round((data.carbs ?? 0) * ratio),
+              caloriesPer100g: per100g(data.calories),
+              proteinPer100g: per100g(data.protein ?? 0),
+              fatPer100g: per100g(data.fat ?? 0),
+              carbsPer100g: per100g(data.carbs ?? 0),
               source,
               createdBy: userId,
             })

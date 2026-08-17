@@ -160,4 +160,10 @@ final class FoodService: FoodServiceProtocol, Sendable {
     func uploadImage(_ data: Data) async throws -> String {
         try await client.sendUpload(data: data, fileName: "photo.jpg", mimeType: "image/jpeg", path: "/food/upload")
     }
+
+    // ── Scan ──────────────────────────────────────────────────
+
+    func analyzePhoto(_ data: Data) async throws -> [FoodAnalysisItem] {
+        try await client.sendMultipart(data: data, fileName: "scan.jpg", mimeType: "image/jpeg", path: FoodEndpoints.analyzeFood)
+    }
 }

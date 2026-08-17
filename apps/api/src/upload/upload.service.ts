@@ -29,15 +29,19 @@ export class UploadService {
     if (this.s3) {
       const ext = mime === 'image/png' ? '.png' : '.jpg';
       const key = `uploads/${randomUUID()}${ext}`;
-      await this.s3.send(new PutObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-        Body: buffer,
-        ContentType: mime,
-      }));
+      await this.s3.send(
+        new PutObjectCommand({
+          Bucket: this.bucket,
+          Key: key,
+          Body: buffer,
+          ContentType: mime,
+        }),
+      );
       return `${this.publicUrl}/${key}`;
     }
 
-    throw new Error('Upload storage not configured. Set S3_ACCESS_KEY_ID, S3_ENDPOINT, S3_BUCKET, S3_PUBLIC_URL');
+    throw new Error(
+      'Upload storage not configured. Set S3_ACCESS_KEY_ID, S3_ENDPOINT, S3_BUCKET, S3_PUBLIC_URL',
+    );
   }
 }

@@ -82,16 +82,39 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
     }
 
     func sendUpload(data: Data, fileName: String, mimeType: String, path: String) async throws -> String {
-        try await executeUpload(data: data, fileName: fileName, mimeType: mimeType, path: path, retryOn401: true)
+        struct UploadResponse: Codable { let url: String }
+        let response: UploadResponse = try await sendMultipart(
+            data: data, fileName: fileName, mimeType: mimeType, path: path
+        )
+        return response.url
     }
 
-    private func executeUpload(data: Data, fileName: String, mimeType: String, path: String, retryOn401: Bool) async throws -> String {
+    func sendMultipart<T: Decodable & Sendable>(
+        data: Data,
+        fileName: String,
+        mimeType: String,
+        path: String
+    ) async throws -> T {
+        let (responseData, http) = try await executeMultipart(
+            data: data, fileName: fileName, mimeType: mimeType, path: path, retryOn401: true
+        )
+        switch http.statusCode {
+        case 200...299:
+            return try JSONDecoder().decode(T.self, from: responseData)
+        case 401: throw APIError.unauthorized
+        case 403: throw APIError.forbidden
+        case 404: throw APIError.notFound
+        case 500...599: throw APIError.serverError(statusCode: http.statusCode)
+        default: throw APIError.unknown
+        }
+    }
+
+    private func executeMultipart(
+        data: Data, fileName: String, mimeType: String, path: String, retryOn401: Bool
+    ) async throws -> (Data, HTTPURLResponse) {
         let boundary = UUID().uuidString
 
-        guard let components = URLComponents(string: APIConfig.baseURL + path) else {
-            throw APIError.invalidURL
-        }
-        guard let url = components.url else {
+        guard let url = URL(string: APIConfig.baseURL + path) else {
             throw APIError.invalidURL
         }
 
@@ -119,17 +142,10 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
 
         if retryOn401, http.statusCode == 401, path != AuthEndpoints.refresh {
             try await refreshService?.refresh()
-            return try await executeUpload(data: data, fileName: fileName, mimeType: mimeType, path: path, retryOn401: false)
+            return try await executeMultipart(data: data, fileName: fileName, mimeType: mimeType, path: path, retryOn401: false)
         }
 
-        switch http.statusCode {
-        case 200...299:
-            struct UploadResponse: Codable { let url: String }
-            let decoded = try JSONDecoder().decode(UploadResponse.self, from: responseData)
-            return decoded.url
-        case 401: throw APIError.unauthorized
-        default: throw APIError.serverError(statusCode: http.statusCode)
-        }
+        return (responseData, http)
     }
 
     private func buildURLRequest<Body: Encodable & Sendable>(

@@ -158,3 +158,34 @@ struct CreateServingRequest: Codable, Sendable {
     let name: String
     let grams: Int
 }
+
+
+struct FoodAnalysisItem: Codable, Identifiable, Sendable {
+    let name: String?
+    let category: String?
+    let grams: Int?
+    let calories: Double?
+    let protein: Double?
+    let fat: Double?
+    let carbs: Double?
+    let unit: String?
+    let imageUrl: String?
+    let confidence: Double?
+    let foodId: String?
+    let source: String?
+    let aiCalories: Double?
+    let catalogCalories: Double?
+
+    var id: String {
+        name ?? UUID().uuidString
+    }
+
+    var displayName: String {
+        name ?? "Unknown food"
+    }
+
+    var bestCalories: Double? {
+        if source == "catalog" { return catalogCalories ?? calories }
+        return aiCalories ?? calories
+    }
+}

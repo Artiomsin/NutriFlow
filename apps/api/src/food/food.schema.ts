@@ -5,13 +5,13 @@ import { z } from 'zod';
 export const createFoodEntrySchema = z.object({
   name: z.string().min(1).max(120),
 
-  foodId: z.string().optional(),
-  grams: z.number().int().nonnegative().optional(),
+  foodId: z.string().uuid().optional(),
+  grams: z.number().int().min(0).max(10000).optional(),
 
-  calories: z.number().int().nonnegative(),
-  protein: z.number().int().nonnegative().optional(),
-  fat: z.number().int().nonnegative().optional(),
-  carbs: z.number().int().nonnegative().optional(),
+  calories: z.number().int().min(0).max(5000),
+  protein: z.number().int().min(0).max(1000).optional(),
+  fat: z.number().int().min(0).max(1000).optional(),
+  carbs: z.number().int().min(0).max(1000).optional(),
 
   unit: z.string().max(10).optional(),
 
@@ -19,7 +19,7 @@ export const createFoodEntrySchema = z.object({
   imageUrl: z.string().max(500).optional(),
   categoryName: z.string().max(100).optional(),
   barcode: z.string().max(50).optional(),
-  servingGrams: z.number().int().nonnegative().optional(),
+  servingGrams: z.number().int().nonnegative().max(10000).optional(),
 
   date: z.string().optional(),
 });
@@ -67,3 +67,25 @@ export const searchFoodQuerySchema = z.object({
 });
 
 export type SearchFoodQueryDto = z.infer<typeof searchFoodQuerySchema>;
+
+export const foodAnalysisItemSchema = z.object({
+  name: z.string().max(255).nullable(),
+  category: z.string().max(100).nullish(),
+  grams: z.number().int().nonnegative().nullable(),
+  calories: z.number().nonnegative().nullable(),
+  protein: z.number().nonnegative().nullable(),
+  fat: z.number().nonnegative().nullable(),
+  carbs: z.number().nonnegative().nullable(),
+  unit: z.string().max(10).nullish(),
+  imageUrl: z.string().max(500).nullish(),
+  confidence: z.number().min(0).max(1).nullable(),
+  foodId: z.string().uuid().nullish(),
+  source: z.enum(['ai', 'catalog']).nullish(),
+  aiCalories: z.number().nonnegative().nullish(),
+  catalogCalories: z.number().nonnegative().nullish(),
+});
+
+export const foodAnalysisResponseSchema = z.array(foodAnalysisItemSchema);
+
+export type FoodAnalysisItem = z.infer<typeof foodAnalysisItemSchema>;
+export type FoodAnalysisResult = z.infer<typeof foodAnalysisResponseSchema>;
