@@ -35,15 +35,6 @@ struct ServingPickerView: View {
             }
         }
         .background(AppTheme.background)
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Done") {
-                    gramFieldFocused = false
-                }
-                .fontWeight(.semibold)
-            }
-        }
         .navigationTitle("Add Portion")
         .navigationBarTitleDisplayMode(.inline)
     }

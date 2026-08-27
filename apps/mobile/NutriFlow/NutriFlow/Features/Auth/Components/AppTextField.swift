@@ -1,72 +1,63 @@
 import SwiftUI
+import UIKit
 
-struct FocusModifier: ViewModifier {
-    var focus: FocusState<Bool>.Binding?
+struct AppTextField<Field: Hashable>: View {
 
-    func body(content: Content) -> some View {
-        if let focus {
-            content.focused(focus)
-        } else {
-            content
-        }
-    }
-}
-
-struct TextContentTypeModifier: ViewModifier {
-    var contentType: UITextContentType?
-
-    func body(content: Content) -> some View {
-        if let contentType {
-            content.textContentType(contentType)
-        } else {
-            content
-        }
-    }
-}
-
-struct AppTextField: View {
-    
     let title: String
-    
+
     @Binding var text: String
-    
+
     var keyboardType: UIKeyboardType = .default
-    
     var textContentType: UITextContentType? = nil
-    
     var submitLabel: SubmitLabel = .return
-    
-    var focus: FocusState<Bool>.Binding? = nil
-    
+
+    var focus: FocusState<Field?>.Binding
+    var focusValue: Field
+
     var onSubmit: (() -> Void)? = nil
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            
+
             Text(title)
                 .font(.caption)
                 .foregroundColor(AppTheme.textSecondary)
-            
+                .frame(height: 16, alignment: .leading)
+
             TextField("", text: $text)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .keyboardType(keyboardType)
-                .foregroundColor(AppTheme.textPrimary)
-                .padding()
-                .background(fieldBackground)
-                .modifier(FocusModifier(focus: focus))
-                .modifier(TextContentTypeModifier(contentType: textContentType))
+                .textContentType(textContentType)
                 .submitLabel(submitLabel)
-                .onSubmit { onSubmit?() }
+                .focused(
+                    focus,
+                    equals: focusValue
+                )
+                .foregroundColor(AppTheme.textPrimary)
+                .padding(.horizontal, 16)
+                .frame(height: 52)
+                .background(fieldBackground)
+                .onSubmit {
+                    onSubmit?()
+                }
         }
+        .frame(maxWidth: .infinity)
     }
-    
+
     private var fieldBackground: some View {
-        RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-            .fill(AppTheme.fieldBackground)
-            .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                    .stroke(AppTheme.fieldBorder, lineWidth: 1)
+        RoundedRectangle(
+            cornerRadius: AppTheme.cornerRadiusMedium
+        )
+        .fill(AppTheme.fieldBackground)
+        .overlay(
+            RoundedRectangle(
+                cornerRadius: AppTheme.cornerRadiusMedium
             )
+            .stroke(
+                AppTheme.fieldBorder,
+                lineWidth: 1
+            )
+        )
     }
 }

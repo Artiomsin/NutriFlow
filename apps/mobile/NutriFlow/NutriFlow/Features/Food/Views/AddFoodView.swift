@@ -12,12 +12,17 @@ struct AddFoodView: View {
     @State private var photosItem: PhotosPickerItem?
     @State private var selectedImageData: Data?
     @State private var prefsStore = PreferencesStore.shared
-    @FocusState private var nameFocused: Bool
-    @FocusState private var gramsFocused: Bool
-    @FocusState private var caloriesFocused: Bool
-    @FocusState private var proteinFocused: Bool
-    @FocusState private var fatFocused: Bool
-    @FocusState private var carbsFocused: Bool
+
+    private enum Field: Hashable {
+        case name
+        case grams
+        case calories
+        case protein
+        case fat
+        case carbs
+    }
+
+    @FocusState private var focusedField: Field?
 
     init(onSave: @escaping () -> Void, viewModel: AddFoodViewModel, todayFoodVM: TodayFoodViewModel, onSearchCatalog: (() -> Void)? = nil, onSelectPopular: ((CatalogFood) -> Void)? = nil) {
         self.onSave = onSave
@@ -49,14 +54,6 @@ struct AddFoodView: View {
         .background(AppTheme.background.ignoresSafeArea())
         .navigationTitle("Add Food")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                if gramsFocused || caloriesFocused || proteinFocused || fatFocused || carbsFocused {
-                    Spacer()
-                    Button("Done") { dismissKeyboard() }
-                }
-            }
-        }
         .task {
             await viewModel.loadCategories()
             await viewModel.loadPopular()
@@ -133,13 +130,25 @@ struct AddFoodView: View {
         AppCard {
             VStack(alignment: .leading, spacing: 14) {
                 sectionLabel("Details", icon: "square.and.pencil")
-                AppTextField(title: "Food name", text: $viewModel.name, focus: $nameFocused)
-                AppTextField(title: viewModel.gramsLabel, text: $viewModel.grams, keyboardType: .decimalPad, focus: $gramsFocused)
-                AppTextField(title: viewModel.caloriesLabel, text: $viewModel.calories, keyboardType: .numberPad, focus: $caloriesFocused)
+                AppTextField(title: "Food name", text: $viewModel.name, submitLabel: .return, focus: $focusedField, focusValue: .name) {
+                    nextField(.grams)
+                }
+                AppTextField(title: viewModel.gramsLabel, text: $viewModel.grams, keyboardType: .decimalPad, submitLabel: .return, focus: $focusedField, focusValue: .grams) {
+                    nextField(.calories)
+                }
+                AppTextField(title: viewModel.caloriesLabel, text: $viewModel.calories, keyboardType: .numberPad, submitLabel: .return, focus: $focusedField, focusValue: .calories) {
+                    nextField(.protein)
+                }
                 HStack(spacing: 12) {
-                    AppTextField(title: viewModel.proteinLabel, text: $viewModel.protein, keyboardType: .decimalPad, focus: $proteinFocused)
-                    AppTextField(title: viewModel.fatLabel, text: $viewModel.fat, keyboardType: .decimalPad, focus: $fatFocused)
-                    AppTextField(title: viewModel.carbsLabel, text: $viewModel.carbs, keyboardType: .decimalPad, focus: $carbsFocused)
+                    AppTextField(title: viewModel.proteinLabel, text: $viewModel.protein, keyboardType: .decimalPad, submitLabel: .return, focus: $focusedField, focusValue: .protein) {
+                        nextField(.fat)
+                    }
+                    AppTextField(title: viewModel.fatLabel, text: $viewModel.fat, keyboardType: .decimalPad, submitLabel: .return, focus: $focusedField, focusValue: .fat) {
+                        nextField(.carbs)
+                    }
+                    AppTextField(title: viewModel.carbsLabel, text: $viewModel.carbs, keyboardType: .decimalPad, submitLabel: .return, focus: $focusedField, focusValue: .carbs) {
+                        focusedField = nil
+                    }
                 }
             }
         }
@@ -218,12 +227,13 @@ struct AddFoodView: View {
     }
 
     private func dismissKeyboard() {
-        nameFocused = false
-        gramsFocused = false
-        caloriesFocused = false
-        proteinFocused = false
-        fatFocused = false
-        carbsFocused = false
+        focusedField = nil
+    }
+
+    private func nextField(_ field: Field) {
+        Task { @MainActor in
+            focusedField = field
+        }
     }
 
     private func loadImage(_ item: PhotosPickerItem?) {

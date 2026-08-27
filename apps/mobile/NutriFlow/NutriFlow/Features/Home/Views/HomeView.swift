@@ -59,6 +59,7 @@ struct HomeView: View {
         .onChange(of: navPath) { _, newPath in
             tabBarState.isTabBarHidden = !newPath.isEmpty
         }
+        .background(AppTheme.background)
         .sheet(item: $editingFood) { entry in
             let vm = EditFoodViewModel(entry: entry, foodService: foodService, coordinator: coordinator)
             EditFoodView(viewModel: vm) {
@@ -100,6 +101,7 @@ struct HomeView: View {
             }
             .padding(.bottom, 100)
         }
+        .background(AppTheme.background)
         .minimizeTabBarOnScroll(
             tabBarState: tabBarState,
             isActive: { navPath.isEmpty }
