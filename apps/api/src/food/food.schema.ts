@@ -64,6 +64,7 @@ export type CreateFoodDto = z.infer<typeof createFoodSchema>;
 export const searchFoodQuerySchema = z.object({
   q: z.string().min(1).max(100),
   limit: z.coerce.number().int().min(1).max(50).optional().default(20),
+  offset: z.coerce.number().int().min(0).max(500).optional().default(0),
 });
 
 export type SearchFoodQueryDto = z.infer<typeof searchFoodQuerySchema>;

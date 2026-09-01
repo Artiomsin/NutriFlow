@@ -165,6 +165,14 @@ export class FoodController {
     return this.foodService.getById(id);
   }
 
+  @Post('foods/:id/select')
+  select(
+    @User() user: AuthPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.foodService.trackSelection(user.userId, id);
+  }
+
   @Post('foods')
   createFood(
     @User() user: AuthPayload,
