@@ -18,6 +18,7 @@ struct HomeView: View {
     
     @State private var navPath: [HomeNavRoute] = []
     @State private var editingFood: FoodEntry?
+    @State private var foodSearchVM: FoodSearchViewModel?
     
     init(homeViewModel: HomeViewModel, foodService: FoodServiceProtocol, coordinator: AppCoordinator? = nil, tabBarState: TabBarState = TabBarState()) {
         self.homeViewModel = homeViewModel
@@ -39,13 +40,13 @@ struct HomeView: View {
                             navPath.append(HomeNavRoute.servingPicker(food, nil, nil))
                         })
                     case .foodSearch:
-                        let searchVM = FoodSearchViewModel(service: foodService)
-                        FoodSearchView(
-                            viewModel: searchVM,
-                            onSelect: { food, suggestedGrams, suggestedUnit in
-                                navPath.append(HomeNavRoute.servingPicker(food, suggestedGrams, suggestedUnit))
+                        searchView
+                            .task {
+                                if foodSearchVM == nil {
+                                    foodSearchVM = FoodSearchViewModel(service: foodService)
+                                }
                             }
-                        )
+                        
                     case .servingPicker(let food, let suggestedGrams, let suggestedUnit):
                         let pickerVM = ServingPickerViewModel(food: food, service: foodService, todayFoodVM: homeViewModel.todayFoodVM, suggestedGrams: suggestedGrams, suggestedUnit: suggestedUnit, coordinator: coordinator)
                         ServingPickerView(viewModel: pickerVM, onSave: popToRoot)
@@ -141,6 +142,19 @@ struct HomeView: View {
         .onAppear {
             AnalyticsManager.shared.track(.screenView(screen: "home"))
             Task { await homeViewModel.reloadGoals() }
+        }
+    }
+    
+    @ViewBuilder
+    private var searchView: some View {
+        if let vm = foodSearchVM {
+            FoodSearchView(viewModel: vm) { food, sg, su in
+                navPath.append(.servingPicker(food, sg, su))
+            }
+        } else {
+            ProgressView()
+                .tint(AppTheme.accent)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
     

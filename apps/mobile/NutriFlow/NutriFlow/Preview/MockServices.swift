@@ -35,9 +35,18 @@ final class MockFoodService: FoodServiceProtocol {
     }
     func deleteFoodEntry(id: String, date: String? = nil) async throws { }
 
-    func searchFood(query: String, limit: Int) async throws -> FoodSearchResponse {
-        FoodSearchResponse(foods: [], suggestedGrams: nil, suggestedUnit: nil)
+    func searchFood(query: String, limit: Int, offset: Int) async throws -> FoodSearchResponse {
+        FoodSearchResponse(
+            foods: [],
+            suggestedGrams: nil,
+            suggestedUnit: nil,
+            hasMore: false,
+            total: 0,
+            offset: offset,
+            limit: limit
+        )
     }
+    func selectFood(id: String) async throws { }
     func getPopularFood() async throws -> [CatalogFood] {
         [
             CatalogFood(id: "1", name: "Apple", categoryId: "1", categoryName: "Fruits", brand: nil, caloriesPer100g: 52, proteinPer100g: nil, fatPer100g: nil, carbsPer100g: 14, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),

@@ -3,15 +3,15 @@ import Kingfisher
 
 struct FoodSearchView: View {
     let onSelect: (CatalogFood, Int?, String?) -> Void
-
+    
     @State private var foodSearchVM: FoodSearchViewModel
     @FocusState private var searchFocused: Bool
-
+    
     init(viewModel: FoodSearchViewModel, onSelect: @escaping (CatalogFood, Int?, String?) -> Void) {
         self.onSelect = onSelect
         _foodSearchVM = State(initialValue: viewModel)
     }
-
+    
     var body: some View {
         VStack(spacing: 0) {
             searchBar
@@ -23,20 +23,20 @@ struct FoodSearchView: View {
         .navigationTitle("Search Food")
         .navigationBarTitleDisplayMode(.inline)
     }
-
+    
     private var searchBar: some View {
         HStack {
             Image(systemName: "magnifyingglass")
                 .font(.subheadline)
                 .foregroundColor(AppTheme.textSecondary)
-
+            
             TextField("Search food...", text: $foodSearchVM.query)
                 .focused($searchFocused)
                 .foregroundColor(AppTheme.textPrimary)
                 .autocorrectionDisabled()
                 .onChange(of: foodSearchVM.query) { _, _ in foodSearchVM.search() }
                 .onSubmit { searchFocused = false }
-
+            
             if !foodSearchVM.query.isEmpty {
                 Button {
                     foodSearchVM.query = ""
@@ -60,11 +60,11 @@ struct FoodSearchView: View {
         .padding(.top, 12)
         .animation(.easeInOut(duration: 0.2), value: foodSearchVM.query.isEmpty)
     }
-
+    
     @ViewBuilder
     private var content: some View {
         switch foodSearchVM.state {
-
+            
         case .idle:
             VStack(spacing: 12) {
                 Spacer()
@@ -76,16 +76,10 @@ struct FoodSearchView: View {
                     .foregroundColor(AppTheme.textSecondary)
                 Spacer()
             }
-
+            
         case .searching:
-            VStack {
-                Spacer()
-                ProgressView()
-                    .tint(AppTheme.accent)
-                    .scaleEffect(1.2)
-                Spacer()
-            }
-
+            skeletonGrid
+            
         case .error(let error):
             VStack(spacing: 8) {
                 Spacer()
@@ -99,9 +93,9 @@ struct FoodSearchView: View {
                     .padding(.horizontal, 40)
                 Spacer()
             }
-
+            
         case .results(let foods):
-
+            
             if foods.isEmpty {
                 VStack(spacing: 8) {
                     Spacer()
@@ -121,6 +115,7 @@ struct FoodSearchView: View {
                     ) {
                         ForEach(foods, id: \.stableId) { food in
                             FoodCardSearch(food: food) {
+                                foodSearchVM.selectIfLocal(food)
                                 onSelect(food, foodSearchVM.suggestedGrams, foodSearchVM.suggestedUnit)
                             }
                             .transition(.opacity.combined(with: .scale(scale: 0.95)))
@@ -128,19 +123,84 @@ struct FoodSearchView: View {
                     }
                     .padding(14)
                     .animation(.easeInOut(duration: 0.3), value: foods.count)
+
+                    if foodSearchVM.loadMoreError {
+                        Button {
+                            foodSearchVM.loadMore()
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "arrow.clockwise")
+                                Text("Failed to load. Retry")
+                            }
+                            .font(.subheadline)
+                            .foregroundColor(AppTheme.accent)
+                            .padding(.vertical, 16)
+                        }
+                    } else if foodSearchVM.hasMore || foodSearchVM.isLoadMore {
+                        ProgressView()
+                            .tint(AppTheme.accent)
+                            .padding(.vertical, 20)
+                    }
                 }
                 .scrollDismissesKeyboard(.immediately)
+                .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                    geometry.contentSize.height - geometry.containerSize.height - geometry.contentOffset.y
+                } action: { _, remaining in
+                    if remaining < 200 {
+                        foodSearchVM.loadMore()
+                    }
+                }
             }
         }
     }
 }
 
-struct FoodCardSearch: View {
+private var skeletonGrid: some View {
+    ScrollView {
+        LazyVGrid(
+            columns: [
+                GridItem(.flexible(), spacing: 14),
+                GridItem(.flexible(), spacing: 14)
+            ],
+            spacing: 14
+        ) {
+            ForEach(0..<10, id: \.self) { _ in
+                skeletonCard
+            }
+        }
+        .padding(14)
+    }
+    .scrollDisabled(true)
+    .redacted(reason: .placeholder)
+}
 
+private var skeletonCard: some View {
+    VStack(alignment: .leading, spacing: 0) {
+        RoundedRectangle(cornerRadius: 0)
+            .fill(Color.gray.opacity(0.2))
+            .frame(height: 120)
+            .frame(maxWidth: .infinity)
+        VStack(alignment: .leading, spacing: 8) {
+            Circle()
+                .fill(Color.gray.opacity(0.2))
+                .frame(width: 40, height: 8)
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Color.gray.opacity(0.2))
+                .frame(width: 80, height: 10)
+        }
+        .padding(12)
+    }
+    .background(AppTheme.cardBackground)
+    .clipShape(RoundedRectangle(cornerRadius: 14))
+}
+
+
+struct FoodCardSearch: View {
+    
     let food: CatalogFood
     let action: () -> Void
     @State private var prefsStore = PreferencesStore.shared
-
+    
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 0) {
@@ -152,10 +212,10 @@ struct FoodCardSearch: View {
         }
         .buttonStyle(.plain)
     }
-
+    
     private var imageSection: some View {
         let showImage = food.displayImageUrl.flatMap { URL(string: $0) }
-
+        
         return Color.clear
             .frame(height: 120)
             .frame(maxWidth: .infinity)
@@ -194,7 +254,7 @@ struct FoodCardSearch: View {
             }
             .clipped()
     }
-
+    
     private var fallbackImage: some View {
         ZStack {
             Color(red: 0.06, green: 0.1, blue: 0.15)
@@ -203,44 +263,57 @@ struct FoodCardSearch: View {
                 .foregroundColor(AppTheme.textTertiary.opacity(0.3))
         }
     }
-
+    
     private var infoSection: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(food.name)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(AppTheme.textPrimary)
-                    .lineLimit(2)
+        VStack(alignment: .leading, spacing: 8) {
+            Text(food.name)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(AppTheme.textPrimary)
+                .multilineTextAlignment(.leading)
+                .lineLimit(2)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: 32, alignment: .topLeading)
 
+            HStack(spacing: 6) {
                 SourceBadge(source: food.source)
 
-                if let cat = food.categoryName {
+                if let cat = food.categoryName, !cat.isEmpty {
                     Text(cat)
                         .font(.system(size: 9, weight: .medium))
                         .foregroundColor(AppTheme.accent)
-                        .padding(.horizontal, 8)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .padding(.horizontal, 7)
                         .padding(.vertical, 3)
-                        .background(AppTheme.accent.opacity(0.1))
-                        .cornerRadius(6)
+                        .background(
+                            AppTheme.accent.opacity(0.1),
+                            in: RoundedRectangle(cornerRadius: 6)
+                        )
                 }
-
-                Text("\(UnitConversion.formatEnergyValue(kcal: food.caloriesPer100g, preferred: prefsStore.preferredUnits)) \(UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits))")
-                    .font(.caption)
-                    .foregroundColor(AppTheme.textTertiary)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer()
+            HStack {
+                Text("\(UnitConversion.formatEnergyValue(kcal: food.caloriesPer100g, preferred: prefsStore.preferredUnits)) \(UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits))")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(AppTheme.textTertiary)
+                    .lineLimit(1)
 
-            HStack(spacing: 8) {
-                MacroVal(value: UnitConversion.formatMacro(grams: food.proteinPer100g ?? 0, preferred: prefsStore.preferredUnits), label: "P",
-                         color: Color(red: 0.22, green: 0.6, blue: 0.99))
-                MacroVal(value: UnitConversion.formatMacro(grams: food.fatPer100g ?? 0, preferred: prefsStore.preferredUnits), label: "F",
-                         color: Color(red: 1.0, green: 0.58, blue: 0.18))
-                MacroVal(value: UnitConversion.formatMacro(grams: food.carbsPer100g ?? 0, preferred: prefsStore.preferredUnits), label: "C",
-                         color: Color(red: 0.28, green: 0.82, blue: 0.38))
+                Spacer(minLength: 8)
+
+                HStack(spacing: 7) {
+                    MacroVal(value: UnitConversion.formatMacro(grams: food.proteinPer100g ?? 0, preferred: prefsStore.preferredUnits), label: "P",
+                             color: Color(red: 0.22, green: 0.6, blue: 0.99))
+                    MacroVal(value: UnitConversion.formatMacro(grams: food.fatPer100g ?? 0, preferred: prefsStore.preferredUnits), label: "F",
+                             color: Color(red: 1.0, green: 0.58, blue: 0.18))
+                    MacroVal(value: UnitConversion.formatMacro(grams: food.carbsPer100g ?? 0, preferred: prefsStore.preferredUnits), label: "C",
+                             color: Color(red: 0.28, green: 0.82, blue: 0.38))
+                }
             }
         }
         .padding(12)
+        .frame(maxWidth: .infinity, minHeight: 128, alignment: .topLeading)
     }
 }
 
@@ -254,27 +327,30 @@ private struct MacroVal: View {
             Text(value)
                 .font(.system(size: 12, weight: .bold))
                 .foregroundColor(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
             Text(label)
                 .font(.system(size: 8, weight: .semibold))
                 .foregroundColor(AppTheme.textTertiary)
         }
+        .frame(width: 28)
     }
 }
 
 struct SourceBadge: View {
     let source: String
-
+    
     private var label: String {
         switch source {
-        case "usda_sr": return "USDA SR Legacy"
-        case "usda": return "USDA Branded"
-        case "openfoodfacts": return "OpenFoodFacts"
+        case "usda_sr": return "USDA SR"
+        case "usda": return "USDA"
+        case "openfoodfacts": return "OFF"
         case "user": return "My Food"
         case "local": return "System"
         default: return source
         }
     }
-
+    
     private var color: Color {
         switch source {
         case "usda_sr": return Color(red: 0.2, green: 0.5, blue: 1.0)
@@ -285,7 +361,7 @@ struct SourceBadge: View {
         default: return .gray
         }
     }
-
+    
     var body: some View {
         HStack(spacing: 4) {
             Circle()
@@ -309,6 +385,62 @@ struct SourceBadge: View {
             onSelect: { _, _, _ in }
         )
     }
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Food Card (long name)") {
+    LazyVGrid(
+        columns: [
+            GridItem(.flexible(), spacing: 14),
+            GridItem(.flexible(), spacing: 14)
+        ],
+        spacing: 14
+    ) {
+        FoodCardSearch(
+            food: CatalogFood(
+                id: "1",
+                name: "Chicken Breast, Roasted with Herbs and Spices",
+                categoryId: nil,
+                categoryName: "Meat, Poultry",
+                brand: "Organic Farms",
+                caloriesPer100g: 165,
+                proteinPer100g: 31,
+                fatPer100g: 4,
+                carbsPer100g: 0,
+                barcode: nil,
+                imageUrl: nil,
+                source: "user",
+                createdBy: nil,
+                createdAt: "",
+                updatedAt: "",
+                servings: nil
+            ),
+            action: {}
+        )
+        FoodCardSearch(
+            food: CatalogFood(
+                id: "2",
+                name: "Apple",
+                categoryId: nil,
+                categoryName: nil,
+                brand: nil,
+                caloriesPer100g: 52,
+                proteinPer100g: 1,
+                fatPer100g: 0,
+                carbsPer100g: 14,
+                barcode: nil,
+                imageUrl: nil,
+                source: "usda",
+                createdBy: nil,
+                createdAt: "",
+                updatedAt: "",
+                servings: nil
+            ),
+            action: {}
+        )
+    }
+    .padding(14)
+    .background(AppTheme.background)
     .preferredColorScheme(.dark)
 }
 

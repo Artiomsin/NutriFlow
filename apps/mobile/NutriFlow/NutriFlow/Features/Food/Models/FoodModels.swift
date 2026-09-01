@@ -103,12 +103,6 @@ struct CatalogFood: Codable, Identifiable, Hashable, Sendable {
     let servings: [FoodServing]?
 }
 
-struct FoodSearchResponse: Codable, Sendable {
-    let foods: [CatalogFood]
-    let suggestedGrams: Int?
-    let suggestedUnit: String?
-}
-
 extension CatalogFood {
     var stableId: String {
         if !id.isEmpty {
@@ -121,6 +115,28 @@ extension CatalogFood {
     }
 }
 
+
+struct FoodSearchResponse: Codable, Sendable {
+    let foods: [CatalogFood]
+    let suggestedGrams: Int?
+    let suggestedUnit: String?
+    let hasMore: Bool
+    let total: Int
+    let offset: Int
+    let limit: Int
+}
+
+extension FoodSearchResponse {
+    init(foods: [CatalogFood], suggestedGrams: Int?, suggestedUnit: String?) {
+        self.foods = foods
+        self.suggestedGrams = suggestedGrams
+        self.suggestedUnit = suggestedUnit
+        self.hasMore = false
+        self.total = 0
+        self.offset = 0
+        self.limit = 20
+    }
+}
 
 struct FoodServing: Codable, Identifiable, Hashable, Sendable {
     let id: String
