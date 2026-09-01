@@ -240,9 +240,11 @@ struct AddFoodView: View {
         guard let item else { return }
         Task {
             guard let data = try? await item.loadTransferable(type: Data.self) else { return }
-            guard let image = UIImage(data: data) else { return }
-            let thumb = image.preparingThumbnail(of: CGSize(width: 800, height: 800))
-            selectedImageData = thumb?.jpegData(compressionQuality: 0.8)
+            selectedImageData = ImageCompressor.optimizedJPEGData(
+                data,
+                maxDimension: 800,
+                quality: 0.8
+            )
         }
     }
 }
@@ -346,9 +348,7 @@ private struct PopularCard: View {
     }
 
     private func macroPill(color: Color, label: String, grams: Int?) -> some View {
-        let isImperial = preferred.weight == .imperial
-        let value = isImperial ? Double(grams ?? 0) / UnitConversion.gramsPerOunce : Double(grams ?? 0)
-        let unit = isImperial ? "oz" : "g"
+        let unit = preferred.weight == .imperial ? "oz" : "g"
         return HStack(spacing: 2) {
             Circle()
                 .fill(color)
@@ -356,7 +356,7 @@ private struct PopularCard: View {
             Text(label)
                 .font(.system(size: 9, weight: .bold))
                 .foregroundColor(color)
-            Text("\(Self.smartValue(value)) \(unit)")
+            Text("\(UnitConversion.macroDisplay(grams: Double(grams ?? 0), preferred: preferred)) \(unit)")
                 .font(.system(size: 9))
                 .foregroundColor(.white.opacity(0.95))
                 .lineLimit(1)
@@ -365,18 +365,5 @@ private struct PopularCard: View {
         .padding(.horizontal, 6)
         .padding(.vertical, 3)
         .background(color.opacity(0.25), in: Capsule())
-    }
-
-    /// Display-only formatting: whole numbers without decimals, otherwise up to
-    /// 2 decimals with trailing zeros trimmed. Underlying values stay unchanged.
-    private static func smartValue(_ value: Double) -> String {
-        let rounded = (value * 100).rounded() / 100
-        if rounded == rounded.rounded() {
-            return String(Int(rounded))
-        }
-        var text = String(format: "%.2f", rounded)
-        while text.last == "0" { text.removeLast() }
-        if text.last == "." { text.removeLast() }
-        return text
     }
 }

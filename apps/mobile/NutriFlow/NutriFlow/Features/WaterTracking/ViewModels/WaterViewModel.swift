@@ -27,7 +27,7 @@ final class WaterViewModel {
             return
         }
 
-        state = .loading
+        if case .loaded = state {} else { state = .loading }
         do {
             #if DEBUG
             print("[Network] WaterVM loadToday")
@@ -38,6 +38,8 @@ final class WaterViewModel {
         } catch {
             if let cached: [WaterEntry] = try? await cacheService?.get("water_today", ignoreTTL: true) {
                 state = .loaded(cached)
+            } else if case .loaded = state {
+                print("[WaterVM] loadToday → FAIL, keeping existing data")
             } else {
                 state = .error(error)
             }

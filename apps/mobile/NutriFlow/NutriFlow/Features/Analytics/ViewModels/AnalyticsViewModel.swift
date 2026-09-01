@@ -34,7 +34,7 @@ final class AnalyticsViewModel {
         print("AnalyticsViewModel deinit")
     }
 
-    func loadAnalytics() async {
+    func loadAnalytics(keepLoadedData: Bool = false) async {
         let currentID = loadTaskID
 
         if periodState.type == .today {
@@ -63,7 +63,7 @@ final class AnalyticsViewModel {
         do {
             try Task.checkCancellation()
             guard currentID == loadTaskID else { return }
-            state = .loading
+            if keepLoadedData, case .loaded = state {} else { state = .loading }
 
             let result: AnalyticsResponse
             let cacheKey: String
@@ -119,6 +119,7 @@ final class AnalyticsViewModel {
                 coordinator?.goToAuth()
             }
             guard currentID == loadTaskID else { return }
+            if keepLoadedData { return }
             let key = cacheKey
             if let cached: AnalyticsResponse = try? await cacheService?.get(key, ignoreTTL: true) {
                 state = .loaded(cached)
@@ -133,6 +134,7 @@ final class AnalyticsViewModel {
         } catch {
             if error is CancellationError { return }
             guard currentID == loadTaskID else { return }
+            if keepLoadedData { return }
             let key = cacheKey
             if let cached: AnalyticsResponse = try? await cacheService?.get(key, ignoreTTL: true) {
                 state = .loaded(cached)
@@ -159,7 +161,7 @@ final class AnalyticsViewModel {
         await cacheService?.remove(key + "_empty")
         loadTask?.cancel()
         loadTaskID &+= 1
-        await loadAnalytics()
+        await loadAnalytics(keepLoadedData: true)
     }
 
     func setPeriod(_ period: PeriodType) {

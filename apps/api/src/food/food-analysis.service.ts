@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException, BadGatewayException, GatewayTimeoutException } from '@nestjs/common';
 import { GoogleGenAI } from '@google/genai';
 import sharp from 'sharp';
 import { env } from '../config/env';
@@ -28,53 +28,50 @@ export class FoodAnalysisService {
     size: number;
   }): Promise<FoodAnalysisResult> {
     if (!this.gemini) {
-      this.logger.warn('GEMINI_API_KEY не задан — возвращаю пустой результат');
+      this.logger.warn('GEMINI_API_KEY не задан');
+      throw new ServiceUnavailableException(
+        'Food analysis service is not configured',
+      );
+    }
+
+    const { buffer, mimeType } = await this.compressImage(
+      file.buffer,
+      file.mimetype,
+    );
+
+    const raw = await this.analyzeWithGemini(buffer, mimeType);
+
+    const items = this.normalizeItems(raw).slice(
+      0,
+      FoodAnalysisService.MAX_ITEMS,
+    );
+
+    const parsed: FoodAnalysisItem[] = [];
+    for (const item of items) {
+      const rounded = this.round(item);
+      const result = foodAnalysisItemSchema.safeParse(rounded);
+      if (result.success) {
+        parsed.push(result.data);
+      } else {
+        this.logger.warn(
+          'Пункт ответа gemini не прошёл Zod: ' +
+            JSON.stringify(result.error.flatten()),
+        );
+      }
+    }
+
+    if (!parsed.length) {
       return [];
     }
 
-    try {
-      const { buffer, mimeType } = await this.compressImage(
-        file.buffer,
-        file.mimetype,
-      );
-
-      const raw = await this.analyzeWithGemini(buffer, mimeType);
-
-      const items = this.normalizeItems(raw).slice(
-        0,
-        FoodAnalysisService.MAX_ITEMS,
-      );
-
-      const parsed: FoodAnalysisItem[] = [];
-      for (const item of items) {
-        const rounded = this.round(item);
-        const result = foodAnalysisItemSchema.safeParse(rounded);
-        if (result.success) {
-          parsed.push(result.data);
-        } else {
-          this.logger.warn(
-            'Пункт ответа gemini не прошёл Zod: ' +
-              JSON.stringify(result.error.flatten()),
-          );
-        }
-      }
-
-      if (!parsed.length) {
-        return [];
-      }
-
-      return this.matcher.matchItems(parsed);
-    } catch (e) {
-      this.logger.error('gemini analyze failed', e as Error);
-      return [];
-    }
+    return this.matcher.matchItems(parsed);
   }
 
   private async analyzeWithGemini(
     buffer: Buffer,
     mimeType: string,
   ): Promise<unknown> {
-    const TIMEOUT_MS = 30_000;
+    const TIMEOUT_MS = 120_000;
 
     const response = await Promise.race([
       this.gemini!.models.generateContent({
@@ -93,13 +90,60 @@ export class FoodAnalysisService {
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Gemini timeout')), TIMEOUT_MS),
       ),
-    ]);
+    ]).catch((e: unknown) => {
+      const anyErr = e as { message?: string };
+
+      if (anyErr?.message === 'Gemini timeout') {
+        this.logger.error(`Gemini timed out after ${TIMEOUT_MS / 1000}s`);
+        throw new GatewayTimeoutException(
+          'Food analysis service timed out. Please try again later.',
+        );
+      }
+
+      const status = this.extractStatus(e);
+      this.logger.error(
+        `Gemini request failed: ${status} — ${
+          anyErr?.message ?? 'unknown error'
+        }`,
+      );
+
+      if (status === 503) {
+        throw new ServiceUnavailableException(
+          'Food analysis service is temporarily overloaded. Please try again later.',
+        );
+      }
+      if (status === 429) {
+        throw new ServiceUnavailableException(
+          'Too many analysis requests. Please wait a moment and try again.',
+        );
+      }
+
+      throw new BadGatewayException(
+        'Food analysis service failed. Please try again later.',
+      );
+    });
 
     this.logger.log(
       'Gemini raw response: ' + (response.text ?? 'null').slice(0, 1000),
     );
 
     return JSON.parse(response.text ?? '[]');
+  }
+
+  private extractStatus(e: unknown): number | null {
+    if (typeof e !== 'object' || e === null) return null;
+
+    const anyErr = e as {
+      status?: number | string;
+      code?: number | string;
+      error?: { code?: number | string; status?: number | string };
+    };
+
+    const raw = anyErr.error?.code ?? anyErr.code ?? anyErr.error?.status ?? anyErr.status;
+    if (raw == null) return null;
+
+    const num = typeof raw === 'number' ? raw : Number(raw);
+    return Number.isFinite(num) ? num : null;
   }
 
   private normalizeItems(raw: unknown): Array<Record<string, unknown>> {

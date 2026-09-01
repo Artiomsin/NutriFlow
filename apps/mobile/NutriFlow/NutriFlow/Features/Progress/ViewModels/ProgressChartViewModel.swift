@@ -224,12 +224,16 @@ final class ProgressChartViewModel {
     func refreshData() async {
         await cacheService?.remove(chartSummariesKey)
         await cacheService?.remove("chart_today")
+        if periodState.type == .today {
+            await cacheService?.remove("food_today")
+            await cacheService?.remove("water_today")
+        }
         loadTask?.cancel()
         loadTaskID &+= 1
-        await loadChartData()
+        await loadChartData(keepLoadedData: true)
     }
 
-    func loadChartData() async {
+    func loadChartData(keepLoadedData: Bool = false) async {
         let currentID = loadTaskID
         let summariesKey = chartSummariesKey
 
@@ -243,11 +247,13 @@ final class ProgressChartViewModel {
             return
         }
 
-        if periodState.type == .today, let cached: ChartTodayData = try? await cacheService?.get("chart_today") {
+        if periodState.type == .today,
+               let cachedFood: [FoodEntry] = try? await cacheService?.get("food_today"),
+               let cachedWater: [WaterEntry] = try? await cacheService?.get("water_today") {
             #if DEBUG
-            print("[ChartVM] today → cache HIT")
+            print("[ChartVM] today → cache HIT (shared food_today/water_today)")
             #endif
-            chartData = aggregateHourly(food: cached.food, water: cached.water)
+            chartData = aggregateHourly(food: cachedFood, water: cachedWater)
             totalCaloriesSum = chartData.reduce(0) { $0 + $1.calories }
             totalWaterSum = chartData.reduce(0) { $0 + $1.waterMl }
             avgProtein = chartData.reduce(0) { $0 + $1.protein }
@@ -258,12 +264,19 @@ final class ProgressChartViewModel {
             return
         }
 
-        do {
-            try Task.checkCancellation()
-            guard currentID == loadTaskID else { return }
+        let keptExisting: Bool
+        if keepLoadedData, case .loaded = chartState {
+            keptExisting = true
+        } else {
+            keptExisting = false
             chartState = .loading
             chartData = []
             resetAverages()
+        }
+
+        do {
+            try Task.checkCancellation()
+            guard currentID == loadTaskID else { return }
             let summaries: [DailySummary]
 
             switch periodState.type {
@@ -277,7 +290,8 @@ final class ProgressChartViewModel {
                     print("[Network] ChartVM getTodayWater")
                     #endif
                     let water = try await waterService.getTodayWater()
-                    try? await cacheService?.set("chart_today", ChartTodayData(food: food, water: water), ttl: 300)
+                    try? await cacheService?.set("food_today", food, ttl: 300)
+                    try? await cacheService?.set("water_today", water, ttl: 300)
                     chartData = aggregateHourly(food: food, water: water)
                     totalCaloriesSum = chartData.reduce(0) { $0 + $1.calories }
                     totalWaterSum = chartData.reduce(0) { $0 + $1.waterMl }
@@ -347,6 +361,7 @@ final class ProgressChartViewModel {
                 coordinator?.goToAuth()
             }
             guard currentID == loadTaskID else { return }
+            if keptExisting { return }
             if let cached: [DailySummary] = try? await cacheService?.get(summariesKey, ignoreTTL: true) {
                 let points = cached.filter { $0.totalCalories > 0 || $0.totalWaterMl > 0 }.map {
                     ChartDataPoint(date: parseDateOnly($0.date), label: "", calories: $0.totalCalories, protein: Double($0.totalProtein), fat: Double($0.totalFat), carbs: Double($0.totalCarbs), waterMl: $0.totalWaterMl)
@@ -360,6 +375,7 @@ final class ProgressChartViewModel {
         } catch {
             if error is CancellationError { return }
             guard currentID == loadTaskID else { return }
+            if keptExisting { return }
             if let cached: [DailySummary] = try? await cacheService?.get(summariesKey, ignoreTTL: true) {
                 let points = cached.filter { $0.totalCalories > 0 || $0.totalWaterMl > 0 }.map {
                     ChartDataPoint(date: parseDateOnly($0.date), label: "", calories: $0.totalCalories, protein: Double($0.totalProtein), fat: Double($0.totalFat), carbs: Double($0.totalCarbs), waterMl: $0.totalWaterMl)

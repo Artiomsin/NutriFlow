@@ -74,7 +74,8 @@ export class FoodMatcherService {
   }
 
   private async findMatches(names: string[]): Promise<Map<string, CandidateRow>> {
-    const where = sql`(${names.map((name) => this.nameClause(name)).join(' OR ')})`;
+    const clauses = names.map((name) => this.nameClause(name));
+    const where = sql`(${sql.join(clauses, sql.raw(' OR '))})`;
 
     const rows: CandidateRow[] = await db
       .select({
@@ -112,7 +113,7 @@ export class FoodMatcherService {
         .sort((a, b) => b.score - a.score);
 
       const best = scored[0];
-      if (best && best.score >= 12) {
+      if (best && best.score >= 31) {
         result.set(nameLower, best.f);
       }
     }

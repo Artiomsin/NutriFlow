@@ -4,6 +4,7 @@ struct FoodSection: View {
 
     @Bindable var todayFoodVM: TodayFoodViewModel
     var onAddFood: (() -> Void)?
+    var onScan: (() -> Void)?
     var onEditFood: ((FoodEntry) -> Void)?
     var onDeleteFood: ((String) -> Void)?
 
@@ -21,6 +22,25 @@ struct FoodSection: View {
                 .foregroundColor(AppTheme.textPrimary)
 
             Spacer()
+
+            Button {
+                onScan?()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "camera.viewfinder")
+                        .font(.system(size: 12, weight: .bold))
+                    Text("Scan")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundColor(AppTheme.accent)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .overlay(
+                    Capsule()
+                        .stroke(AppTheme.accent, lineWidth: 1.5)
+                )
+            }
+            .buttonStyle(.plain)
 
             Button {
                 onAddFood?()

@@ -275,7 +275,7 @@ final class ProfileViewModel {
 
     private func normalized(_ text: String) -> Double? {
         guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
-        return Double(text.replacingOccurrences(of: ",", with: "."))
+        return UnitConversion.parseDecimal(text)
     }
 
     private static func formatBodyWeight(kg: Double, units: PreferredUnits) -> String {

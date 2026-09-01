@@ -45,11 +45,6 @@ struct DashboardTodayResponse: Codable, Sendable {
     let waterEntries: [WaterEntry]
 }
 
-struct ChartTodayData: Codable, Sendable {
-    let food: [FoodEntry]
-    let water: [WaterEntry]
-}
-
 struct ChartDataPoint: Identifiable, Sendable {
     let id = UUID()
     let date: Date

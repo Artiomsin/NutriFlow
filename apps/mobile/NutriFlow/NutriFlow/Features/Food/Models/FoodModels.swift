@@ -160,7 +160,7 @@ struct CreateServingRequest: Codable, Sendable {
 }
 
 
-struct FoodAnalysisItem: Codable, Identifiable, Sendable {
+struct FoodAnalysisItem: Codable, Identifiable, Hashable, Sendable {
     let name: String?
     let category: String?
     let grams: Int?

@@ -11,7 +11,7 @@ protocol HTTPClient: Sendable {
 
     func sendUpload(data: Data, fileName: String, mimeType: String, path: String) async throws -> String
 
-    func sendMultipart<T: Decodable & Sendable>(
+func sendMultipart<T: Decodable & Sendable>(
         data: Data,
         fileName: String,
         mimeType: String,

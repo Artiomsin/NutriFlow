@@ -145,4 +145,31 @@ struct UnitConversion {
     static func energyToKcal(_ value: Double, preferred: PreferredUnits) -> Double {
         preferred.energy == .kj ? value / kjPerKcal : value
     }
+
+    // MARK: - Editing support (pure functions, no state)
+
+    /// Parses user-entered decimal text, tolerating comma as decimal separator.
+    static func parseDecimal(_ text: String) -> Double? {
+        guard !text.isEmpty else { return nil }
+        return Double(text.replacingOccurrences(of: ",", with: "."))
+    }
+
+    /// Canonical grams (or ml) for a user-entered display value, falling back when invalid.
+    static func grams(fromText text: String, baseUnit: String, fallback: Double, preferred: PreferredUnits) -> Double {
+        guard let value = parseDecimal(text), value > 0 else { return fallback }
+        return grams(fromDisplay: value, baseUnit: baseUnit, preferred: preferred)
+    }
+
+    /// Macro amount in the display unit -> canonical grams (or ml).
+    static func macroGrams(fromDisplay text: String, preferred: PreferredUnits) -> Int? {
+        guard let value = parseDecimal(text) else { return nil }
+        return preferred.weight == .imperial ? Int((value * gramsPerOunce).rounded()) : Int(value.rounded())
+    }
+
+    /// Macro grams -> smart display value (whole numbers without decimals,
+    /// otherwise up to 2 fractional digits with trailing zeros trimmed).
+    static func macroDisplay(grams: Double, preferred: PreferredUnits) -> String {
+        let value = preferred.weight == .imperial ? grams / gramsPerOunce : grams
+        return value.formatted(.number.precision(.fractionLength(0...2)))
+    }
 }
