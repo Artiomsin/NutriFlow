@@ -1,36 +1,37 @@
 import SwiftUI
+import AuthenticationServices
 
 struct AuthView: View {
-
+    
     @Bindable var viewModel: AuthViewModel
-
+    
     @State private var isLogin = true
-
+    
     @FocusState private var focusedField: AuthFormView.Field?
-
+    
     @State private var lastEmailChange: Date?
     @State private var lastPasswordChange: Date?
     @State private var autoLoginTriggered = false
-
+    
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 20) {
-
+                
                 AuthHeaderView(isLogin: isLogin)
-
+                
                 AuthFormView(
                     viewModel: viewModel,
                     isLogin: isLogin,
                     focusedField: $focusedField
                 )
-
+                
                 PrimaryButton(
                     title: isLogin
-                        ? "Sign in"
-                        : "Create account"
+                    ? "Sign in"
+                    : "Create account"
                 ) {
                     dismissKeyboard()
-
+                    
                     Task {
                         if isLogin {
                             await viewModel.login()
@@ -39,29 +40,62 @@ struct AuthView: View {
                         }
                     }
                 }
-
+                
                 if isLogin {
                     GoogleAuthButton {
                         dismissKeyboard()
-
+                        
                         Task {
                             await viewModel.signInWithGoogle()
                         }
                     }
+                    
+                    SignInWithAppleButton(.signIn) { request in
+                        request.requestedScopes = [.fullName, .email]
+                    } onCompletion: { result in
+                        switch result {
+                        case .success(let authorization):
+                            guard
+                                let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                                let tokenData = credential.identityToken,
+                                let identityToken = String(data: tokenData, encoding: .utf8)
+                            else {
+                                viewModel.state = .error("Failed to get Apple identity token")
+                                return
+                            }
+                            dismissKeyboard()
+                            Task {
+                                await viewModel.signInWithApple(
+                                    identityToken: identityToken,
+                                    firstName: credential.fullName?.givenName,
+                                    lastName: credential.fullName?.familyName
+                                )
+                            }
+                        case .failure(let error):
+                            viewModel.state = .error(error.localizedDescription)
+                        }
+                    }
+                    .signInWithAppleButtonStyle(.black)
+                    .frame(height: AppTheme.buttonHeight)
+                    .cornerRadius(AppTheme.cornerRadiusMedium)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
+                            .stroke(Color.white, lineWidth: 1)
+                    )
                 }
-
+                
                 Button {
                     switchMode()
                 } label: {
                     Text(
                         isLogin
-                            ? "No account? Register"
-                            : "Already have account? Sign in"
+                        ? "No account? Register"
+                        : "Already have account? Sign in"
                     )
                     .font(.footnote)
                     .foregroundColor(AppTheme.textSecondary)
                 }
-
+                
                 if case .error(let message) = viewModel.state {
                     ErrorMessageView(text: message)
                 }
@@ -94,21 +128,21 @@ struct AuthView: View {
             )
         }
     }
-
+    
     private func dismissKeyboard() {
         focusedField = nil
     }
-
+    
     private func switchMode() {
         dismissKeyboard()
-
+        
         isLogin.toggle()
-
+        
         lastEmailChange = nil
         lastPasswordChange = nil
         autoLoginTriggered = false
     }
-
+    
     private func checkAutofillLogin() {
         guard
             isLogin,
@@ -124,11 +158,11 @@ struct AuthView: View {
         else {
             return
         }
-
+        
         autoLoginTriggered = true
-
+        
         dismissKeyboard()
-
+        
         Task {
             await viewModel.login()
         }
@@ -137,7 +171,7 @@ struct AuthView: View {
 
 #Preview("AuthView") {
     let container = AppDependencyContainer()
-
+    
     let viewModel = AuthViewModel(
         authService: MockAuthService(),
         profileService: MockProfileService(),
@@ -146,6 +180,6 @@ struct AuthView: View {
             container: container
         )
     )
-
+    
     AuthView(viewModel: viewModel)
 }

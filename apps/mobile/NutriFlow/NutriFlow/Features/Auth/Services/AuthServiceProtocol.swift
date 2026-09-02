@@ -19,4 +19,6 @@ protocol AuthServiceProtocol: Sendable {
     func logout() async throws
 
     func logoutAll() async throws
+    
+    func signInWithApple(identityToken: String, firstName: String?, lastName: String?) async throws
 }
