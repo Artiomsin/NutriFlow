@@ -44,6 +44,7 @@ build/
 *.xcuserstate
 xcuserdata/
 *.xccheckout
+Config.xcconfig
 
 # Swift Package Manager
 .build/
