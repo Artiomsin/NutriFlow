@@ -11,3 +11,12 @@ enum APIError: Error, Equatable, Sendable {
     case noData
     case unknown
 }
+
+extension APIError {
+    var analyzeStatusCode: Int? {
+        if case .serverError(let code) = self {
+            return code
+        }
+        return nil
+    }
+}

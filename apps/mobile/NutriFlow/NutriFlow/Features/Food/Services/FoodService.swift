@@ -112,14 +112,22 @@ final class FoodService: FoodServiceProtocol, Sendable {
 
     // ── Food Catalog ────────────────────────────────────────────
 
-    func searchFood(query: String, limit: Int) async throws -> FoodSearchResponse {
-        let endpoint = FoodEndpoints.searchFood(query: query, limit: limit)
+    func searchFood(query: String, limit: Int, offset: Int) async throws -> FoodSearchResponse {
+        let endpoint = FoodEndpoints.searchFood(query: query, limit: limit, offset: offset)
         let request = APIRequest<NeverBody>(
             path: endpoint.path,
             method: .GET,
             queryItems: endpoint.query
         )
         return try await client.send(request)
+    }
+    
+    func selectFood(id: String) async throws {
+        let request = APIRequest<NeverBody>(
+            path: FoodEndpoints.selectFood(id),
+            method: .POST
+        )
+        return try await client.sendVoid(request)
     }
 
     func getPopularFood() async throws -> [CatalogFood] {
@@ -159,5 +167,11 @@ final class FoodService: FoodServiceProtocol, Sendable {
 
     func uploadImage(_ data: Data) async throws -> String {
         try await client.sendUpload(data: data, fileName: "photo.jpg", mimeType: "image/jpeg", path: "/food/upload")
+    }
+
+    // ── Scan ──────────────────────────────────────────────────
+
+    func analyzePhoto(_ data: Data) async throws -> [FoodAnalysisItem] {
+        try await client.sendMultipart(data: data, fileName: "scan.jpg", mimeType: "image/jpeg", path: FoodEndpoints.analyzeFood)
     }
 }

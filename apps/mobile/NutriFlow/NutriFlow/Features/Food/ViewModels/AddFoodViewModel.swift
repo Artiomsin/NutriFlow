@@ -48,8 +48,7 @@ final class AddFoodViewModel {
     var carbsLabel: String { "Carbs (\(macroUnit))" }
 
     private func toGrams(_ text: String) -> Int? {
-        let normalized = text.replacingOccurrences(of: ",", with: ".")
-        guard let value = Double(normalized), value > 0 else { return nil }
+        guard let value = UnitConversion.parseDecimal(text), value > 0 else { return nil }
         return Int(UnitConversion.grams(fromDisplay: value, baseUnit: "g", preferred: prefsStore.preferredUnits).rounded())
     }
 
@@ -79,7 +78,7 @@ final class AddFoodViewModel {
             state = .error(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Граммы должны быть числом > 0"]))
             return
         }
-        guard let caloriesValue = Double(calories.replacingOccurrences(of: ",", with: ".")) else {
+        guard let caloriesValue = UnitConversion.parseDecimal(calories) else {
             state = .error(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Калории должны быть числом"]))
             return
         }
@@ -104,9 +103,9 @@ final class AddFoodViewModel {
             try await service.createFoodEntry(
                 name: name,
                 calories: caloriesInt,
-                protein: toGrams(protein),
-                fat: toGrams(fat),
-                carbs: toGrams(carbs),
+                protein: UnitConversion.macroGrams(fromDisplay: protein, preferred: prefsStore.preferredUnits),
+                fat: UnitConversion.macroGrams(fromDisplay: fat, preferred: prefsStore.preferredUnits),
+                carbs: UnitConversion.macroGrams(fromDisplay: carbs, preferred: prefsStore.preferredUnits),
                 foodId: nil,
                 grams: gramsInt,
                 unit: "g",

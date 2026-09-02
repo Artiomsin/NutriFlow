@@ -21,6 +21,8 @@ export const env = {
 
   USDA_API_KEY: getEnv('USDA_API_KEY'),
 
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY ?? '',
+
   S3_ACCESS_KEY_ID: process.env.S3_ACCESS_KEY_ID ?? '',
   S3_SECRET_ACCESS_KEY: process.env.S3_SECRET_ACCESS_KEY ?? '',
   S3_ENDPOINT: process.env.S3_ENDPOINT ?? '',

@@ -103,12 +103,6 @@ struct CatalogFood: Codable, Identifiable, Hashable, Sendable {
     let servings: [FoodServing]?
 }
 
-struct FoodSearchResponse: Codable, Sendable {
-    let foods: [CatalogFood]
-    let suggestedGrams: Int?
-    let suggestedUnit: String?
-}
-
 extension CatalogFood {
     var stableId: String {
         if !id.isEmpty {
@@ -121,6 +115,28 @@ extension CatalogFood {
     }
 }
 
+
+struct FoodSearchResponse: Codable, Sendable {
+    let foods: [CatalogFood]
+    let suggestedGrams: Int?
+    let suggestedUnit: String?
+    let hasMore: Bool
+    let total: Int
+    let offset: Int
+    let limit: Int
+}
+
+extension FoodSearchResponse {
+    init(foods: [CatalogFood], suggestedGrams: Int?, suggestedUnit: String?) {
+        self.foods = foods
+        self.suggestedGrams = suggestedGrams
+        self.suggestedUnit = suggestedUnit
+        self.hasMore = false
+        self.total = 0
+        self.offset = 0
+        self.limit = 20
+    }
+}
 
 struct FoodServing: Codable, Identifiable, Hashable, Sendable {
     let id: String
@@ -157,4 +173,35 @@ struct CreateCatalogFoodRequest: Codable, Sendable {
 struct CreateServingRequest: Codable, Sendable {
     let name: String
     let grams: Int
+}
+
+
+struct FoodAnalysisItem: Codable, Identifiable, Hashable, Sendable {
+    let name: String?
+    let category: String?
+    let grams: Int?
+    let calories: Double?
+    let protein: Double?
+    let fat: Double?
+    let carbs: Double?
+    let unit: String?
+    let imageUrl: String?
+    let confidence: Double?
+    let foodId: String?
+    let source: String?
+    let aiCalories: Double?
+    let catalogCalories: Double?
+
+    var id: String {
+        name ?? UUID().uuidString
+    }
+
+    var displayName: String {
+        name ?? "Unknown food"
+    }
+
+    var bestCalories: Double? {
+        if source == "catalog" { return catalogCalories ?? calories }
+        return aiCalories ?? calories
+    }
 }

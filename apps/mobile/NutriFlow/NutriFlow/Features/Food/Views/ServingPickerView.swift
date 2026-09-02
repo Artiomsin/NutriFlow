@@ -35,15 +35,6 @@ struct ServingPickerView: View {
             }
         }
         .background(AppTheme.background)
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Done") {
-                    gramFieldFocused = false
-                }
-                .fontWeight(.semibold)
-            }
-        }
         .navigationTitle("Add Portion")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -99,7 +90,7 @@ struct ServingPickerView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundColor(AppTheme.textSecondary)
                 Spacer()
-                Text("For \(UnitConversion.formatAmount(grams: viewModel.grams, unit: viewModel.suggestedUnit ?? "g", preferred: PreferencesStore.shared.preferredUnits))")
+                Text("For \(UnitConversion.formatAmount(grams: viewModel.grams, unit: viewModel.suggestedUnit ?? "g", preferred: prefsStore.preferredUnits))")
                     .font(.caption.weight(.semibold))
                     .foregroundColor(AppTheme.accent)
             }
@@ -108,28 +99,28 @@ struct ServingPickerView: View {
                 MacroCard(
                     label: "Calories",
                     per100: "\(viewModel.food.caloriesPer100g)",
-                    total: "\(UnitConversion.formatEnergyValue(kcal: viewModel.calculatedCalories, preferred: PreferencesStore.shared.preferredUnits))",
+                    total: "\(UnitConversion.formatEnergyValue(kcal: viewModel.calculatedCalories, preferred: prefsStore.preferredUnits))",
                     color: .orange,
-                    unit: UnitConversion.formatEnergyUnit(preferred: PreferencesStore.shared.preferredUnits)
+                    unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits)
                 )
                 MacroCard(
                     label: "Protein",
-                    per100: UnitConversion.formatMacro(grams: viewModel.food.proteinPer100g ?? 0, preferred: PreferencesStore.shared.preferredUnits),
-                    total: UnitConversion.formatMacro(grams: viewModel.calculatedProtein, preferred: PreferencesStore.shared.preferredUnits),
+                    per100: UnitConversion.formatMacro(grams: viewModel.food.proteinPer100g ?? 0, preferred: prefsStore.preferredUnits),
+                    total: UnitConversion.formatMacro(grams: viewModel.calculatedProtein, preferred: prefsStore.preferredUnits),
                     color: Color(red: 0.9, green: 0.3, blue: 0.3),
                     unit: ""
                 )
                 MacroCard(
                     label: "Fat",
-                    per100: UnitConversion.formatMacro(grams: viewModel.food.fatPer100g ?? 0, preferred: PreferencesStore.shared.preferredUnits),
-                    total: UnitConversion.formatMacro(grams: viewModel.calculatedFat, preferred: PreferencesStore.shared.preferredUnits),
+                    per100: UnitConversion.formatMacro(grams: viewModel.food.fatPer100g ?? 0, preferred: prefsStore.preferredUnits),
+                    total: UnitConversion.formatMacro(grams: viewModel.calculatedFat, preferred: prefsStore.preferredUnits),
                     color: Color(red: 0.2, green: 0.5, blue: 0.9),
                     unit: ""
                 )
                 MacroCard(
                     label: "Carbs",
-                    per100: UnitConversion.formatMacro(grams: viewModel.food.carbsPer100g ?? 0, preferred: PreferencesStore.shared.preferredUnits),
-                    total: UnitConversion.formatMacro(grams: viewModel.calculatedCarbs, preferred: PreferencesStore.shared.preferredUnits),
+                    per100: UnitConversion.formatMacro(grams: viewModel.food.carbsPer100g ?? 0, preferred: prefsStore.preferredUnits),
+                    total: UnitConversion.formatMacro(grams: viewModel.calculatedCarbs, preferred: prefsStore.preferredUnits),
                     color: Color(red: 0.2, green: 0.7, blue: 0.3),
                     unit: ""
                 )
@@ -203,8 +194,8 @@ struct ServingPickerView: View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(viewModel.suggestedUnit == "ml"
-                         ? (PreferencesStore.shared.preferredUnits.volume == .imperial ? "Fluid Ounces" : "Milliliters")
-                         : (PreferencesStore.shared.preferredUnits.weight == .imperial ? "Ounces" : "Grams"))
+                         ? (prefsStore.preferredUnits.volume == .imperial ? "Fluid Ounces" : "Milliliters")
+                         : (prefsStore.preferredUnits.weight == .imperial ? "Ounces" : "Grams"))
                         .font(.caption)
                         .foregroundColor(AppTheme.textSecondary)
 
@@ -245,7 +236,7 @@ struct ServingPickerView: View {
                 } else {
                     Image(systemName: "plus.circle.fill")
                         .font(.subheadline)
-                    Text("Add to Diary — \(UnitConversion.formatEnergy(kcal: viewModel.calculatedCalories, preferred: PreferencesStore.shared.preferredUnits))")
+                    Text("Add to Diary — \(UnitConversion.formatEnergy(kcal: viewModel.calculatedCalories, preferred: prefsStore.preferredUnits))")
                         .font(.subheadline.weight(.semibold))
                 }
             }

@@ -19,7 +19,8 @@ final class EditFoodViewModel {
     var grams: String
 
     var photosItem: PhotosPickerItem?
-    var selectedImage: UIImage?
+    var selectedImageData: Data?
+    var selectedImage: UIImage? { selectedImageData.flatMap { UIImage(data: $0) } }
     var isLoading = false
     var categories: [FoodCategory] = []
     var selectedCategoryName: String?
@@ -63,9 +64,9 @@ final class EditFoodViewModel {
         self.name = entry.name
         let prefs = PreferencesStore.shared.preferredUnits
         self.calories = "\(UnitConversion.formatEnergyValue(kcal: entry.calories, preferred: prefs))"
-        self.protein = entry.protein.map { Self.formatMacroInput($0, preferred: prefs) } ?? ""
-        self.fat = entry.fat.map { Self.formatMacroInput($0, preferred: prefs) } ?? ""
-        self.carbs = entry.carbs.map { Self.formatMacroInput($0, preferred: prefs) } ?? ""
+        self.protein = entry.protein.map { UnitConversion.macroDisplay(grams: Double($0), preferred: prefs) } ?? ""
+        self.fat = entry.fat.map { UnitConversion.macroDisplay(grams: Double($0), preferred: prefs) } ?? ""
+        self.carbs = entry.carbs.map { UnitConversion.macroDisplay(grams: Double($0), preferred: prefs) } ?? ""
         self.grams = entry.grams.map {
             let unit = UnitConversion.displayUnit(for: entry.unit, preferred: prefs)
             let value = UnitConversion.displayValue(fromGrams: Double($0), baseUnit: entry.unit, preferred: prefs)
@@ -74,15 +75,8 @@ final class EditFoodViewModel {
         self.selectedCategoryName = entry.categoryName
     }
 
-    private static func formatMacroInput(_ grams: Int, preferred: PreferredUnits) -> String {
-        if preferred.weight == .imperial {
-            return String(format: "%.2f", Double(grams) / UnitConversion.gramsPerOunce)
-        }
-        return "\(grams)"
-    }
-
     private func toGrams(_ value: String) -> Double? {
-        guard let val = Double(value.replacingOccurrences(of: ",", with: ".")), val > 0 else { return nil }
+        guard let val = UnitConversion.parseDecimal(value), val > 0 else { return nil }
         return UnitConversion.grams(fromDisplay: val, baseUnit: entry.unit, preferred: prefsStore.preferredUnits)
     }
 
@@ -102,7 +96,7 @@ final class EditFoodViewModel {
 
         do {
             var imageUrl: String?
-            if let image = selectedImage, let data = image.jpegData(compressionQuality: 0.8) {
+            if let data = selectedImageData {
                 imageUrl = try await foodService.uploadImage(data)
             }
 
@@ -110,12 +104,12 @@ final class EditFoodViewModel {
             try await foodService.updateFoodEntry(
                 id: entry.id,
                 name: name.trimmingCharacters(in: .whitespaces),
-                calories: Double(calories.replacingOccurrences(of: ",", with: ".")).flatMap {
+                calories: UnitConversion.parseDecimal(calories).flatMap {
                     Int(UnitConversion.energyToKcal($0, preferred: prefsStore.preferredUnits).rounded())
                 },
-                protein: macroToGrams(protein),
-                fat: macroToGrams(fat),
-                carbs: macroToGrams(carbs),
+                protein: UnitConversion.macroGrams(fromDisplay: protein, preferred: prefsStore.preferredUnits),
+                fat: UnitConversion.macroGrams(fromDisplay: fat, preferred: prefsStore.preferredUnits),
+                carbs: UnitConversion.macroGrams(fromDisplay: carbs, preferred: prefsStore.preferredUnits),
                 grams: gramsInG,
                 foodId: nil,
                 date: nil,
@@ -134,20 +128,11 @@ final class EditFoodViewModel {
         }
     }
 
-    private func macroToGrams(_ value: String) -> Int? {
-        guard let val = Double(value.replacingOccurrences(of: ",", with: ".")) else { return nil }
-        if prefsStore.preferredUnits.weight == .imperial {
-            return Int((val * UnitConversion.gramsPerOunce).rounded())
-        }
-        return Int(val.rounded())
-    }
-
     func loadImage(_ item: PhotosPickerItem?) {
         guard let item else { return }
         Task {
             guard let data = try? await item.loadTransferable(type: Data.self) else { return }
-            guard let image = UIImage(data: data) else { return }
-            selectedImage = image.preparingThumbnail(of: CGSize(width: 800, height: 800))
+            selectedImageData = ImageCompressor.optimizedJPEGData(data)
         }
     }
 
@@ -157,8 +142,8 @@ final class EditFoodViewModel {
         let ratio = newGrams / Double(baseGrams)
         let prefs = prefsStore.preferredUnits
         calories = "\(UnitConversion.formatEnergyValue(kcal: Int((Double(entry.calories) * ratio).rounded()), preferred: prefs))"
-        if let p = entry.protein { protein = Self.formatMacroInput(Int((Double(p) * ratio).rounded()), preferred: prefs) }
-        if let f = entry.fat { fat = Self.formatMacroInput(Int((Double(f) * ratio).rounded()), preferred: prefs) }
-        if let c = entry.carbs { carbs = Self.formatMacroInput(Int((Double(c) * ratio).rounded()), preferred: prefs) }
+        if let p = entry.protein { protein = UnitConversion.macroDisplay(grams: Double(p) * ratio, preferred: prefs) }
+        if let f = entry.fat { fat = UnitConversion.macroDisplay(grams: Double(f) * ratio, preferred: prefs) }
+        if let c = entry.carbs { carbs = UnitConversion.macroDisplay(grams: Double(c) * ratio, preferred: prefs) }
     }
 }

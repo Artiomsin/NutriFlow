@@ -1,67 +1,92 @@
 import SwiftUI
 
 struct AuthFormView: View {
-    
+
     @Bindable var viewModel: AuthViewModel
-    
+
     let isLogin: Bool
-    
-    var emailFocused: FocusState<Bool>.Binding
-    var passwordFocused: FocusState<Bool>.Binding
-    var firstNameFocused: FocusState<Bool>.Binding
-    var lastNameFocused: FocusState<Bool>.Binding
-    
+
+    enum Field: Hashable {
+        case email
+        case password
+        case firstName
+        case lastName
+    }
+
+    var focusedField: FocusState<Field?>.Binding
+
+    private func nextField(_ field: Field) {
+        focusedField.wrappedValue = field
+    }
+
     var body: some View {
         VStack(spacing: 12) {
-            
+
             AppTextField(
                 title: "Email",
                 text: $viewModel.email,
                 keyboardType: .emailAddress,
                 textContentType: .emailAddress,
-                focus: emailFocused,
+                submitLabel: .return,
+                focus: focusedField,
+                focusValue: .email,
                 onSubmit: {
-                    passwordFocused.wrappedValue = true
+                    nextField(.password)
                 }
             )
-            
+
             AuthPasswordField(
                 password: $viewModel.password,
-                textContentType: .password,
-                focus: passwordFocused,
+                textContentType: isLogin
+                    ? .password
+                    : .newPassword,
+                submitLabel: .return,
+                focus: focusedField,
+                focusValue: .password,
                 onSubmit: {
                     if isLogin {
-                        passwordFocused.wrappedValue = false
-                        Task { await viewModel.login() }
+                        focusedField.wrappedValue = nil
+
+                        Task {
+                            await viewModel.login()
+                        }
                     } else {
-                        firstNameFocused.wrappedValue = true
+                        nextField(.firstName)
                     }
                 }
             )
-            
+
             if !isLogin {
-                
+
                 AppTextField(
                     title: "First name",
                     text: $viewModel.firstName,
                     textContentType: .givenName,
-                    focus: firstNameFocused,
+                    submitLabel: .return,
+                    focus: focusedField,
+                    focusValue: .firstName,
                     onSubmit: {
-                        lastNameFocused.wrappedValue = true
+                        nextField(.lastName)
                     }
                 )
-                
+
                 AppTextField(
                     title: "Last name",
                     text: $viewModel.lastName,
                     textContentType: .familyName,
-                    focus: lastNameFocused,
+                    submitLabel: .return,
+                    focus: focusedField,
+                    focusValue: .lastName,
                     onSubmit: {
-                        lastNameFocused.wrappedValue = false
-                        Task { await viewModel.register() }
+                        focusedField.wrappedValue = nil
+
+                        Task {
+                            await viewModel.register()
+                        }
                     }
                 )
             }
-        }.tint(.green)
+        }
+        .tint(AppTheme.accent)
     }
 }

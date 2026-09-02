@@ -29,6 +29,7 @@ interface OFProduct {
   updatedAt: string;
   servings?: Array<{ id: string; foodId: string; name: string; grams: number; createdAt: string | null }>;
   score?: number;
+  frequency?: number;
 }
 
 @Injectable()
@@ -36,8 +37,7 @@ export class FoodService {
 
   private normalizeCache = new Map<string, string>();
   private readonly NORMALIZE_CACHE_MAX = 500;
-
-  constructor(private readonly dailySummaryService: DailySummaryService) {}
+  private static readonly PRELOAD_PAGE_SIZE = 20;  constructor(private readonly dailySummaryService: DailySummaryService) {}
 
   async create(userId: string, data: CreateFoodEntryDto) {
     const result = await db.transaction(async (tx) => {
@@ -77,6 +77,9 @@ export class FoodService {
           const ratio = data.grams && data.grams > 0 ? 100 / data.grams : 1;
           const source = data.brand ? 'usda' : 'user';
 
+          const per100g = (v: number) =>
+            Math.min(1000, Math.max(0, Math.round(v * ratio)));
+
           const [created] = await tx
             .insert(foods)
             .values({
@@ -85,10 +88,10 @@ export class FoodService {
               categoryId,
               barcode: data.barcode,
               imageUrl: data.imageUrl,
-              caloriesPer100g: Math.round(data.calories * ratio),
-              proteinPer100g: Math.round((data.protein ?? 0) * ratio),
-              fatPer100g: Math.round((data.fat ?? 0) * ratio),
-              carbsPer100g: Math.round((data.carbs ?? 0) * ratio),
+              caloriesPer100g: per100g(data.calories),
+              proteinPer100g: per100g(data.protein ?? 0),
+              fatPer100g: per100g(data.fat ?? 0),
+              carbsPer100g: per100g(data.carbs ?? 0),
               source,
               createdBy: userId,
             })
@@ -153,7 +156,7 @@ export class FoodService {
       date: data.date,
     });
     await invalidateAnalyticsCache(userId);
-    await cacheDelByPrefix('search:');
+    await cacheDelByPrefix(`search:q:${userId}:`);
 
     return result;
   }
@@ -450,7 +453,7 @@ export class FoodService {
     }
 
     await invalidateAnalyticsCache(userId);
-    await cacheDelByPrefix('search:');
+    await cacheDelByPrefix(`search:q:${userId}:`);
 
     const [updated] = await db
       .select()
@@ -522,9 +525,9 @@ export class FoodService {
   // ── Food Catalog ──────────────────────────────────────────────
 
   async search(query: SearchFoodQueryDto, userId?: string) {
-    const { q, limit } = query;
+    const { q, limit, offset } = query;
 
-    // Extract weight from query with unit conversion
+    // Вытащить вес из строки (подсказка для клиента)
     const weightMatch = q.match(/(\d+([.,]\d+)?)\s*(g|kg|ml|l|oz|lb)\b/i);
     let suggestedGrams: number | null = null;
     let suggestedUnit: string | null = null;
@@ -549,15 +552,33 @@ export class FoodService {
       }
     }
 
-    const normalizedQ = q.toLowerCase().trim();
+    // Чистый запрос (вес убираем из поиска)
+    const cleanQuery = (q.toLowerCase().trim()
+      .replace(/\b\d+([.,]\d+)?\s?(г|g|kg|ml|l|oz|lb)\b/gi, '')
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      .replace(/\s+/g, ' ')
+      .trim());
 
-    // 1. Cache check (Redis)
-    const cacheKey = `search:${normalizedQ}`;
+    // Персональный кэш полного списка (пагинация режется из него)
+    const cacheKey = `search:q:${userId ?? 'anon'}:${cleanQuery}`;
     const cached = await cacheGet<OFProduct[]>(cacheKey);
-    if (cached) return { foods: cached, suggestedGrams, suggestedUnit };
+    const required = offset + limit + FoodService.PRELOAD_PAGE_SIZE;
+    const full: OFProduct[] = cached ?? await this.buildSearchResults(cleanQuery, userId, required);
 
-    // 2. Local DB search (full-text + LIKE fallback)
-    const term = `%${normalizedQ}%`;
+    if (!cached) {
+      await cacheSet(cacheKey, full);
+    }
+
+    const total = full.length;
+    const hasMore = offset + limit < total;
+    const foods = full.slice(offset, offset + limit);
+
+    return { foods, suggestedGrams, suggestedUnit, total, offset, limit, hasMore };
+  }
+
+  /** Полный ранжированный список; USDA дозапрашиваем, если локальных мало */
+  private async buildSearchResults(cleanQuery: string, userId?: string, required = 40): Promise<OFProduct[]> {
+    const term = `%${cleanQuery}%`;
     const visibilityClause = userId
       ? or(
           sql`${foods.source} IN ('usda', 'off', 'system')`,
@@ -576,14 +597,12 @@ export class FoodService {
         and(
           visibilityClause,
           or(
-            sql`to_tsvector('simple', ${foods.name}) @@ plainto_tsquery('simple', ${normalizedQ})`,
+            sql`to_tsvector('simple', ${foods.name}) @@ plainto_tsquery('simple', ${cleanQuery})`,
             sql`${foods.name} ILIKE ${term}`,
             sql`${foods.barcode} LIKE ${term}`,
           ),
         ),
-      )
-      .orderBy(foods.name)
-      .limit(limit);
+      );
 
     const localIds = localRows.map((r) => r.food.id);
 
@@ -593,6 +612,16 @@ export class FoodService {
           .from(foodServings)
           .where(inArray(foodServings.foodId, localIds))
       : [];
+
+    // Частота использования данным юзером — для ранжирования
+    const freqMap = new Map<string, number>();
+    if (userId && localIds.length) {
+      const stats = await db
+        .select({ foodId: userFoodStats.foodId, frequency: userFoodStats.frequency })
+        .from(userFoodStats)
+        .where(and(eq(userFoodStats.userId, userId), inArray(userFoodStats.foodId, localIds)));
+      for (const s of stats) freqMap.set(s.foodId, s.frequency ?? 0);
+    }
 
     const local: OFProduct[] = localRows.map((row) => {
       const f = row.food;
@@ -612,6 +641,7 @@ export class FoodService {
         createdBy: f.createdBy,
         createdAt: f.createdAt instanceof Date ? f.createdAt.toISOString() : String(f.createdAt),
         updatedAt: f.updatedAt instanceof Date ? f.updatedAt.toISOString() : String(f.updatedAt),
+        frequency: freqMap.get(f.id) ?? 0,
         servings: localServings
           .filter((s) => s.foodId === f.id)
           .map((s) => ({
@@ -624,19 +654,15 @@ export class FoodService {
       };
     });
 
-    if (local.length >= limit) {
-      await cacheSet(cacheKey, local);
-      return { foods: local, suggestedGrams, suggestedUnit };
+    // Ранжируем БД-результаты
+    const localRanked = this.rank(local, cleanQuery, userId);
+    const enoughLocal = localRanked.length >= required;
+
+    if (enoughLocal) {
+      return localRanked;
     }
 
-    // 3. Parallel external search (USDA SR Legacy + USDA Branded)
-    // — очищаем query от весов и мусора перед отправкой в API
-    const cleanQuery = normalizedQ
-      .replace(/\b\d+([.,]\d+)?\s?(г|g|kg|ml|l|oz|lb)\b/gi, '')
-      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-      .replace(/\s+/g, ' ')
-      .trim() || normalizedQ;
-
+    // Параллельный внешний поиск (USDA SR Legacy + Branded)
     const [srLegacyRes, brandedRes] = await Promise.allSettled([
       this.searchUSDA(cleanQuery, 25, 'SR Legacy'),
       this.searchUSDA(cleanQuery, 25, 'Branded'),
@@ -645,21 +671,13 @@ export class FoodService {
     const srItems: OFProduct[] = srLegacyRes.status === 'fulfilled' ? srLegacyRes.value : [];
     const brandedItems: OFProduct[] = brandedRes.status === 'fulfilled' ? brandedRes.value : [];
 
-    // — SR Legacy идёт перед Branded, чтобы при дедупе выигрывал generic продукт
     const allUsda = [...srItems, ...brandedItems];
 
-    // 4. Dedup across ALL items (local first, then external)
-    const allItems = [...local, ...allUsda];
-    const deduped = this.deduplicate(allItems);
+    // Дедуп (локальные впереди внешних)
+    const merged = [...localRanked, ...allUsda];
+    const deduped = this.deduplicate(merged);
 
-    // 5. Rank
-    const ranked = this.rank(deduped, normalizedQ);
-
-    // 6. Save cache (only foods, not suggestedGrams)
-    const results = ranked.slice(0, limit);
-    await cacheSet(cacheKey, results);
-
-    return { foods: results, suggestedGrams, suggestedUnit };
+    return this.rank(deduped, cleanQuery, userId);
   }
 
   private normalize(name: string): string {
@@ -860,6 +878,31 @@ export class FoodService {
     return { ...food, servings };
   }
 
+  /** Фиксирует выбор/добавление продукта пользователем, чтобы
+   *  чаще выбираемые всплывали выше (используется в поиске и популярных). */
+  async trackSelection(userId: string, foodId: string) {
+    const [food] = await db
+      .select({ id: foods.id })
+      .from(foods)
+      .where(eq(foods.id, foodId))
+      .limit(1);
+
+    if (!food) throw new NotFoundException('Food not found');
+
+    await db
+      .insert(userFoodStats)
+      .values({ userId, foodId, frequency: 1 })
+      .onConflictDoUpdate({
+        target: [userFoodStats.userId, userFoodStats.foodId],
+        set: {
+          frequency: sql`${userFoodStats.frequency} + 1`,
+          lastUsedAt: sql`NOW()`,
+        },
+      });
+
+    return { ok: true };
+  }
+
   // ── Dedup (3 уровня) ─────────────────────────────────────────
 
   private deduplicate(items: OFProduct[]): OFProduct[] {
@@ -899,37 +942,52 @@ export class FoodService {
 
   // ── Ranking ────────────────────────────────────────────────
 
-  private rank(items: OFProduct[], query: string): OFProduct[] {
+  private rank(items: OFProduct[], query: string, userId?: string): OFProduct[] {
     const qLower = query.toLowerCase();
     const qWords = qLower.split(/\s+/).filter((w) => w.length > 0);
+    const isMine = (item: OFProduct) =>
+      item.source === 'user' && !!userId && item.createdBy === userId;
 
     return items
       .map((item) => {
         const nameLower = item.name.toLowerCase();
-        const nameWords = nameLower.split(/\s+/);
         let score = 0;
 
-        if (item.source === 'local' || item.id) score += 10;
-        else if (item.source === 'usda_sr') score += 8;
-        else if (item.source === 'usda') score += 6;
+        // Приоритет источника: свои продукты всегда вверху
+        if (isMine(item)) score += 100;
+        else if (item.source === 'off') score += 6;
+        else if (item.source === 'system') score += 5;
+        else if (item.source === 'usda_sr') score += 4;
+        else if (item.source === 'usda') score += 3;
 
-        if (nameLower === qLower) score += 3;
-        else if (nameLower.startsWith(qLower)) score += 2;
-        else if (nameLower.includes(qLower)) score += 1;
+        // Часто выбираемое данным юзером — всплывает выше
+        if (userId && (item.frequency ?? 0) > 0) {
+          score += Math.min(item.frequency ?? 0, 20) / 2;
+        }
+
+        // Совпадение с запросом
+        if (nameLower === qLower) score += 50;
+        else if (nameLower.startsWith(qLower)) score += 30;
+        else if (nameLower.includes(qLower)) score += 10;
 
         for (const qw of qWords) {
-          if (nameWords.some((nw) => nw === qw || nw.startsWith(qw))) {
+          if (nameLower.split(/\s+/).some((nw) => nw === qw || nw.startsWith(qw))) {
             score += 0.5;
           }
         }
 
-        if (item.barcode) score += 1;
-        if (item.brand) score += 0.25;
-        if (item.imageUrl) score += 0.5;
-        if (item.servings?.length) score += 0.5;
+        // Качество карточки
+        if (item.imageUrl) score += 3;
+        if (item.brand) score += 2;
+        if (item.servings?.length) score += 2;
 
         return { ...item, score };
       })
-      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+      .sort((a, b) => {
+        const diff = (b.score ?? 0) - (a.score ?? 0);
+        if (diff !== 0) return diff;
+        // стабильность: при равном score — по алфавиту, потом по имени
+        return a.name.localeCompare(b.name);
+      });
   }
 }

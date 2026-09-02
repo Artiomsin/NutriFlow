@@ -25,7 +25,7 @@ final class GoalsViewModel {
             return
         }
 
-        state = .loading
+        if case .loaded = state {} else { state = .loading }
         do {
             #if DEBUG
             print("[Network] GoalsVM loadGoals")
@@ -39,13 +39,13 @@ final class GoalsViewModel {
             }
             if let cached: UserGoals = try? await cacheService?.get("goals", ignoreTTL: true) {
                 state = .loaded(cached)
-            } else {
+            } else if case .loaded = state {} else {
                 state = .error(error)
             }
         } catch {
             if let cached: UserGoals = try? await cacheService?.get("goals", ignoreTTL: true) {
                 state = .loaded(cached)
-            } else {
+            } else if case .loaded = state {} else {
                 state = .error(error)
             }
         }

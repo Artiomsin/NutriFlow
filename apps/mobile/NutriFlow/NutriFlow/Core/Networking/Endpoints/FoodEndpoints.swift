@@ -26,17 +26,24 @@ enum FoodEndpoints {
     static let getAllFoods = "/foods"
     static let createFood = "/foods"
 
-    static func searchFood(query: String, limit: Int) -> (path: String, query: [URLQueryItem]) {
+    static func searchFood(query: String, limit: Int, offset: Int) -> (path: String, query: [URLQueryItem]) {
         (
             path: "/foods/search",
             query: [
                 URLQueryItem(name: "q", value: query),
-                URLQueryItem(name: "limit", value: String(limit))
+                URLQueryItem(name: "limit", value: String(limit)),
+                URLQueryItem(name: "offset", value: String(offset))
             ]
         )
     }
+    
+    static func selectFood(_ id: String) -> String {
+        "/foods/\(id)/select"
+    }
 
     static let getPopularFood = "/foods/popular"
+
+    static let analyzeFood = "/food/analyze"
 
     static func getFoodByBarcode(_ barcode: String) -> String {
         let encoded = barcode.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? barcode

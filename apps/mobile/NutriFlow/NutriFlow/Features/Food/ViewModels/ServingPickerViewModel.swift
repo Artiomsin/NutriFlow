@@ -61,8 +61,7 @@ final class ServingPickerViewModel {
 
     var grams: Int {
         if let pinned = pinnedGrams { return pinned }
-        let normalized = gramsText.replacingOccurrences(of: ",", with: ".")
-        guard let value = Double(normalized), value > 0 else {
+        guard let value = UnitConversion.parseDecimal(gramsText), value > 0 else {
             if let serving = selectedServing { return serving.grams }
             return 100
         }

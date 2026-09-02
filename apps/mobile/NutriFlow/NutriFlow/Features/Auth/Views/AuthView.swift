@@ -1,12 +1,13 @@
 import SwiftUI
 
 struct AuthView: View {
+
     @Bindable var viewModel: AuthViewModel
+
     @State private var isLogin = true
-    @FocusState private var emailFocused: Bool
-    @FocusState private var passwordFocused: Bool
-    @FocusState private var firstNameFocused: Bool
-    @FocusState private var lastNameFocused: Bool
+
+    @FocusState private var focusedField: AuthFormView.Field?
+
     @State private var lastEmailChange: Date?
     @State private var lastPasswordChange: Date?
     @State private var autoLoginTriggered = false
@@ -14,18 +15,22 @@ struct AuthView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 20) {
+
                 AuthHeaderView(isLogin: isLogin)
+
                 AuthFormView(
                     viewModel: viewModel,
                     isLogin: isLogin,
-                    emailFocused: $emailFocused,
-                    passwordFocused: $passwordFocused,
-                    firstNameFocused: $firstNameFocused,
-                    lastNameFocused: $lastNameFocused
+                    focusedField: $focusedField
                 )
 
-                PrimaryButton(title: isLogin ? "Sign in" : "Create account") {
+                PrimaryButton(
+                    title: isLogin
+                        ? "Sign in"
+                        : "Create account"
+                ) {
                     dismissKeyboard()
+
                     Task {
                         if isLogin {
                             await viewModel.login()
@@ -38,19 +43,23 @@ struct AuthView: View {
                 if isLogin {
                     GoogleAuthButton {
                         dismissKeyboard()
-                        Task { await viewModel.signInWithGoogle() }
+
+                        Task {
+                            await viewModel.signInWithGoogle()
+                        }
                     }
                 }
 
                 Button {
-                    isLogin.toggle()
-                    lastEmailChange = nil
-                    lastPasswordChange = nil
-                    autoLoginTriggered = false
+                    switchMode()
                 } label: {
-                    Text(isLogin ? "No account? Register" : "Already have account? Sign in")
-                        .font(.footnote)
-                        .foregroundColor(AppTheme.textSecondary)
+                    Text(
+                        isLogin
+                            ? "No account? Register"
+                            : "Already have account? Sign in"
+                    )
+                    .font(.footnote)
+                    .foregroundColor(AppTheme.textSecondary)
                 }
 
                 if case .error(let message) = viewModel.state {
@@ -58,13 +67,19 @@ struct AuthView: View {
                 }
             }
             .contentShape(Rectangle())
-            .onTapGesture { dismissKeyboard() }
+            .onTapGesture {
+                dismissKeyboard()
+            }
             .padding(.horizontal, 20)
             .padding(.top, 80)
             .frame(maxWidth: 360)
             .frame(maxWidth: .infinity)
         }
-        .background(AppTheme.background.ignoresSafeArea())
+        .background(
+            AppTheme.background
+                .ignoresSafeArea()
+        )
+        .scrollDismissesKeyboard(.interactively)
         .onChange(of: viewModel.email) { _, _ in
             lastEmailChange = Date()
             checkAutofillLogin()
@@ -74,41 +89,63 @@ struct AuthView: View {
             checkAutofillLogin()
         }
         .onAppear {
-            AnalyticsManager.shared.track(.screenView(screen: "auth"))
+            AnalyticsManager.shared.track(
+                .screenView(screen: "auth")
+            )
         }
     }
 
     private func dismissKeyboard() {
-        emailFocused = false
-        passwordFocused = false
-        firstNameFocused = false
-        lastNameFocused = false
+        focusedField = nil
+    }
+
+    private func switchMode() {
+        dismissKeyboard()
+
+        isLogin.toggle()
+
+        lastEmailChange = nil
+        lastPasswordChange = nil
+        autoLoginTriggered = false
     }
 
     private func checkAutofillLogin() {
-        guard isLogin,
-              !autoLoginTriggered,
-              viewModel.state != .loading,
-              viewModel.email.contains("@"),
-              viewModel.password.count > 1,
-              let emailDate = lastEmailChange,
-              let passwordDate = lastPasswordChange,
-              abs(emailDate.timeIntervalSince(passwordDate)) < 0.5
-        else { return }
+        guard
+            isLogin,
+            !autoLoginTriggered,
+            viewModel.state != .loading,
+            viewModel.email.contains("@"),
+            viewModel.password.count > 1,
+            let emailDate = lastEmailChange,
+            let passwordDate = lastPasswordChange,
+            abs(
+                emailDate.timeIntervalSince(passwordDate)
+            ) < 0.5
+        else {
+            return
+        }
+
         autoLoginTriggered = true
+
         dismissKeyboard()
-        Task { await viewModel.login() }
+
+        Task {
+            await viewModel.login()
+        }
     }
 }
 
 #Preview("AuthView") {
     let container = AppDependencyContainer()
+
     let viewModel = AuthViewModel(
         authService: MockAuthService(),
         profileService: MockProfileService(),
         googleSignInService: container.googleSignInService,
-        coordinator: AppCoordinator(container: container)
+        coordinator: AppCoordinator(
+            container: container
+        )
     )
-    
+
     AuthView(viewModel: viewModel)
 }

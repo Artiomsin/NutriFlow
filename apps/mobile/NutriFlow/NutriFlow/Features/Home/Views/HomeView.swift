@@ -5,18 +5,21 @@ enum HomeNavRoute: Hashable {
     case foodSearch
     case servingPicker(CatalogFood, Int?, String?)
     case addWater
+    case scanFood
+    case scanResult([FoodAnalysisItem], Data?)
 }
 
 struct HomeView: View {
-
+    
     @Bindable var homeViewModel: HomeViewModel
     let foodService: FoodServiceProtocol
     let coordinator: AppCoordinator?
     let tabBarState: TabBarState
-
+    
     @State private var navPath: [HomeNavRoute] = []
     @State private var editingFood: FoodEntry?
-
+    @State private var foodSearchVM: FoodSearchViewModel?
+    
     init(homeViewModel: HomeViewModel, foodService: FoodServiceProtocol, coordinator: AppCoordinator? = nil, tabBarState: TabBarState = TabBarState()) {
         self.homeViewModel = homeViewModel
         self.foodService = foodService
@@ -37,13 +40,13 @@ struct HomeView: View {
                             navPath.append(HomeNavRoute.servingPicker(food, nil, nil))
                         })
                     case .foodSearch:
-                        let searchVM = FoodSearchViewModel(service: foodService)
-                        FoodSearchView(
-                            viewModel: searchVM,
-                            onSelect: { food, suggestedGrams, suggestedUnit in
-                                navPath.append(HomeNavRoute.servingPicker(food, suggestedGrams, suggestedUnit))
+                        searchView
+                            .task {
+                                if foodSearchVM == nil {
+                                    foodSearchVM = FoodSearchViewModel(service: foodService)
+                                }
                             }
-                        )
+                        
                     case .servingPicker(let food, let suggestedGrams, let suggestedUnit):
                         let pickerVM = ServingPickerViewModel(food: food, service: foodService, todayFoodVM: homeViewModel.todayFoodVM, suggestedGrams: suggestedGrams, suggestedUnit: suggestedUnit, coordinator: coordinator)
                         ServingPickerView(viewModel: pickerVM, onSave: popToRoot)
@@ -52,6 +55,21 @@ struct HomeView: View {
                             waterViewModel: homeViewModel.waterVM,
                             onSave: { Task { await homeViewModel.loadDashboardSummary() } }
                         )
+                    case .scanFood:
+                        ScanFoodView(service: foodService) { items, imageData in
+                            navPath.append(HomeNavRoute.scanResult(items, imageData))
+                        }
+                        
+                    case .scanResult(let items, let imageData):
+                        let resultVM = ScanResultViewModel(
+                            items: items,
+                            imageData: imageData,
+                            service: foodService,
+                            todayFoodVM: homeViewModel.todayFoodVM,
+                            coordinator: coordinator
+                        )
+                        ScanResultView(viewModel: resultVM, onFinished: popToRoot)
+                        
                     }
                 }
         }
@@ -59,6 +77,7 @@ struct HomeView: View {
         .onChange(of: navPath) { _, newPath in
             tabBarState.isTabBarHidden = !newPath.isEmpty
         }
+        .background(AppTheme.background)
         .sheet(item: $editingFood) { entry in
             let vm = EditFoodViewModel(entry: entry, foodService: foodService, coordinator: coordinator)
             EditFoodView(viewModel: vm) {
@@ -67,18 +86,22 @@ struct HomeView: View {
             }
         }
     }
-
+    
     private var content: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
                 header
-
+                
                 DailySummarySectionView(homeViewModel: homeViewModel)
                 FoodSectionView(
                     todayFoodVM: homeViewModel.todayFoodVM,
                     onAddFood: {
                         tabBarState.isTabBarHidden = true
                         navPath.append(HomeNavRoute.addFood)
+                    },
+                    onScan: {
+                        tabBarState.isTabBarHidden = true
+                        navPath.append(HomeNavRoute.scanFood)
                     },
                     onEditFood: { entry in
                         editingFood = entry
@@ -100,6 +123,7 @@ struct HomeView: View {
             }
             .padding(.bottom, 100)
         }
+        .background(AppTheme.background)
         .minimizeTabBarOnScroll(
             tabBarState: tabBarState,
             isActive: { navPath.isEmpty }
@@ -120,7 +144,20 @@ struct HomeView: View {
             Task { await homeViewModel.reloadGoals() }
         }
     }
-
+    
+    @ViewBuilder
+    private var searchView: some View {
+        if let vm = foodSearchVM {
+            FoodSearchView(viewModel: vm) { food, sg, su in
+                navPath.append(.servingPicker(food, sg, su))
+            }
+        } else {
+            ProgressView()
+                .tint(AppTheme.accent)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+    
     private var header: some View {
         VStack(spacing: 6) {
             Text("Home")
@@ -129,7 +166,7 @@ struct HomeView: View {
                 .padding(.top, AppTheme.headerPaddingTop)
         }
     }
-
+    
     private func popToRoot() {
         navPath.removeAll()
         tabBarState.isTabBarHidden = false
@@ -147,13 +184,15 @@ extension HomeView: Equatable {
 private struct FoodSectionView: View {
     @Bindable var todayFoodVM: TodayFoodViewModel
     let onAddFood: () -> Void
+    let onScan: () -> Void
     let onEditFood: (FoodEntry) -> Void
     let onDeleteFood: (String) -> Void
-
+    
     var body: some View {
         FoodSection(
             todayFoodVM: todayFoodVM,
             onAddFood: onAddFood,
+            onScan: onScan,
             onEditFood: onEditFood,
             onDeleteFood: onDeleteFood
         )
@@ -165,7 +204,7 @@ private struct WaterSectionView: View {
     @Bindable var waterVM: WaterViewModel
     let onAddWater: () -> Void
     let onDeleteWater: (String) -> Void
-
+    
     var body: some View {
         WaterSection(
             waterViewModel: waterVM,
@@ -178,7 +217,7 @@ private struct WaterSectionView: View {
 
 private struct DailySummarySectionView: View {
     @Bindable var homeViewModel: HomeViewModel
-
+    
     var body: some View {
         DailySummarySection(
             state: homeViewModel.dailySummaryState,
@@ -202,7 +241,7 @@ private struct HomePreviewContent: View {
         .background(AppTheme.background)
         .preferredColorScheme(.dark)
     }
-
+    
     private func makePreviewHomeVM() -> HomeViewModel {
         let coordinator = AppCoordinator(container: AppDependencyContainer())
         let todayFoodVM = TodayFoodViewModel(service: MockFoodService(), coordinator: coordinator)
@@ -210,13 +249,13 @@ private struct HomePreviewContent: View {
             FoodEntry(id: "1", userId: "1", name: "Chicken", calories: 165, protein: 31, fat: 4, carbs: 0, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
             FoodEntry(id: "2", userId: "1", name: "Rice", calories: 200, protein: 4, fat: 1, carbs: 45, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil)
         ]))
-
+        
         let waterVM = WaterViewModel(coordinator: coordinator, service: MockWaterService())
         waterVM.setPreviewState(.loaded([
             WaterEntry(id: "1", userId: "1", amountMl: 250, createdAt: "2026-05-18T08:00:00Z", updatedAt: nil),
             WaterEntry(id: "2", userId: "1", amountMl: 500, createdAt: "2026-05-18T10:30:00Z", updatedAt: nil)
         ]))
-
+        
         let goalsVM = GoalsViewModel(coordinator: coordinator, service: MockGoalsService())
         goalsVM.state = .loaded(UserGoals(
             id: "1", userId: "1",
@@ -224,7 +263,7 @@ private struct HomePreviewContent: View {
             dailyFatGoal: 65, dailyCarbsGoal: 250, dailyWaterGoal: 3000,
             source: "auto", createdAt: nil, updatedAt: nil
         ))
-
+        
         return HomeViewModel(
             coordinator: coordinator,
             dailySummaryService: MockDailySummaryService(),

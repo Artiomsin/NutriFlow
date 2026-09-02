@@ -1,68 +1,101 @@
 import SwiftUI
 
-struct AuthPasswordField: View {
-    
+struct AuthPasswordField<Field: Hashable>: View {
+
     @Binding var password: String
-    
-    var textContentType: UITextContentType? = nil
-    
+
+    var textContentType: UITextContentType? = .password
     var submitLabel: SubmitLabel = .return
-    
-    var focus: FocusState<Bool>.Binding? = nil
-    
+
+    var focus: FocusState<Field?>.Binding
+    var focusValue: Field
+
     var onSubmit: (() -> Void)? = nil
-    
-    @State private var showPassword = false
-    
+
+    @State private var isSecure = true
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            
             Text("Password")
                 .font(.caption)
                 .foregroundColor(AppTheme.textSecondary)
-            
-            HStack {
-                
-                if showPassword {
-                    TextField("", text: $password)
-                        .modifier(FocusModifier(focus: focus))
-                        .modifier(TextContentTypeModifier(contentType: textContentType))
-                        .submitLabel(submitLabel)
-                        .onSubmit { onSubmit?() }
-                } else {
+                .frame(height: 16, alignment: .leading)
+
+            HStack(spacing: 8) {
+                ZStack(alignment: .leading) {
                     SecureField("", text: $password)
-                        .modifier(FocusModifier(focus: focus))
-                        .modifier(TextContentTypeModifier(contentType: textContentType))
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.default)
+                        .textContentType(textContentType)
+                        .foregroundColor(AppTheme.textPrimary)
                         .submitLabel(submitLabel)
                         .onSubmit { onSubmit?() }
+                        .focusedIf(isSecure, focus, equals: focusValue)
+                        .opacity(isSecure ? 1 : 0)
+                        .allowsHitTesting(isSecure)
+
+                    TextField("", text: $password)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.default)
+                        .textContentType(textContentType)
+                        .foregroundColor(AppTheme.textPrimary)
+                        .submitLabel(submitLabel)
+                        .onSubmit { onSubmit?() }
+                        .focusedIf(!isSecure, focus, equals: focusValue)
+                        .opacity(isSecure ? 0 : 1)
+                        .allowsHitTesting(!isSecure)
                 }
-                
+                .frame(maxWidth: .infinity)
+
                 Button {
-                    showPassword.toggle()
+                    isSecure.toggle()
                 } label: {
                     Image(
-                        systemName:
-                            showPassword
-                        ? "eye.slash"
-                        : "eye"
+                        systemName: isSecure
+                            ? "eye.slash"
+                            : "eye"
                     )
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppTheme.textTertiary)
                 }
+                .buttonStyle(.plain)
             }
-            .foregroundColor(AppTheme.textPrimary)
-            .textInputAutocapitalization(.never)
-            .autocorrectionDisabled()
-            .padding()
+            .padding(.horizontal, 16)
+            .frame(height: 52)
             .background(fieldBackground)
         }
+        .frame(maxWidth: .infinity)
     }
-    
+
     private var fieldBackground: some View {
-        RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-            .fill(AppTheme.fieldBackground)
-            .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                    .stroke(AppTheme.fieldBorder, lineWidth: 1)
+        RoundedRectangle(
+            cornerRadius: AppTheme.cornerRadiusMedium
+        )
+        .fill(AppTheme.fieldBackground)
+        .overlay(
+            RoundedRectangle(
+                cornerRadius: AppTheme.cornerRadiusMedium
             )
+            .stroke(
+                AppTheme.fieldBorder,
+                lineWidth: 1
+            )
+        )
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func focusedIf<F: Hashable>(
+        _ active: Bool,
+        _ focus: FocusState<F?>.Binding,
+        equals value: F
+    ) -> some View {
+        if active {
+            focused(focus, equals: value)
+        } else {
+            self
+        }
     }
 }

@@ -34,7 +34,7 @@ final class TodayFoodViewModel {
             return
         }
 
-        state = .loading
+        if case .loaded = state {} else { state = .loading }
         do {
             print("[Network] TodayFoodVM loadToday")
             let food = try await service.getTodayFood()
@@ -45,6 +45,8 @@ final class TodayFoodViewModel {
             if let cached: [FoodEntry] = try? await cacheService?.get("food_today", ignoreTTL: true) {
                 print("[TodayFoodVM] loadToday → fallback to stale cache (\(cached.count) entries)")
                 state = .loaded(cached)
+            } else if case .loaded = state {
+                print("[TodayFoodVM] loadToday → FAIL, keeping existing data")
             } else {
                 print("[TodayFoodVM] loadToday → FAIL, no cache")
                 state = .error(error)
@@ -60,37 +62,6 @@ final class TodayFoodViewModel {
         await cacheService?.removeByPrefix("chart_summaries")
         await cacheService?.removeByPrefix("analytics_")
         await loadToday()
-    }
-
-    func updateFood(id: String, name: String?, calories: Int?, protein: Int?, fat: Int?, carbs: Int?, grams: Int?, categoryName: String? = nil, image: UIImage?) async {
-        do {
-            print("[Network] TodayFoodVM updateFood")
-            var imageUrl: String?
-            if let image, let data = image.jpegData(compressionQuality: 0.8) {
-                imageUrl = try await service.uploadImage(data)
-            }
-            try await service.updateFoodEntry(
-                id: id,
-                name: name,
-                calories: calories,
-                protein: protein,
-                fat: fat,
-                carbs: carbs,
-                grams: grams,
-                foodId: nil,
-                date: nil,
-                imageUrl: imageUrl,
-                categoryName: categoryName
-            )
-            await reloadAfterAdd()
-        } catch let error as APIError {
-            if case .unauthorized = error {
-                coordinator?.goToAuth()
-            }
-            state = .error(error)
-        } catch {
-            state = .error(error)
-        }
     }
 
     func deleteFood(id: String) async {

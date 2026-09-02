@@ -50,7 +50,13 @@ final class HomeViewModel {
         await cacheService?.remove("chart_today")
         await cacheService?.removeByPrefix("chart_summaries")
         await cacheService?.removeByPrefix("analytics_")
-        await loadAll()
+
+        await withDiscardingTaskGroup { [self] group in
+            group.addTask { await self.loadDashboardSummary() }
+            group.addTask { await self.goalsVM.loadGoals() }
+            group.addTask { await self.todayFoodVM.loadToday() }
+            group.addTask { await self.waterVM.loadToday() }
+        }
     }
 
     func loadAll() async {
