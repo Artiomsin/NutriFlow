@@ -16,6 +16,8 @@ export const users = app.table('users', {
 
   googleId: varchar('google_id', { length: 255 }).unique(),
 
+  appleId: varchar('apple_id', {length: 255}).unique(),
+
   firstName: varchar('first_name', { length: 50 }),
   
   lastName: varchar('last_name', { length: 50 }),

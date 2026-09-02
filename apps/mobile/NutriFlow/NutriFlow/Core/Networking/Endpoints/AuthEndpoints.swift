@@ -7,4 +7,5 @@ enum AuthEndpoints {
     static let google = "/auth/google"
     static let logout = "/auth/logout"
     static let logoutAll = "/auth/logout-all"
+    static let apple = "/auth/apple"
 }

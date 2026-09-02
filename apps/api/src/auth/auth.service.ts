@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { randomUUID, createHash } from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
+import appleSignin from 'apple-signin-auth';
 
 import { db } from '../db/db';
 import { users } from '../db/schema/users';
@@ -136,6 +137,66 @@ export class AuthService {
     return tokens;
   }
 
+  async appleLogin(data: {
+    identityToken: string;
+    firstName?: string;
+    lastName?: string;
+  }) {
+    let payload: { sub: string; email?: string | null };
+    try {
+          payload = await appleSignin.verifyIdToken(data.identityToken, {
+            audience: env.APPLE_CLIENT_ID,
+            ignoreExpiration: false,
+          });
+        } catch {
+          throw new UnauthorizedException('Invalid Apple identity token');
+        }
+        
+        const appleId = payload.sub;
+        const email = payload.email ?? `${appleId}@apple.local`;
+
+        const existing = await db
+              .select()
+              .from(users)
+              .where(or(eq(users.appleId, appleId), eq(users.email, email)))
+              .limit(1)
+              .then((r) => r[0]);
+        
+            let userId: string;
+        
+            if (existing) {
+              userId = existing.id;
+              await db
+                .update(users)
+                .set({
+                  appleId: existing.appleId ?? appleId,
+                  firstName: data.firstName ?? existing.firstName ?? '',
+                  lastName: data.lastName ?? existing.lastName ?? '',
+                })
+                .where(eq(users.id, existing.id));
+            } else {
+              const created = await db
+                .insert(users)
+                .values({
+                  email,
+                  appleId,
+                  firstName: data.firstName ?? '',
+                  lastName: data.lastName ?? '',
+                })
+                .returning();
+              const createdUser = created[0];
+              if (!createdUser) throw new Error('Failed to create user');
+              userId = createdUser.id;
+            }
+        
+            const sessionId = randomUUID();
+            const tokens = this.generateTokens(userId, sessionId);
+            await this.saveRefresh(userId, sessionId, tokens.refreshToken);
+        
+            return tokens;
+          }
+
+  
   async refresh(refreshToken: string) {
     try {
       const payload = await this.jwtService.verifyAsync<AuthPayload>(

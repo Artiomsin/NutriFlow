@@ -37,6 +37,7 @@
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.1.19",
+    "apple-signin-auth": "^2.1.0",
     "bcrypt": "^6.0.0",
     "drizzle-orm": "^0.45.2",
     "google-auth-library": "^10.9.0",

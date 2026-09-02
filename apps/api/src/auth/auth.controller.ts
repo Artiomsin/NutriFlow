@@ -13,6 +13,7 @@ import {
   loginSchema,
   refreshSchema,
   googleLoginSchema,
+  appleLoginSchema,
 } from './auth.schema';
 
 import type {
@@ -20,6 +21,7 @@ import type {
   LoginDto,
   RefreshDto,
   GoogleLoginDto,
+  AppleLoginDto,
 } from './auth.schema';
 
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
@@ -53,6 +55,12 @@ export class AuthController {
   @UsePipes(new ZodValidationPipe(googleLoginSchema))
   googleLogin(@Body() data: GoogleLoginDto) {
     return this.authService.googleLogin(data);
+  }
+
+  @Post('apple')
+  @UsePipes(new ZodValidationPipe(appleLoginSchema))
+  appleLogin(@Body() data:AppleLoginDto ) {
+    return this.authService.appleLogin(data);
   }
 
   @UseGuards(JwtAuthGuard)

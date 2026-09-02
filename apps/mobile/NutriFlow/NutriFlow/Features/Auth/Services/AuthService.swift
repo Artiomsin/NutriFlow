@@ -42,6 +42,17 @@ final class AuthService: AuthServiceProtocol, Sendable {
         let response: AuthTokensResponse = try await client.send(request)
         sessionService.saveSession(access: response.accessToken, refresh: response.refreshToken)
     }
+    
+    func signInWithApple(identityToken: String, firstName: String?, lastName: String?) async throws {
+        let request = APIRequest(
+            path: AuthEndpoints.apple,
+            method: .POST,
+            body: AppleLoginDTO(identityToken: identityToken, firstName: firstName, lastName: lastName)
+        )
+        
+        let response: AuthTokensResponse = try await client.send(request)
+        sessionService.saveSession(access: response.accessToken, refresh: response.refreshToken)
+    }
 
     func logout() async throws {
         let request = APIRequest<NeverBody>(
