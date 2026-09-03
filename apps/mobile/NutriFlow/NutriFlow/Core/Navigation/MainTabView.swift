@@ -38,7 +38,8 @@ struct MainTabView: View {
             authService: container.authService,
             profileService: container.profileService,
             userService: container.userService,
-            cacheService: container.cacheService
+            cacheService: container.cacheService,
+            backgroundSyncer: container.backgroundSyncer
         ))
     }
 

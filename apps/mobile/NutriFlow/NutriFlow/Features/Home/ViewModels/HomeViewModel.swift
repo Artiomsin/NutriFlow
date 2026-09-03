@@ -8,7 +8,8 @@ final class HomeViewModel {
     let todayFoodVM: TodayFoodViewModel
     let waterVM: WaterViewModel
     let goalsVM: GoalsViewModel
-
+    let activityVM: ActivityViewModel
+    
     var dailySummaryState: DailySummaryState = .idle
 
     var userGoals: UserGoals? {
@@ -28,6 +29,8 @@ final class HomeViewModel {
         todayFoodVM: TodayFoodViewModel,
         waterVM: WaterViewModel,
         goalsVM: GoalsViewModel,
+        activityVM: ActivityViewModel,
+        
         cacheService: CacheService? = nil
     ) {
         print("HomeViewModel init")
@@ -37,6 +40,8 @@ final class HomeViewModel {
         self.todayFoodVM = todayFoodVM
         self.waterVM = waterVM
         self.goalsVM = goalsVM
+        self.activityVM = activityVM
+        
         self.cacheService = cacheService
     }
 

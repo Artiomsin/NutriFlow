@@ -21,4 +21,8 @@ protocol AppDependency {
     var analyticsManager: AnalyticsManager { get }
     var cacheService: CacheService { get }
     var googleSignInService: GoogleSignInService { get }
+    var healthKitService: HealthKitService { get }
+    var activityService: ActivityServiceProtocol { get }
+    var backgroundSyncer: ActivityBackgroundSyncer { get }
+
 }

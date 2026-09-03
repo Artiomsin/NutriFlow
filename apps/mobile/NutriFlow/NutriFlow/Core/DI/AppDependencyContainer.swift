@@ -21,6 +21,10 @@ final class AppDependencyContainer: AppDependency {
     let analyticsManager: AnalyticsManager
     let cacheService: CacheService
     let googleSignInService: GoogleSignInService
+    let activityService: ActivityServiceProtocol
+    let healthKitService: HealthKitService
+    let backgroundSyncer: ActivityBackgroundSyncer
+
 
     init() {
         self.cacheService = CacheService()
@@ -51,13 +55,22 @@ final class AppDependencyContainer: AppDependency {
         self.dailySummaryService = DailySummaryService(client: httpClient)
         self.goalsService = GoalsService(client: httpClient)
         self.analyticsService = AnalyticsService(client: httpClient)
-
+        
+        self.activityService = ActivityService(client: httpClient)
+        
         self.sessionBootstrapService = SessionBootstrapService(
             profileService: profile,
             sessionService: session
         )
 
         self.googleSignInService = GoogleSignInService()
+        
+        self.healthKitService = HealthKitService()
+        
+        self.backgroundSyncer = ActivityBackgroundSyncer(
+            healthKitService: healthKitService,
+            activityService: activityService
+        )
 
         #if DEBUG
         AnalyticsManager.shared.setMode(.debug)

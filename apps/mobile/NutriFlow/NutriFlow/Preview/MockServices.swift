@@ -67,6 +67,10 @@ final class MockFoodService: FoodServiceProtocol {
     func analyzePhoto(_ data: Data) async throws -> [FoodAnalysisItem] { [] }
 }
 
+final class MockActivityService: ActivityServiceProtocol {
+    func sync(entries: [DailyActivity]) async throws { }
+}
+
 final class MockWaterService: WaterTrackingServiceProtocol {
     func createWaterEntry(amountMl: Int, date: String? = nil) async throws -> WaterEntry {
         WaterEntry(id: UUID().uuidString, userId: "1", amountMl: amountMl, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil)

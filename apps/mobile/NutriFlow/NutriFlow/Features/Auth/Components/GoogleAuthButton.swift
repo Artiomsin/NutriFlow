@@ -12,7 +12,7 @@ struct GoogleAuthButton: View {
                 googleIcon
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 22, height: 22)
+                    .frame(width: 18, height: 18)
                 Text("Sign in with Google")
                     .font(.headline)
                     .foregroundColor(.black)

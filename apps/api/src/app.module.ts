@@ -11,6 +11,7 @@ import { WaterTrackingModule } from './water-tracking/water-tracking.module';
 import { DailySummaryModule } from './daily-summary/daily-summary.module';
 import { GoalsModule } from './goals/goals.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { ActivityModule } from './activity/activity.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
     DailySummaryModule,
     GoalsModule,
     AnalyticsModule,
+    ActivityModule,
   ],
 })
 export class AppModule {}

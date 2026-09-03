@@ -93,6 +93,8 @@ struct HomeView: View {
                 header
                 
                 DailySummarySectionView(homeViewModel: homeViewModel)
+                ActivityCard(vm: homeViewModel.activityVM)
+                    .padding(.horizontal, AppTheme.paddingHorizontal)
                 FoodSectionView(
                     todayFoodVM: homeViewModel.todayFoodVM,
                     onAddFood: {
@@ -137,6 +139,7 @@ struct HomeView: View {
                 group.addTask { await homeViewModel.loadAll() }
                 group.addTask { await homeViewModel.todayFoodVM.loadToday() }
                 group.addTask { await homeViewModel.waterVM.loadToday() }
+                group.addTask { await homeViewModel.activityVM.onAppear() }
             }
         }
         .onAppear {
@@ -264,13 +267,25 @@ private struct HomePreviewContent: View {
             source: "auto", createdAt: nil, updatedAt: nil
         ))
         
+        let activityVM = ActivityViewModel(
+            healthKit: HealthKitService(),
+            activityService: MockActivityService()
+        )
+        activityVM.state = .loaded(DailyActivity(
+            date: "2026-05-18",
+            steps: 8543,
+            activeCalories: 412,
+            distanceMeters: 5200
+        ))
+        
         return HomeViewModel(
             coordinator: coordinator,
             dailySummaryService: MockDailySummaryService(),
             foodService: MockFoodService(),
             todayFoodVM: todayFoodVM,
             waterVM: waterVM,
-            goalsVM: goalsVM
+            goalsVM: goalsVM,
+            activityVM: activityVM
         )
     }
 }

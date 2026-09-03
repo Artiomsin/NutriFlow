@@ -8,7 +8,12 @@ enum HomeFactory {
         let todayFoodVM = TodayFoodViewModel(service: container.foodService, coordinator: coordinator, cacheService: cache)
         let waterVM = WaterViewModel(coordinator: coordinator, service: container.waterTrackingService, cacheService: cache)
         let goalsVM = GoalsViewModel(coordinator: coordinator, service: container.goalsService, cacheService: cache)
-
+        let activityVM = ActivityViewModel(
+            healthKit: container.healthKitService,
+            activityService: container.activityService,
+            backgroundSyncer: container.backgroundSyncer
+        )
+        
         return HomeViewModel(
             coordinator: coordinator,
             dailySummaryService: container.dailySummaryService,
@@ -16,6 +21,7 @@ enum HomeFactory {
             todayFoodVM: todayFoodVM,
             waterVM: waterVM,
             goalsVM: goalsVM,
+            activityVM: activityVM,
             cacheService: cache
         )
     }
