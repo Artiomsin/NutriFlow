@@ -5,6 +5,10 @@ struct ProgressDashboardView: View {
     @Bindable var chartVM: ProgressChartViewModel
     @Bindable var periodState: PeriodState
     var tabBarState: TabBarState = TabBarState()
+
+    let progressRefreshState: ProgressRefreshState
+    let isActive: Bool
+
     @State private var prefsStore = PreferencesStore.shared
 
     var body: some View {
@@ -45,13 +49,33 @@ struct ProgressDashboardView: View {
             async let analytics: () = analyticsVM.loadAnalytics()
             async let charts: () = chartVM.loadChartData()
             (_, _) = await (analytics, charts)
+            let revision = progressRefreshState.revision
+            switch analyticsVM.state {
+            case .loaded, .empty:
+                analyticsVM.markRevisionAsCurrent(revision)
+            default:
+                break
+            }
+            if case .loaded = chartVM.chartState {
+                chartVM.markRevisionAsCurrent(revision)
+            }
+        }
+        .onChange(of: isActive) { _, active in
+            guard active else { return }
+            let revision = progressRefreshState.revision
+            Task {
+                async let analytics: () = analyticsVM.refreshIfNeeded(currentRevision: revision)
+                async let charts: () = chartVM.refreshIfNeeded(currentRevision: revision)
+                (_, _) = await (analytics, charts)
+            }
         }
         .sheet(isPresented: $chartVM.showDaySheet) {
             DayDetailSheet(
                 dateStr: chartVM.selectedDateStr,
                 food: chartVM.selectedDateFood,
                 water: chartVM.selectedDateWater,
-                goals: chartVM.selectedDateGoals
+                goals: chartVM.selectedDateGoals,
+                state: chartVM.dayDetailState
             )
         }
     }
@@ -106,9 +130,10 @@ struct ProgressDashboardView: View {
         case .loaded(let data):
             if !data.isEmpty {
                 VStack(spacing: 20) {
-                    CaloriesChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(label: $0) }, initialScrollX: data.first?.label ?? "")
-                    WaterChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(label: $0) }, initialScrollX: data.first?.label ?? "")
-                    NutritionChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(label: $0) }, initialScrollX: data.first?.label ?? "")
+                    CaloriesChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
+                    WaterChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
+                    NutritionChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
+                    ActivityChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
                 }
             } else {
                 if case .empty = analyticsVM.state {
@@ -187,12 +212,6 @@ struct ProgressDashboardView: View {
     }
 }
 
-extension ProgressDashboardView: Equatable {
-    static func == (lhs: ProgressDashboardView, rhs: ProgressDashboardView) -> Bool {
-        lhs.tabBarState === rhs.tabBarState
-    }
-}
-
 #Preview("NutriFlow Progress") {
     ProgressPreviewContent()
 }
@@ -200,7 +219,13 @@ extension ProgressDashboardView: Equatable {
 private struct ProgressPreviewContent: View {
     var body: some View {
         let data = makePreviewData()
-        return ProgressDashboardView(analyticsVM: data.analytics, chartVM: data.chart, periodState: data.period)
+        return ProgressDashboardView(
+                analyticsVM: data.analytics,
+                chartVM: data.chart,
+                periodState: data.period,
+                progressRefreshState: ProgressRefreshState(),
+                isActive: true
+            )
             .background(AppTheme.background)
     }
 

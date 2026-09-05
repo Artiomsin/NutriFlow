@@ -47,12 +47,11 @@ final class FoodService: FoodServiceProtocol, Sendable {
     }
 
     func getTodayFood() async throws -> [FoodEntry] {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        let date = df.string(from: Date())
+        let endpoint = FoodEndpoints.getTodayFood(date: nil)
         let request = APIRequest<NeverBody>(
-            path: "\(FoodEndpoints.getTodayFood)?date=\(date)",
-            method: .GET
+            path: endpoint.path,
+            method: .GET,
+            queryItems: endpoint.query
         )
         return try await client.send(request)
     }
@@ -100,12 +99,11 @@ final class FoodService: FoodServiceProtocol, Sendable {
     }
 
     func deleteFoodEntry(id: String, date: String? = nil) async throws {
-        let endpoint = FoodEndpoints.deleteFoodEntry(id: id)
-        let queryItems: [URLQueryItem] = date.map { [URLQueryItem(name: "date", value: $0)] } ?? []
+        let endpoint = FoodEndpoints.deleteFoodEntry(id: id, date: date)
         let request = APIRequest<NeverBody>(
-            path: endpoint,
+            path: endpoint.path,
             method: .DELETE,
-            queryItems: queryItems
+            queryItems: endpoint.query
         )
         try await client.sendVoid(request)
     }

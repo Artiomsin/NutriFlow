@@ -21,3 +21,10 @@ enum ChartState {
     case loaded([ChartDataPoint])
     case error(Error)
 }
+
+enum DayDetailState {
+    case idle
+    case loading
+    case loaded
+    case error(Error)
+}

@@ -21,12 +21,11 @@ final class WaterTrackingService: WaterTrackingServiceProtocol, Sendable {
     }
 
     func getTodayWater() async throws -> [WaterEntry] {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        let date = df.string(from: Date())
+        let endpoint = WaterTrackingEndpoints.getTodayWater(date: nil)
         let request = APIRequest<NeverBody>(
-            path: "\(WaterTrackingEndpoints.getTodayWater)?date=\(date)",
-            method: .GET
+            path: endpoint.path,
+            method: .GET,
+            queryItems: endpoint.query
         )
         return try await client.send(request)
     }
@@ -42,13 +41,11 @@ final class WaterTrackingService: WaterTrackingServiceProtocol, Sendable {
     }
 
     func deleteWaterEntry(id: String, date: String? = nil) async throws {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        let deleteDate = date ?? df.string(from: Date())
-        let path = "\(WaterTrackingEndpoints.deleteWaterTracking(id: id))?date=\(deleteDate)"
+        let endpoint = WaterTrackingEndpoints.deleteWaterTracking(id: id, date: date)
         let request = APIRequest<NeverBody>(
-            path: path,
-            method: .DELETE
+            path: endpoint.path,
+            method: .DELETE,
+            queryItems: endpoint.query
         )
         try await client.sendVoid(request)
     }

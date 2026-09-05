@@ -1,8 +1,7 @@
 import Foundation
 import HealthKit
-import BackgroundTasks
 
-final class HealthKitService {
+final class HealthKitService: HealthKitServiceProtocol {
 
     private let store = HKHealthStore()
 
@@ -14,7 +13,7 @@ final class HealthKitService {
 
     private var observers: [HKObserverQuery] = []
 
-    var onActivityUpdate: ((DailyActivity) -> Void)?
+    var onActivityChanged: (() -> Void)?
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -27,7 +26,7 @@ final class HealthKitService {
         HKHealthStore.isHealthDataAvailable()
     }
 
-    // MARK: - Authorization
+
 
     func requestAuthorization() async throws {
         guard isAvailable else { return }
@@ -36,7 +35,6 @@ final class HealthKitService {
         print("[HealthKit] requestAuthorization returned")
     }
 
-    // MARK: - Fetch
 
     func fetchToday() async -> DailyActivity {
         let now = Date()
@@ -57,7 +55,7 @@ final class HealthKitService {
         return result
     }
 
-    // MARK: - Background Delivery
+    
 
     func enableBackgroundDelivery() async throws {
         guard isAvailable else { return }
@@ -67,7 +65,7 @@ final class HealthKitService {
         print("[HealthKit] enabled background delivery")
     }
 
-    // MARK: - Observer
+
 
     func startObserving() {
         guard isAvailable else { return }
@@ -81,7 +79,7 @@ final class HealthKitService {
                 }
                 print("[HealthKit] observer fired for \(type.identifier)")
                 Task {
-                    await self?.handleObserverUpdate()
+                    self?.onActivityChanged?()
                     completionHandler()
                 }
             }
@@ -96,21 +94,10 @@ final class HealthKitService {
             store.stop(query)
         }
         observers.removeAll()
-        onActivityUpdate = nil
+        onActivityChanged = nil
         print("[HealthKit] observers stopped")
     }
 
-    private func handleObserverUpdate() async {
-        let activity = await fetchToday()
-        onActivityUpdate?(activity)
-    }
-
-    func loadAndNotify() async {
-        let activity = await fetchToday()
-        onActivityUpdate?(activity)
-    }
-
-    // MARK: - Private
 
     private func sum(
         _ identifier: HKQuantityTypeIdentifier,

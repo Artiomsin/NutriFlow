@@ -15,7 +15,7 @@ enum ProfileFormFactory {
             authService: container.authService,
             profileService: container.profileService,
             userService: container.userService,
-            backgroundSyncer: container.backgroundSyncer
+            activitySync: container.activitySync
         )
         ProfileFormView(viewModel: viewModel)
     }

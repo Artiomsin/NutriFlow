@@ -81,7 +81,8 @@ struct HomeView: View {
         .sheet(item: $editingFood) { entry in
             let vm = EditFoodViewModel(entry: entry, foodService: foodService, coordinator: coordinator)
             EditFoodView(viewModel: vm) {
-                await homeViewModel.todayFoodVM.reloadAfterAdd()
+                await homeViewModel.todayFoodVM.reloadAfterMutation()
+                homeViewModel.todayFoodVM.notifyDataMutated()
                 await homeViewModel.loadDashboardSummary()
             }
         }
@@ -268,8 +269,7 @@ private struct HomePreviewContent: View {
         ))
         
         let activityVM = ActivityViewModel(
-            healthKit: HealthKitService(),
-            activityService: MockActivityService()
+            healthKit: HealthKitService()
         )
         activityVM.state = .loaded(DailyActivity(
             date: "2026-05-18",

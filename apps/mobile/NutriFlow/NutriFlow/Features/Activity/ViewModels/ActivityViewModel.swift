@@ -9,9 +9,8 @@ final class ActivityViewModel{
     
     var state: ActivityState = .idle
     
-    @ObservationIgnored private let healthKit: HealthKitService
-    @ObservationIgnored private let activityService: ActivityServiceProtocol
-    @ObservationIgnored private var backgroundSyncer: ActivityBackgroundSyncer?
+    @ObservationIgnored private let healthKit: HealthKitServiceProtocol
+    @ObservationIgnored private let activitySync: ActivitySyncProtocol?
     
     private var hasRequestedAuth: Bool {
         get { UserDefaults.standard.bool(forKey: "hasRequestedHealthAuth") }
@@ -19,10 +18,9 @@ final class ActivityViewModel{
     }
     
     
-    init(healthKit: HealthKitService, activityService: ActivityServiceProtocol, backgroundSyncer: ActivityBackgroundSyncer? = nil) {
+    init(healthKit: HealthKitServiceProtocol, activitySync: ActivitySyncProtocol? = nil) {
             self.healthKit = healthKit
-            self.activityService = activityService
-            self.backgroundSyncer = backgroundSyncer
+            self.activitySync = activitySync
         }
 
     
@@ -30,21 +28,21 @@ final class ActivityViewModel{
             if !hasRequestedAuth {
                 state = .needsAccess
             } else {
+                setUpBackground()
                 Task {
-                    await load()
-                    setUpBackground()
+                    await activitySync?.refresh()
                 }
             }
         }
 
     private func setUpBackground() {
-        backgroundSyncer?.onActivityUpdate = { [weak self] activity in
+        activitySync?.onActivityUpdate = { [weak self] activity in
             Task { @MainActor in
                 self?.state = .loaded(activity)
                 print("[ActivityCard] background update → \(activity)")
             }
         }
-        backgroundSyncer?.start()
+        activitySync?.start()
     }
     
     func connectTapped() async {
@@ -54,8 +52,8 @@ final class ActivityViewModel{
             do {
                 try await healthKit.requestAuthorization()
                 print("[HealthKit] after auth → loading")
-                await load()
                 setUpBackground()
+                await activitySync?.refresh()
             } catch {
                 print("[HealthKit] connectTapped error: \(error)")
                 state = .error(error)
@@ -68,16 +66,5 @@ final class ActivityViewModel{
             if let url = URL(string: UIApplication.openSettingsURLString) {
                 UIApplication.shared.open(url)
             }
-        }
-
-        private func load() async {
-            print("[HealthKit] load → state=loading")
-            state = .loading
-            let activity = await healthKit.fetchToday()
-            print("[HealthKit] load got activity: \(activity) → state=loaded")
-            state = .loaded(activity)
-            print("[HealthKit] load → syncing to backend")
-            try? await activityService.sync(entries: [activity])
-            print("[HealthKit] load → sync done")
         }
 }

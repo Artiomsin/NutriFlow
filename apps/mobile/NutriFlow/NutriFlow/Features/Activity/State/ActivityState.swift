@@ -16,3 +16,6 @@ enum ActivityState{
     case loaded(DailyActivity)
     case error(Error)
 }
+
+
+

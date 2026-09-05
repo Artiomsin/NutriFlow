@@ -108,17 +108,20 @@ final class HomeViewModel {
     }
 
     func deleteFood(id: String) async {
-        await todayFoodVM.deleteFood(id: id)
+        let success = await todayFoodVM.deleteFood(id: id)
+        guard success else { return }
         await loadDashboardSummary()
     }
 
     func addWater() async {
-        await waterVM.createWater()
+        let success = await waterVM.createWater()
+        guard success else { return }
         await loadDashboardSummary()
     }
 
     func deleteWater(id: String) async {
-        await waterVM.deleteWater(id: id)
+        let success = await waterVM.deleteWater(id: id)
+        guard success else { return }
         await loadDashboardSummary()
     }
 

@@ -14,6 +14,7 @@ final class AnalyticsViewModel {
     @ObservationIgnored private let cacheService: CacheService?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var loadTaskID = 0
+    @ObservationIgnored private var lastProgressRevision: UInt?
     private static let formatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
@@ -146,6 +147,21 @@ final class AnalyticsViewModel {
                     state = .error(error)
                 }
             }
+        }
+    }
+
+    func markRevisionAsCurrent(_ revision: UInt) {
+        lastProgressRevision = revision
+    }
+
+    func refreshIfNeeded(currentRevision: UInt) async {
+        guard lastProgressRevision != currentRevision else { return }
+        await refreshData()
+        switch state {
+        case .loaded, .empty:
+            lastProgressRevision = currentRevision
+        default:
+            break
         }
     }
 

@@ -152,3 +152,50 @@ private struct ActivityMetric: View {
         .frame(maxWidth: .infinity)
     }
 }
+
+// MARK: - Preview
+
+private final class MockHealthKit: HealthKitServiceProtocol {
+    var isAvailable: Bool { true }
+    var onActivityChanged: (() -> Void)?
+    func requestAuthorization() async throws {}
+    func fetchToday() async -> DailyActivity { .init(date: "", steps: 0, activeCalories: 0, distanceMeters: 0) }
+    func enableBackgroundDelivery() async throws {}
+    func startObserving() {}
+    func stopObserving() {}
+}
+
+private final class MockActivitySync: ActivitySyncProtocol {
+    var isSessionActive: Bool { false }
+    var onActivityUpdate: ((DailyActivity) -> Void)?
+    func start() {}
+    func stop() {}
+    func refresh() async {}
+}
+
+#Preview("Loaded") {
+    let vm = ActivityViewModel(healthKit: MockHealthKit(), activitySync: MockActivitySync())
+    vm.state = .loaded(DailyActivity(date: "2026-09-04", steps: 8543, activeCalories: 412, distanceMeters: 5200))
+    return ActivityCard(vm: vm)
+        .padding()
+        .background(AppTheme.background)
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Needs Access") {
+    let vm = ActivityViewModel(healthKit: MockHealthKit(), activitySync: MockActivitySync())
+    vm.state = .needsAccess
+    return ActivityCard(vm: vm)
+        .padding()
+        .background(AppTheme.background)
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Denied") {
+    let vm = ActivityViewModel(healthKit: MockHealthKit(), activitySync: MockActivitySync())
+    vm.state = .denied
+    return ActivityCard(vm: vm)
+        .padding()
+        .background(AppTheme.background)
+        .preferredColorScheme(.dark)
+}

@@ -7,6 +7,7 @@ struct MainTabView: View {
     @State private var selectedTab = 0
     @State private var periodState: PeriodState
     @State private var tabBarState = TabBarState()
+    @State private var progressRefreshState: ProgressRefreshState
 
     @State private var homeVM: HomeViewModel
     @State private var analyticsVM: AnalyticsViewModel
@@ -18,11 +19,14 @@ struct MainTabView: View {
         self.coordinator = coordinator
 
         let period = PeriodState()
+        let refreshState = ProgressRefreshState()
         self._periodState = State(initialValue: period)
+        self._progressRefreshState = State(initialValue: refreshState)
 
         self._homeVM = State(initialValue: HomeFactory.make(
             coordinator: coordinator,
-            container: container
+            container: container,
+            progressRefreshState: refreshState
         ))
 
         let progress = ProgressFactory.make(
@@ -39,7 +43,7 @@ struct MainTabView: View {
             profileService: container.profileService,
             userService: container.userService,
             cacheService: container.cacheService,
-            backgroundSyncer: container.backgroundSyncer
+            activitySync: container.activitySync
         ))
     }
 
@@ -57,9 +61,10 @@ struct MainTabView: View {
                 analyticsVM: analyticsVM,
                 chartVM: chartVM,
                 periodState: periodState,
-                tabBarState: tabBarState
+                tabBarState: tabBarState,
+                progressRefreshState: progressRefreshState,
+                isActive: selectedTab == 1
             )
-            .equatable()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .opacity(selectedTab == 1 ? 1 : 0)
             .allowsHitTesting(selectedTab == 1)
@@ -74,13 +79,9 @@ struct MainTabView: View {
         }
         .preferredColorScheme(.dark)
         .ignoresSafeArea(.keyboard)
-        .onChange(of: selectedTab) { _, newValue in
+        .onChange(of: selectedTab) { _, _ in
             tabBarState.isTabBarHidden = false
             tabBarState.isTabBarMinimized = false
-            if newValue == 1 {
-                Task { await analyticsVM.loadAnalytics() }
-                Task { await chartVM.loadChartData() }
-            }
         }
     }
 }

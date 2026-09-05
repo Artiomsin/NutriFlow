@@ -15,7 +15,7 @@ enum AuthFactory {
             profileService: container.profileService,
             googleSignInService: container.googleSignInService,
             coordinator: coordinator,
-            backgroundSyncer: container.backgroundSyncer
+            activitySync: container.activitySync
         )
         AuthView(viewModel: viewModel)
     }

@@ -19,4 +19,13 @@ struct ActivitySyncRequest: Codable, Sendable{
     
 }
 
+struct ActivityDayPoint: Codable, Identifiable, Sendable {
+    let date: String
+    let steps: Int
+    let activeCalories: Int
+    let distanceMeters: Double
+    let caloriesConsumed: Int
+    let netCalories: Int
 
+    var id: String { date }
+}

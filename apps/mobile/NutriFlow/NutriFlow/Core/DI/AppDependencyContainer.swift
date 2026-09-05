@@ -22,8 +22,8 @@ final class AppDependencyContainer: AppDependency {
     let cacheService: CacheService
     let googleSignInService: GoogleSignInService
     let activityService: ActivityServiceProtocol
-    let healthKitService: HealthKitService
-    let backgroundSyncer: ActivityBackgroundSyncer
+    let healthKitService: HealthKitServiceProtocol
+    let activitySync: ActivitySyncProtocol
 
 
     init() {
@@ -67,7 +67,7 @@ final class AppDependencyContainer: AppDependency {
         
         self.healthKitService = HealthKitService()
         
-        self.backgroundSyncer = ActivityBackgroundSyncer(
+        self.activitySync = ActivitySyncCoordinator(
             healthKitService: healthKitService,
             activityService: activityService
         )

@@ -69,6 +69,30 @@ final class MockFoodService: FoodServiceProtocol {
 
 final class MockActivityService: ActivityServiceProtocol {
     func sync(entries: [DailyActivity]) async throws { }
+    func getRange(from: String, to: String) async throws -> [ActivityDayPoint] {
+        let cal = Calendar.current
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        df.timeZone = .current
+        let start = df.date(from: from) ?? Date()
+        let end = df.date(from: to) ?? Date()
+        var points: [ActivityDayPoint] = []
+        var day = start
+        while day <= end {
+            let consumed = Int.random(in: 1500...2500)
+            let burned = Int.random(in: 300...800)
+            points.append(ActivityDayPoint(
+                date: df.string(from: day),
+                steps: Int.random(in: 3000...12000),
+                activeCalories: burned,
+                distanceMeters: Double(Int.random(in: 2000...9000)),
+                caloriesConsumed: consumed,
+                netCalories: consumed - burned
+            ))
+            day = cal.date(byAdding: .day, value: 1, to: day) ?? day
+        }
+        return points
+    }
 }
 
 final class MockWaterService: WaterTrackingServiceProtocol {

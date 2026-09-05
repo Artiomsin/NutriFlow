@@ -264,7 +264,8 @@ final class ScanResultViewModel {
                 AnalyticsManager.shared.track(.foodAdded(name: item.name, calories: item.calories(preferred: preferredUnits)))
             }
 
-            await todayFoodVM.reloadAfterAdd()
+            await todayFoodVM.reloadAfterMutation()
+            todayFoodVM.notifyDataMutated()
 
             isLoading = false
             return true

@@ -1,6 +1,5 @@
 import SwiftUI
 import GoogleSignIn
-import BackgroundTasks
 
 @main
 struct NutriflowApp: App {
@@ -8,14 +7,8 @@ struct NutriflowApp: App {
     private let container = AppDependencyContainer()
     private let coordinator: AppCoordinator
 
-    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-
     init() {
         self.coordinator = AppCoordinator(container: container)
-
-        appDelegate.healthKitService = container.healthKitService
-        appDelegate.activityService = container.activityService
-        appDelegate.backgroundSyncer = container.backgroundSyncer
 
         print("NutriflowApp создан")
     }

@@ -17,12 +17,14 @@ final class TodayFoodViewModel {
     @ObservationIgnored private let service: FoodServiceProtocol
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let cacheService: CacheService?
+    @ObservationIgnored private let progressRefreshState: ProgressRefreshState?
 
-    init(service: FoodServiceProtocol, coordinator: AppCoordinator?, cacheService: CacheService? = nil) {
+    init(service: FoodServiceProtocol, coordinator: AppCoordinator?, cacheService: CacheService? = nil, progressRefreshState: ProgressRefreshState? = nil) {
         print("TodayFoodViewModel init")
         self.service = service
         self.coordinator = coordinator
         self.cacheService = cacheService
+        self.progressRefreshState = progressRefreshState
     }
 
     deinit { print("TodayFoodViewModel deinit") }
@@ -54,7 +56,7 @@ final class TodayFoodViewModel {
         }
     }
 
-    func reloadAfterAdd() async {
+    func reloadAfterMutation() async {
         await cacheService?.remove("food_today")
         await cacheService?.remove("dashboard_today")
         await cacheService?.remove("summary_today")
@@ -64,21 +66,30 @@ final class TodayFoodViewModel {
         await loadToday()
     }
 
-    func deleteFood(id: String) async {
+    func notifyDataMutated() {
+        progressRefreshState?.invalidate()
+    }
+
+    @discardableResult
+    func deleteFood(id: String) async -> Bool {
         do {
             print("[Network] TodayFoodVM deleteFood")
             let df = DateFormatter()
             df.dateFormat = "yyyy-MM-dd"
             try await service.deleteFoodEntry(id: id, date: df.string(from: Date()))
             AnalyticsManager.shared.track(.foodDeleted)
-            await reloadAfterAdd()
+            await reloadAfterMutation()
+            notifyDataMutated()
+            return true
         } catch let error as APIError {
             if case .unauthorized = error {
                 coordinator?.goToAuth()
             }
             state = .error(error)
+            return false
         } catch {
             state = .error(error)
+            return false
         }
     }
 

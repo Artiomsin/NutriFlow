@@ -197,7 +197,8 @@ struct AddFoodView: View {
             Task {
                 await viewModel.createEntry(imageData: selectedImageData)
                 if case .idle = viewModel.state {
-                    await todayFoodVM.reloadAfterAdd()
+                    await todayFoodVM.reloadAfterMutation()
+                    todayFoodVM.notifyDataMutated()
                     onSave()
                 }
             }

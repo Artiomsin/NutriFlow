@@ -26,4 +26,16 @@ final class ActivityService: ActivityServiceProtocol, Sendable {
         
         
     }
+    
+    
+    func getRange(from: String, to: String) async throws -> [ActivityDayPoint] {
+        let endpoint = ActivityEndpoints.range(from: from, to: to)
+        let request = APIRequest<NeverBody>(
+            path: endpoint.path,
+            method: .GET,
+            queryItems: endpoint.query
+        )
+        return try await client.send(request)
+    }
+    
 }
