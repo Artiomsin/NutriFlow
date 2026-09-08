@@ -22,7 +22,9 @@ final class AppDependencyContainer: AppDependency {
     let cacheService: CacheService
     let googleSignInService: GoogleSignInService
     let activityService: ActivityServiceProtocol
-    let healthKitService: HealthKitServiceProtocol
+    let workoutService: WorkoutServiceProtocol
+    let activityHealthKitService: ActivityHealthKitServiceProtocol
+    let workoutHealthKitService: WorkoutHealthKitServiceProtocol
     let activitySync: ActivitySyncProtocol
 
 
@@ -57,6 +59,7 @@ final class AppDependencyContainer: AppDependency {
         self.analyticsService = AnalyticsService(client: httpClient)
         
         self.activityService = ActivityService(client: httpClient)
+        self.workoutService = WorkoutService(client: httpClient)
         
         self.sessionBootstrapService = SessionBootstrapService(
             profileService: profile,
@@ -65,10 +68,11 @@ final class AppDependencyContainer: AppDependency {
 
         self.googleSignInService = GoogleSignInService()
         
-        self.healthKitService = HealthKitService()
+        self.activityHealthKitService = ActivityHealthKitService()
+        self.workoutHealthKitService = WorkoutHealthKitService()
         
         self.activitySync = ActivitySyncCoordinator(
-            healthKitService: healthKitService,
+            healthKitService: activityHealthKitService,
             activityService: activityService
         )
 

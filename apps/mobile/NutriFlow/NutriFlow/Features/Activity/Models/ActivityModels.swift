@@ -11,6 +11,7 @@ struct DailyActivity: Codable, Sendable {
     let date: String
     let steps: Int
     let activeCalories: Int
+    let basalCalories: Int
     let distanceMeters: Double
 }
 
@@ -23,9 +24,13 @@ struct ActivityDayPoint: Codable, Identifiable, Sendable {
     let date: String
     let steps: Int
     let activeCalories: Int
+    let basalCalories: Int
     let distanceMeters: Double
     let caloriesConsumed: Int
     let netCalories: Int
 
     var id: String { date }
 }
+
+
+

@@ -1,6 +1,6 @@
 import Foundation
 
-protocol HealthKitServiceProtocol: AnyObject {
+protocol ActivityHealthKitServiceProtocol: AnyObject {
     var isAvailable: Bool { get }
     var onActivityChanged: (() -> Void)? { get set }
     func requestAuthorization() async throws

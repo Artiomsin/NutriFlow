@@ -9,7 +9,7 @@ final class ActivityViewModel{
     
     var state: ActivityState = .idle
     
-    @ObservationIgnored private let healthKit: HealthKitServiceProtocol
+    @ObservationIgnored private let healthKit: ActivityHealthKitServiceProtocol
     @ObservationIgnored private let activitySync: ActivitySyncProtocol?
     
     private var hasRequestedAuth: Bool {
@@ -18,7 +18,7 @@ final class ActivityViewModel{
     }
     
     
-    init(healthKit: HealthKitServiceProtocol, activitySync: ActivitySyncProtocol? = nil) {
+    init(healthKit: ActivityHealthKitServiceProtocol, activitySync: ActivitySyncProtocol? = nil) {
             self.healthKit = healthKit
             self.activitySync = activitySync
         }

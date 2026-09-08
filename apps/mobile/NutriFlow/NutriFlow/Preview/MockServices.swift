@@ -85,6 +85,7 @@ final class MockActivityService: ActivityServiceProtocol {
                 date: df.string(from: day),
                 steps: Int.random(in: 3000...12000),
                 activeCalories: burned,
+                basalCalories: Int.random(in: 1300...1900),
                 distanceMeters: Double(Int.random(in: 2000...9000)),
                 caloriesConsumed: consumed,
                 netCalories: consumed - burned
@@ -272,5 +273,75 @@ final class MockGoalsService: GoalsServiceProtocol {
     }
     func calculateGoals() async throws -> UserGoals {
         try await getGoals()
+    }
+}
+
+final class MockWorkoutService: WorkoutServiceProtocol {
+    func sync(entries: [WorkoutSyncEntry]) async throws {}
+    func getHistory(
+        from: String?,
+        to: String?,
+        limit: Int?,
+        offset: Int?
+    ) async throws -> WorkoutHistoryResponse {
+        WorkoutHistoryResponse(total: 0, workouts: [])
+    }
+    func deleteMissing(from startDate: String, healthKitWorkoutIds: [String]) async throws {}
+}
+
+final class MockHealthKit: ActivityHealthKitServiceProtocol, WorkoutHealthKitServiceProtocol {
+    var isAvailable: Bool { true }
+    var onActivityChanged: (() -> Void)?
+    var onLiveMetrics: ((LiveWorkoutMetrics) -> Void)?
+    var onSessionFailed: ((String) -> Void)?
+
+    static let sampleWorkout = HealthKitWorkout(
+        id: UUID(),
+        workoutType: "Running",
+        startDate: Date().addingTimeInterval(-3600 * 30),
+        endDate: Date().addingTimeInterval(-3600 * 30 + 2520),
+        durationSeconds: 2520,
+        caloriesBurned: 386,
+        distanceMeters: 5200,
+        heartRateAvg: 140,
+        heartRateMax: 165,
+        heartRateMin: 115
+    )
+
+    func requestAuthorization() async throws {}
+    func fetchToday() async -> DailyActivity {
+        DailyActivity(date: "", steps: 0, activeCalories: 0, basalCalories: 0, distanceMeters: 0)
+    }
+    func fetchWorkouts(from startDate: Date, to endDate: Date) async -> [HealthKitWorkout] { [Self.sampleWorkout] }
+    func fetchLatestWorkout() async -> HealthKitWorkout? { Self.sampleWorkout }
+    func enableBackgroundDelivery() async throws {}
+    func startObserving() {}
+    func stopObserving() {}
+    func workoutPermissionState() -> WorkoutPermissionState { .authorized }
+
+    func startLiveWorkout(kind: TrackableWorkout.Kind) async throws {
+        onLiveMetrics?(LiveWorkoutMetrics(elapsedSeconds: 1, activeCalories: 10, distanceMeters: 50, heartRateBPM: 120))
+    }
+    func pauseLiveWorkout() {}
+    func resumeLiveWorkout() {}
+    func cancelLiveWorkout() {}
+    func endLiveWorkout() async throws -> HealthKitWorkout {
+        HealthKitWorkout(
+            id: UUID(),
+            workoutType: "Running",
+            startDate: Date(),
+            endDate: Date().addingTimeInterval(600),
+            durationSeconds: 600,
+            caloriesBurned: 120,
+            distanceMeters: 1500,
+            heartRateAvg: 130,
+            heartRateMax: 150,
+            heartRateMin: 110
+        )
+    }
+    func fetchHeartRateWorkout(from startDate: Date, to endDate: Date) async -> [HeartRatePoint] {
+        stride(from: startDate, through: endDate, by: 60).map { date in
+            HeartRatePoint(startDate: date, bpm: Double(Int.random(in: 110...150)))
+        }
     }
 }

@@ -2,7 +2,7 @@ import Foundation
 
 final class ActivitySyncCoordinator: ActivitySyncProtocol {
 
-    private let healthKitService: HealthKitServiceProtocol
+    private let healthKitService: ActivityHealthKitServiceProtocol
     private let activityService: ActivityServiceProtocol
 
     private var isActive = false
@@ -11,7 +11,7 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
 
     var onActivityUpdate: ((DailyActivity) -> Void)?
 
-    init(healthKitService: HealthKitServiceProtocol, activityService: ActivityServiceProtocol) {
+    init(healthKitService: ActivityHealthKitServiceProtocol, activityService: ActivityServiceProtocol) {
         self.healthKitService = healthKitService
         self.activityService = activityService
     }
