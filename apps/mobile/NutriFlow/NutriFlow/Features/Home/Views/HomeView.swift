@@ -247,25 +247,23 @@ private struct DailySummarySectionView: View {
             goals: homeViewModel.userGoals
         )
         .padding(.horizontal, AppTheme.paddingHorizontal)
+        
     }
 }
 
 #Preview {
-    HomePreviewContent()
+    HomeView(
+        homeViewModel: HomeFactory.makePreviewViewModel(),
+        foodService: MockFoodService()
+    )
+    .background(AppTheme.background)
+    .preferredColorScheme(.dark)
 }
 
-private struct HomePreviewContent: View {
-    var body: some View {
-        return HomeView(
-            homeViewModel: makePreviewHomeVM(),
-            foodService: MockFoodService(),
-            coordinator: AppCoordinator(container: AppDependencyContainer())
-        )
-        .background(AppTheme.background)
-        .preferredColorScheme(.dark)
-    }
-    
-    private func makePreviewHomeVM() -> HomeViewModel {
+extension HomeFactory {
+
+    @MainActor
+    static func makePreviewViewModel() -> HomeViewModel {
         let coordinator = AppCoordinator(container: AppDependencyContainer())
         let todayFoodVM = TodayFoodViewModel(service: MockFoodService(), coordinator: coordinator)
         todayFoodVM.setPreviewState(.loaded([

@@ -15,6 +15,10 @@ struct MainTabView: View {
     @State private var profileVM: ProfileViewModel
 
     init(container: AppDependency, coordinator: AppCoordinator) {
+        self.init(container: container, coordinator: coordinator, previewHomeVM: nil)
+    }
+
+    init(container: AppDependency, coordinator: AppCoordinator, previewHomeVM: HomeViewModel?) {
         self.container = container
         self.coordinator = coordinator
 
@@ -23,7 +27,7 @@ struct MainTabView: View {
         self._periodState = State(initialValue: period)
         self._progressRefreshState = State(initialValue: refreshState)
 
-        self._homeVM = State(initialValue: HomeFactory.make(
+        self._homeVM = State(initialValue: previewHomeVM ?? HomeFactory.make(
             coordinator: coordinator,
             container: container,
             progressRefreshState: refreshState
@@ -101,8 +105,12 @@ private struct AnimatedTabBar: View {
     }
 }
 
-#Preview("All Screens") {
+#Preview("Main Tab") {
     let container = AppDependencyContainer()
     let coordinator = AppCoordinator(container: container)
-    MainTabView(container: container, coordinator: coordinator)
+    MainTabView(
+        container: container,
+        coordinator: coordinator,
+        previewHomeVM: HomeFactory.makePreviewViewModel()
+    )
 }
