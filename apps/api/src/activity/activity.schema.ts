@@ -6,6 +6,7 @@ export const syncEntrySchema = z.object({
   date: z.string().regex(dateRegex),
   steps: z.number().int().min(0).optional(),
   activeCalories: z.number().int().min(0).optional(),
+  basalCalories: z.number().int().min(0).optional(),
   distanceMeters: z.number().min(0).optional(),
 });
 

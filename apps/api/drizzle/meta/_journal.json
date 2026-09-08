@@ -120,6 +120,20 @@
       "when": 1788382078283,
       "tag": "0016_spicy_silver_surfer",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1788637389608,
+      "tag": "0017_sad_nitro",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788811113871,
+      "tag": "0018_goofy_spirit",
+      "breakpoints": true
     }
   ]
 }

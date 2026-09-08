@@ -13,6 +13,7 @@ export const dailyActivity = app.table('daily_activity', {
   date: date('date').notNull(),
   steps: integer('steps').default(0).notNull(),
   activeCalories: integer('active_calories').default(0).notNull(),
+  basalCalories: integer('basal_calories').default(0).notNull(),
   distanceMeters: numeric('distance_meters', { precision: 10, scale: 2 }).default('0'),
   source: varchar('source', { length: 10 }).default('healthkit'),
   createdAt: timestamp('created_at').defaultNow().notNull(),

@@ -16,6 +16,7 @@ export class ActivityService {
           date: e.date,
           steps: e.steps ?? 0,
           activeCalories: e.activeCalories ?? 0,
+          basalCalories: e.basalCalories ?? 0,
           distanceMeters: e.distanceMeters != null ? String(e.distanceMeters) : '0',
           source: 'healthkit',
         };
@@ -27,6 +28,7 @@ export class ActivityService {
             set: {
               steps: sql`GREATEST(${dailyActivity.steps}, ${values.steps})`,
               activeCalories: sql`GREATEST(${dailyActivity.activeCalories}, ${values.activeCalories})`,
+              basalCalories: sql`GREATEST(${dailyActivity.basalCalories}, ${values.basalCalories})`,
               distanceMeters: sql`GREATEST(${dailyActivity.distanceMeters}, ${values.distanceMeters})`,
               source: 'healthkit',
             },
@@ -82,6 +84,7 @@ export class ActivityService {
         date: key,
         steps: a.steps,
         activeCalories: a.activeCalories,
+        basalCalories: a.basalCalories ?? 0,
         distanceMeters: Number(a.distanceMeters ?? 0),
         caloriesConsumed: consumed,
         netCalories: consumed - a.activeCalories,
@@ -95,6 +98,7 @@ export class ActivityService {
       date,
       steps: 0,
       activeCalories: 0,
+      basalCalories: 0,
       distanceMeters: '0',
       source: 'healthkit',
     };

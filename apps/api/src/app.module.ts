@@ -12,6 +12,7 @@ import { DailySummaryModule } from './daily-summary/daily-summary.module';
 import { GoalsModule } from './goals/goals.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { ActivityModule } from './activity/activity.module';
+import { WorkoutsModule } from './workouts/workouts.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { ActivityModule } from './activity/activity.module';
     GoalsModule,
     AnalyticsModule,
     ActivityModule,
+    WorkoutsModule,
   ],
 })
 export class AppModule {}
