@@ -7,6 +7,7 @@ enum HomeNavRoute: Hashable {
     case addWater
     case scanFood
     case scanResult([FoodAnalysisItem], Data?)
+    case workoutHistory
 }
 
 struct HomeView: View {
@@ -31,6 +32,7 @@ struct HomeView: View {
         NavigationStack(path: $navPath) {
             content
                 .navigationDestination(for: HomeNavRoute.self) { route in
+                    let _ = print("[Nav] destination -> \(route)")
                     switch route {
                     case .addFood:
                         let addFoodVM = AddFoodViewModel(service: foodService, coordinator: coordinator)
@@ -69,6 +71,9 @@ struct HomeView: View {
                             coordinator: coordinator
                         )
                         ScanResultView(viewModel: resultVM, onFinished: popToRoot)
+
+                    case .workoutHistory:
+                        WorkoutHistoryView(vm: homeViewModel.workoutVM)
                         
                     }
                 }
@@ -96,6 +101,16 @@ struct HomeView: View {
                 DailySummarySectionView(homeViewModel: homeViewModel)
                 ActivityCard(vm: homeViewModel.activityVM)
                     .padding(.horizontal, AppTheme.paddingHorizontal)
+                LastWorkoutCard(
+                    workout: homeViewModel.workoutVM.lastWorkout,
+                    onTap: {
+                        print("[Nav] tapping workout card, lastWorkout=\(homeViewModel.workoutVM.lastWorkout?.workoutType ?? "nil")")
+                        tabBarState.isTabBarHidden = true
+                        navPath.append(HomeNavRoute.workoutHistory)
+                        print("[Nav] appended workoutHistory, path=\(navPath)")
+                    }
+                )
+                .padding(.horizontal, AppTheme.paddingHorizontal)
                 FoodSectionView(
                     todayFoodVM: homeViewModel.todayFoodVM,
                     onAddFood: {
@@ -141,11 +156,15 @@ struct HomeView: View {
                 group.addTask { await homeViewModel.todayFoodVM.loadToday() }
                 group.addTask { await homeViewModel.waterVM.loadToday() }
                 group.addTask { await homeViewModel.activityVM.onAppear() }
+                group.addTask { await homeViewModel.workoutVM.loadLatest() }
+            }
+            if case .needsAccess = homeViewModel.activityVM.state {
+                print("[Home] activity was needsAccess -> reload after health auth")
+                homeViewModel.activityVM.onAppear()
             }
         }
         .onAppear {
             AnalyticsManager.shared.track(.screenView(screen: "home"))
-            Task { await homeViewModel.reloadGoals() }
         }
     }
     
@@ -269,12 +288,13 @@ private struct HomePreviewContent: View {
         ))
         
         let activityVM = ActivityViewModel(
-            healthKit: HealthKitService()
+            healthKit: ActivityHealthKitService()
         )
         activityVM.state = .loaded(DailyActivity(
             date: "2026-05-18",
             steps: 8543,
             activeCalories: 412,
+            basalCalories: 1500,
             distanceMeters: 5200
         ))
         
@@ -285,7 +305,11 @@ private struct HomePreviewContent: View {
             todayFoodVM: todayFoodVM,
             waterVM: waterVM,
             goalsVM: goalsVM,
-            activityVM: activityVM
+            activityVM: activityVM,
+            workoutVM: WorkoutHistoryViewModel(
+                healthKit: MockHealthKit(),
+                workoutService: MockWorkoutService()
+            )
         )
     }
 }

@@ -9,6 +9,7 @@ final class HomeViewModel {
     let waterVM: WaterViewModel
     let goalsVM: GoalsViewModel
     let activityVM: ActivityViewModel
+    let workoutVM: WorkoutHistoryViewModel
     
     var dailySummaryState: DailySummaryState = .idle
 
@@ -30,6 +31,7 @@ final class HomeViewModel {
         waterVM: WaterViewModel,
         goalsVM: GoalsViewModel,
         activityVM: ActivityViewModel,
+        workoutVM: WorkoutHistoryViewModel,
         
         cacheService: CacheService? = nil
     ) {
@@ -41,6 +43,7 @@ final class HomeViewModel {
         self.waterVM = waterVM
         self.goalsVM = goalsVM
         self.activityVM = activityVM
+        self.workoutVM = workoutVM
         
         self.cacheService = cacheService
     }
@@ -54,6 +57,8 @@ final class HomeViewModel {
         await cacheService?.remove("summary_today")
         await cacheService?.remove("chart_today")
         await cacheService?.removeByPrefix("chart_summaries")
+        await cacheService?.remove("workout_history")
+        await cacheService?.remove("workout_last")
         await cacheService?.removeByPrefix("analytics_")
 
         await withDiscardingTaskGroup { [self] group in
@@ -123,9 +128,5 @@ final class HomeViewModel {
         let success = await waterVM.deleteWater(id: id)
         guard success else { return }
         await loadDashboardSummary()
-    }
-
-    func reloadGoals() async {
-        await goalsVM.loadGoals()
     }
 }

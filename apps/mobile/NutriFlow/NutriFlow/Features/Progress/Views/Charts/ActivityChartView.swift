@@ -42,6 +42,7 @@ struct ActivityChartView: View {
             HStack(spacing: 16) {
                 legendDot(color: .orange, text: "Eaten")
                 legendDot(color: .green, text: "Burned")
+                legendDot(color: .blue, text: "Rest")
             }
 
             Chart(flattenedPoints) { point in
@@ -97,20 +98,21 @@ struct ActivityChartView: View {
     }
 
     private var filteredData: [ChartDataPoint] {
-        data.filter { $0.calories != 0 || $0.activeCalories != 0 }
+        data.filter { $0.calories != 0 || $0.activeCalories != 0 || $0.basalCalories != 0 }
     }
 
     private var flattenedPoints: [FlattenedPoint] {
         filteredData.flatMap { pt in
             [
                 FlattenedPoint(label: pt.label, series: "Eaten", color: .orange, value: pt.calories),
-                FlattenedPoint(label: pt.label, series: "Burned", color: .green, value: pt.activeCalories)
+                FlattenedPoint(label: pt.label, series: "Burned", color: .green, value: pt.activeCalories),
+                FlattenedPoint(label: pt.label, series: "Rest", color: .blue, value: pt.basalCalories)
             ]
         }
     }
 
     private var maxYValue: Int {
-        let max = filteredData.flatMap { [$0.calories, $0.activeCalories] }.max() ?? 0
+        let max = filteredData.flatMap { [$0.calories, $0.activeCalories, $0.basalCalories] }.max() ?? 0
         if max == 0 { return 1000 }
         return max + (max * 25 / 100)
     }
@@ -135,6 +137,7 @@ struct ActivityChartView: View {
             waterMl: 0,
             steps: Int.random(in: 3000...12000),
             activeCalories: burned,
+            basalCalories: Int.random(in: 1300...1900),
             distanceMeters: Double(Int.random(in: 2000...9000)),
             netCalories: base - burned
         )

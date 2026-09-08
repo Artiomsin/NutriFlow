@@ -89,7 +89,7 @@ final class FoodSearchViewModel {
         loadMoreError = false
         let nextOffset = offset + pageSize
         print("[Network] FoodSearchVM loadMore: query=\(trimmed) offset=\(nextOffset) limit=\(pageSize)")
-        loadMoreTask = Task { [weak self] in
+        loadMoreTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
                 let response = try await service.searchFood(query: trimmed, limit: pageSize, offset: nextOffset)

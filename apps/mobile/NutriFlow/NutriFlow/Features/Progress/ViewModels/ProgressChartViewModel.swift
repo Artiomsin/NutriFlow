@@ -186,6 +186,7 @@ final class ProgressChartViewModel {
             var updated = pt
             updated.steps = a.steps
             updated.activeCalories = a.activeCalories
+            updated.basalCalories = a.basalCalories
             updated.distanceMeters = a.distanceMeters
             updated.netCalories = a.netCalories
             return updated
@@ -227,7 +228,7 @@ final class ProgressChartViewModel {
         switch level {
         case .day:
             return sorted.map { pt in
-                ChartDataPoint(date: pt.date, label: Self.labelFormatter.string(from: pt.date), calories: pt.calories, protein: pt.protein, fat: pt.fat, carbs: pt.carbs, waterMl: pt.waterMl, steps: pt.steps, activeCalories: pt.activeCalories, distanceMeters: pt.distanceMeters, netCalories: pt.netCalories)
+                ChartDataPoint(date: pt.date, label: Self.labelFormatter.string(from: pt.date), calories: pt.calories, protein: pt.protein, fat: pt.fat, carbs: pt.carbs, waterMl: pt.waterMl, steps: pt.steps, activeCalories: pt.activeCalories, basalCalories: pt.basalCalories, distanceMeters: pt.distanceMeters, netCalories: pt.netCalories)
             }
 
         case .week:
@@ -250,6 +251,7 @@ final class ProgressChartViewModel {
                     waterMl: pts.reduce(0) { $0 + $1.waterMl } / pts.count,
                     steps: pts.reduce(0) { $0 + $1.steps },
                     activeCalories: pts.reduce(0) { $0 + $1.activeCalories },
+                    basalCalories: pts.reduce(0) { $0 + $1.basalCalories },
                     distanceMeters: pts.reduce(0) { $0 + $1.distanceMeters },
                     netCalories: pts.reduce(0) { $0 + $1.netCalories }
                 )
@@ -274,6 +276,7 @@ final class ProgressChartViewModel {
                     waterMl: pts.reduce(0) { $0 + $1.waterMl } / pts.count,
                     steps: pts.reduce(0) { $0 + $1.steps },
                     activeCalories: pts.reduce(0) { $0 + $1.activeCalories },
+                    basalCalories: pts.reduce(0) { $0 + $1.basalCalories },
                     distanceMeters: pts.reduce(0) { $0 + $1.distanceMeters },
                     netCalories: pts.reduce(0) { $0 + $1.netCalories }
                 )

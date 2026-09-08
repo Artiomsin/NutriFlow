@@ -8,7 +8,8 @@ struct ProfileDisplayView: View {
         ZStack {
             AppTheme.background.ignoresSafeArea()
 
-            ScrollView(showsIndicators: false) {
+            GeometryReader { geo in
+                ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
                     if case .loaded = viewModel.state {
                         VStack(spacing: 16) {
@@ -95,10 +96,11 @@ struct ProfileDisplayView: View {
                 }
                 .padding(.horizontal, AppTheme.paddingHorizontal)
                 .padding(.bottom, AppTheme.bottomPadding)
-                .frame(minHeight: UIScreen.main.bounds.height - AppTheme.bottomPadding)
+                .frame(minHeight: geo.size.height - AppTheme.bottomPadding)
+                }
+                .scrollContentBackground(.hidden)
+                .background(AppTheme.background)
             }
-            .scrollContentBackground(.hidden)
-            .background(AppTheme.background)
         }
         .navigationTitle("Profile")
         .navigationBarTitleDisplayMode(.inline)
