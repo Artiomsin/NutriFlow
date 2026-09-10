@@ -17,20 +17,16 @@ enum SleepHealthKitError: LocalizedError {
 final class SleepHealthKitService: SleepHealthKitServiceProtocol {
 
     private let healthStore: HKHealthStore
-    private let sleepType: HKCategoryType
+    private let sleepType: HKCategoryType?
     private let heartRateType: HKQuantityType
 
 
     init(healthStore: HKHealthStore = HKHealthStore()) {
         self.healthStore = healthStore
         self.heartRateType = HKQuantityType(.heartRate)
-        guard let sleepType = HKObjectType.categoryType(
+        self.sleepType = HKObjectType.categoryType(
             forIdentifier: .sleepAnalysis
-        ) else {
-            fatalError("Sleep analysis type is unavailable")
-        }
-
-        self.sleepType = sleepType
+        )
     }
 
     var isAvailable: Bool {
@@ -39,6 +35,10 @@ final class SleepHealthKitService: SleepHealthKitServiceProtocol {
 
     func requestAuthorization() async throws {
         guard isAvailable else {
+            throw SleepHealthKitError.healthKitUnavailable
+        }
+
+        guard let sleepType else {
             throw SleepHealthKitError.healthKitUnavailable
         }
 
@@ -171,7 +171,11 @@ final class SleepHealthKitService: SleepHealthKitServiceProtocol {
     }
 
     func fetchSamples(predicate: NSPredicate) async throws -> [HKCategorySample]{
-        try await withCheckedThrowingContinuation { continuation in
+        guard let sleepType else {
+            throw SleepHealthKitError.healthKitUnavailable
+        }
+
+        return try await withCheckedThrowingContinuation { continuation in
 
             let query = HKSampleQuery(
                 sampleType: sleepType,
