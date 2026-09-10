@@ -26,13 +26,9 @@ actor AuthRefreshService: Sendable {
             return try await inFlight.value
         }
 
-        let task = Task { try await performRefresh() }
+        let task: Task<Void, Error> = Task { try await performRefresh() }
         inFlight = task
-        defer {
-            if inFlight === task {
-                inFlight = nil
-            }
-        }
+        defer { inFlight = nil }
         return try await task.value
     }
 
