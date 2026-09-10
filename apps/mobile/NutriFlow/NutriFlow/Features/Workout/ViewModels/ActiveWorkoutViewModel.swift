@@ -69,7 +69,7 @@ final class ActiveWorkoutViewModel {
         Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                try await self.healthKit.startLiveWorkout(kind: kind)
+                try await self.healthKit.startLiveWorkout(kind: kind, indoor: true)
                 guard self.phase == .running else {
                     self.healthKit.cancelLiveWorkout()
                     return

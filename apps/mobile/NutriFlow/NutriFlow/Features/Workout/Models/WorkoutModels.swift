@@ -8,6 +8,39 @@
 import Foundation
 
 
+struct WorkoutDetails: Codable, Hashable, Sendable {
+    var stroke: String?
+    var water: String?
+    var lapLengthMeters: Double?
+    var swolf: Double?
+    var elevationAscended: Double?
+    var elevationDescended: Double?
+    var avgMETs: Double?
+
+    init(
+        stroke: String? = nil,
+        water: String? = nil,
+        lapLengthMeters: Double? = nil,
+        swolf: Double? = nil,
+        elevationAscended: Double? = nil,
+        elevationDescended: Double? = nil,
+        avgMETs: Double? = nil
+    ) {
+        self.stroke = stroke
+        self.water = water
+        self.lapLengthMeters = lapLengthMeters
+        self.swolf = swolf
+        self.elevationAscended = elevationAscended
+        self.elevationDescended = elevationDescended
+        self.avgMETs = avgMETs
+    }
+
+    var isEmpty: Bool {
+        stroke == nil && water == nil && lapLengthMeters == nil && swolf == nil
+            && elevationAscended == nil && elevationDescended == nil && avgMETs == nil
+    }
+}
+
 struct HealthKitWorkout: Identifiable, Codable, Hashable, Sendable {
     let id: UUID
     let workoutType: String
@@ -19,6 +52,16 @@ struct HealthKitWorkout: Identifiable, Codable, Hashable, Sendable {
     let heartRateAvg: Double?
     let heartRateMax: Double?
     let heartRateMin: Double?
+    let avgSpeedMps: Double?
+    let maxSpeedMps: Double?
+    let avgCadence: Double?
+    let maxCadence: Double?
+    let avgPowerWatts: Double?
+    let maxPowerWatts: Double?
+    let elevationGainMeters: Double?
+    let steps: Int?
+    let indoor: Bool?
+    let details: WorkoutDetails?
 
     init(
         id: UUID,
@@ -30,7 +73,17 @@ struct HealthKitWorkout: Identifiable, Codable, Hashable, Sendable {
         distanceMeters: Double?,
         heartRateAvg: Double? = nil,
         heartRateMax: Double? = nil,
-        heartRateMin: Double? = nil
+        heartRateMin: Double? = nil,
+        avgSpeedMps: Double? = nil,
+        maxSpeedMps: Double? = nil,
+        avgCadence: Double? = nil,
+        maxCadence: Double? = nil,
+        avgPowerWatts: Double? = nil,
+        maxPowerWatts: Double? = nil,
+        elevationGainMeters: Double? = nil,
+        steps: Int? = nil,
+        indoor: Bool? = nil,
+        details: WorkoutDetails? = nil
     ) {
         self.id = id
         self.workoutType = workoutType
@@ -42,6 +95,16 @@ struct HealthKitWorkout: Identifiable, Codable, Hashable, Sendable {
         self.heartRateAvg = heartRateAvg
         self.heartRateMax = heartRateMax
         self.heartRateMin = heartRateMin
+        self.avgSpeedMps = avgSpeedMps
+        self.maxSpeedMps = maxSpeedMps
+        self.avgCadence = avgCadence
+        self.maxCadence = maxCadence
+        self.avgPowerWatts = avgPowerWatts
+        self.maxPowerWatts = maxPowerWatts
+        self.elevationGainMeters = elevationGainMeters
+        self.steps = steps
+        self.indoor = indoor
+        self.details = details
     }
 }
 
@@ -57,6 +120,16 @@ struct WorkoutSyncEntry: Codable, Sendable {
     let heartRateAvg: Double?
     let heartRateMax: Double?
     let heartRateMin: Double?
+    let avgSpeedMps: Double?
+    let maxSpeedMps: Double?
+    let avgCadence: Double?
+    let maxCadence: Double?
+    let avgPowerWatts: Double?
+    let maxPowerWatts: Double?
+    let elevationGainMeters: Double?
+    let steps: Int?
+    let indoor: Bool?
+    let details: WorkoutDetails?
 }
 
 struct WorkoutSyncRequest: Codable, Sendable {
@@ -73,6 +146,24 @@ struct HeartRateBar: Identifiable, Sendable {
     let bpm: Double
 
     var id: Date { date }
+}
+
+struct WorkoutSeriesPoint: Identifiable, Sendable {
+    let date: Date
+    let value: Double
+
+    var id: Date { date }
+}
+
+enum WorkoutSeriesKind: String, Sendable, Hashable {
+    case speed
+    case cadence
+    case power
+}
+
+struct WorkoutSeries: Sendable {
+    let kind: WorkoutSeriesKind
+    let points: [WorkoutSeriesPoint]
 }
 
 enum WorkoutMapper {
@@ -100,7 +191,17 @@ enum WorkoutMapper {
                distanceMeters: workout.distanceMeters,
                heartRateAvg: workout.heartRateAvg,
                heartRateMax: workout.heartRateMax,
-               heartRateMin: workout.heartRateMin
+               heartRateMin: workout.heartRateMin,
+               avgSpeedMps: workout.avgSpeedMps,
+               maxSpeedMps: workout.maxSpeedMps,
+               avgCadence: workout.avgCadence,
+               maxCadence: workout.maxCadence,
+               avgPowerWatts: workout.avgPowerWatts,
+               maxPowerWatts: workout.maxPowerWatts,
+               elevationGainMeters: workout.elevationGainMeters,
+               steps: workout.steps,
+               indoor: workout.indoor,
+               details: workout.details
            )
        }
 
@@ -125,7 +226,17 @@ enum WorkoutMapper {
                    distanceMeters: entry.distanceMeters,
                    heartRateAvg: entry.heartRateAvg,
                    heartRateMax: entry.heartRateMax,
-                   heartRateMin: entry.heartRateMin
+                   heartRateMin: entry.heartRateMin,
+                   avgSpeedMps: entry.avgSpeedMps,
+                   maxSpeedMps: entry.maxSpeedMps,
+                   avgCadence: entry.avgCadence,
+                   maxCadence: entry.maxCadence,
+                   avgPowerWatts: entry.avgPowerWatts,
+                   maxPowerWatts: entry.maxPowerWatts,
+                   elevationGainMeters: entry.elevationGainMeters,
+                   steps: entry.steps,
+                   indoor: entry.indoor,
+                   details: entry.details
                )
     }
 

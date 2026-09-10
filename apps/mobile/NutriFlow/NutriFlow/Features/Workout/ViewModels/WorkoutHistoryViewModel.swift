@@ -8,14 +8,6 @@
 import Foundation
 import Observation
 
-enum WorkoutHistoryState {
-    case idle
-    case loading
-    case loaded([HealthKitWorkout])
-    case error(Error)
-    case needsAccess
-}
-
 private struct WorkoutHistoryCache: Codable, Sendable {
     let items: [HealthKitWorkout]
     let total: Int
@@ -229,23 +221,49 @@ final class WorkoutHistoryViewModel {
             heartRatePoints = cached
             return
         }
-        heartRatePoints = await healthKit.fetchHeartRateWorkout(
-            from: workout.startDate,
-            to: workout.endDate
-        )
+        heartRatePoints = await healthKit.fetchHeartRateWorkout(for: workout)
         if !heartRatePoints.isEmpty {
             sparklineHR[workout.id] = heartRatePoints
         }
         print("[WorkoutVM] heart rate points: \(heartRatePoints.count)")
     }
 
+    var detailSeries: [WorkoutSeries] = []
+    private var seriesCache: [UUID: [WorkoutSeries]] = [:]
+
+    func loadSeries(for workout: HealthKitWorkout) async {
+        if let cached = seriesCache[workout.id] {
+            detailSeries = cached
+            return
+        }
+        var result: [WorkoutSeries] = []
+        let kinds: [WorkoutSeriesKind] = [.speed, .cadence, .power]
+        for kind in kinds {
+            let points = await healthKit.fetchWorkoutSeries(
+                kind: kind,
+                workout: workout
+            )
+            if !points.isEmpty {
+                result.append(WorkoutSeries(kind: kind, points: points))
+            }
+        }
+        seriesCache[workout.id] = result
+        detailSeries = result
+        print("[WorkoutVM] series for \(workout.workoutType): \(result.map { "\($0.kind.rawValue)=\($0.points.count)" }.joined(separator: ", "))")
+    }
+
+    func clearSeries() {
+        detailSeries = []
+    }
+
+    func currentSeries() -> [WorkoutSeries] {
+        detailSeries
+    }
+
     func loadSparkline(for workout: HealthKitWorkout) async {
         guard sparklineHR[workout.id] == nil, !loadingSparkline.contains(workout.id) else { return }
         loadingSparkline.insert(workout.id)
-        let points = await healthKit.fetchHeartRateWorkout(
-            from: workout.startDate,
-            to: workout.endDate
-        )
+        let points = await healthKit.fetchHeartRateWorkout(for: workout)
         loadingSparkline.remove(workout.id)
         if !points.isEmpty {
             sparklineHR[workout.id] = points

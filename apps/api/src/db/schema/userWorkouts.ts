@@ -1,5 +1,5 @@
 import {
-  pgSchema, uuid, varchar, numeric, timestamp, uniqueIndex, index,
+  pgSchema, uuid, varchar, numeric, timestamp, jsonb, boolean, integer, uniqueIndex, index,
 } from 'drizzle-orm/pg-core';
 import { users } from './users';
 
@@ -20,6 +20,16 @@ export const userWorkouts = app.table('user_workouts', {
   heartRateAvg: numeric('heart_rate_avg', { precision: 5, scale: 1 }),
   heartRateMax: numeric('heart_rate_max', { precision: 5, scale: 1 }),
   heartRateMin: numeric('heart_rate_min', { precision: 5, scale: 1 }),
+  avgSpeedMps: numeric('avg_speed_mps', { precision: 10, scale: 2 }),
+  maxSpeedMps: numeric('max_speed_mps', { precision: 10, scale: 2 }),
+  avgCadence: numeric('avg_cadence', { precision: 10, scale: 2 }),
+  maxCadence: numeric('max_cadence', { precision: 10, scale: 2 }),
+  avgPowerWatts: numeric('avg_power_watts', { precision: 10, scale: 2 }),
+  maxPowerWatts: numeric('max_power_watts', { precision: 10, scale: 2 }),
+  elevationGainMeters: numeric('elevation_gain_meters', { precision: 10, scale: 2 }),
+  steps: integer('steps'),
+  indoor: boolean('indoor'),
+  details: jsonb('details').default({}).notNull(),
   source: varchar('source', { length: 10 }).default('healthkit'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at')

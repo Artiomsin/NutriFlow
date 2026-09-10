@@ -4,6 +4,7 @@ import HealthKit
 final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
 
     private let store = HKHealthStore()
+    private var rawWorkouts: [UUID: HKWorkout] = [:]
 
     private let workoutType = HKObjectType.workoutType()
     private let heartRateType = HKQuantityType(.heartRate)
@@ -22,11 +23,29 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
         }
 
         workoutAuthRequested = true
-        UserDefaults.standard.set(true, forKey: "hasRequestedHealthAuth")
 
         try await store.requestAuthorization(
             toShare: [workoutType],
-            read: [workoutType, heartRateType]
+            read: [
+                workoutType,
+                heartRateType,
+                HKQuantityType(.stepCount),
+                HKQuantityType(.runningSpeed),
+                HKQuantityType(.cyclingSpeed),
+                HKQuantityType(.walkingSpeed),
+                HKQuantityType(.crossCountrySkiingSpeed),
+                HKQuantityType(.cyclingCadence),
+                HKQuantityType(.cyclingPower),
+                HKQuantityType(.runningPower),
+                HKQuantityType(.activeEnergyBurned),
+                HKQuantityType(.distanceWalkingRunning),
+                HKQuantityType(.distanceCycling),
+                HKQuantityType(.distanceSwimming),
+                HKQuantityType(.distanceCrossCountrySkiing),
+                HKQuantityType(.distanceDownhillSnowSports),
+                HKQuantityType(.distanceWheelchair),
+                HKQuantityType(.distancePaddleSports)
+            ]
         )
     }
 
@@ -52,7 +71,7 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
             ascending: false
         )
 
-        return await withCheckedContinuation(isolation: MainActor.shared) { continuation in
+        let workouts: [HKWorkout] = await withCheckedContinuation(isolation: MainActor.shared) { continuation in
 
             let query = HKSampleQuery(
                 sampleType: workoutType,
@@ -67,15 +86,16 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
                     return
                 }
 
-                let workouts = (samples as? [HKWorkout]) ?? []
-                let result = workouts.map { workout in
-                    Self.healthKitWorkout(from: workout)
-                }
-                continuation.resume(returning: result)
+                continuation.resume(returning: (samples as? [HKWorkout]) ?? [])
             }
 
             store.execute(query)
         }
+
+        for workout in workouts {
+            rawWorkouts[workout.uuid] = workout
+        }
+        return workouts.map { Self.healthKitWorkout(from: $0) }
     }
 
     func fetchLatestWorkout() async -> HealthKitWorkout? {
@@ -86,7 +106,7 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
             ascending: false
         )
 
-        return await withCheckedContinuation(isolation: MainActor.shared) { continuation in
+        let fetched: HKWorkout? = await withCheckedContinuation(isolation: MainActor.shared) { continuation in
             let query = HKSampleQuery(
                 sampleType: workoutType,
                 predicate: nil,
@@ -101,29 +121,91 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
                     continuation.resume(returning: nil)
                     return
                 }
-                continuation.resume(returning: Self.healthKitWorkout(from: workout))
+                continuation.resume(returning: workout)
             }
 
             store.execute(query)
         }
+
+        guard let workout = fetched else { return nil }
+        rawWorkouts[workout.uuid] = workout
+        return Self.healthKitWorkout(from: workout)
     }
 
-    // MARK: - Heart Rate Series
+    // MARK: - Heart Rate & Series
 
-    func fetchHeartRateWorkout(
-        from startDate: Date,
-        to endDate: Date
-    ) async -> [HeartRatePoint] {
+    func fetchHeartRateWorkout(for workout: HealthKitWorkout) async -> [HeartRatePoint] {
         guard isAvailable else { return [] }
 
         let type = HKQuantityType(.heartRate)
-        let predicate = HKQuery.predicateForSamples(
-            withStart: startDate,
-            end: endDate,
+        let predicate = samplePredicate(for: workout)
+        let unit = HKUnit.count().unitDivided(by: .minute())
+
+        let samples = await fetchSamples(type: type, predicate: predicate)
+        let points = samples.map { sample in
+            HeartRatePoint(
+                startDate: sample.startDate,
+                bpm: sample.quantity.doubleValue(for: unit)
+            )
+        }
+        return Self.downsized(points, maxPoints: 300)
+    }
+
+    func fetchWorkoutSeries(
+        kind: WorkoutSeriesKind,
+        workout: HealthKitWorkout
+    ) async -> [WorkoutSeriesPoint] {
+        guard isAvailable else { return [] }
+
+        let activityType = rawWorkouts[workout.id]?.workoutActivityType ?? .running
+        let identifiers: [HKQuantityTypeIdentifier]
+        let unit: HKUnit
+        switch kind {
+        case .speed:
+            identifiers = Self.speedIds(for: activityType)
+            unit = Self.speedUnit
+        case .cadence:
+            identifiers = Self.cadenceIdentifiers
+            unit = Self.cadenceUnit
+        case .power:
+            identifiers = Self.powerIds(for: activityType)
+            unit = .watt()
+        }
+
+        guard !identifiers.isEmpty else { return [] }
+
+        let predicate = samplePredicate(for: workout)
+        var combined: [WorkoutSeriesPoint] = []
+        for identifier in identifiers {
+            let samples = await fetchSamples(type: HKQuantityType(identifier), predicate: predicate)
+            combined.append(contentsOf: samples.map { sample in
+                WorkoutSeriesPoint(
+                    date: sample.startDate,
+                    value: sample.quantity.doubleValue(for: unit)
+                )
+            })
+        }
+        if combined.isEmpty { return [] }
+        combined.sort { $0.date < $1.date }
+        return Self.downsized(combined, maxPoints: 300)
+    }
+
+    private func samplePredicate(for workout: HealthKitWorkout) -> NSPredicate {
+        if let raw = rawWorkouts[workout.id] {
+            return HKQuery.predicateForObjects(from: raw)
+        }
+        return HKQuery.predicateForSamples(
+            withStart: workout.startDate,
+            end: workout.endDate,
             options: .strictStartDate
         )
+    }
 
-        return await withCheckedContinuation(isolation: MainActor.shared) { continuation in
+    private func fetchSamples(
+        type: HKQuantityType,
+        predicate: NSPredicate
+    ) async -> [HKQuantitySample] {
+        await withCheckedContinuation(isolation: MainActor.shared) { continuation in
             let query = HKSampleQuery(
                 sampleType: type,
                 predicate: predicate,
@@ -132,17 +214,22 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
                     NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
                 ]
             ) { _, samples, _ in
-                let unit = HKUnit.count().unitDivided(by: .minute())
-                let points = (samples as? [HKQuantitySample] ?? []).compactMap { sample in
-                    HeartRatePoint(
-                        startDate: sample.startDate,
-                        bpm: sample.quantity.doubleValue(for: unit)
-                    )
-                }
-                continuation.resume(returning: points)
+                continuation.resume(returning: (samples as? [HKQuantitySample]) ?? [])
             }
             store.execute(query)
         }
+    }
+
+    private static func downsized<T>(_ points: [T], maxPoints: Int) -> [T] {
+        guard points.count > maxPoints else { return points }
+        let step = Double(points.count - 1) / Double(maxPoints - 1)
+        var result: [T] = []
+        result.reserveCapacity(maxPoints)
+        for i in 0..<maxPoints {
+            let index = Int((Double(i) * step).rounded())
+            result.append(points[min(index, points.count - 1)])
+        }
+        return result
     }
 
     // MARK: - Live Workout
@@ -166,7 +253,7 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
     var onSessionFailed: ((String) -> Void)?
 
     @MainActor
-    func startLiveWorkout(kind: TrackableWorkout.Kind) async throws {
+    func startLiveWorkout(kind: TrackableWorkout.Kind, indoor: Bool) async throws {
         guard isAvailable else {
             throw WorkoutHealthKitLiveError.unavailable
         }
@@ -180,7 +267,7 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
 
         let configuration = HKWorkoutConfiguration()
         configuration.activityType = Self.activityType(for: kind)
-        configuration.locationType = .indoor
+        configuration.locationType = indoor ? .indoor : .outdoor
 
         let session = try HKWorkoutSession(
             healthStore: store,
@@ -245,6 +332,7 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
         liveSession = nil
         liveBuilder = nil
 
+        rawWorkouts[workout.uuid] = workout
         return Self.healthKitWorkout(from: workout)
     }
 
@@ -283,10 +371,12 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
         switch store.authorizationStatus(for: workoutType) {
         case .sharingAuthorized:
             return .authorized
+        case .sharingDenied:
+            return .denied
         case .notDetermined:
+            return .notDetermined
+        @unknown default:
             return workoutAuthRequested ? .authorized : .notDetermined
-        default:
-            return workoutAuthRequested ? .authorized : .denied
         }
     }
 
@@ -301,18 +391,99 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
             durationSeconds: workout.duration,
             caloriesBurned: Self.caloriesBurned(for: workout),
             distanceMeters: Self.distanceMeters(for: workout),
-            heartRateAvg: Self.heartRateStat(workout, key: HRMetadataKey.avg, appleKey: AppleHRMetadataKey.avg),
-            heartRateMax: Self.heartRateStat(workout, key: HRMetadataKey.max, appleKey: AppleHRMetadataKey.max),
-            heartRateMin: Self.heartRateStat(workout, key: HRMetadataKey.min, appleKey: AppleHRMetadataKey.min)
+            heartRateAvg: Self.heartRateAvg(for: workout),
+            heartRateMax: Self.heartRateMax(for: workout),
+            heartRateMin: Self.heartRateMin(for: workout),
+            avgSpeedMps: Self.averageStat(workout, identifiers: Self.speedIds(for: workout.workoutActivityType), unit: Self.speedUnit) ?? Self.mpsMetadata(workout, key: HKMetadataKeyAverageSpeed),
+            maxSpeedMps: Self.maxStat(workout, identifiers: Self.speedIds(for: workout.workoutActivityType), unit: Self.speedUnit) ?? Self.mpsMetadata(workout, key: HKMetadataKeyMaximumSpeed),
+            avgCadence: Self.averageStat(workout, identifiers: Self.cadenceIdentifiers, unit: Self.cadenceUnit),
+            maxCadence: Self.maxStat(workout, identifiers: Self.cadenceIdentifiers, unit: Self.cadenceUnit),
+            avgPowerWatts: Self.averageStat(workout, identifiers: Self.powerIds(for: workout.workoutActivityType), unit: .watt()),
+            maxPowerWatts: Self.maxStat(workout, identifiers: Self.powerIds(for: workout.workoutActivityType), unit: .watt()),
+            elevationGainMeters: Self.positiveDouble(workout, key: HKMetadataKeyElevationAscended),
+            steps: Self.steps(for: workout),
+            indoor: Self.indoor(for: workout),
+            details: Self.workoutDetails(from: workout)
         )
     }
 
-    private static func heartRateStat(
-        _ workout: HKWorkout,
-        key: String,
-        appleKey: String
-    ) -> Double? {
-        metadataDouble(workout, key: key) ?? metadataDouble(workout, key: appleKey)
+    private static func workoutDetails(from workout: HKWorkout) -> WorkoutDetails? {
+        let metadata = workout.metadata
+        var details = WorkoutDetails()
+
+        if let raw = metadata?[HKMetadataKeySwimmingStrokeStyle] as? NSNumber {
+            details.stroke = Self.swimmingStrokeName(raw.intValue)
+        }
+        if let raw = metadata?[HKMetadataKeySwimmingLocationType] as? NSNumber {
+            details.water = raw.intValue == 2 ? "openWater" : raw.intValue == 1 ? "pool" : "unknown"
+        }
+        if let lap = metadata?[HKMetadataKeyLapLength] as? NSNumber {
+            details.lapLengthMeters = lap.doubleValue
+        }
+        if let swolf = metadata?[HKMetadataKeySWOLFScore] as? NSNumber {
+            details.swolf = swolf.doubleValue
+        }
+        if let ascended = metadata?[HKMetadataKeyElevationAscended] as? NSNumber, ascended.doubleValue != 0 {
+            details.elevationAscended = ascended.doubleValue
+        }
+        if let descended = metadata?[HKMetadataKeyElevationDescended] as? NSNumber, descended.doubleValue != 0 {
+            details.elevationDescended = descended.doubleValue
+        }
+        if let mets = metadata?[HKMetadataKeyAverageMETs] as? NSNumber {
+            details.avgMETs = mets.doubleValue
+        }
+
+        return details.isEmpty ? nil : details
+    }
+
+    private static func swimmingStrokeName(_ raw: Int) -> String {
+        switch raw {
+        case 2: return "Freestyle"
+        case 3: return "Backstroke"
+        case 4: return "Breaststroke"
+        case 5: return "Butterfly"
+        case 1: return "Mixed"
+        default: return "Unknown"
+        }
+    }
+
+    private static func heartRateAvg(for workout: HKWorkout) -> Double? {
+        let stats = workout.statistics(for: HKQuantityType(.heartRate))
+        if let value = stats?.averageQuantity()?.doubleValue(for: Self.heartRateUnit), value > 0 {
+            return value
+        }
+        return metadataDouble(workout, key: AppleHRMetadataKey.avg) ?? metadataDouble(workout, key: HRMetadataKey.avg)
+    }
+
+    private static func heartRateMax(for workout: HKWorkout) -> Double? {
+        let stats = workout.statistics(for: HKQuantityType(.heartRate))
+        if let value = stats?.maximumQuantity()?.doubleValue(for: Self.heartRateUnit), value > 0 {
+            return value
+        }
+        return metadataDouble(workout, key: AppleHRMetadataKey.max) ?? metadataDouble(workout, key: HRMetadataKey.max)
+    }
+
+    private static func heartRateMin(for workout: HKWorkout) -> Double? {
+        let stats = workout.statistics(for: HKQuantityType(.heartRate))
+        if let value = stats?.minimumQuantity()?.doubleValue(for: Self.heartRateUnit), value > 0 {
+            return value
+        }
+        return metadataDouble(workout, key: AppleHRMetadataKey.min) ?? metadataDouble(workout, key: HRMetadataKey.min)
+    }
+
+    private static let heartRateUnit = HKUnit.count().unitDivided(by: .minute())
+
+    private static func steps(for workout: HKWorkout) -> Int? {
+        guard let value = workout.statistics(for: HKQuantityType(.stepCount))?
+            .sumQuantity()?.doubleValue(for: .count()),
+            value > 0
+        else { return nil }
+        return Int(value)
+    }
+
+    private static func indoor(for workout: HKWorkout) -> Bool? {
+        guard let raw = workout.metadata?[HKMetadataKeyIndoorWorkout] as? NSNumber else { return nil }
+        return raw.boolValue
     }
 
     private static func metadataDouble(_ workout: HKWorkout, key: String) -> Double? {
@@ -324,6 +495,12 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
             return quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
         }
         return nil
+    }
+
+    private static func mpsMetadata(_ workout: HKWorkout, key: String) -> Double? {
+        guard let value = workout.metadata?[key] as? NSNumber else { return nil }
+        let mps = value.doubleValue
+        return mps > 0 ? mps : nil
     }
 
     private static func activityType(for kind: TrackableWorkout.Kind) -> HKWorkoutActivityType {
@@ -358,12 +535,7 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
     }
 
     private static func liveDistance(_ builder: HKLiveWorkoutBuilder) -> Double? {
-        let identifiers: [HKQuantityTypeIdentifier] = [
-            .distanceWalkingRunning,
-            .distanceCycling,
-            .distanceSwimming
-        ]
-        for identifier in identifiers {
+        for identifier in Self.distanceIdentifiers {
             let type = HKQuantityType(identifier)
             if let value = builder.statistics(for: type)?.sumQuantity()?.doubleValue(for: .meter()),
                value > 0 {
@@ -373,24 +545,97 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
         return nil
     }
 
+    private static var speedUnit: HKUnit {
+        .meter().unitDivided(by: .second())
+    }
+
+    private static var cadenceUnit: HKUnit {
+        .count().unitDivided(by: .minute())
+    }
+
+    private static let distanceIdentifiers: [HKQuantityTypeIdentifier] = [
+        .distanceWalkingRunning,
+        .distanceCycling,
+        .distanceSwimming,
+        .distanceCrossCountrySkiing,
+        .distanceDownhillSnowSports,
+        .distanceWheelchair,
+        .distancePaddleSports
+    ]
+
+    private static let cadenceIdentifiers: [HKQuantityTypeIdentifier] = [
+        .cyclingCadence
+    ]
+
+    private static func speedIds(for activityType: HKWorkoutActivityType) -> [HKQuantityTypeIdentifier] {
+        switch activityType {
+        case .cycling: return [.cyclingSpeed]
+        case .walking: return [.walkingSpeed]
+        case .crossCountrySkiing: return [.crossCountrySkiingSpeed]
+        default: return [.runningSpeed]
+        }
+    }
+
+    private static func powerIds(for activityType: HKWorkoutActivityType) -> [HKQuantityTypeIdentifier] {
+        if activityType == .cycling {
+            return [.cyclingPower]
+        }
+        return [.runningPower]
+    }
+
+    private static func averageStat(
+        _ workout: HKWorkout,
+        identifiers: [HKQuantityTypeIdentifier],
+        unit: HKUnit
+    ) -> Double? {
+        for identifier in identifiers {
+            let type = HKQuantityType(identifier)
+            if let value = workout.statistics(for: type)?.averageQuantity()?.doubleValue(for: unit),
+               value > 0 {
+                return value
+            }
+        }
+        return nil
+    }
+
+    private static func maxStat(
+        _ workout: HKWorkout,
+        identifiers: [HKQuantityTypeIdentifier],
+        unit: HKUnit
+    ) -> Double? {
+        for identifier in identifiers {
+            let type = HKQuantityType(identifier)
+            if let value = workout.statistics(for: type)?.maximumQuantity()?.doubleValue(for: unit),
+               value > 0 {
+                return value
+            }
+        }
+        return nil
+    }
+
+    private static func positiveDouble(_ workout: HKWorkout, key: String) -> Double? {
+        guard let value = workout.metadata?[key] as? NSNumber else { return nil }
+        let result = value.doubleValue
+        return result >= 0 ? result : nil
+    }
+
     private static func caloriesBurned(for workout: HKWorkout) -> Double? {
-        workout.statistics(
-            for: HKQuantityType(.activeEnergyBurned)
-        )?
+        workout.statistics(for: HKQuantityType(.activeEnergyBurned))?
             .sumQuantity()?
             .doubleValue(for: .kilocalorie())
     }
 
     private static func distanceMeters(for workout: HKWorkout) -> Double? {
-        let identifiers: [HKQuantityTypeIdentifier] = [
-            .distanceWalkingRunning,
-            .distanceCycling,
-            .distanceSwimming
-        ]
-        for identifier in identifiers {
+        for identifier in Self.distanceIdentifiers {
             let type = HKQuantityType(identifier)
             if let value = workout.statistics(for: type)?.sumQuantity()?.doubleValue(for: .meter()),
                value > 0 {
+                return value
+            }
+        }
+        if let total = workout.totalDistance {
+            let value = total.doubleValue(for: .meter())
+            if value > 0 {
                 return value
             }
         }

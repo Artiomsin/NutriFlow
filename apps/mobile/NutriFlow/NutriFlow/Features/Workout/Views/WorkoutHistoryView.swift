@@ -64,18 +64,21 @@ struct WorkoutHistoryView: View {
                 vm.activeWorkoutVM.start(kind: trackable.kind)
             }
         }
-        .navigationDestination(item: $vm.selectedWorkout) { workout in
+.navigationDestination(item: $vm.selectedWorkout) { workout in
             WorkoutDetailView(
                 workout: workout,
-                heartRatePoints: vm.heartRatePoints
+                heartRatePoints: vm.heartRatePoints,
+                series: vm.currentSeries()
             )
             .task {
                 await vm.loadHeartRate(for: workout)
+                await vm.loadSeries(for: workout)
             }
         }
         .onChange(of: vm.selectedWorkout) { _, newValue in
             if newValue != nil {
                 vm.heartRatePoints = []
+                vm.clearSeries()
             }
         }
     }
@@ -424,28 +427,43 @@ private struct SparklineChart: View {
         workoutService: MockWorkoutService()
     )
 
-    let running = HealthKitWorkout(
-        id: UUID(),
-        workoutType: "Running",
-        startDate: Date().addingTimeInterval(-2520),
-        endDate: Date(),
-        durationSeconds: 2520,
-        caloriesBurned: 386,
-        distanceMeters: 5200
-    )
-    let cycling = HealthKitWorkout(
-        id: UUID(),
-        workoutType: "Cycling",
-        startDate: Date().addingTimeInterval(-86400),
-        endDate: Date().addingTimeInterval(-86400 + 3600),
-        durationSeconds: 3600,
-        caloriesBurned: 512,
-        distanceMeters: 15000
-    )
+    func makeWorkout(
+        type: String,
+        startOffset: TimeInterval,
+        duration: TimeInterval,
+        calories: Double,
+        distance: Double?,
+        baseBPM: Double
+    ) -> (HealthKitWorkout, [HeartRatePoint]) {
+        let start = Date().addingTimeInterval(startOffset)
+        let workout = HealthKitWorkout(
+            id: UUID(),
+            workoutType: type,
+            startDate: start,
+            endDate: start.addingTimeInterval(duration),
+            durationSeconds: duration,
+            caloriesBurned: calories,
+            distanceMeters: distance,
+            heartRateAvg: baseBPM + 12,
+            heartRateMax: baseBPM + 32,
+            heartRateMin: baseBPM - 12
+        )
+        return (workout, sampleHeartRate(from: start, to: start.addingTimeInterval(duration), base: baseBPM))
+    }
 
-    vm.state = .loaded([running, cycling])
-    vm.sparklineHR[running.id] = sampleHeartRate(from: running.startDate, to: running.endDate, base: 130)
-    vm.sparklineHR[cycling.id] = sampleHeartRate(from: cycling.startDate, to: cycling.endDate, base: 118)
+    let entries: [(HealthKitWorkout, [HeartRatePoint])] = [
+        makeWorkout(type: "Running", startOffset: -2520, duration: 2520, calories: 386, distance: 5200, baseBPM: 132),
+        makeWorkout(type: "Cycling", startOffset: -86400, duration: 3600, calories: 512, distance: 15000, baseBPM: 118),
+        makeWorkout(type: "Swimming", startOffset: -79200, duration: 2400, calories: 380, distance: 1500, baseBPM: 124),
+        makeWorkout(type: "HIIT", startOffset: -172800, duration: 1200, calories: 290, distance: nil, baseBPM: 148),
+        makeWorkout(type: "Strength Training", startOffset: -259200, duration: 2700, calories: 240, distance: nil, baseBPM: 108),
+        makeWorkout(type: "Yoga", startOffset: -345600, duration: 1800, calories: 120, distance: nil, baseBPM: 92)
+    ]
+
+    vm.state = .loaded(entries.map { $0.0 })
+    for (workout, points) in entries {
+        vm.sparklineHR[workout.id] = points
+    }
 
     return NavigationStack {
         WorkoutHistoryView(vm: vm)

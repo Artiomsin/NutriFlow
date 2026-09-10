@@ -14,6 +14,16 @@ export const syncWorkoutSchema = z.object({
   heartRateAvg: z.number().min(0).max(300).nullable().optional(),
   heartRateMax: z.number().min(0).max(300).nullable().optional(),
   heartRateMin: z.number().min(0).max(300).nullable().optional(),
+  avgSpeedMps: z.number().min(0).nullable().optional(),
+  maxSpeedMps: z.number().min(0).nullable().optional(),
+  avgCadence: z.number().min(0).nullable().optional(),
+  maxCadence: z.number().min(0).nullable().optional(),
+  avgPowerWatts: z.number().min(0).nullable().optional(),
+  maxPowerWatts: z.number().min(0).nullable().optional(),
+  elevationGainMeters: z.number().min(0).nullable().optional(),
+  steps: z.number().int().min(0).nullable().optional(),
+  indoor: z.boolean().nullable().optional(),
+  details: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const syncWorkoutsSchema = z.object({

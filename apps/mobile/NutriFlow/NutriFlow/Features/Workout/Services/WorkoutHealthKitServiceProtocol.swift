@@ -12,12 +12,16 @@ protocol WorkoutHealthKitServiceProtocol: AnyObject {
 
     var onLiveMetrics: ((LiveWorkoutMetrics) -> Void)? { get set }
     var onSessionFailed: ((String) -> Void)? { get set }
-    func startLiveWorkout(kind: TrackableWorkout.Kind) async throws
+    func startLiveWorkout(kind: TrackableWorkout.Kind, indoor: Bool) async throws
     func pauseLiveWorkout()
     func resumeLiveWorkout()
     func cancelLiveWorkout()
     func endLiveWorkout() async throws -> HealthKitWorkout
-    func fetchHeartRateWorkout(from startDate: Date, to endDate: Date) async -> [HeartRatePoint]
+    func fetchHeartRateWorkout(for workout: HealthKitWorkout) async -> [HeartRatePoint]
+    func fetchWorkoutSeries(
+        kind: WorkoutSeriesKind,
+        workout: HealthKitWorkout
+    ) async -> [WorkoutSeriesPoint]
 }
 
 enum WorkoutPermissionState {
