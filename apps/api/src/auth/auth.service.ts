@@ -205,31 +205,45 @@ export class AuthService {
       );
 
       const key = this.getKey(payload.userId, payload.sessionId);
+      const hash = this.hashRefreshToken(refreshToken);
 
       const storedHash = await cacheGet<string>(key);
 
       if (!storedHash) throw new UnauthorizedException();
 
-      const match = storedHash === createHash('sha256').update(refreshToken).digest('hex');
+      if (storedHash === hash) {
+        // Ротация: выдаём новую пару, фиксируем пред. токен и выдаваемую пару.
+        const tokens = this.generateTokens(payload.userId, payload.sessionId);
+        await cacheSet(this.getPrevKey(key), storedHash, this.refreshTtl);
+        await cacheSet(this.getPairKey(key), tokens, this.refreshTtl);
+        await this.saveRefresh(
+          payload.userId,
+          payload.sessionId,
+          tokens.refreshToken,
+        );
+        return tokens;
+      }
 
-      if (!match) throw new UnauthorizedException();
+      // Токен уже был ротирован (гонка параллельных refresh): отдаём ту же пару.
+      const prevHash = await cacheGet<string>(this.getPrevKey(key));
+      if (prevHash === hash) {
+        const pair = await cacheGet<{ accessToken: string; refreshToken: string }>(
+          this.getPairKey(key),
+        );
+        if (pair) return pair;
+      }
 
-      const tokens = this.generateTokens(payload.userId, payload.sessionId);
-
-      await this.saveRefresh(
-        payload.userId,
-        payload.sessionId,
-        tokens.refreshToken,
-      );
-
-      return tokens;
+      throw new UnauthorizedException();
     } catch {
       throw new UnauthorizedException();
     }
   }
 
   async logout(userId: string, sessionId: string) {
-    await cacheDel(this.getKey(userId, sessionId));
+    const key = this.getKey(userId, sessionId);
+    await cacheDel(key);
+    await cacheDel(this.getPrevKey(key));
+    await cacheDel(this.getPairKey(key));
     return { message: 'Logged out' };
   }
 
@@ -246,8 +260,15 @@ export class AuthService {
     sessionId: string,
     refreshToken: string,
   ) {
-    const hash = createHash('sha256').update(refreshToken).digest('hex');
-    await cacheSet(this.getKey(userId, sessionId), hash, 604800);
+    await cacheSet(
+      this.getKey(userId, sessionId),
+      this.hashRefreshToken(refreshToken),
+      this.refreshTtl,
+    );
+  }
+
+  private hashRefreshToken(refreshToken: string) {
+    return createHash('sha256').update(refreshToken).digest('hex');
   }
 
   private generateTokens(userId: string, sessionId: string) {
@@ -269,4 +290,14 @@ export class AuthService {
   private getKey(userId: string, sessionId: string) {
     return `refresh:${userId}:${sessionId}`;
   }
+
+  private getPrevKey(key: string) {
+    return `${key}:prev`;
+  }
+
+  private getPairKey(key: string) {
+    return `${key}:pair`;
+  }
+
+  private refreshTtl = 604800;
 }
