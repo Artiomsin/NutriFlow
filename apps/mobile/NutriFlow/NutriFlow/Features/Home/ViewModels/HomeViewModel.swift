@@ -10,6 +10,7 @@ final class HomeViewModel {
     let goalsVM: GoalsViewModel
     let activityVM: ActivityViewModel
     let workoutVM: WorkoutHistoryViewModel
+    let sleepVM: SleepViewModel
     
     var dailySummaryState: DailySummaryState = .idle
 
@@ -32,6 +33,7 @@ final class HomeViewModel {
         goalsVM: GoalsViewModel,
         activityVM: ActivityViewModel,
         workoutVM: WorkoutHistoryViewModel,
+        sleepVM: SleepViewModel,
         
         cacheService: CacheService? = nil
     ) {
@@ -44,6 +46,7 @@ final class HomeViewModel {
         self.goalsVM = goalsVM
         self.activityVM = activityVM
         self.workoutVM = workoutVM
+        self.sleepVM = sleepVM
         
         self.cacheService = cacheService
     }

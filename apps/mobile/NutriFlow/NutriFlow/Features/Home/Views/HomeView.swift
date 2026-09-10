@@ -8,6 +8,7 @@ enum HomeNavRoute: Hashable {
     case scanFood
     case scanResult([FoodAnalysisItem], Data?)
     case workoutHistory
+    case sleepHistory
 }
 
 struct HomeView: View {
@@ -74,7 +75,10 @@ struct HomeView: View {
 
                     case .workoutHistory:
                         WorkoutHistoryView(vm: homeViewModel.workoutVM)
-                        
+
+                    case .sleepHistory:
+                        SleepHistoryView(vm: homeViewModel.sleepVM)
+
                     }
                 }
         }
@@ -110,6 +114,11 @@ struct HomeView: View {
                         print("[Nav] appended workoutHistory, path=\(navPath)")
                     }
                 )
+                .padding(.horizontal, AppTheme.paddingHorizontal)
+                SleepCard(vm: homeViewModel.sleepVM) {
+                    tabBarState.isTabBarHidden = true
+                    navPath.append(HomeNavRoute.sleepHistory)
+                }
                 .padding(.horizontal, AppTheme.paddingHorizontal)
                 FoodSectionView(
                     todayFoodVM: homeViewModel.todayFoodVM,
@@ -157,6 +166,7 @@ struct HomeView: View {
                 group.addTask { await homeViewModel.waterVM.loadToday() }
                 group.addTask { await homeViewModel.activityVM.onAppear() }
                 group.addTask { await homeViewModel.workoutVM.loadLatest() }
+                group.addTask { await homeViewModel.sleepVM.onAppear() }
             }
             if case .needsAccess = homeViewModel.activityVM.state {
                 print("[Home] activity was needsAccess -> reload after health auth")
@@ -307,6 +317,10 @@ extension HomeFactory {
             workoutVM: WorkoutHistoryViewModel(
                 healthKit: MockHealthKit(),
                 workoutService: MockWorkoutService()
+            ),
+            sleepVM: SleepViewModel(
+                healthKitService: MockSleepHealthKit(),
+                sleepService: MockSleepService()
             )
         )
     }

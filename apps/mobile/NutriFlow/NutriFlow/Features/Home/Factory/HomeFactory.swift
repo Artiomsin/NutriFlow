@@ -18,6 +18,11 @@ enum HomeFactory {
             workoutService: container.workoutService,
             cacheService: cache
         )
+        let sleepVM = SleepViewModel(
+            healthKitService: container.sleepHealthKitService,
+            sleepService: container.sleepService,
+            cacheService: cache
+        )
         
         return HomeViewModel(
             coordinator: coordinator,
@@ -28,6 +33,7 @@ enum HomeFactory {
             goalsVM: goalsVM,
             activityVM: activityVM,
             workoutVM: workoutVM,
+            sleepVM: sleepVM,
             cacheService: cache
         )
     }
