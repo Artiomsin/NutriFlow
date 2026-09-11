@@ -7,53 +7,52 @@ struct SleepHistoryView: View {
     @Bindable var vm: SleepViewModel
 
     var body: some View {
-        Group {
+        ScrollView(showsIndicators: false) {
             switch vm.state {
-            case .idle, .loading:
+            case .idle:
                 ProgressView().tint(AppTheme.accent)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(maxWidth: .infinity, minHeight: 300)
+            case .loading:
+                ProgressView().tint(AppTheme.accent)
+                    .frame(maxWidth: .infinity, minHeight: 300)
             case .needsAccess:
                 Text("Connect Apple Health to see sleep history")
                     .foregroundColor(AppTheme.textSecondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            case .empty:
-                VStack(spacing: 12) {
-                    Image(systemName: "moon")
-                        .font(.title2)
-                        .foregroundColor(AppTheme.textSecondary)
-                    Text("No sleep data yet")
-                        .foregroundColor(AppTheme.textSecondary)
-                    Button {
-                        Task { await vm.refreshHistory() }
-                    } label: {
-                        Label("Refresh", systemImage: "arrow.clockwise")
-                            .font(.subheadline)
-                            .foregroundColor(AppTheme.accent)
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(maxWidth: .infinity, minHeight: 300)
+            case .denied:
+                Text("Sleep access is off. Enable Apple Health in Settings.")
+                    .font(.footnote)
+                    .foregroundColor(AppTheme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, minHeight: 300)
             case .error(let message):
                 Text("Failed to load sleep: \(message)")
                     .font(.caption)
                     .foregroundColor(AppTheme.textSecondary)
                     .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            case .loaded(let nights):
-                historyContent(nights)
-            }
-        }
-        .background(AppTheme.background)
-        .navigationTitle("Sleep")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    Task { await vm.refreshHistory() }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
+                    .frame(maxWidth: .infinity, minHeight: 300)
+            case .loaded, .empty:
+                if vm.isHistoryLoading && vm.history.isEmpty {
+                    ProgressView().tint(AppTheme.accent)
+                        .frame(maxWidth: .infinity, minHeight: 300)
+                } else if vm.history.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "moon")
+                            .font(.title2)
+                            .foregroundColor(AppTheme.textSecondary)
+                        Text("No sleep data yet")
+                            .foregroundColor(AppTheme.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 300)
+                } else {
+                    historyContent(vm.history)
                 }
             }
         }
+        .refreshable { await vm.refreshHistory() }
+        .background(AppTheme.background)
+        .navigationTitle("Sleep")
+        .navigationBarTitleDisplayMode(.inline)
         .task { await vm.loadHistoryIfNeeded() }
         .navigationDestination(item: $vm.selectedNight) { night in
             NightDetailView(vm: vm, night: night)
@@ -62,27 +61,24 @@ struct SleepHistoryView: View {
     }
 
     private func historyContent(_ nights: [HealthKitSleep]) -> some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 16) {
-                trendChart(nights)
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Nights")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(AppTheme.textSecondary)
-                    VStack(spacing: 8) {
-                        ForEach(nights) { night in
-                            Button { vm.selectedNight = night } label: {
-                                nightRow(night)
-                            }
-                            .buttonStyle(.plain)
+        VStack(spacing: 16) {
+            trendChart(nights)
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Nights")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(AppTheme.textSecondary)
+                VStack(spacing: 8) {
+                    ForEach(nights) { night in
+                        Button { vm.selectedNight = night } label: {
+                            nightRow(night)
                         }
+                        .buttonStyle(.plain)
                     }
                 }
             }
-            .padding(.horizontal, AppTheme.paddingHorizontal)
-            .padding(.vertical)
         }
-        .refreshable { await vm.refreshHistory() }
+        .padding(.horizontal, AppTheme.paddingHorizontal)
+        .padding(.vertical)
     }
 
     private func trendChart(_ nights: [HealthKitSleep]) -> some View {
@@ -392,8 +388,11 @@ struct ComparisonBar: Identifiable {
 
 #Preview {
     let vm = SleepViewModel(
-        healthKitService: MockSleepHealthKit(),
-        sleepService: MockSleepService()
+        coordinator: SleepSyncCoordinator(
+            healthKitService: MockSleepHealthKit(),
+            sleepService: MockSleepService(),
+            cacheService: CacheService()
+        )
     )
     Task { @MainActor in await vm.loadHistoryIfNeeded() }
     return NavigationStack {

@@ -25,6 +25,8 @@ struct SleepCard: View {
             .cornerRadius(AppTheme.cornerRadiusMedium)
         case .needsAccess:
             accessPrompt
+        case .denied:
+            deniedPrompt
         case .empty:
             emptyPrompt
                 .contentShape(Rectangle())
@@ -70,6 +72,26 @@ struct SleepCard: View {
         }
         .padding()
         .frame(maxWidth: .infinity)
+        .background(AppTheme.cardBackground)
+        .cornerRadius(AppTheme.cornerRadiusMedium)
+    }
+
+    private var deniedPrompt: some View {
+        HStack {
+            Image(systemName: "moon.zzz")
+                .foregroundColor(AppTheme.textSecondary)
+            Text("Sleep access is off. Enable Apple Health in Settings.")
+                .font(.footnote)
+                .foregroundColor(AppTheme.textSecondary)
+            Spacer()
+            Button("Settings") {
+                vm.openSettings()
+            }
+            .font(.caption)
+            .foregroundColor(AppTheme.accent)
+        }
+        .frame(maxWidth: .infinity)
+        .padding()
         .background(AppTheme.cardBackground)
         .cornerRadius(AppTheme.cornerRadiusMedium)
     }
@@ -263,10 +285,30 @@ private struct StageBar: View {
 
 #Preview("Loaded") {
     let vm = SleepViewModel(
-        healthKitService: MockSleepHealthKit(),
-        sleepService: MockSleepService()
+        coordinator: SleepSyncCoordinator(
+            healthKitService: MockSleepHealthKit(),
+            sleepService: MockSleepService(),
+            cacheService: CacheService()
+        )
     )
-    Task { @MainActor in await vm.connectTapped() }
+    vm.state = .loaded([HealthKitSleep(
+        id: UUID(),
+        startDate: Date(),
+        endDate: Date().addingTimeInterval(8 * 3600),
+        timeInBedSeconds: 7.5 * 3600,
+        asleepSeconds: 7 * 3600,
+        awakeSeconds: 0.5 * 3600,
+        coreSeconds: 4 * 3600,
+        deepSeconds: 1.5 * 3600,
+        remSeconds: 1.5 * 3600,
+        unspecifiedSeconds: 0,
+        awakenings: 1,
+        segmentCount: 5,
+        onsetLatencySeconds: 600,
+        efficiency: 93,
+        heartRateAvg: 58,
+        segments: []
+    )])
     return SleepCard(vm: vm)
         .padding()
         .background(AppTheme.background)
@@ -275,8 +317,11 @@ private struct StageBar: View {
 
 #Preview("Needs Access") {
     let vm = SleepViewModel(
-        healthKitService: MockSleepHealthKit(),
-        sleepService: MockSleepService()
+        coordinator: SleepSyncCoordinator(
+            healthKitService: MockSleepHealthKit(),
+            sleepService: MockSleepService(),
+            cacheService: CacheService()
+        )
     )
     vm.state = .needsAccess
     return SleepCard(vm: vm)

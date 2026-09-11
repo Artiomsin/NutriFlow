@@ -12,4 +12,5 @@ enum SleepState {
     case loaded([HealthKitSleep])
     case empty
     case error(String)
+    case denied
 }
