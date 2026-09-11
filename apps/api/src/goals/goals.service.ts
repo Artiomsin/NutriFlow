@@ -89,7 +89,7 @@ export class GoalsService {
           dailyFatGoal: existing.dailyFatGoal ?? calculated.dailyFatGoal,
           dailyCarbsGoal: existing.dailyCarbsGoal ?? calculated.dailyCarbsGoal,
           dailyWaterGoal: existing.dailyWaterGoal ?? calculated.dailyWaterGoal,
-          source: 'auto' as const,
+          source: 'manual' as const,
           updatedAt: new Date(),
         };
         const [goals] = await db

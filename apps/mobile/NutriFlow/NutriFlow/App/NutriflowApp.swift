@@ -9,6 +9,7 @@ struct NutriflowApp: App {
 
     init() {
         self.coordinator = AppCoordinator(container: container)
+
         print("NutriflowApp создан")
     }
 
@@ -32,5 +33,3 @@ struct NutriflowApp: App {
         }
     }
 }
-
-

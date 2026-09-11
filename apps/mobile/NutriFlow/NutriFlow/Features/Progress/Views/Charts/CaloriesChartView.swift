@@ -11,12 +11,12 @@ import Charts
 struct CaloriesChartView: View {
     let data: [ChartDataPoint]
     let canTap: Bool
-    let onBarTap: ((String) -> Void)?
+    let onBarTap: ((ChartDataPoint) -> Void)?
     let initialScrollX: String
     @State private var prefsStore = PreferencesStore.shared
     @State private var selection: String?
 
-    init(data: [ChartDataPoint], canTap: Bool = false, onBarTap: ((String) -> Void)? = nil, initialScrollX: String = "") {
+    init(data: [ChartDataPoint], canTap: Bool = false, onBarTap: ((ChartDataPoint) -> Void)? = nil, initialScrollX: String = "") {
         self.data = data
         self.canTap = canTap
         self.onBarTap = onBarTap
@@ -55,8 +55,8 @@ struct CaloriesChartView: View {
             .chartScrollableAxes(.horizontal)
             .chartScrollPosition(initialX: initialScrollX)
             .onChange(of: selection) { _, newVal in
-                if canTap, let label = newVal {
-                    onBarTap?(label)
+                if canTap, let label = newVal, let point = data.first(where: { $0.label == label }) {
+                    onBarTap?(point)
                     DispatchQueue.main.async { selection = nil }
                 }
             }

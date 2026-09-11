@@ -11,12 +11,14 @@ final class WaterViewModel {
     @ObservationIgnored private let service: WaterTrackingServiceProtocol
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let cacheService: CacheService?
+    @ObservationIgnored private let progressRefreshState: ProgressRefreshState?
 
-    init(coordinator: AppCoordinator, service: WaterTrackingServiceProtocol, cacheService: CacheService? = nil) {
+    init(coordinator: AppCoordinator, service: WaterTrackingServiceProtocol, cacheService: CacheService? = nil, progressRefreshState: ProgressRefreshState? = nil) {
         print("WaterViewModel init")
         self.coordinator = coordinator
         self.service = service
         self.cacheService = cacheService
+        self.progressRefreshState = progressRefreshState
     }
 
     deinit { print("WaterViewModel deinit") }
@@ -46,10 +48,11 @@ final class WaterViewModel {
         }
     }
 
-    func createWater() async {
+    @discardableResult
+    func createWater() async -> Bool {
         guard let ml = Int(amountMl) else {
             state = .error(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Количество должно быть числом"]))
-            return
+            return false
         }
 
         state = .saving
@@ -66,22 +69,36 @@ final class WaterViewModel {
             await cacheService?.remove("chart_today")
             await cacheService?.removeByPrefix("chart_summaries")
             await cacheService?.removeByPrefix("analytics_")
+            progressRefreshState?.invalidate()
 
-            let entries = try await service.getTodayWater()
-            try? await cacheService?.set("water_today", entries, ttl: 300)
-            state = .loaded(entries)
+            do {
+                let entries = try await service.getTodayWater()
+                try? await cacheService?.set("water_today", entries, ttl: 300)
+                state = .loaded(entries)
+            } catch {
+                if let cached: [WaterEntry] = try? await cacheService?.get("water_today", ignoreTTL: true) {
+                    state = .loaded(cached)
+                } else {
+                    state = .loaded([])
+                }
+            }
+
             clearForm()
+            return true
         } catch let error as APIError {
             if case .unauthorized = error {
                 coordinator?.goToAuth()
             }
             state = .error(error)
+            return false
         } catch {
             state = .error(error)
+            return false
         }
     }
 
-    func deleteWater(id: String) async {
+    @discardableResult
+    func deleteWater(id: String) async -> Bool {
         do {
             #if DEBUG
             print("[Network] WaterVM deleteWater")
@@ -94,17 +111,30 @@ final class WaterViewModel {
             await cacheService?.remove("chart_today")
             await cacheService?.removeByPrefix("chart_summaries")
             await cacheService?.removeByPrefix("analytics_")
+            progressRefreshState?.invalidate()
 
-            let entries = try await service.getTodayWater()
-            try? await cacheService?.set("water_today", entries, ttl: 300)
-            state = .loaded(entries)
+            do {
+                let entries = try await service.getTodayWater()
+                try? await cacheService?.set("water_today", entries, ttl: 300)
+                state = .loaded(entries)
+            } catch {
+                if let cached: [WaterEntry] = try? await cacheService?.get("water_today", ignoreTTL: true) {
+                    state = .loaded(cached)
+                } else {
+                    state = .loaded([])
+                }
+            }
+
+            return true
         } catch let error as APIError {
             if case .unauthorized = error {
                 coordinator?.goToAuth()
             }
             state = .error(error)
+            return false
         } catch {
             state = .error(error)
+            return false
         }
     }
 

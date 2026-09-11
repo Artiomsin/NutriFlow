@@ -15,12 +15,14 @@ final class AuthViewModel {
     @ObservationIgnored private let profileService: ProfileServiceProtocol
     @ObservationIgnored private let googleSignInService: GoogleSignInService
     @ObservationIgnored private weak var coordinator: AppCoordinator?
-    
-    init(authService: AuthServiceProtocol, profileService: ProfileServiceProtocol, googleSignInService: GoogleSignInService, coordinator: AppCoordinator) {
+    @ObservationIgnored private var activitySync: ActivitySyncProtocol?
+
+    init(authService: AuthServiceProtocol, profileService: ProfileServiceProtocol, googleSignInService: GoogleSignInService, coordinator: AppCoordinator, activitySync: ActivitySyncProtocol? = nil) {
         self.authService = authService
         self.profileService = profileService
         self.googleSignInService = googleSignInService
         self.coordinator = coordinator
+        self.activitySync = activitySync
     }
     
     func login() async {
@@ -129,6 +131,7 @@ final class AuthViewModel {
 
 
 func logout() async {
+    activitySync?.stop()
     do {
         try await authService.logout()
         state = .unauthenticated

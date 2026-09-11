@@ -8,3 +8,6 @@ export * from './foodCategories';
 export * from './foods';
 export * from './foodServings';
 export * from './userFoodStats';
+export * from './dailyActivity';
+export * from './userWorkouts';
+export * from './userSleep';

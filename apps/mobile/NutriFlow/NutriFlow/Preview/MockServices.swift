@@ -67,6 +67,45 @@ final class MockFoodService: FoodServiceProtocol {
     func analyzePhoto(_ data: Data) async throws -> [FoodAnalysisItem] { [] }
 }
 
+final class MockActivityService: ActivityServiceProtocol {
+    func sync(entries: [DailyActivity]) async throws { }
+    func getRange(from: String, to: String) async throws -> [ActivityDayPoint] {
+        let cal = Calendar.current
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        df.timeZone = .current
+        let start = df.date(from: from) ?? Date()
+        let end = df.date(from: to) ?? Date()
+        var points: [ActivityDayPoint] = []
+        var day = start
+        while day <= end {
+            let consumed = Int.random(in: 1500...2500)
+            let burned = Int.random(in: 300...800)
+            points.append(ActivityDayPoint(
+                date: df.string(from: day),
+                steps: Int.random(in: 3000...12000),
+                activeCalories: burned,
+                basalCalories: Int.random(in: 1300...1900),
+                distanceMeters: Double(Int.random(in: 2000...9000)),
+                caloriesConsumed: consumed,
+                netCalories: consumed - burned
+            ))
+            day = cal.date(byAdding: .day, value: 1, to: day) ?? day
+        }
+        return points
+    }
+}
+
+@MainActor
+final class MockActivitySync: ActivitySyncProtocol {
+    var isSessionActive: Bool { false }
+    var onActivityUpdate: ((DailyActivity) -> Void)?
+    func start() {}
+    func stop() {}
+    func refresh() async {}
+    func authorizationDidChange() {}
+}
+
 final class MockWaterService: WaterTrackingServiceProtocol {
     func createWaterEntry(amountMl: Int, date: String? = nil) async throws -> WaterEntry {
         WaterEntry(id: UUID().uuidString, userId: "1", amountMl: amountMl, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil)
@@ -244,5 +283,170 @@ final class MockGoalsService: GoalsServiceProtocol {
     }
     func calculateGoals() async throws -> UserGoals {
         try await getGoals()
+    }
+}
+
+final class MockWorkoutService: WorkoutServiceProtocol {
+    func sync(entries: [WorkoutSyncEntry]) async throws {}
+    func getHistory(
+        from: String?,
+        to: String?,
+        limit: Int?,
+        offset: Int?
+    ) async throws -> WorkoutHistoryResponse {
+        WorkoutHistoryResponse(total: 0, workouts: [])
+    }
+    func deleteMissing(from startDate: String, healthKitWorkoutIds: [String]) async throws {}
+}
+
+final class MockSleepService: SleepServiceProtocol {
+    func sync(entries: [SleepSyncEntry]) async throws {}
+    func getHistory(
+        from: String?,
+        to: String?,
+        limit: Int?,
+        offset: Int?
+    ) async throws -> SleepHistoryResponse {
+        SleepHistoryResponse(total: 0, nights: [])
+    }
+    func deleteMissing(from startDate: String, startDates: [String]) async throws {}
+}
+
+final class MockSleepHealthKit: SleepHealthKitServiceProtocol {
+    var isAvailable: Bool { true }
+    func permissionState() async -> HealthKitPermissionState { .authorized }
+
+    func requestAuthorization() async throws {}
+
+    func fetchHeartRateDuringSleep(
+        from startDate: Date,
+        to endDate: Date
+    ) async throws -> [SleepHeartRatePoint] {
+        stride(
+            from: startDate,
+            through: endDate,
+            by: 5 * 60
+        ).map { date in
+            SleepHeartRatePoint(
+                date: date,
+                bpm: Double.random(in: 52...68)
+            )
+        }
+    }
+    
+    private func sampleNight(from startDate: Date, variation: Double) -> HealthKitSleep {
+        let asleep = 7480 * (0.75 + variation)
+        let core = asleep * 0.57
+        let deep = asleep * 0.21
+        let rem = asleep * 0.22
+        let awake = 900 * (1 + variation)
+
+        let nightStart = startDate.addingTimeInterval(7 * 3600)
+        let nightEnd = startDate.addingTimeInterval(15 * 3600 + awake)
+
+        return HealthKitSleep(
+            id: mockNightID(start: nightStart, end: nightEnd),
+            startDate: nightStart,
+            endDate: nightEnd,
+            timeInBedSeconds: asleep + awake,
+            asleepSeconds: asleep,
+            awakeSeconds: awake,
+            coreSeconds: core,
+            deepSeconds: deep,
+            remSeconds: rem,
+            unspecifiedSeconds: 0,
+            awakenings: Int(2 + variation * 4),
+            segmentCount: 12,
+            onsetLatencySeconds: 1200,
+            efficiency: asleep / (asleep + awake) * 100,
+            heartRateAvg: 58 - variation * 3,
+            segments: [
+                SleepStageSegment(id: UUID(), startDate: startDate + 7 * 3600, endDate: startDate + 8 * 3600, stage: .inBed),
+                SleepStageSegment(id: UUID(), startDate: startDate + 8 * 3600, endDate: startDate + 10 * 3600, stage: .core),
+                SleepStageSegment(id: UUID(), startDate: startDate + 10 * 3600, endDate: startDate + 11 * 3600, stage: .deep),
+                SleepStageSegment(id: UUID(), startDate: startDate + 10.5 * 3600, endDate: startDate + 10.7 * 3600, stage: .awake),
+                SleepStageSegment(id: UUID(), startDate: startDate + 11 * 3600, endDate: startDate + 13 * 3600, stage: .rem),
+                SleepStageSegment(id: UUID(), startDate: startDate + 13 * 3600, endDate: startDate + 14 * 3600, stage: .core),
+                SleepStageSegment(id: UUID(), startDate: startDate + 14 * 3600, endDate: startDate + 15 * 3600, stage: .awake)
+            ]
+        )
+    }
+
+    func fetchSleep(from startDate: Date, to endDate: Date) async throws -> HealthKitSleep? {
+        sampleNight(from: startDate, variation: 0.15)
+    }
+    
+    
+
+    func fetchNights(from startDate: Date, to endDate: Date) async throws -> [HealthKitSleep] {
+        (0..<7).map { day in
+            sampleNight(from: startDate.addingTimeInterval(TimeInterval(day) * 86_400), variation: Double(day) * 0.07)
+        }
+    }
+}
+
+private func mockNightID(start: Date, end: Date) -> UUID {
+    let t1 = UInt64(start.timeIntervalSinceReferenceDate * 1000)
+    let t2 = UInt64(end.timeIntervalSinceReferenceDate * 1000)
+    var bytes = [UInt8](repeating: 0, count: 16)
+    for i in 0..<8 {
+        bytes[i] = UInt8((t1 >> (8 * (7 - i))) & 0xFF)
+    }
+    for i in 0..<8 {
+        bytes[8 + i] = UInt8((t2 >> (8 * (7 - i))) & 0xFF)
+    }
+    bytes[6] = (bytes[6] & 0x0F) | 0x50
+    bytes[8] = (bytes[8] & 0x3F) | 0x80
+    return UUID(
+        uuid: (
+            bytes[0], bytes[1], bytes[2], bytes[3],
+            bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11],
+            bytes[12], bytes[13], bytes[14], bytes[15]
+        )
+    )
+}
+
+final class MockHealthKit: ActivityHealthKitServiceProtocol, WorkoutHealthKitServiceProtocol {
+    var isAvailable: Bool { true }
+    var onActivityChanged: (() -> Void)?
+
+    static let sampleWorkout = HealthKitWorkout(
+        id: UUID(),
+        workoutType: "Running",
+        startDate: Date().addingTimeInterval(-3600 * 30),
+        endDate: Date().addingTimeInterval(-3600 * 30 + 2520),
+        durationSeconds: 2520,
+        caloriesBurned: 386,
+        distanceMeters: 5200,
+        heartRateAvg: 140,
+        heartRateMax: 165,
+        heartRateMin: 115
+    )
+
+    func requestAuthorization() async throws {}
+    func fetchToday() async -> DailyActivity {
+        DailyActivity(date: "", steps: 0, activeCalories: 0, basalCalories: 0, distanceMeters: 0)
+    }
+    func fetchWorkouts(from startDate: Date, to endDate: Date) async -> [HealthKitWorkout] { [Self.sampleWorkout] }
+    func fetchLatestWorkout() async -> HealthKitWorkout? { Self.sampleWorkout }
+    func enableBackgroundDelivery() async throws {}
+    func startObserving() {}
+    func stopObserving() {}
+    func permissionState() async -> HealthKitPermissionState { .authorized }
+    func fetchHeartRateWorkout(for workout: HealthKitWorkout) async -> [HeartRatePoint] {
+        stride(from: workout.startDate, through: workout.endDate, by: 60).map { date in
+            HeartRatePoint(startDate: date, bpm: Double(Int.random(in: 110...150)))
+        }
+    }
+
+    func fetchWorkoutSeries(kind: WorkoutSeriesKind, workout: HealthKitWorkout) async -> [WorkoutSeriesPoint] {
+        let startValue = kind == .speed ? 2.4 : kind == .cadence ? 84 : 210.0
+        return stride(from: workout.startDate, through: workout.endDate, by: 120).enumerated().map { index, date in
+            WorkoutSeriesPoint(
+                date: date,
+                value: startValue + sin(Double(index) * 0.5) * (kind == .speed ? 0.6 : 8)
+            )
+        }
     }
 }

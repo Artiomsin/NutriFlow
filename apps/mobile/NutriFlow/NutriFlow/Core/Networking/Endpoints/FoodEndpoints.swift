@@ -3,11 +3,14 @@ import Foundation
 enum FoodEndpoints {
 
     static let createFoodEntry = "/food-entry"
-    static let getTodayFood = "/food-entry/today"
 
-    static func deleteFoodEntry(id: String) -> String {
+    static func getTodayFood(date: String?) -> (path: String, query: [URLQueryItem]) {
+        (path: "/food-entry/today", query: date.map { [URLQueryItem(name: "date", value: $0)] } ?? [])
+    }
+
+    static func deleteFoodEntry(id: String, date: String?) -> (path: String, query: [URLQueryItem]) {
         let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
-        return "/food-entry/\(encoded)"
+        return (path: "/food-entry/\(encoded)", query: date.map { [URLQueryItem(name: "date", value: $0)] } ?? [])
     }
 
     static func updateFoodEntry(id: String) -> String {

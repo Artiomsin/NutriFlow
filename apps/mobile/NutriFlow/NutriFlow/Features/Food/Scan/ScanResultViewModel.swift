@@ -57,7 +57,6 @@ struct EditableScanFood: Identifiable, Sendable {
 
     var baseUnit: String { source.unit ?? "g" }
 
-    // MARK: - Canonical values (pure functions, explicit units)
 
     var baseGrams: Int { source.grams ?? 100 }
     var baseCalories: Double { source.bestCalories ?? source.calories ?? 0 }
@@ -96,7 +95,6 @@ struct EditableScanFood: Identifiable, Sendable {
         UnitConversion.macroGrams(fromDisplay: carbsText, preferred: preferred)
     }
 
-    // MARK: - Recalculation (pure, same as EditFoodView)
 
     mutating func recalculateMacros(preferred: PreferredUnits) {
         guard baseGrams > 0 else { return }
@@ -264,7 +262,8 @@ final class ScanResultViewModel {
                 AnalyticsManager.shared.track(.foodAdded(name: item.name, calories: item.calories(preferred: preferredUnits)))
             }
 
-            await todayFoodVM.reloadAfterAdd()
+            await todayFoodVM.reloadAfterMutation()
+            todayFoodVM.notifyDataMutated()
 
             isLoading = false
             return true

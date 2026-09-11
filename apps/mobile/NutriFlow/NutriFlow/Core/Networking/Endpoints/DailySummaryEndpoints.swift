@@ -8,10 +8,15 @@
 import Foundation
 
 enum DailySummaryEndpoints {
-    static let getDailySummaryToday = "/daily-summary/today"
     static let getDailySummary = "/daily-summary"
-    static let getDashboardToday = "/daily-summary/dashboard"
-    static let getDailySummaryRange = "/daily-summary/range"
+
+    static func getDailySummaryToday(date: String?) -> (path: String, query: [URLQueryItem]) {
+        (path: "/daily-summary/today", query: date.map { [URLQueryItem(name: "date", value: $0)] } ?? [])
+    }
+
+    static func getDashboardToday(date: String?) -> (path: String, query: [URLQueryItem]) {
+        (path: "/daily-summary/dashboard", query: date.map { [URLQueryItem(name: "date", value: $0)] } ?? [])
+    }
 
     static func getDailySummaryByDate(date: String) -> (path: String, query: [URLQueryItem]) {
         (path: "/daily-summary", query: [URLQueryItem(name: "date", value: date)])

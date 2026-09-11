@@ -2,6 +2,7 @@ import Foundation
 import Observation
 
 @Observable
+@MainActor
 final class ServingPickerViewModel {
     let food: CatalogFood
     let suggestedGrams: Int?
@@ -106,11 +107,12 @@ final class ServingPickerViewModel {
 
             AnalyticsManager.shared.track(.foodAdded(name: food.name, calories: cal))
 
-            await todayFoodVM.reloadAfterAdd()
+            await todayFoodVM.reloadAfterMutation()
+            todayFoodVM.notifyDataMutated()
             return true
         } catch let error as APIError {
             if case .unauthorized = error {
-                await coordinator?.goToAuth()
+              coordinator?.goToAuth()
             }
             errorMessage = error.localizedDescription
             isLoading = false

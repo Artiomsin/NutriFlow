@@ -5,6 +5,7 @@ import SwiftUI
 import PhotosUI
 
 @Observable
+@MainActor
 final class EditFoodViewModel {
     let entry: FoodEntry
     private let foodService: FoodServiceProtocol
@@ -120,7 +121,7 @@ final class EditFoodViewModel {
             return true
         } catch let error as APIError {
             if case .unauthorized = error {
-                await coordinator?.goToAuth()
+                 coordinator?.goToAuth()
             }
             return false
         } catch {

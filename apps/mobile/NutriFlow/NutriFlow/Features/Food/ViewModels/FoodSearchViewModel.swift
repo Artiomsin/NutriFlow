@@ -89,7 +89,7 @@ final class FoodSearchViewModel {
         loadMoreError = false
         let nextOffset = offset + pageSize
         print("[Network] FoodSearchVM loadMore: query=\(trimmed) offset=\(nextOffset) limit=\(pageSize)")
-        loadMoreTask = Task { [weak self] in
+        loadMoreTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
                 let response = try await service.searchFood(query: trimmed, limit: pageSize, offset: nextOffset)
@@ -110,7 +110,7 @@ final class FoodSearchViewModel {
         }
     }
 
-    // Отправка статистики выбора (только для локальных продуктов с id)
+    // send selection stats (only for local products with id)
     func selectIfLocal(_ food: CatalogFood) {
         guard !food.id.isEmpty else { return }
         guard !selectionInFlight.contains(food.id) else { return }

@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 protocol AppDependency {
 
     var httpClient: HTTPClient { get }
@@ -21,4 +22,13 @@ protocol AppDependency {
     var analyticsManager: AnalyticsManager { get }
     var cacheService: CacheService { get }
     var googleSignInService: GoogleSignInService { get }
+    var activityHealthKitService: ActivityHealthKitServiceProtocol { get }
+    var workoutHealthKitService: WorkoutHealthKitServiceProtocol { get }
+    var sleepHealthKitService: SleepHealthKitServiceProtocol { get }
+    var activityService: ActivityServiceProtocol { get }
+    var workoutService: WorkoutServiceProtocol { get }
+    var sleepService: SleepServiceProtocol { get }
+    var activitySync: ActivitySyncProtocol { get }
+    var sleepSync: SleepSyncProtocol { get }
+
 }

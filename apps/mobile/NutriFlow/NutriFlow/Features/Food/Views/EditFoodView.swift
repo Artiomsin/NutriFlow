@@ -85,13 +85,14 @@ struct EditFoodView: View {
         }
     }
 
-    // MARK: - Sections
 
     private func photoSection() -> some View {
-        VStack(spacing: 12) {
+        let selectedImage = viewModel.selectedImage
+        let imageUrl = viewModel.entry.displayImageUrl
+        return VStack(spacing: 12) {
             sectionLabel("Photo", icon: "camera.fill")
             PhotosPicker(selection: $viewModel.photosItem, matching: .images) {
-                PhotoSectionContent(image: viewModel.selectedImage, imageUrl: viewModel.entry.displayImageUrl)
+                PhotoSectionContent(image: selectedImage, imageUrl: imageUrl)
             }
             .frame(height: 180)
             .frame(maxWidth: .infinity)
@@ -180,7 +181,6 @@ struct EditFoodView: View {
         }
     }
 
-    // MARK: - Save
 
     private func saveButton() -> some View {
         Button {

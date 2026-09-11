@@ -5,6 +5,7 @@ struct DayDetailSheet: View {
     let food: [FoodEntry]
     let water: [WaterEntry]
     let goals: UserGoals?
+    let state: DayDetailState
     @State private var prefsStore = PreferencesStore.shared
 
     var body: some View {
@@ -12,9 +13,17 @@ struct DayDetailSheet: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 20) {
                     header
-                    if let goals { goalSection(goals) }
-                    foodSection
-                    waterSection
+                    switch state {
+                    case .idle, .loading:
+                        ProgressView()
+                            .tint(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 60)
+                    case .error(let error):
+                        errorView(error)
+                    case .loaded:
+                        loadedContent
+                    }
                 }
                 .padding(.horizontal, AppTheme.paddingHorizontal)
                 .padding(.top, 8)
@@ -30,6 +39,31 @@ struct DayDetailSheet: View {
             }
         }
         .preferredColorScheme(.dark)
+    }
+
+    @ViewBuilder
+    private var loadedContent: some View {
+        VStack(spacing: 20) {
+            if let goals { goalSection(goals) }
+            foodSection
+            waterSection
+        }
+    }
+
+    private func errorView(_ error: Error) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.largeTitle)
+                .foregroundColor(AppTheme.error)
+            Text("Couldn't load day details")
+                .font(.headline)
+                .foregroundColor(AppTheme.textPrimary)
+            Text(error.localizedDescription)
+                .font(.footnote)
+                .foregroundColor(AppTheme.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.vertical, 40)
     }
 
     private var formattedHeaderDate: String {
@@ -314,6 +348,7 @@ func formatTime(_ iso: String) -> String {
             WaterEntry(id: "1", userId: "1", amountMl: 500, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
             WaterEntry(id: "2", userId: "1", amountMl: 300, createdAt: "2026-05-18T15:00:00Z", updatedAt: nil),
         ],
-        goals: UserGoals(id: "1", userId: "1", dailyCaloriesGoal: 2200, dailyProteinGoal: 150, dailyFatGoal: 65, dailyCarbsGoal: 250, dailyWaterGoal: 3000, source: "auto", createdAt: nil, updatedAt: nil)
+        goals: UserGoals(id: "1", userId: "1", dailyCaloriesGoal: 2200, dailyProteinGoal: 150, dailyFatGoal: 65, dailyCarbsGoal: 250, dailyWaterGoal: 3000, source: "auto", createdAt: nil, updatedAt: nil),
+        state: .loaded
     )
 }

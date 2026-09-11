@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 final class AppDependencyContainer: AppDependency {
 
     let httpClient: HTTPClient
@@ -21,6 +22,15 @@ final class AppDependencyContainer: AppDependency {
     let analyticsManager: AnalyticsManager
     let cacheService: CacheService
     let googleSignInService: GoogleSignInService
+    let activityService: ActivityServiceProtocol
+    let workoutService: WorkoutServiceProtocol
+    let sleepService: SleepServiceProtocol
+    let activityHealthKitService: ActivityHealthKitServiceProtocol
+    let workoutHealthKitService: WorkoutHealthKitServiceProtocol
+    let sleepHealthKitService: SleepHealthKitServiceProtocol
+    let activitySync: ActivitySyncProtocol
+    let sleepSync: SleepSyncProtocol
+
 
     init() {
         self.cacheService = CacheService()
@@ -51,13 +61,32 @@ final class AppDependencyContainer: AppDependency {
         self.dailySummaryService = DailySummaryService(client: httpClient)
         self.goalsService = GoalsService(client: httpClient)
         self.analyticsService = AnalyticsService(client: httpClient)
-
+        
+        self.activityService = ActivityService(client: httpClient)
+        self.workoutService = WorkoutService(client: httpClient)
+        self.sleepService = SleepService(client: httpClient)
+        
         self.sessionBootstrapService = SessionBootstrapService(
             profileService: profile,
             sessionService: session
         )
 
         self.googleSignInService = GoogleSignInService()
+        
+        self.activityHealthKitService = ActivityHealthKitService()
+        self.workoutHealthKitService = WorkoutHealthKitService()
+        self.sleepHealthKitService = SleepHealthKitService()
+        
+        self.activitySync = ActivitySyncCoordinator(
+            healthKitService: activityHealthKitService,
+            activityService: activityService
+        )
+
+        self.sleepSync = SleepSyncCoordinator(
+            healthKitService: sleepHealthKitService,
+            sleepService: sleepService,
+            cacheService: cacheService
+        )
 
         #if DEBUG
         AnalyticsManager.shared.setMode(.debug)

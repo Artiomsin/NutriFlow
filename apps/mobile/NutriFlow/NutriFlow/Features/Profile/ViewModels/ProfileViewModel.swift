@@ -28,13 +28,15 @@ final class ProfileViewModel {
     @ObservationIgnored private let userService: UserServiceProtocol
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let cacheService: CacheService?
+    @ObservationIgnored private let activitySync: ActivitySyncProtocol?
 
     init(
         coordinator: AppCoordinator,
         authService: AuthServiceProtocol,
         profileService: ProfileServiceProtocol,
         userService: UserServiceProtocol,
-        cacheService: CacheService? = nil
+        cacheService: CacheService? = nil,
+        activitySync: ActivitySyncProtocol? = nil
     ) {
         print("ProfileViewModel init")
         self.coordinator = coordinator
@@ -42,6 +44,7 @@ final class ProfileViewModel {
         self.profileService = profileService
         self.userService = userService
         self.cacheService = cacheService
+        self.activitySync = activitySync
     }
 
     deinit { print("ProfileViewModel deinit") }
@@ -223,6 +226,7 @@ final class ProfileViewModel {
     }
 
     func logout() async {
+        activitySync?.stop()
         do {
             try await authService.logout()
         } catch {}

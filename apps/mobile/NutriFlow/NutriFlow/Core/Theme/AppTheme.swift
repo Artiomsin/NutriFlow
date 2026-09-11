@@ -21,7 +21,7 @@ enum AppTheme {
     static let fieldBorder = Color.white.opacity(0.06)
     static let error = Color.red.opacity(0.85)
     static let errorBackground = Color.red.opacity(0.08)
-    static let tabBarBackground = Color(red: 0.14, green: 0.15, blue: 0.20)
+    //static let tabBarBackground = Color(red: 0.14, green: 0.15, blue: 0.20)
     static let cornerRadiusSmall: CGFloat = 10
     static let cornerRadiusMedium: CGFloat = 12
     static let cornerRadiusLarge: CGFloat = 14

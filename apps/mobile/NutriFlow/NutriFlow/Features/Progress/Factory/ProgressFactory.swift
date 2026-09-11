@@ -19,6 +19,7 @@ enum ProgressFactory {
             foodService: container.foodService,
             waterService: container.waterTrackingService,
             goalsService: container.goalsService,
+            activityService: container.activityService,
             cacheService: cache
         )
         return (analyticsVM, chartVM)

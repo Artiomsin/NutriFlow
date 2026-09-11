@@ -8,7 +8,10 @@ final class HomeViewModel {
     let todayFoodVM: TodayFoodViewModel
     let waterVM: WaterViewModel
     let goalsVM: GoalsViewModel
-
+    let activityVM: ActivityViewModel
+    let workoutVM: WorkoutViewModel
+    let sleepVM: SleepViewModel
+    
     var dailySummaryState: DailySummaryState = .idle
 
     var userGoals: UserGoals? {
@@ -20,6 +23,11 @@ final class HomeViewModel {
     @ObservationIgnored private let dailySummaryService: DailySummaryServiceProtocol
     @ObservationIgnored let foodService: FoodServiceProtocol
     @ObservationIgnored private let cacheService: CacheService?
+    @ObservationIgnored private let activitySync: ActivitySyncProtocol
+
+    
+    @ObservationIgnored private var lastForegroundRefreshAt: Date?
+    private static let foregroundDedupeWindow: TimeInterval = 2
 
     init(
         coordinator: AppCoordinator,
@@ -28,6 +36,11 @@ final class HomeViewModel {
         todayFoodVM: TodayFoodViewModel,
         waterVM: WaterViewModel,
         goalsVM: GoalsViewModel,
+        activityVM: ActivityViewModel,
+        workoutVM: WorkoutViewModel,
+        sleepVM: SleepViewModel,
+        activitySync: ActivitySyncProtocol,
+        
         cacheService: CacheService? = nil
     ) {
         print("HomeViewModel init")
@@ -37,10 +50,54 @@ final class HomeViewModel {
         self.todayFoodVM = todayFoodVM
         self.waterVM = waterVM
         self.goalsVM = goalsVM
+        self.activityVM = activityVM
+        self.workoutVM = workoutVM
+        self.sleepVM = sleepVM
+        self.activitySync = activitySync
+        
         self.cacheService = cacheService
+
+        activitySync.onActivityUpdate = { [weak activityVM] activity in
+            Task { @MainActor in
+                activityVM?.setActivity(activity)
+            }
+        }
     }
 
     deinit { print("HomeViewModel deinit") }
+
+    func onAppear() async {
+        await activityVM.checkPermission()
+        await sleepVM.checkPermission()
+        await workoutVM.loadLatest()
+    }
+
+    func handleBecameActive() async {
+        let now = Date()
+
+        if let last = lastForegroundRefreshAt,
+           now.timeIntervalSince(last) < Self.foregroundDedupeWindow {
+            return
+        }
+
+        lastForegroundRefreshAt = now
+
+        await onAppear()
+
+        if !activityVM.needsHealthConnect {
+            await activitySync.refresh()
+        }
+    }
+
+    func connectHealth() async {
+        await activityVM.connectTapped()
+
+        if !activityVM.needsHealthConnect {
+            activitySync.authorizationDidChange()
+        }
+
+        await sleepVM.connectTapped()
+    }
 
     func refreshAll() async {
         await cacheService?.remove("food_today")
@@ -49,13 +106,14 @@ final class HomeViewModel {
         await cacheService?.remove("summary_today")
         await cacheService?.remove("chart_today")
         await cacheService?.removeByPrefix("chart_summaries")
-        await cacheService?.removeByPrefix("analytics_")
+        
 
         await withDiscardingTaskGroup { [self] group in
             group.addTask { await self.loadDashboardSummary() }
             group.addTask { await self.goalsVM.loadGoals() }
             group.addTask { await self.todayFoodVM.loadToday() }
             group.addTask { await self.waterVM.loadToday() }
+            
         }
     }
 
@@ -103,21 +161,20 @@ final class HomeViewModel {
     }
 
     func deleteFood(id: String) async {
-        await todayFoodVM.deleteFood(id: id)
+        let success = await todayFoodVM.deleteFood(id: id)
+        guard success else { return }
         await loadDashboardSummary()
     }
 
     func addWater() async {
-        await waterVM.createWater()
+        let success = await waterVM.createWater()
+        guard success else { return }
         await loadDashboardSummary()
     }
 
     func deleteWater(id: String) async {
-        await waterVM.deleteWater(id: id)
+        let success = await waterVM.deleteWater(id: id)
+        guard success else { return }
         await loadDashboardSummary()
-    }
-
-    func reloadGoals() async {
-        await goalsVM.loadGoals()
     }
 }
