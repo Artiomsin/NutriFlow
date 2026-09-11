@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 final class AppDependencyContainer: AppDependency {
 
     let httpClient: HTTPClient
@@ -28,6 +29,7 @@ final class AppDependencyContainer: AppDependency {
     let workoutHealthKitService: WorkoutHealthKitServiceProtocol
     let sleepHealthKitService: SleepHealthKitServiceProtocol
     let activitySync: ActivitySyncProtocol
+    let sleepSync: SleepSyncProtocol
 
 
     init() {
@@ -78,6 +80,12 @@ final class AppDependencyContainer: AppDependency {
         self.activitySync = ActivitySyncCoordinator(
             healthKitService: activityHealthKitService,
             activityService: activityService
+        )
+
+        self.sleepSync = SleepSyncCoordinator(
+            healthKitService: sleepHealthKitService,
+            sleepService: sleepService,
+            cacheService: cacheService
         )
 
         #if DEBUG

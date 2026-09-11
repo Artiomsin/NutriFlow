@@ -21,6 +21,7 @@
 		ACDC0D452FE187B8000D1BE9 /* Exceptions for "Nutriflow" folder in "Nutriflow" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Config.xcconfig,
 				Info.plist,
 			);
 			target = AC48618E2FAB3A5C00BB4495 /* Nutriflow */;
@@ -298,8 +299,7 @@
 				INFOPLIST_FILE = Nutriflow/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
 				INFOPLIST_KEY_NSCameraUsageDescription = "NutriFlow needs camera access to scan your food";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Access is needed to read steps and activity";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "NutriFlow needs to save your workouts to Apple Health so they appear in your Health app and data.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "NutriFlow reads your activity, workouts and sleep to track your daily progress.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "NutriFlow needs photo access to select food images";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -340,8 +340,7 @@
 				INFOPLIST_FILE = Nutriflow/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
 				INFOPLIST_KEY_NSCameraUsageDescription = "NutriFlow needs camera access to scan your food";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Access is needed to read steps and activity";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "NutriFlow needs to save your workouts to Apple Health so they appear in your Health app and data.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "NutriFlow reads your activity, workouts and sleep to track your daily progress.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "NutriFlow needs photo access to select food images";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

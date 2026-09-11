@@ -21,12 +21,27 @@ struct HomeView: View {
     @State private var navPath: [HomeNavRoute] = []
     @State private var editingFood: FoodEntry?
     @State private var foodSearchVM: FoodSearchViewModel?
+    @State private var isConnectingHealth = false
+
     
     init(homeViewModel: HomeViewModel, foodService: FoodServiceProtocol, coordinator: AppCoordinator? = nil, tabBarState: TabBarState = TabBarState()) {
         self.homeViewModel = homeViewModel
         self.foodService = foodService
         self.coordinator = coordinator
         self.tabBarState = tabBarState
+    }
+
+    private var needsHealthConnect: Bool {
+        homeViewModel.activityVM.needsHealthConnect
+            || homeViewModel.sleepVM.needsHealthConnect
+    }
+
+    private func connectHealthKit() async {
+        isConnectingHealth = true
+        defer { isConnectingHealth = false }
+
+        await homeViewModel.connectHealth()
+        await homeViewModel.workoutVM.loadLatest()
     }
     
     var body: some View {
@@ -103,23 +118,35 @@ struct HomeView: View {
                 header
                 
                 DailySummarySectionView(homeViewModel: homeViewModel)
-                ActivityCard(vm: homeViewModel.activityVM)
-                    .padding(.horizontal, AppTheme.paddingHorizontal)
-                LastWorkoutCard(
-                    workout: homeViewModel.workoutVM.lastWorkout,
-                    onTap: {
-                        print("[Nav] tapping workout card, lastWorkout=\(homeViewModel.workoutVM.lastWorkout?.workoutType ?? "nil")")
-                        tabBarState.isTabBarHidden = true
-                        navPath.append(HomeNavRoute.workoutHistory)
-                        print("[Nav] appended workoutHistory, path=\(navPath)")
+
+                if needsHealthConnect {
+                    HealthKitConnectCard(isConnecting: isConnectingHealth) {
+                        await connectHealthKit()
                     }
-                )
-                .padding(.horizontal, AppTheme.paddingHorizontal)
-                SleepCard(vm: homeViewModel.sleepVM) {
-                    tabBarState.isTabBarHidden = true
-                    navPath.append(HomeNavRoute.sleepHistory)
+                    .padding(.horizontal, AppTheme.paddingHorizontal)
+                } else {
+                    ActivityCard(vm: homeViewModel.activityVM)
+                        .padding(.horizontal, AppTheme.paddingHorizontal)
+                    LastWorkoutCard(
+                        workout: homeViewModel.workoutVM.lastWorkout,
+                        healthAccessDenied: homeViewModel.workoutVM.healthAccessDenied,
+                        onOpenSettings: {
+                            homeViewModel.workoutVM.openSettings()
+                        },
+                        onTap: {
+                            print("[Nav] tapping workout card, lastWorkout=\(homeViewModel.workoutVM.lastWorkout?.workoutType ?? "nil")")
+                            tabBarState.isTabBarHidden = true
+                            navPath.append(HomeNavRoute.workoutHistory)
+                            print("[Nav] appended workoutHistory, path=\(navPath)")
+                        }
+                    )
+                    .padding(.horizontal, AppTheme.paddingHorizontal)
+                    SleepCard(vm: homeViewModel.sleepVM) {
+                        tabBarState.isTabBarHidden = true
+                        navPath.append(HomeNavRoute.sleepHistory)
+                    }
+                    .padding(.horizontal, AppTheme.paddingHorizontal)
                 }
-                .padding(.horizontal, AppTheme.paddingHorizontal)
                 FoodSectionView(
                     todayFoodVM: homeViewModel.todayFoodVM,
                     onAddFood: {
@@ -161,17 +188,12 @@ struct HomeView: View {
         .refreshable { await homeViewModel.refreshAll() }
         .task {
             await withDiscardingTaskGroup { group in
+                group.addTask { await homeViewModel.onAppear() }
                 group.addTask { await homeViewModel.loadAll() }
                 group.addTask { await homeViewModel.todayFoodVM.loadToday() }
                 group.addTask { await homeViewModel.waterVM.loadToday() }
-                group.addTask { await homeViewModel.activityVM.onAppear() }
-                group.addTask { await homeViewModel.workoutVM.loadLatest() }
-                group.addTask { await homeViewModel.sleepVM.onAppear() }
             }
-            if case .needsAccess = homeViewModel.activityVM.state {
-                print("[Home] activity was needsAccess -> reload after health auth")
-                homeViewModel.activityVM.onAppear()
-            }
+            
         }
         .onAppear {
             AnalyticsManager.shared.track(.screenView(screen: "home"))
@@ -295,6 +317,19 @@ extension HomeFactory {
             source: "auto", createdAt: nil, updatedAt: nil
         ))
         
+        let dailySummaryVM = DailySummaryState.loaded(DailySummary(
+            id: "1",
+            userId: "1",
+            date: "2026-05-18",
+            totalCalories: 1250,
+            totalProtein: 85,
+            totalFat: 42,
+            totalCarbs: 120,
+            totalWaterMl: 1750,
+            createdAt: "2026-05-18T10:00:00Z",
+            updatedAt: nil
+        ))
+        
         let activityVM = ActivityViewModel(
             healthKit: ActivityHealthKitService()
         )
@@ -306,7 +341,33 @@ extension HomeFactory {
             distanceMeters: 5200
         ))
         
-        return HomeViewModel(
+        let sleepVM = SleepViewModel(
+            coordinator: SleepSyncCoordinator(
+                healthKitService: MockSleepHealthKit(),
+                sleepService: MockSleepService(),
+                cacheService: CacheService()
+            )
+        )
+        sleepVM.state = .loaded([HealthKitSleep(
+            id: UUID(),
+            startDate: Date().addingTimeInterval(-8 * 3600),
+            endDate: Date(),
+            timeInBedSeconds: 7.5 * 3600,
+            asleepSeconds: 7 * 3600,
+            awakeSeconds: 0.5 * 3600,
+            coreSeconds: 4 * 3600,
+            deepSeconds: 1.5 * 3600,
+            remSeconds: 1.5 * 3600,
+            unspecifiedSeconds: 0,
+            awakenings: 1,
+            segmentCount: 5,
+            onsetLatencySeconds: 600,
+            efficiency: 93,
+            heartRateAvg: 58,
+            segments: []
+        )])
+
+        let vm = HomeViewModel(
             coordinator: coordinator,
             dailySummaryService: MockDailySummaryService(),
             foodService: MockFoodService(),
@@ -314,14 +375,14 @@ extension HomeFactory {
             waterVM: waterVM,
             goalsVM: goalsVM,
             activityVM: activityVM,
-            workoutVM: WorkoutHistoryViewModel(
+            workoutVM: WorkoutViewModel(
                 healthKit: MockHealthKit(),
                 workoutService: MockWorkoutService()
             ),
-            sleepVM: SleepViewModel(
-                healthKitService: MockSleepHealthKit(),
-                sleepService: MockSleepService()
-            )
+            sleepVM: sleepVM,
+            activitySync: MockActivitySync()
         )
+        vm.dailySummaryState = dailySummaryVM
+        return vm
     }
 }

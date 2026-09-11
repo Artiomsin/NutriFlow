@@ -10,18 +10,15 @@ enum HomeFactory {
         let waterVM = WaterViewModel(coordinator: coordinator, service: container.waterTrackingService, cacheService: cache, progressRefreshState: progressRefreshState)
         let goalsVM = GoalsViewModel(coordinator: coordinator, service: container.goalsService, cacheService: cache)
         let activityVM = ActivityViewModel(
-            healthKit: container.activityHealthKitService,
-            activitySync: container.activitySync
+            healthKit: container.activityHealthKitService
         )
-        let workoutVM = WorkoutHistoryViewModel(
+        let workoutVM = WorkoutViewModel(
             healthKit: container.workoutHealthKitService,
             workoutService: container.workoutService,
             cacheService: cache
         )
         let sleepVM = SleepViewModel(
-            healthKitService: container.sleepHealthKitService,
-            sleepService: container.sleepService,
-            cacheService: cache
+            coordinator: container.sleepSync
         )
         
         return HomeViewModel(
@@ -34,6 +31,7 @@ enum HomeFactory {
             activityVM: activityVM,
             workoutVM: workoutVM,
             sleepVM: sleepVM,
+            activitySync: container.activitySync,
             cacheService: cache
         )
     }

@@ -9,7 +9,7 @@ final class HomeViewModel {
     let waterVM: WaterViewModel
     let goalsVM: GoalsViewModel
     let activityVM: ActivityViewModel
-    let workoutVM: WorkoutHistoryViewModel
+    let workoutVM: WorkoutViewModel
     let sleepVM: SleepViewModel
     
     var dailySummaryState: DailySummaryState = .idle
@@ -23,6 +23,11 @@ final class HomeViewModel {
     @ObservationIgnored private let dailySummaryService: DailySummaryServiceProtocol
     @ObservationIgnored let foodService: FoodServiceProtocol
     @ObservationIgnored private let cacheService: CacheService?
+    @ObservationIgnored private let activitySync: ActivitySyncProtocol
+
+    
+    @ObservationIgnored private var lastForegroundRefreshAt: Date?
+    private static let foregroundDedupeWindow: TimeInterval = 2
 
     init(
         coordinator: AppCoordinator,
@@ -32,8 +37,9 @@ final class HomeViewModel {
         waterVM: WaterViewModel,
         goalsVM: GoalsViewModel,
         activityVM: ActivityViewModel,
-        workoutVM: WorkoutHistoryViewModel,
+        workoutVM: WorkoutViewModel,
         sleepVM: SleepViewModel,
+        activitySync: ActivitySyncProtocol,
         
         cacheService: CacheService? = nil
     ) {
@@ -47,11 +53,51 @@ final class HomeViewModel {
         self.activityVM = activityVM
         self.workoutVM = workoutVM
         self.sleepVM = sleepVM
+        self.activitySync = activitySync
         
         self.cacheService = cacheService
+
+        activitySync.onActivityUpdate = { [weak activityVM] activity in
+            Task { @MainActor in
+                activityVM?.setActivity(activity)
+            }
+        }
     }
 
     deinit { print("HomeViewModel deinit") }
+
+    func onAppear() async {
+        await activityVM.checkPermission()
+        await sleepVM.checkPermission()
+        await workoutVM.loadLatest()
+    }
+
+    func handleBecameActive() async {
+        let now = Date()
+
+        if let last = lastForegroundRefreshAt,
+           now.timeIntervalSince(last) < Self.foregroundDedupeWindow {
+            return
+        }
+
+        lastForegroundRefreshAt = now
+
+        await onAppear()
+
+        if !activityVM.needsHealthConnect {
+            await activitySync.refresh()
+        }
+    }
+
+    func connectHealth() async {
+        await activityVM.connectTapped()
+
+        if !activityVM.needsHealthConnect {
+            activitySync.authorizationDidChange()
+        }
+
+        await sleepVM.connectTapped()
+    }
 
     func refreshAll() async {
         await cacheService?.remove("food_today")
@@ -60,15 +106,14 @@ final class HomeViewModel {
         await cacheService?.remove("summary_today")
         await cacheService?.remove("chart_today")
         await cacheService?.removeByPrefix("chart_summaries")
-        await cacheService?.remove("workout_history")
-        await cacheService?.remove("workout_last")
-        await cacheService?.removeByPrefix("analytics_")
+        
 
         await withDiscardingTaskGroup { [self] group in
             group.addTask { await self.loadDashboardSummary() }
             group.addTask { await self.goalsVM.loadGoals() }
             group.addTask { await self.todayFoodVM.loadToday() }
             group.addTask { await self.waterVM.loadToday() }
+            
         }
     }
 

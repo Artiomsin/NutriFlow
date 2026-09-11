@@ -16,6 +16,7 @@ final class AppCoordinator {
         ) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
+                self.container.activitySync.stop()
                 await self.container.cacheService.clear()
                 self.route = .auth
             }
@@ -58,10 +59,15 @@ final class AppCoordinator {
         case .profileForm: .profileForm
         case .main: .main
         }
+
+        if case .main = route {
+            container.activitySync.start()
+        }
     }
 
     func goToAuth() {
         print("[Coordinator] goToAuth")
+        container.activitySync.stop()
         route = .auth
     }
 
@@ -70,6 +76,7 @@ final class AppCoordinator {
     }
 
     func goToMain() {
+        container.activitySync.start()
         route = .main
     }
 

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct MainTabView: View {
     let container: AppDependency
@@ -83,6 +84,13 @@ struct MainTabView: View {
         }
         .preferredColorScheme(.dark)
         .ignoresSafeArea(.keyboard)
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: UIApplication.didBecomeActiveNotification
+            )
+        ) { _ in
+            Task { await homeVM.handleBecameActive() }
+        }
         .onChange(of: selectedTab) { _, _ in
             tabBarState.isTabBarHidden = false
             tabBarState.isTabBarMinimized = false

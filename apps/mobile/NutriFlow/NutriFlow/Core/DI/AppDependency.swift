@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 protocol AppDependency {
 
     var httpClient: HTTPClient { get }
@@ -28,5 +29,6 @@ protocol AppDependency {
     var workoutService: WorkoutServiceProtocol { get }
     var sleepService: SleepServiceProtocol { get }
     var activitySync: ActivitySyncProtocol { get }
+    var sleepSync: SleepSyncProtocol { get }
 
 }
