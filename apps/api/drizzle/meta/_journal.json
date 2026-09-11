@@ -148,6 +148,13 @@
       "when": 1788962645123,
       "tag": "0020_narrow_bug",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1789057406384,
+      "tag": "0021_numerous_golden_guardian",
+      "breakpoints": true
     }
   ]
 }

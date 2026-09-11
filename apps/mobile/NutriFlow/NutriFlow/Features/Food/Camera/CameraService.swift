@@ -39,7 +39,6 @@ final class CameraService: NSObject, @unchecked Sendable {
         super.init()
     }
 
-    // MARK: - Prepare
 
     func prepare() async {
         guard !isConfigured else {
@@ -83,7 +82,6 @@ final class CameraService: NSObject, @unchecked Sendable {
         }
     }
 
-    // MARK: - Start / Stop
 
     func start() {
         sessionQueue.async { [weak self] in
@@ -122,7 +120,6 @@ final class CameraService: NSObject, @unchecked Sendable {
         }
     }
 
-    // MARK: - Capture
 
     func capturePhoto() async throws -> UIImage {
         guard isConfigured else {
@@ -185,7 +182,6 @@ final class CameraService: NSObject, @unchecked Sendable {
         }
     }
 
-    // MARK: - Configuration
 
     private func configureSession() async {
         guard !isConfigured else {
@@ -254,7 +250,6 @@ final class CameraService: NSObject, @unchecked Sendable {
         setState(success ? .ready : .failed)
     }
 
-    // MARK: - State
 
     private func setState(_ newState: State) {
         Task { @MainActor [weak self] in
@@ -262,7 +257,6 @@ final class CameraService: NSObject, @unchecked Sendable {
         }
     }
 
-    // MARK: - Errors
 
     enum CameraError: LocalizedError {
         case notConfigured
@@ -296,7 +290,6 @@ final class CameraService: NSObject, @unchecked Sendable {
     }
 }
 
-// MARK: - Photo Delegate
 
 extension CameraService: AVCapturePhotoCaptureDelegate {
 
@@ -342,7 +335,6 @@ extension CameraService: AVCapturePhotoCaptureDelegate {
     }
 }
 
-// MARK: - Capture Result
 
 extension CameraService {
 

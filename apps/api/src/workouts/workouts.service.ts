@@ -33,7 +33,6 @@ export class WorkoutsService {
           steps: w.steps ?? null,
           indoor: w.indoor ?? null,
           details: w.details ?? {},
-          source: 'healthkit',
         };
         await tx
           .insert(userWorkouts)
@@ -60,7 +59,6 @@ export class WorkoutsService {
               steps: w.steps ?? null,
               indoor: w.indoor ?? null,
               details: w.details ?? {},
-              source: 'healthkit',
             },
           });
         synced += 1;

@@ -110,7 +110,7 @@ final class FoodSearchViewModel {
         }
     }
 
-    // Отправка статистики выбора (только для локальных продуктов с id)
+    // send selection stats (only for local products with id)
     func selectIfLocal(_ food: CatalogFood) {
         guard !food.id.isEmpty else { return }
         guard !selectionInFlight.contains(food.id) else { return }

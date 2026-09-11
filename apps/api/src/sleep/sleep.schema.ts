@@ -18,8 +18,6 @@ export const syncSleepEntrySchema = z.object({
   efficiency: z.number().min(0).max(100).nullable().optional(),
   segmentCount: z.number().int().min(0).nullable().optional(),
   heartRateAvg: z.number().min(0).max(300).nullable().optional(),
-  sources: z.record(z.string(), z.number()).optional(),
-  nightMetrics: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const syncSleepSchema = z.object({

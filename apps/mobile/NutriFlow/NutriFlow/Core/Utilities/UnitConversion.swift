@@ -2,7 +2,6 @@ import Foundation
 
 struct UnitConversion {
 
-    // MARK: - Canonical factors (single source of truth)
 
     static let gramsPerOunce = 28.35
     static let mlPerFluidOunce = 29.5735
@@ -10,7 +9,6 @@ struct UnitConversion {
     static let cmPerInch = 2.54
     static let kjPerKcal = 4.184
 
-    // MARK: - Unit classification
 
     static func isVolumeUnit(_ unit: String?) -> Bool {
         unit == "ml" || unit == "l"
@@ -23,7 +21,6 @@ struct UnitConversion {
         return preferred.weight == .imperial ? "oz" : "g"
     }
 
-    // MARK: - Display formatting
 
     static func formatAmount(grams: Int, unit: String, preferred: PreferredUnits) -> String {
         if isVolumeUnit(unit) {
@@ -87,7 +84,6 @@ struct UnitConversion {
         }
     }
 
-    // MARK: - Bidirectional amount conversion (display <-> canonical grams/ml)
 
     /// User-entered value in the display unit -> canonical grams (or ml).
     static func grams(fromDisplay value: Double, baseUnit: String, preferred: PreferredUnits) -> Double {
@@ -114,7 +110,6 @@ struct UnitConversion {
         }
     }
 
-    // MARK: - Body weight / height (canonical: kg, cm)
 
     static func bodyWeightUnitLabel(preferred: PreferredUnits) -> String {
         preferred.weight == .imperial ? "lb" : "kg"
@@ -140,13 +135,11 @@ struct UnitConversion {
         preferred.weight == .imperial ? value * cmPerInch : value
     }
 
-    // MARK: - Energy (canonical: kcal)
 
     static func energyToKcal(_ value: Double, preferred: PreferredUnits) -> Double {
         preferred.energy == .kj ? value / kjPerKcal : value
     }
 
-    // MARK: - Editing support (pure functions, no state)
 
     /// Parses user-entered decimal text, tolerating comma as decimal separator.
     static func parseDecimal(_ text: String) -> Double? {

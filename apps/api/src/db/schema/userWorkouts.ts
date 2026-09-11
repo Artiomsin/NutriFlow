@@ -30,7 +30,6 @@ export const userWorkouts = app.table('user_workouts', {
   steps: integer('steps'),
   indoor: boolean('indoor'),
   details: jsonb('details').default({}).notNull(),
-  source: varchar('source', { length: 10 }).default('healthkit'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at')
     .defaultNow()

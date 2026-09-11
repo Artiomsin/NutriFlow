@@ -62,7 +62,6 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity)
     }
 
-    // MARK: - Account
 
     private var accountSection: some View {
         VStack(spacing: 10) {
@@ -82,7 +81,6 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Units
 
     private var unitsSection: some View {
         VStack(spacing: 10) {

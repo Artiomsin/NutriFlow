@@ -118,7 +118,6 @@ struct ActivityChartView: View {
     }
 }
 
-// MARK: - Preview
 
 #Preview {
     let data: [ChartDataPoint] = (0..<14).map { offset in

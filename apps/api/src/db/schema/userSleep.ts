@@ -1,5 +1,5 @@
 import {
-  pgSchema, uuid, timestamp, numeric, integer, jsonb, varchar, uniqueIndex,
+  pgSchema, uuid, timestamp, numeric, integer, uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { users } from './users';
 
@@ -28,10 +28,7 @@ export const userSleep = app.table('user_sleep', {
   segmentCount: integer('segment_count'),
 
   heartRateAvg: numeric('heart_rate_avg', { precision: 5, scale: 1 }),
-  sources: jsonb('sources').default({}).notNull(),
-  nightMetrics: jsonb('night_metrics').default({}).notNull(),
 
-  source: varchar('source', { length: 10 }).default('healthkit'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({

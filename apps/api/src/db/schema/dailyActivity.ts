@@ -1,5 +1,5 @@
 import {
-  pgSchema, uuid, integer, numeric, varchar, timestamp, date, uniqueIndex,
+  pgSchema, uuid, integer, numeric, timestamp, date, uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { users } from './users';
 
@@ -15,7 +15,6 @@ export const dailyActivity = app.table('daily_activity', {
   activeCalories: integer('active_calories').default(0).notNull(),
   basalCalories: integer('basal_calories').default(0).notNull(),
   distanceMeters: numeric('distance_meters', { precision: 10, scale: 2 }).default('0'),
-  source: varchar('source', { length: 10 }).default('healthkit'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at')
     .defaultNow()

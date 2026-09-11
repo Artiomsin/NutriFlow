@@ -18,7 +18,6 @@ export class ActivityService {
           activeCalories: e.activeCalories ?? 0,
           basalCalories: e.basalCalories ?? 0,
           distanceMeters: e.distanceMeters != null ? String(e.distanceMeters) : '0',
-          source: 'healthkit',
         };
         return db
           .insert(dailyActivity)
@@ -30,7 +29,6 @@ export class ActivityService {
               activeCalories: sql`GREATEST(${dailyActivity.activeCalories}, ${values.activeCalories})`,
               basalCalories: sql`GREATEST(${dailyActivity.basalCalories}, ${values.basalCalories})`,
               distanceMeters: sql`GREATEST(${dailyActivity.distanceMeters}, ${values.distanceMeters})`,
-              source: 'healthkit',
             },
           })
           .returning();
@@ -100,7 +98,6 @@ export class ActivityService {
       activeCalories: 0,
       basalCalories: 0,
       distanceMeters: '0',
-      source: 'healthkit',
     };
   }
 }

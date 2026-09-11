@@ -85,7 +85,6 @@ struct EditFoodView: View {
         }
     }
 
-    // MARK: - Sections
 
     private func photoSection() -> some View {
         let selectedImage = viewModel.selectedImage
@@ -182,7 +181,6 @@ struct EditFoodView: View {
         }
     }
 
-    // MARK: - Save
 
     private func saveButton() -> some View {
         Button {

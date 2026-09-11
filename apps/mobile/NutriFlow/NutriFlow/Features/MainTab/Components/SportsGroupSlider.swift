@@ -288,5 +288,30 @@ struct SportView: View {
 }
 
 #Preview {
-    SportView()
+    GlassCardView()
+}
+
+
+
+struct GlassCardView: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Стеклянная карточка")
+                .font(.headline)
+                .foregroundColor(.black)
+            
+            Text("Этот текст легко читается на любом динамическом фоне благодаря размытию.")
+                .font(.subheadline)
+                .foregroundColor(.black)
+        }
+        .padding()
+        .frame(width: 300, height: 150)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(.white.opacity(0.3), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 10)
+    }
 }

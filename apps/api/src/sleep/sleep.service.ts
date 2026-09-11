@@ -27,9 +27,6 @@ export class SleepService {
           efficiency: n.efficiency != null ? String(n.efficiency) : null,
           segmentCount: n.segmentCount ?? null,
           heartRateAvg: n.heartRateAvg != null ? String(n.heartRateAvg) : null,
-          sources: n.sources ?? {},
-          nightMetrics: n.nightMetrics ?? {},
-          source: 'healthkit',
         };
         await tx
           .insert(userSleep)
@@ -50,9 +47,6 @@ export class SleepService {
               efficiency: n.efficiency != null ? String(n.efficiency) : null,
               segmentCount: n.segmentCount ?? null,
               heartRateAvg: n.heartRateAvg != null ? String(n.heartRateAvg) : null,
-              sources: n.sources ?? {},
-              nightMetrics: n.nightMetrics ?? {},
-              source: 'healthkit',
             },
           });
         synced += 1;
@@ -119,8 +113,6 @@ export class SleepService {
         efficiency: r.efficiency != null ? Number(r.efficiency) : null,
         segmentCount: r.segmentCount,
         heartRateAvg: r.heartRateAvg != null ? Number(r.heartRateAvg) : null,
-        sources: r.sources ?? {},
-        nightMetrics: r.nightMetrics ?? {},
       })),
     };
   }
