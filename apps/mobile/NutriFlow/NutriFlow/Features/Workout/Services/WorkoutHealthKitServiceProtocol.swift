@@ -3,29 +3,15 @@ import Foundation
 protocol WorkoutHealthKitServiceProtocol: AnyObject {
     var isAvailable: Bool { get }
     func requestAuthorization() async throws
-    func workoutPermissionState() -> WorkoutPermissionState
+    func permissionState() async -> HealthKitPermissionState
     func fetchWorkouts(
         from startDate: Date,
         to endDate: Date
     ) async -> [HealthKitWorkout]
     func fetchLatestWorkout() async -> HealthKitWorkout?
-
-    var onLiveMetrics: ((LiveWorkoutMetrics) -> Void)? { get set }
-    var onSessionFailed: ((String) -> Void)? { get set }
-    func startLiveWorkout(kind: TrackableWorkout.Kind, indoor: Bool) async throws
-    func pauseLiveWorkout()
-    func resumeLiveWorkout()
-    func cancelLiveWorkout()
-    func endLiveWorkout() async throws -> HealthKitWorkout
     func fetchHeartRateWorkout(for workout: HealthKitWorkout) async -> [HeartRatePoint]
     func fetchWorkoutSeries(
         kind: WorkoutSeriesKind,
         workout: HealthKitWorkout
     ) async -> [WorkoutSeriesPoint]
-}
-
-enum WorkoutPermissionState {
-    case authorized
-    case notDetermined
-    case denied
 }

@@ -3,53 +3,30 @@ import HealthKit
 
 final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
 
-    private let store = HKHealthStore()
+    private let store = HealthKitAuthorization.shared.sharedStore
     private var rawWorkouts: [UUID: HKWorkout] = [:]
 
     private let workoutType = HKObjectType.workoutType()
     private let heartRateType = HKQuantityType(.heartRate)
 
-    // MARK: - Availability
 
     var isAvailable: Bool {
         HKHealthStore.isHealthDataAvailable()
     }
 
-    // MARK: - Authorization
+
+    func permissionState() async -> HealthKitPermissionState {
+        await HealthKitAuthorization.shared.permissionState(for: .workout)
+    }
 
     func requestAuthorization() async throws {
         guard isAvailable else {
             return
         }
 
-        workoutAuthRequested = true
-
-        try await store.requestAuthorization(
-            toShare: [workoutType],
-            read: [
-                workoutType,
-                heartRateType,
-                HKQuantityType(.stepCount),
-                HKQuantityType(.runningSpeed),
-                HKQuantityType(.cyclingSpeed),
-                HKQuantityType(.walkingSpeed),
-                HKQuantityType(.crossCountrySkiingSpeed),
-                HKQuantityType(.cyclingCadence),
-                HKQuantityType(.cyclingPower),
-                HKQuantityType(.runningPower),
-                HKQuantityType(.activeEnergyBurned),
-                HKQuantityType(.distanceWalkingRunning),
-                HKQuantityType(.distanceCycling),
-                HKQuantityType(.distanceSwimming),
-                HKQuantityType(.distanceCrossCountrySkiing),
-                HKQuantityType(.distanceDownhillSnowSports),
-                HKQuantityType(.distanceWheelchair),
-                HKQuantityType(.distancePaddleSports)
-            ]
-        )
+        try await HealthKitAuthorization.shared.requestAuthorization()
     }
 
-    // MARK: - History
 
     func fetchWorkouts(
         from startDate: Date,
@@ -132,7 +109,6 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
         return Self.healthKitWorkout(from: workout)
     }
 
-    // MARK: - Heart Rate & Series
 
     func fetchHeartRateWorkout(for workout: HealthKitWorkout) async -> [HeartRatePoint] {
         guard isAvailable else { return [] }
@@ -232,7 +208,6 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
         return result
     }
 
-    // MARK: - Live Workout
 
     private enum HRMetadataKey {
         static let avg = "NutriFlow.HR.avg"
@@ -246,144 +221,8 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
         static let min = "HKMinimumHeartRate"
     }
 
-    private var liveSession: HKWorkoutSession?
-    private var liveBuilder: HKLiveWorkoutBuilder?
-
-    var onLiveMetrics: ((LiveWorkoutMetrics) -> Void)?
-    var onSessionFailed: ((String) -> Void)?
-
-    @MainActor
-    func startLiveWorkout(kind: TrackableWorkout.Kind, indoor: Bool) async throws {
-        guard isAvailable else {
-            throw WorkoutHealthKitLiveError.unavailable
-        }
-        guard liveSession == nil else {
-            throw WorkoutHealthKitLiveError.alreadyStarted
-        }
-
-        if store.authorizationStatus(for: workoutType) != .sharingAuthorized {
-            try await requestAuthorization()
-        }
-
-        let configuration = HKWorkoutConfiguration()
-        configuration.activityType = Self.activityType(for: kind)
-        configuration.locationType = indoor ? .indoor : .outdoor
-
-        let session = try HKWorkoutSession(
-            healthStore: store,
-            configuration: configuration
-        )
-        let builder = session.associatedWorkoutBuilder()
-
-        session.delegate = self
-        builder.delegate = self
-
-        liveSession = session
-        liveBuilder = builder
-
-        do {
-            guard liveSession === session, liveBuilder === builder else {
-                session.end()
-                throw WorkoutHealthKitLiveError.notStarted
-            }
-            session.startActivity(with: Date())
-            try await builder.beginCollection(at: Date())
-        } catch {
-            session.end()
-            liveSession = nil
-            liveBuilder = nil
-            throw error
-        }
-    }
-
- 
-    func pauseLiveWorkout() {
-        liveSession?.pause()
-    }
-
-
-    func resumeLiveWorkout() {
-        liveSession?.resume()
-    }
-
-  
-    func cancelLiveWorkout() {
-        guard let session = liveSession, let builder = liveBuilder else { return }
-        session.end()
-        builder.discardWorkout()
-        liveSession = nil
-        liveBuilder = nil
-    }
-
-   
-    func endLiveWorkout() async throws -> HealthKitWorkout {
-        guard let session = liveSession, let builder = liveBuilder else {
-            throw WorkoutHealthKitLiveError.notStarted
-        }
-
-        session.end()
-        try await builder.endCollection(at: Date())
-        try await attachHeartRateMetadata(to: builder)
-
-        guard let workout = try await builder.finishWorkout() else {
-            throw WorkoutHealthKitLiveError.noWorkout
-        }
-
-        liveSession = nil
-        liveBuilder = nil
-
-        rawWorkouts[workout.uuid] = workout
-        return Self.healthKitWorkout(from: workout)
-    }
-
-    private func attachHeartRateMetadata(to builder: HKLiveWorkoutBuilder) async throws {
-        var metadata: [String: Any] = [:]
-        let unit = HKUnit.count().unitDivided(by: .minute())
-
-        if let statistics = builder.statistics(for: HKQuantityType(.heartRate)) {
-            if let avg = statistics.averageQuantity()?.doubleValue(for: unit) {
-                metadata[HRMetadataKey.avg] = avg
-            }
-            if let max = statistics.maximumQuantity()?.doubleValue(for: unit) {
-                metadata[HRMetadataKey.max] = max
-            }
-            if let min = statistics.minimumQuantity()?.doubleValue(for: unit) {
-                metadata[HRMetadataKey.min] = min
-            }
-        }
-
-        guard !metadata.isEmpty else { return }
-        try await builder.addMetadata(metadata)
-    }
-
-    // MARK: - Permission
-
-    private static let workoutAuthRequestedKey = "hasRequestedWorkoutAuth"
-
-    private var workoutAuthRequested: Bool {
-        get { UserDefaults.standard.bool(forKey: Self.workoutAuthRequestedKey) }
-        set { UserDefaults.standard.set(newValue, forKey: Self.workoutAuthRequestedKey) }
-    }
-
-    func workoutPermissionState() -> WorkoutPermissionState {
-        guard isAvailable else { return .denied }
-
-        switch store.authorizationStatus(for: workoutType) {
-        case .sharingAuthorized:
-            return .authorized
-        case .sharingDenied:
-            return .denied
-        case .notDetermined:
-            return .notDetermined
-        @unknown default:
-            return workoutAuthRequested ? .authorized : .notDetermined
-        }
-    }
-
-    // MARK: - Mappers
-
     private static func healthKitWorkout(from workout: HKWorkout) -> HealthKitWorkout {
-        HealthKitWorkout(
+        let result = HealthKitWorkout(
             id: workout.uuid,
             workoutType: Self.workoutName(workout.workoutActivityType),
             startDate: workout.startDate,
@@ -405,6 +244,23 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
             indoor: Self.indoor(for: workout),
             details: Self.workoutDetails(from: workout)
         )
+
+        print(
+            "[WorkoutHK] metrics for \(result.workoutType): " +
+            "calories=\(result.caloriesBurned.map { "\($0)" } ?? "nil") " +
+            "distance=\(result.distanceMeters.map { "\($0)" } ?? "nil") " +
+            "hrAvg=\(result.heartRateAvg.map { "\($0)" } ?? "nil") " +
+            "avgSpeed=\(result.avgSpeedMps.map { "\($0)" } ?? "nil") " +
+            "maxSpeed=\(result.maxSpeedMps.map { "\($0)" } ?? "nil") " +
+            "avgCadence=\(result.avgCadence.map { "\($0)" } ?? "nil") " +
+            "avgPower=\(result.avgPowerWatts.map { "\($0)" } ?? "nil") " +
+            "elevation=\(result.elevationGainMeters.map { "\($0)" } ?? "nil") " +
+            "steps=\(result.steps.map { "\($0)" } ?? "nil") " +
+            "indoor=\(result.indoor.map { "\($0)" } ?? "nil") " +
+            "details=\(String(describing: result.details))"
+        )
+
+        return result
     }
 
     private static func workoutDetails(from workout: HKWorkout) -> WorkoutDetails? {
@@ -501,48 +357,6 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
         guard let value = workout.metadata?[key] as? NSNumber else { return nil }
         let mps = value.doubleValue
         return mps > 0 ? mps : nil
-    }
-
-    private static func activityType(for kind: TrackableWorkout.Kind) -> HKWorkoutActivityType {
-        switch kind {
-        case .run: return .running
-        case .walk: return .walking
-        case .cycle: return .cycling
-        case .swim: return .swimming
-        case .functional: return .functionalStrengthTraining
-        }
-    }
-
-
-    private func publishLiveMetrics(from builder: HKLiveWorkoutBuilder?) {
-        guard let builder, let session = liveSession else {
-            onLiveMetrics?(.empty)
-            return
-        }
-
-        let unit = HKUnit.count().unitDivided(by: .minute())
-        let metrics = LiveWorkoutMetrics(
-            elapsedSeconds: Date().timeIntervalSince(session.startDate ?? Date()),
-            activeCalories:
-                builder.statistics(for: HKQuantityType(.activeEnergyBurned))?
-                    .sumQuantity()?.doubleValue(for: .kilocalorie()) ?? 0,
-            distanceMeters: Self.liveDistance(builder) ?? 0,
-            heartRateBPM:
-                builder.statistics(for: HKQuantityType(.heartRate))?
-                    .mostRecentQuantity()?.doubleValue(for: unit)
-        )
-        onLiveMetrics?(metrics)
-    }
-
-    private static func liveDistance(_ builder: HKLiveWorkoutBuilder) -> Double? {
-        for identifier in Self.distanceIdentifiers {
-            let type = HKQuantityType(identifier)
-            if let value = builder.statistics(for: type)?.sumQuantity()?.doubleValue(for: .meter()),
-               value > 0 {
-                return value
-            }
-        }
-        return nil
     }
 
     private static var speedUnit: HKUnit {
@@ -685,53 +499,4 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
             return "Workout"
         }
     }
-}
-
-extension WorkoutHealthKitService: HKLiveWorkoutBuilderDelegate, HKWorkoutSessionDelegate {
-
-    func workoutBuilder(
-        _ workoutBuilder: HKLiveWorkoutBuilder,
-        didCollectDataOf collectedTypes: Set<HKSampleType>
-    ) {
-        Task { @MainActor [weak self] in
-            self?.publishLiveMetrics(from: workoutBuilder)
-        }
-    }
-
-    func workoutBuilderDidCollectEvent(_ workoutBuilder: HKLiveWorkoutBuilder) {
-        Task { @MainActor [weak self] in
-            self?.publishLiveMetrics(from: workoutBuilder)
-        }
-    }
-
-    func workoutSession(
-        _ workoutSession: HKWorkoutSession,
-        didChangeTo toState: HKWorkoutSessionState,
-        from fromState: HKWorkoutSessionState,
-        date: Date
-    ) {
-        Task { @MainActor [weak self] in
-            self?.publishLiveMetrics(from: self?.liveBuilder)
-        }
-    }
-
-    func workoutSession(
-        _ workoutSession: HKWorkoutSession,
-        didFailWithError error: Error
-    ) {
-        print("[WorkoutHealthKit] live session error: \(error)")
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            self.liveSession = nil
-            self.liveBuilder = nil
-            self.onSessionFailed?(error.localizedDescription)
-        }
-    }
-}
-
-enum WorkoutHealthKitLiveError: Error {
-    case unavailable
-    case alreadyStarted
-    case notStarted
-    case noWorkout
 }

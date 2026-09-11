@@ -9,9 +9,19 @@ import SwiftUI
 
 struct LastWorkoutCard: View {
     let workout: HealthKitWorkout?
+    let healthAccessDenied: Bool
+    let onOpenSettings: () -> Void
     let onTap: () -> Void
 
     var body: some View {
+        if healthAccessDenied {
+            deniedPrompt
+        } else {
+            workoutContent
+        }
+    }
+
+    private var workoutContent: some View {
         Button(action: onTap) {
             HStack(spacing: 16) {
                 Image(systemName: WorkoutFormatter.icon(for: workout?.workoutType ?? "Workout"))
@@ -64,6 +74,24 @@ struct LastWorkoutCard: View {
         }
         .buttonStyle(.plain)
     }
+
+    private var deniedPrompt: some View {
+        HStack {
+            Image(systemName: "heart.slash")
+                .foregroundColor(AppTheme.textSecondary)
+            Text("Workouts access is off. Enable Apple Health in Settings.")
+                .font(.footnote)
+                .foregroundColor(AppTheme.textSecondary)
+            Spacer()
+            Button("Settings", action: onOpenSettings)
+                .font(.caption)
+                .foregroundColor(AppTheme.accent)
+        }
+        .frame(maxWidth: .infinity)
+        .padding()
+        .background(AppTheme.cardBackground)
+        .cornerRadius(AppTheme.cornerRadiusMedium)
+    }
 }
 
 #Preview {
@@ -77,6 +105,8 @@ struct LastWorkoutCard: View {
             caloriesBurned: 386,
             distanceMeters: 5200
         ),
+        healthAccessDenied: false,
+        onOpenSettings: {},
         onTap: {}
     )
     .padding()

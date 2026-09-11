@@ -10,16 +10,10 @@ import UIKit
 import Charts
 
 struct WorkoutHistoryView: View {
-    @Bindable var vm: WorkoutHistoryViewModel
+    @Bindable var vm: WorkoutViewModel
 
     var body: some View {
         VStack(spacing: 0) {
-            if vm.activeWorkoutVM.phase != .idle {
-                activeWorkoutCard
-                    .padding(.horizontal, AppTheme.paddingHorizontal)
-                    .padding(.vertical, 12)
-            }
-
             switch vm.state {
             case .idle:
                 ProgressView()
@@ -39,6 +33,8 @@ struct WorkoutHistoryView: View {
                 }
             case .needsAccess:
                 needsAccessView
+            case .denied:
+                deniedView
             }
         }
         .navigationTitle("Workouts")
@@ -49,22 +45,7 @@ struct WorkoutHistoryView: View {
             await vm.onAppear()
         }
         .refreshable { await vm.refresh() }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showingStart = true
-                } label: {
-                    Image(systemName: "plus")
-                }
-            }
-        }
-        .sheet(isPresented: $showingStart) {
-            WorkoutStartView(vm: vm.activeWorkoutVM) { trackable in
-                showingStart = false
-                vm.activeWorkoutVM.start(kind: trackable.kind)
-            }
-        }
-.navigationDestination(item: $vm.selectedWorkout) { workout in
+        .navigationDestination(item: $vm.selectedWorkout) { workout in
             WorkoutDetailView(
                 workout: workout,
                 heartRatePoints: vm.heartRatePoints,
@@ -73,6 +54,11 @@ struct WorkoutHistoryView: View {
             .task {
                 await vm.loadHeartRate(for: workout)
                 await vm.loadSeries(for: workout)
+                print(
+                    "[WorkoutDetail] passed in: " +
+                    "hrPoints=\(vm.heartRatePoints.count) " +
+                    "series=\(vm.currentSeries().count)"
+                )
             }
         }
         .onChange(of: vm.selectedWorkout) { _, newValue in
@@ -82,9 +68,6 @@ struct WorkoutHistoryView: View {
             }
         }
     }
-
-    @State private var showingStart = false
-    @State private var showEndConfirm = false
 
     private var errorView: some View {
         VStack(spacing: 12) {
@@ -105,6 +88,34 @@ struct WorkoutHistoryView: View {
 
     private var needsAccessView: some View {
             VStack(spacing: 12) {
+                Image(systemName: "figure.run")
+                    .font(Font.largeNumber)
+                    .foregroundColor(AppTheme.accent)
+                Text("Track your workouts")
+                    .font(.headline)
+                    .foregroundColor(AppTheme.textPrimary)
+                Text("Connect Apple Health to see your training history.")
+                    .font(.footnote)
+                    .foregroundColor(AppTheme.textSecondary)
+                    .multilineTextAlignment(.center)
+                Button {
+                    Task { await vm.connectTapped() }
+                } label: {
+                    Text("Connect Health")
+                        .font(.headline)
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(AppTheme.accent)
+                        .cornerRadius(AppTheme.cornerRadiusMedium)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding()
+        }
+
+    private var deniedView: some View {
+            VStack(spacing: 12) {
                 Image(systemName: "heart.slash")
                     .font(Font.largeNumber)
                     .foregroundColor(AppTheme.textSecondary)
@@ -116,7 +127,6 @@ struct WorkoutHistoryView: View {
                     .foregroundColor(AppTheme.textSecondary)
                     .multilineTextAlignment(.center)
                 Button {
-                    vm.markAccessDenied()
                     openSettings()
                 } label: {
                     Text("Open Settings")
@@ -131,7 +141,6 @@ struct WorkoutHistoryView: View {
                         )
                 }
                 Button {
-                    vm.clearAccessDenied()
                     Task { await vm.onAppear() }
                 } label: {
                     Text("Try Again")
@@ -160,148 +169,30 @@ struct WorkoutHistoryView: View {
         .padding()
     }
 
-    private var activeWorkoutCard: some View {
-        VStack(spacing: 16) {
-            HStack(spacing: 12) {
-                Image(systemName: WorkoutFormatter.icon(for: vm.activeWorkoutVM.kind.title))
-                    .font(.title3)
-                    .foregroundColor(AppTheme.accent)
-                    .frame(width: 44, height: 44)
-                    .background(AppTheme.accent.opacity(0.12))
-                    .cornerRadius(AppTheme.cornerRadiusMedium)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(vm.activeWorkoutVM.kind.title)
-                        .font(.headline)
-                        .foregroundColor(AppTheme.textPrimary)
-                    Text(liveElapsed)
-                        .font(.title2.bold())
-                        .monospacedDigit()
-                        .foregroundColor(AppTheme.textPrimary)
-                }
-
-                Spacer()
-
-                Image(systemName: vm.activeWorkoutVM.phase == .running ? "heart.fill" : "pause.fill")
-                    .font(.title3)
-                    .foregroundColor(AppTheme.accent)
-                    .symbolEffect(.pulse, options: .repeating, isActive: vm.activeWorkoutVM.phase == .running)
-            }
-
-            HStack(spacing: 24) {
-                liveMetric(value: "\(Int(vm.activeWorkoutVM.metrics.activeCalories))", unit: "kcal", icon: "flame.fill")
-                liveMetric(
-                    value: String(format: "%.2f", vm.activeWorkoutVM.metrics.distanceMeters / 1000),
-                    unit: "km",
-                    icon: "location.fill"
-                )
-                liveMetric(value: liveHeartRate, unit: "bpm", icon: "heart.fill")
-            }
-
-            HStack(spacing: 16) {
-                Button {
-                    vm.activeWorkoutVM.togglePause()
-                } label: {
-                    Image(systemName: vm.activeWorkoutVM.phase == .running ? "pause.fill" : "play.fill")
-                        .font(.title2)
-                        .foregroundColor(AppTheme.primaryButtonText)
-                        .frame(width: AppTheme.buttonHeight, height: AppTheme.buttonHeight)
-                        .background(AppTheme.accent)
-                        .clipShape(Circle())
-                }
-                .disabled(vm.activeWorkoutVM.phase == .finishing)
-
-                Button {
-                    showEndConfirm = true
-                } label: {
-                    Image(systemName: "stop.fill")
-                        .font(.title2)
-                        .foregroundColor(AppTheme.textPrimary)
-                        .frame(width: 64, height: 64)
-                        .background(AppTheme.errorBackground)
-                        .clipShape(Circle())
-                        .overlay(Circle().stroke(AppTheme.error, lineWidth: 2))
-                }
-                .disabled(vm.activeWorkoutVM.phase == .finishing)
-
-                Button {
-                    cancelActiveWorkout()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.title3)
-                        .foregroundColor(AppTheme.textSecondary)
-                        .frame(width: 44, height: 44)
-                }
-                .disabled(vm.activeWorkoutVM.phase == .finishing)
-            }
-
-            if let error = vm.activeWorkoutVM.error {
-                Text(error)
-                    .font(.footnote)
-                    .foregroundColor(AppTheme.error)
-                    .multilineTextAlignment(.center)
-            }
-        }
-        .padding()
-        .frame(maxWidth: .infinity)
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
-        .alert("End Workout?", isPresented: $showEndConfirm) {
-            Button("End", role: .destructive) {
-                Task {
-                    _ = await vm.activeWorkoutVM.finish()
-                    vm.activeWorkoutVM.reset()
-                    await vm.refresh()
-                }
-            }
-            Button("Keep Going", role: .cancel) {}
-        } message: {
-            Text("Your workout will be saved to Apple Health.")
-        }
-    }
-
-    private var liveElapsed: String {
-        let t = Int(vm.activeWorkoutVM.elapsedSeconds)
-        let h = t / 3600
-        let m = (t % 3600) / 60
-        let s = t % 60
-        if h > 0 {
-            return String(format: "%d:%02d:%02d", h, m, s)
-        }
-        return String(format: "%02d:%02d", m, s)
-    }
-
-    private var liveHeartRate: String {
-        guard let bpm = vm.activeWorkoutVM.metrics.heartRateBPM else { return "--" }
-        return "\(Int(bpm))"
-    }
-
-    private func liveMetric(value: String, unit: String, icon: String) -> some View {
-        VStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.footnote)
-                .foregroundColor(AppTheme.accent)
-            Text(value)
-                .font(.title3.bold())
-                .monospacedDigit()
-                .foregroundColor(AppTheme.textPrimary)
-            Text(unit)
-                .font(.caption)
-                .foregroundColor(AppTheme.textSecondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private func cancelActiveWorkout() {
-        guard vm.activeWorkoutVM.phase != .finishing else { return }
-        vm.activeWorkoutVM.reset()
-    }
-
     private func workoutsList(_ workouts: [HealthKitWorkout]) -> some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 12) {
                 ForEach(workouts) { workout in
                     Button {
+                        print(
+                            "[WorkoutHistory] open detail: id=\(workout.id) " +
+                            "type=\(workout.workoutType) start=\(workout.startDate) " +
+                            "duration=\(workout.durationSeconds) " +
+                            "cal=\(workout.caloriesBurned.map { "\($0)" } ?? "nil") " +
+                            "dist=\(workout.distanceMeters.map { "\($0)" } ?? "nil") " +
+                            "hrAvg=\(workout.heartRateAvg.map { "\($0)" } ?? "nil") " +
+                            "hrMax=\(workout.heartRateMax.map { "\($0)" } ?? "nil") " +
+                            "avgSpeed=\(workout.avgSpeedMps.map { "\($0)" } ?? "nil") " +
+                            "maxSpeed=\(workout.maxSpeedMps.map { "\($0)" } ?? "nil") " +
+                            "avgCadence=\(workout.avgCadence.map { "\($0)" } ?? "nil") " +
+                            "maxCadence=\(workout.maxCadence.map { "\($0)" } ?? "nil") " +
+                            "avgPower=\(workout.avgPowerWatts.map { "\($0)" } ?? "nil") " +
+                            "maxPower=\(workout.maxPowerWatts.map { "\($0)" } ?? "nil") " +
+                            "elevation=\(workout.elevationGainMeters.map { "\($0)" } ?? "nil") " +
+                            "steps=\(workout.steps.map { "\($0)" } ?? "nil") " +
+                            "indoor=\(workout.indoor.map { "\($0)" } ?? "nil") " +
+                            "details=\(String(describing: workout.details))"
+                        )
                         vm.selectedWorkout = workout
                     } label: {
                         WorkoutRow(
@@ -422,7 +313,7 @@ private struct SparklineChart: View {
 }
 
 #Preview {
-    let vm = WorkoutHistoryViewModel(
+    let vm = WorkoutViewModel(
         healthKit: MockHealthKit(),
         workoutService: MockWorkoutService()
     )

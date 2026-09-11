@@ -310,4 +310,11 @@ enum WorkoutFormatter {
     }
 }
 
+struct HeartRatePoint: Equatable, Sendable, Identifiable {
+    let startDate: Date
+    let bpm: Double
+
+    var id: Date { startDate }
+}
+
 

@@ -11,4 +11,5 @@ enum WorkoutHistoryState {
     case loaded([HealthKitWorkout])
     case error(Error)
     case needsAccess
+    case denied
 }
