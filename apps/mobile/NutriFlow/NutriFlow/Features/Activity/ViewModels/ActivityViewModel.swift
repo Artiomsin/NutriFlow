@@ -2,69 +2,91 @@ import Observation
 import Foundation
 import UIKit
 
-
 @Observable
 @MainActor
-final class ActivityViewModel{
-    
+final class ActivityViewModel {
+
     var state: ActivityState = .idle
-    
-    @ObservationIgnored private let healthKit: ActivityHealthKitServiceProtocol
-    @ObservationIgnored private let activitySync: ActivitySyncProtocol?
-    
-    private var hasRequestedAuth: Bool {
-        get { UserDefaults.standard.bool(forKey: "hasRequestedHealthAuth") }
-        set { UserDefaults.standard.set(newValue, forKey: "hasRequestedHealthAuth") }
-    }
-    
-    
-    init(healthKit: ActivityHealthKitServiceProtocol, activitySync: ActivitySyncProtocol? = nil) {
-            self.healthKit = healthKit
-            self.activitySync = activitySync
-        }
 
-    
-    func onAppear() {
-            if !hasRequestedAuth {
-                state = .needsAccess
-            } else {
-                setUpBackground()
-                Task {
-                    await activitySync?.refresh()
-                }
+    var needsHealthConnect: Bool {
+        switch state {
+        case .needsAccess:
+            return true
+
+        default:
+            return false
+        }
+    }
+
+    @ObservationIgnored
+    private let healthKit: ActivityHealthKitServiceProtocol
+
+    init(healthKit: ActivityHealthKitServiceProtocol) {
+        self.healthKit = healthKit
+    }
+
+
+    func checkPermission() async {
+        switch await healthKit.permissionState() {
+        case .notDetermined:
+            state = .needsAccess
+
+        case .denied:
+            state = .denied
+
+        case .authorized:
+            if case .idle = state {
+                state = .loading
             }
         }
-
-    private func setUpBackground() {
-        activitySync?.onActivityUpdate = { [weak self] activity in
-            Task { @MainActor in
-                self?.state = .loaded(activity)
-                print("[ActivityCard] background update → \(activity)")
-            }
-        }
-        activitySync?.start()
     }
-    
+
     func connectTapped() async {
-            print("[HealthKit] connectTapped → requesting auth")
-            hasRequestedAuth = true
-            state = .loading
-            do {
-                try await healthKit.requestAuthorization()
-                print("[HealthKit] after auth → loading")
-                setUpBackground()
-                await activitySync?.refresh()
-            } catch {
-                print("[HealthKit] connectTapped error: \(error)")
-                state = .error(error)
-            }
+        print("[HealthKit] connectTapped → requesting auth")
+
+        state = .loading
+
+        do {
+            try await healthKit.requestAuthorization()
+        } catch {
+            print("[HealthKit] connectTapped error: \(error)")
+            state = .error(error)
+            return
         }
 
-    
-    func openSettings() {
-            print("[HealthKit] openSettings")
-            if let url = URL(string: UIApplication.openSettingsURLString) {
-                UIApplication.shared.open(url)
-            }
+        switch await healthKit.permissionState() {
+        case .authorized:
+            print("[HealthKit] HealthKit authorization granted")
+
+        case .denied:
+            state = .denied
+
+        case .notDetermined:
+            state = .needsAccess
         }
+    }
+
+
+    func setActivity(_ activity: DailyActivity) {
+        state = .loaded(activity)
+    }
+
+    func setLoading() {
+        state = .loading
+    }
+
+    func setError(_ error: Error) {
+        state = .error(error)
+    }
+
+
+    func openSettings() {
+        print("[HealthKit] openSettings")
+
+        guard let url = URL(string: UIApplication.openSettingsURLString) else {
+            return
+        }
+
+        UIApplication.shared.open(url)
+    }
 }

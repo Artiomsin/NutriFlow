@@ -3,25 +3,22 @@ import HealthKit
 
 final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol {
 
-    private let store = HKHealthStore()
+    private let store = HealthKitAuthorization.shared.sharedStore
 
     private let activityTypesToRead: Set<HKQuantityType> = [
             HKQuantityType(.stepCount),
             HKQuantityType(.activeEnergyBurned),
             HKQuantityType(.basalEnergyBurned),
             HKQuantityType(.distanceWalkingRunning),
-            HKQuantityType(.heartRate),
             HKQuantityType(.distanceCycling),
             HKQuantityType(.distanceSwimming)
         ]
 
-    // MARK: - Observers
 
     private var observers: [HKObserverQuery] = []
 
     var onActivityChanged: (() -> Void)?
 
-    // MARK: - Date Formatter
 
     private static var dateFormatter: DateFormatter {
         let f = DateFormatter()
@@ -30,28 +27,24 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
         return f
     }
 
-    // MARK: - Availability
 
     var isAvailable: Bool {
         HKHealthStore.isHealthDataAvailable()
     }
 
-    // MARK: - Authorization
+
+    func permissionState() async -> HealthKitPermissionState {
+        await HealthKitAuthorization.shared.permissionState(for: .activity)
+    }
 
     func requestAuthorization() async throws {
         guard isAvailable else {
             return
         }
 
-        UserDefaults.standard.set(true, forKey: "hasRequestedHealthAuth")
-
-        try await store.requestAuthorization(
-            toShare: [],
-            read: activityTypesToRead
-        )
+        try await HealthKitAuthorization.shared.requestAuthorization()
     }
 
-    // MARK: - Daily Activity
 
     func fetchToday() async -> DailyActivity {
         let now = Date()
@@ -103,7 +96,6 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
         return result
     }
 
-    // MARK: - Background Delivery
 
     func enableBackgroundDelivery() async throws {
         guard isAvailable else {
@@ -118,14 +110,13 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
         }
     }
 
-    // MARK: - Observing
 
     func startObserving() {
         guard isAvailable else {
             return
         }
 
-        // Важно: сначала останавливаем старые queries.
+        // first stop old queries
         stopObserving()
 
         for type in activityTypesToRead {
@@ -164,7 +155,6 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
         onActivityChanged = nil
     }
 
-    // MARK: - Quantity Sum
 
     private func sum(
         _ identifier: HKQuantityTypeIdentifier,

@@ -1,10 +1,3 @@
-//
-//  ActivityCard.swift
-//  Nutriflow
-//
-//  Created by Artem on 03.09.2026.
-//
-
 import SwiftUI
 
 
@@ -153,18 +146,9 @@ private struct ActivityMetric: View {
     }
 }
 
-// MARK: - Preview
-
-private final class MockActivitySync: ActivitySyncProtocol {
-    var isSessionActive: Bool { false }
-    var onActivityUpdate: ((DailyActivity) -> Void)?
-    func start() {}
-    func stop() {}
-    func refresh() async {}
-}
 
 #Preview("Loaded") {
-    let vm = ActivityViewModel(healthKit: MockHealthKit(), activitySync: MockActivitySync())
+    let vm = ActivityViewModel(healthKit: MockHealthKit())
     vm.state = .loaded(DailyActivity(date: "2026-09-04", steps: 8543, activeCalories: 412, basalCalories: 1500, distanceMeters: 5200))
     return ActivityCard(vm: vm)
         .padding()
@@ -173,7 +157,7 @@ private final class MockActivitySync: ActivitySyncProtocol {
 }
 
 #Preview("Needs Access") {
-    let vm = ActivityViewModel(healthKit: MockHealthKit(), activitySync: MockActivitySync())
+    let vm = ActivityViewModel(healthKit: MockHealthKit())
     vm.state = .needsAccess
     return ActivityCard(vm: vm)
         .padding()
@@ -182,7 +166,7 @@ private final class MockActivitySync: ActivitySyncProtocol {
 }
 
 #Preview("Denied") {
-    let vm = ActivityViewModel(healthKit: MockHealthKit(), activitySync: MockActivitySync())
+    let vm = ActivityViewModel(healthKit: MockHealthKit())
     vm.state = .denied
     return ActivityCard(vm: vm)
         .padding()
