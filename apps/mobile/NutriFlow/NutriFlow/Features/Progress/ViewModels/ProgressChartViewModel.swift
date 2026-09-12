@@ -34,6 +34,7 @@ final class ProgressChartViewModel {
     var selectedDateWater: [WaterEntry] = []
     var selectedDateStr: String = ""
     var selectedDateGoals: UserGoals?
+    var selectedDateActivity: ActivityDayPoint?
 
     var canTapBars: Bool {
         periodState.type != .today && aggregationLevel() == .day
@@ -78,19 +79,22 @@ final class ProgressChartViewModel {
         selectedDateFood = []
         selectedDateWater = []
         selectedDateGoals = nil
+        selectedDateActivity = nil
         dayDetailState = .loading
 
         do {
             async let food = foodService?.getFoodByDate(date: date) ?? []
             async let water = waterService?.getWaterByDate(date: date) ?? []
             async let goals = goalsService?.getGoals()
+            async let activity = loadActivityDay(date)
 
-            let (f, w, g) = try await (food, water, goals)
+            let (f, w, g, a) = try await (food, water, goals, activity)
             try Task.checkCancellation()
 
             selectedDateFood = f
             selectedDateWater = w
             selectedDateGoals = g
+            selectedDateActivity = a
             dayDetailState = .loaded
             showDaySheet = true
         } catch is CancellationError {
@@ -98,6 +102,15 @@ final class ProgressChartViewModel {
         } catch {
             dayDetailState = .error(error)
             showDaySheet = true
+        }
+    }
+
+    private func loadActivityDay(_ date: String) async -> ActivityDayPoint? {
+        guard let activityService else { return nil }
+        do {
+            return try await activityService.getRange(from: date, to: date).first
+        } catch {
+            return nil
         }
     }
 
@@ -160,6 +173,13 @@ final class ProgressChartViewModel {
             if days <= 60 { return .week }
             return .month
         }
+    }
+
+    var periodDays: Int {
+        let range = currentRange()
+        guard let from = Self.dateOnlyFormatter.date(from: range.from),
+              let to = Self.dateOnlyFormatter.date(from: range.to) else { return 0 }
+        return (Calendar.current.dateComponents([.day], from: from, to: to).day ?? 0) + 1
     }
 
     private func currentRange() -> (from: String, to: String) {
@@ -512,7 +532,11 @@ final class ProgressChartViewModel {
         let sums = chartData.reduce(
             (cal: 0, water: 0, prot: 0.0, fat: 0.0, carbs: 0.0)
         ) { acc, pt in
-            (acc.cal + pt.calories, acc.water + pt.waterMl, acc.prot + pt.protein, acc.fat + pt.fat, acc.carbs + pt.carbs)
+            (acc.cal + pt.calories,
+             acc.water + pt.waterMl,
+             acc.prot + pt.protein,
+             acc.fat + pt.fat,
+             acc.carbs + pt.carbs)
         }
         totalCaloriesSum = sums.cal
         totalWaterSum = sums.water

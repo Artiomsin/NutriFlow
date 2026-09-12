@@ -6,6 +6,7 @@ struct DayDetailSheet: View {
     let water: [WaterEntry]
     let goals: UserGoals?
     let state: DayDetailState
+    let activity: ActivityDayPoint?
     @State private var prefsStore = PreferencesStore.shared
 
     var body: some View {
@@ -45,6 +46,7 @@ struct DayDetailSheet: View {
     private var loadedContent: some View {
         VStack(spacing: 20) {
             if let goals { goalSection(goals) }
+            if let activity { activitySection(activity, goals: goals) }
             foodSection
             waterSection
         }
@@ -97,6 +99,36 @@ struct DayDetailSheet: View {
                 GoalBar(title: "Fat", current: UnitConversion.formatMacro(grams: foodTotals.fat, preferred: prefsStore.preferredUnits), goal: UnitConversion.formatMacro(grams: goals.dailyFatGoal ?? 0, preferred: prefsStore.preferredUnits), unit: "", color: .green, icon: "drop.degreesign.fill")
                 GoalBar(title: "Carbs", current: UnitConversion.formatMacro(grams: foodTotals.carbs, preferred: prefsStore.preferredUnits), goal: UnitConversion.formatMacro(grams: goals.dailyCarbsGoal ?? 0, preferred: prefsStore.preferredUnits), unit: "", color: .purple, icon: "leaf.arrow.circlepath")
                 GoalBar(title: "Water", current: UnitConversion.formatAmount(grams: water.reduce(0) { $0 + $1.amountMl }, unit: "ml", preferred: prefsStore.preferredUnits), goal: UnitConversion.formatAmount(grams: goals.dailyWaterGoal ?? 0, unit: "ml", preferred: prefsStore.preferredUnits), unit: "", color: .cyan, icon: "drop.fill")
+            }
+        }
+        .padding()
+        .background(AppTheme.cardBackground)
+        .cornerRadius(AppTheme.cornerRadiusMedium)
+    }
+
+    private func activitySection(_ activity: ActivityDayPoint, goals: UserGoals?) -> some View {
+        let stepsGoal = goals?.dailyStepsGoal ?? 0
+        let activeGoal = goals?.dailyActiveCaloriesGoal ?? 0
+        return VStack(alignment: .leading, spacing: 16) {
+            sectionLabel("Daily Activity", icon: "figure.walk")
+
+            VStack(spacing: 14) {
+                GoalBar(
+                    title: "Steps",
+                    current: "\(activity.steps)",
+                    goal: "\(stepsGoal)",
+                    unit: "",
+                    color: .blue,
+                    icon: "figure.walk"
+                )
+                GoalBar(
+                    title: "Active kcal",
+                    current: "\(activity.activeCalories)",
+                    goal: "\(activeGoal)",
+                    unit: "",
+                    color: .pink,
+                    icon: "flame.fill"
+                )
             }
         }
         .padding()
@@ -349,6 +381,7 @@ func formatTime(_ iso: String) -> String {
             WaterEntry(id: "2", userId: "1", amountMl: 300, createdAt: "2026-05-18T15:00:00Z", updatedAt: nil),
         ],
         goals: UserGoals(id: "1", userId: "1", dailyCaloriesGoal: 2200, dailyProteinGoal: 150, dailyFatGoal: 65, dailyCarbsGoal: 250, dailyWaterGoal: 3000, dailyStepsGoal: 5000, dailyActiveCaloriesGoal: 450, weeklyWorkoutsGoal: 33, weeklyWorkoutMinutesGoal: 44, nightlySleepMinMinutes: 456, nightlySleepMaxMinutes: 600,  source: "auto", createdAt: nil, updatedAt: nil),
-        state: .loaded
+        state: .loaded,
+        activity: ActivityDayPoint(date: "2026-05-18", steps: 8400, activeCalories: 380, basalCalories: 1700, distanceMeters: 6200, caloriesConsumed: 1950, netCalories: 1570)
     )
 }
