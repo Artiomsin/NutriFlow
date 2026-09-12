@@ -253,6 +253,16 @@ final class MockAnalyticsService: AnalyticsServiceProtocol {
             goalCarbsPct: 60,
             goalWater: 3000,
             goalWaterPct: 67,
+            avgSteps: 8600,
+            avgActiveCalories: 430,
+            goalSteps: 10000,
+            goalStepsPct: 86,
+            goalActiveCalories: 500,
+            goalActiveCaloriesPct: 86,
+            sleepTotalNights: 7,
+            sleepNightsInRange: 4,
+            workoutsDone: 3,
+            workoutMinutes: 135,
             daysTracked: 5,
             totalDays: 7,
             streak: 3,
@@ -300,7 +310,44 @@ final class MockWorkoutService: WorkoutServiceProtocol {
         limit: Int?,
         offset: Int?
     ) async throws -> WorkoutHistoryResponse {
-        WorkoutHistoryResponse(total: 0, workouts: [])
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        df.timeZone = .current
+        guard let from, let to,
+              let _ = df.date(from: from),
+              let end = df.date(from: to) else {
+            return WorkoutHistoryResponse(total: 0, workouts: [])
+        }
+
+        let cal = Calendar.current
+        var workouts: [WorkoutSyncEntry] = []
+        let counts = [3, 2, 1]
+        for count in counts {
+            guard let date = cal.date(byAdding: .day, value: -count, to: end) else { continue }
+            workouts.append(WorkoutSyncEntry(
+                healthKitWorkoutId: UUID().uuidString,
+                type: "Strength Training",
+                startDate: WorkoutMapper.isoString(from: date),
+                endDate: WorkoutMapper.isoString(from: date.addingTimeInterval(45 * 60)),
+                durationSeconds: 45 * 60,
+                caloriesBurned: 300,
+                distanceMeters: nil,
+                heartRateAvg: 130,
+                heartRateMax: nil,
+                heartRateMin: nil,
+                avgSpeedMps: nil,
+                maxSpeedMps: nil,
+                avgCadence: nil,
+                maxCadence: nil,
+                avgPowerWatts: nil,
+                maxPowerWatts: nil,
+                elevationGainMeters: nil,
+                steps: nil,
+                indoor: nil,
+                details: nil
+            ))
+        }
+        return WorkoutHistoryResponse(total: workouts.count, workouts: workouts)
     }
     func deleteMissing(from startDate: String, healthKitWorkoutIds: [String]) async throws {}
 }
@@ -313,7 +360,39 @@ final class MockSleepService: SleepServiceProtocol {
         limit: Int?,
         offset: Int?
     ) async throws -> SleepHistoryResponse {
-        SleepHistoryResponse(total: 0, nights: [])
+        let cal = Calendar.current
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        df.timeZone = .current
+        let start = from.flatMap { df.date(from: $0) } ?? Date()
+        let end = to.flatMap { df.date(from: $0) } ?? Date()
+
+        var nights: [SleepSyncEntry] = []
+        var day = start
+        var index = 0
+        while day <= end && nights.count < 10 {
+            let inRange = index >= 1 && index <= 4
+            let sleepStart = cal.date(byAdding: .hour, value: -8, to: day) ?? day
+            nights.append(SleepSyncEntry(
+                startDate: SleepMapper.isoString(from: sleepStart),
+                endDate: SleepMapper.isoString(from: sleepStart.addingTimeInterval(inRange ? 8 * 3600 : 5 * 3600)),
+                timeInBedSeconds: inRange ? 8 * 3600 : 5 * 3600,
+                asleepSeconds: inRange ? 7 * 3600 : 3 * 3600,
+                awakeSeconds: inRange ? 1 * 3600 : 2 * 3600,
+                coreSeconds: nil,
+                deepSeconds: nil,
+                remSeconds: nil,
+                unspecifiedSeconds: nil,
+                awakenings: nil,
+                onsetLatencySeconds: nil,
+                efficiency: nil,
+                segmentCount: nil,
+                heartRateAvg: nil
+            ))
+            index += 1
+            day = cal.date(byAdding: .day, value: 1, to: day) ?? day
+        }
+        return SleepHistoryResponse(total: nights.count, nights: nights)
     }
     func deleteMissing(from startDate: String, startDates: [String]) async throws {}
 }
