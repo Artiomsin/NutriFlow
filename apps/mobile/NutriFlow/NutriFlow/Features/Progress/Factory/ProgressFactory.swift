@@ -4,7 +4,7 @@ enum ProgressFactory {
         coordinator: AppCoordinator,
         container: AppDependency,
         periodState: PeriodState
-    ) -> (AnalyticsViewModel, ProgressChartViewModel) {
+    ) -> (AnalyticsViewModel, ProgressChartViewModel, GoalsViewModel) {
         let cache = container.cacheService
         let analyticsVM = AnalyticsViewModel(
             coordinator: coordinator,
@@ -22,6 +22,11 @@ enum ProgressFactory {
             activityService: container.activityService,
             cacheService: cache
         )
-        return (analyticsVM, chartVM)
+        let goalsVM = GoalsViewModel(
+            coordinator: coordinator,
+            service: container.goalsService,
+            cacheService: cache
+        )
+        return (analyticsVM, chartVM, goalsVM)
     }
 }

@@ -13,6 +13,7 @@ struct MainTabView: View {
     @State private var homeVM: HomeViewModel
     @State private var analyticsVM: AnalyticsViewModel
     @State private var chartVM: ProgressChartViewModel
+    @State private var progressGoalsVM: GoalsViewModel
     @State private var profileVM: ProfileViewModel
 
     init(container: AppDependency, coordinator: AppCoordinator) {
@@ -41,6 +42,7 @@ struct MainTabView: View {
         )
         self._analyticsVM = State(initialValue: progress.0)
         self._chartVM = State(initialValue: progress.1)
+        self._progressGoalsVM = State(initialValue: progress.2)
 
         self._profileVM = State(initialValue: ProfileViewModel(
             coordinator: coordinator,
@@ -65,6 +67,7 @@ struct MainTabView: View {
             ProgressDashboardView(
                 analyticsVM: analyticsVM,
                 chartVM: chartVM,
+                goalsVM: progressGoalsVM,
                 periodState: periodState,
                 tabBarState: tabBarState,
                 progressRefreshState: progressRefreshState,

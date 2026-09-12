@@ -7,12 +7,50 @@ struct RingProgressView: View {
     let title: String
     let value: String
     let unit: String
+    var compact: Bool = false
 
     private var progress: Double {
         Double(min(max(pct, 0), 100)) / 100.0
     }
 
     var body: some View {
+        if compact {
+            compactBody
+        } else {
+            regularBody
+        }
+    }
+
+    private var compactBody: some View {
+        VStack(spacing: 5) {
+            ZStack {
+                Circle()
+                    .stroke(color.opacity(0.2), lineWidth: 5)
+                Circle()
+                    .trim(from: 0, to: progress)
+                    .stroke(color, style: SwiftUI.StrokeStyle(lineWidth: 5, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .animation(.easeInOut(duration: 0.6), value: progress)
+                Image(systemName: icon)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(color)
+            }
+            .frame(width: 40, height: 40)
+
+            Text("\(pct)%")
+                .font(.caption2.bold())
+                .foregroundColor(color)
+
+            Text(title)
+                .font(.caption2)
+                .foregroundColor(AppTheme.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var regularBody: some View {
         VStack(spacing: 8) {
             ZStack {
                 Circle()

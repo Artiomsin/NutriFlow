@@ -3,6 +3,7 @@ import SwiftUI
 struct ProgressDashboardView: View {
     @Bindable var analyticsVM: AnalyticsViewModel
     @Bindable var chartVM: ProgressChartViewModel
+    @Bindable var goalsVM: GoalsViewModel
     @Bindable var periodState: PeriodState
     var tabBarState: TabBarState = TabBarState()
 
@@ -42,13 +43,15 @@ struct ProgressDashboardView: View {
         .refreshable {
             async let analytics: () = analyticsVM.refreshData()
             async let charts: () = chartVM.refreshData()
-            (_, _) = await (analytics, charts)
+            async let goals: () = goalsVM.loadGoals()
+            (_, _, _) = await (analytics, charts, goals)
         }
         .onAppear { AnalyticsManager.shared.track(.screenView(screen: "progress")) }
         .task {
             async let analytics: () = analyticsVM.loadAnalytics()
             async let charts: () = chartVM.loadChartData()
-            (_, _) = await (analytics, charts)
+            async let goals: () = goalsVM.loadGoals()
+            (_, _, _) = await (analytics, charts, goals)
             let revision = progressRefreshState.revision
             switch analyticsVM.state {
             case .loaded, .empty:
@@ -75,7 +78,8 @@ struct ProgressDashboardView: View {
                 food: chartVM.selectedDateFood,
                 water: chartVM.selectedDateWater,
                 goals: chartVM.selectedDateGoals,
-                state: chartVM.dayDetailState
+                state: chartVM.dayDetailState,
+                activity: chartVM.selectedDateActivity
             )
         }
     }
@@ -103,7 +107,7 @@ struct ProgressDashboardView: View {
             VStack(spacing: 20) {
                 AnalyticsHeroView(streak: analytics.streak, trend: analytics.trend)
 
-                ringGrid(analytics: analytics)
+                ringsGrid(analytics: analytics)
 
                 AnalyticsStatsView(
                     avgCalories: analytics.averageCalories,
@@ -147,51 +151,58 @@ struct ProgressDashboardView: View {
         }
     }
 
-    private func ringGrid(analytics: AnalyticsResponse) -> some View {
+private struct RingItem: Identifiable {
+        let id = UUID()
+        let icon: String
+        let color: Color
+        let title: String
+        let pct: Int
+    }
+
+    @ViewBuilder
+    private func ringsGrid(analytics: AnalyticsResponse) -> some View {
+        let fitnessRows = goalsVM.fitnessGoalRows(
+            avgSteps: Double(analytics.avgSteps ?? 0),
+            avgActiveCalories: Double(analytics.avgActiveCalories ?? 0),
+            sleepNightsInRange: analytics.sleepNightsInRange ?? 0,
+            sleepTotalNights: analytics.sleepTotalNights ?? 0,
+            workoutsDone: analytics.workoutsDone ?? 0,
+            workoutMinutes: analytics.workoutMinutes ?? 0,
+            daysCount: chartVM.periodDays
+        ).filter(\.show)
+
+        let nutrition: [RingItem] = [
+            RingItem(icon: "flame.fill", color: .orange, title: "Calories", pct: analytics.goalCaloriesPct ?? 0),
+            RingItem(icon: "bolt.fill", color: .indigo, title: "Protein", pct: analytics.goalProteinPct ?? 0),
+            RingItem(icon: "drop.degreesign.fill", color: .green, title: "Fat", pct: analytics.goalFatPct ?? 0),
+            RingItem(icon: "leaf.arrow.circlepath", color: .purple, title: "Carbs", pct: analytics.goalCarbsPct ?? 0),
+            RingItem(icon: "drop.fill", color: .cyan, title: "Water", pct: analytics.goalWaterPct ?? 0)
+        ]
+
+        let items = fitnessRows.map { row in
+            RingItem(
+                icon: row.kind.icon,
+                color: row.kind.color,
+                title: row.kind.title,
+                pct: row.percent
+            )
+        } + nutrition
+
         LazyVGrid(
-            columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3),
-            spacing: 12
+            columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 5),
+            spacing: 14
         ) {
-            RingProgressView(
-                pct: analytics.goalCaloriesPct ?? 0,
-                color: .orange,
-                icon: "flame.fill",
-                title: "Calories",
-                value: "\(UnitConversion.formatEnergyValue(kcal: analytics.averageCalories, preferred: prefsStore.preferredUnits))",
-                unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits)
-            )
-            RingProgressView(
-                pct: analytics.goalProteinPct ?? 0,
-                color: .indigo,
-                icon: "bolt.fill",
-                title: "Protein",
-                value: UnitConversion.formatMacro(grams: analytics.averageProtein, preferred: prefsStore.preferredUnits),
-                unit: ""
-            )
-            RingProgressView(
-                pct: analytics.goalFatPct ?? 0,
-                color: .green,
-                icon: "drop.degreesign.fill",
-                title: "Fat",
-                value: UnitConversion.formatMacro(grams: analytics.averageFat, preferred: prefsStore.preferredUnits),
-                unit: ""
-            )
-            RingProgressView(
-                pct: analytics.goalCarbsPct ?? 0,
-                color: .purple,
-                icon: "leaf.arrow.circlepath",
-                title: "Carbs",
-                value: UnitConversion.formatMacro(grams: analytics.averageCarbs, preferred: prefsStore.preferredUnits),
-                unit: ""
-            )
-            RingProgressView(
-                pct: analytics.goalWaterPct ?? 0,
-                color: .cyan,
-                icon: "drop.fill",
-                title: "Water",
-                value: UnitConversion.formatAmount(grams: analytics.averageWater, unit: "ml", preferred: prefsStore.preferredUnits),
-                unit: ""
-            )
+            ForEach(items) { item in
+                RingProgressView(
+                    pct: item.pct,
+                    color: item.color,
+                    icon: item.icon,
+                    title: item.title,
+                    value: "",
+                    unit: "",
+                    compact: true
+                )
+            }
         }
     }
 
@@ -222,6 +233,7 @@ private struct ProgressPreviewContent: View {
         return ProgressDashboardView(
                 analyticsVM: data.analytics,
                 chartVM: data.chart,
+                goalsVM: data.goals,
                 periodState: data.period,
                 progressRefreshState: ProgressRefreshState(),
                 isActive: true
@@ -229,7 +241,7 @@ private struct ProgressPreviewContent: View {
             .background(AppTheme.background)
     }
 
-    private func makePreviewData() -> (analytics: AnalyticsViewModel, chart: ProgressChartViewModel, period: PeriodState) {
+    private func makePreviewData() -> (analytics: AnalyticsViewModel, chart: ProgressChartViewModel, goals: GoalsViewModel, period: PeriodState) {
         let periodState = PeriodState()
         periodState.type = .week
         let coordinator = AppCoordinator(container: AppDependencyContainer())
@@ -244,8 +256,65 @@ private struct ProgressPreviewContent: View {
             periodState: periodState,
             foodService: MockFoodService(),
             waterService: MockWaterService(),
-            goalsService: MockGoalsService()
+            goalsService: MockGoalsService(),
+            activityService: MockActivityService()
         )
-        return (analyticsVM, chartVM, periodState)
+        let goalsVM = GoalsViewModel(
+            coordinator: coordinator,
+            service: MockGoalsService()
+        )
+
+        goalsVM.state = .loaded(UserGoals(
+            id: "mock",
+            userId: "mock",
+            dailyCaloriesGoal: 2000,
+            dailyProteinGoal: 120,
+            dailyFatGoal: 70,
+            dailyCarbsGoal: 220,
+            dailyWaterGoal: 2000,
+            dailyStepsGoal: 10000,
+            dailyActiveCaloriesGoal: 500,
+weeklyWorkoutsGoal: 5,
+            weeklyWorkoutMinutesGoal: 150,
+            nightlySleepMinMinutes: 360,
+            nightlySleepMaxMinutes: 600,
+            source: "mock",
+            createdAt: nil,
+            updatedAt: nil
+        ))
+
+        return (analyticsVM, chartVM, goalsVM, periodState)
+    }
+}
+
+extension FitnessGoalKind {
+    var title: String {
+        switch self {
+        case .steps: return "Steps"
+        case .activeCalories: return "Active kcal"
+        case .sleep: return "Sleep"
+        case .workouts: return "Workouts"
+        case .workoutMinutes: return "Workout min"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .steps: return "figure.walk"
+        case .activeCalories: return "flame.fill"
+        case .sleep: return "moon.zzz.fill"
+        case .workouts: return "dumbbell.fill"
+        case .workoutMinutes: return "clock.fill"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .steps: return .blue
+        case .activeCalories: return .pink
+        case .sleep: return .teal
+        case .workouts: return .green
+        case .workoutMinutes: return .mint
+        }
     }
 }
