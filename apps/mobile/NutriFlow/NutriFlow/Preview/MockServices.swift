@@ -273,12 +273,18 @@ final class MockGoalsService: GoalsServiceProtocol {
             dailyFatGoal: 65,
             dailyCarbsGoal: 250,
             dailyWaterGoal: 3000,
+            dailyStepsGoal: 8000,
+            dailyActiveCaloriesGoal: 500,
+            weeklyWorkoutsGoal: 5,
+            weeklyWorkoutMinutesGoal: 155,
+            nightlySleepMinMinutes: 234,
+            nightlySleepMaxMinutes: 500,
             source: "auto",
             createdAt: nil,
             updatedAt: nil
         )
     }
-    func updateGoals(calories: Int?, protein: Int?, fat: Int?, carbs: Int?, water: Int?) async throws -> UserGoals {
+    func updateGoals(calories: Int?, protein: Int?, fat: Int?, carbs: Int?, water: Int?, steps: Int?,activeCalories: Int?,workouts: Int?,workoutMinutes: Int?,sleepMinMinutes: Int?,sleepMaxMinutes: Int?) async throws -> UserGoals {
         try await getGoals()
     }
     func calculateGoals() async throws -> UserGoals {
