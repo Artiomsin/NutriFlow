@@ -348,7 +348,7 @@ func formatTime(_ iso: String) -> String {
             WaterEntry(id: "1", userId: "1", amountMl: 500, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
             WaterEntry(id: "2", userId: "1", amountMl: 300, createdAt: "2026-05-18T15:00:00Z", updatedAt: nil),
         ],
-        goals: UserGoals(id: "1", userId: "1", dailyCaloriesGoal: 2200, dailyProteinGoal: 150, dailyFatGoal: 65, dailyCarbsGoal: 250, dailyWaterGoal: 3000, source: "auto", createdAt: nil, updatedAt: nil),
+        goals: UserGoals(id: "1", userId: "1", dailyCaloriesGoal: 2200, dailyProteinGoal: 150, dailyFatGoal: 65, dailyCarbsGoal: 250, dailyWaterGoal: 3000, dailyStepsGoal: 5000, dailyActiveCaloriesGoal: 450, weeklyWorkoutsGoal: 33, weeklyWorkoutMinutesGoal: 44, nightlySleepMinMinutes: 456, nightlySleepMaxMinutes: 600,  source: "auto", createdAt: nil, updatedAt: nil),
         state: .loaded
     )
 }

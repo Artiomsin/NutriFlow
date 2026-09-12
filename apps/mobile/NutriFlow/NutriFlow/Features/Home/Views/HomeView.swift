@@ -22,7 +22,7 @@ struct HomeView: View {
     @State private var editingFood: FoodEntry?
     @State private var foodSearchVM: FoodSearchViewModel?
     @State private var isConnectingHealth = false
-
+    
     
     init(homeViewModel: HomeViewModel, foodService: FoodServiceProtocol, coordinator: AppCoordinator? = nil, tabBarState: TabBarState = TabBarState()) {
         self.homeViewModel = homeViewModel
@@ -30,16 +30,16 @@ struct HomeView: View {
         self.coordinator = coordinator
         self.tabBarState = tabBarState
     }
-
+    
     private var needsHealthConnect: Bool {
         homeViewModel.activityVM.needsHealthConnect
-            || homeViewModel.sleepVM.needsHealthConnect
+        || homeViewModel.sleepVM.needsHealthConnect
     }
-
+    
     private func connectHealthKit() async {
         isConnectingHealth = true
         defer { isConnectingHealth = false }
-
+        
         await homeViewModel.connectHealth()
         await homeViewModel.workoutVM.loadLatest()
     }
@@ -87,13 +87,13 @@ struct HomeView: View {
                             coordinator: coordinator
                         )
                         ScanResultView(viewModel: resultVM, onFinished: popToRoot)
-
+                        
                     case .workoutHistory:
                         WorkoutHistoryView(vm: homeViewModel.workoutVM)
-
+                        
                     case .sleepHistory:
                         SleepHistoryView(vm: homeViewModel.sleepVM)
-
+                        
                     }
                 }
         }
@@ -118,15 +118,16 @@ struct HomeView: View {
                 header
                 
                 DailySummarySectionView(homeViewModel: homeViewModel)
-
+                
                 if needsHealthConnect {
                     HealthKitConnectCard(isConnecting: isConnectingHealth) {
                         await connectHealthKit()
                     }
                     .padding(.horizontal, AppTheme.paddingHorizontal)
                 } else {
-                    ActivityCard(vm: homeViewModel.activityVM)
-                        .padding(.horizontal, AppTheme.paddingHorizontal)
+                    ActivityCard(vm: homeViewModel.activityVM,stepGoal: homeViewModel.userGoals?.dailyStepsGoal, activeCaloriesGoal: homeViewModel.userGoals?.dailyActiveCaloriesGoal
+                    )
+                    .padding(.horizontal, AppTheme.paddingHorizontal)
                     LastWorkoutCard(
                         workout: homeViewModel.workoutVM.lastWorkout,
                         healthAccessDenied: homeViewModel.workoutVM.healthAccessDenied,
@@ -138,13 +139,17 @@ struct HomeView: View {
                             tabBarState.isTabBarHidden = true
                             navPath.append(HomeNavRoute.workoutHistory)
                             print("[Nav] appended workoutHistory, path=\(navPath)")
-                        }
+                        },
+                        weeklyWorkoutsGoal: homeViewModel.userGoals?.weeklyWorkoutsGoal,
+                        weeklyWorkoutMinutesGoal: homeViewModel.userGoals?.weeklyWorkoutMinutesGoal,
+                        weekWorkoutsCount: homeViewModel.workoutVM.weekWorkoutsCount,
+                        weekWorkoutMinutes: homeViewModel.workoutVM.weekWorkoutMinutes
                     )
                     .padding(.horizontal, AppTheme.paddingHorizontal)
-                    SleepCard(vm: homeViewModel.sleepVM) {
+                    SleepCard(vm: homeViewModel.sleepVM, onTap:  {
                         tabBarState.isTabBarHidden = true
                         navPath.append(HomeNavRoute.sleepHistory)
-                    }
+                    }, goals: homeViewModel.userGoals)
                     .padding(.horizontal, AppTheme.paddingHorizontal)
                 }
                 FoodSectionView(
@@ -293,7 +298,7 @@ private struct DailySummarySectionView: View {
 }
 
 extension HomeFactory {
-
+    
     @MainActor
     static func makePreviewViewModel() -> HomeViewModel {
         let coordinator = AppCoordinator(container: AppDependencyContainer())
@@ -313,7 +318,8 @@ extension HomeFactory {
         goalsVM.state = .loaded(UserGoals(
             id: "1", userId: "1",
             dailyCaloriesGoal: 2200, dailyProteinGoal: 150,
-            dailyFatGoal: 65, dailyCarbsGoal: 250, dailyWaterGoal: 3000,
+            dailyFatGoal: 65, dailyCarbsGoal: 250, dailyWaterGoal: 3000,dailyStepsGoal: 3000, dailyActiveCaloriesGoal: 233, weeklyWorkoutsGoal: 231,weeklyWorkoutMinutesGoal: 675,nightlySleepMinMinutes: 45,nightlySleepMaxMinutes: 342,
+            
             source: "auto", createdAt: nil, updatedAt: nil
         ))
         
@@ -366,7 +372,7 @@ extension HomeFactory {
             heartRateAvg: 58,
             segments: []
         )])
-
+        
         let vm = HomeViewModel(
             coordinator: coordinator,
             dailySummaryService: MockDailySummaryService(),

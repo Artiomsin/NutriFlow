@@ -48,6 +48,19 @@ final class WorkoutViewModel {
 
     var lastWorkout: HealthKitWorkout?
 
+    var weekWorkoutsCount: Int {
+        guard case .loaded(let items) = state,
+              let start = Calendar.current.dateInterval(of: .weekOfYear, for: Date())?.start else { return 0 }
+        return items.filter { $0.startDate >= start }.count
+    }
+
+    var weekWorkoutMinutes: Int {
+        guard case .loaded(let items) = state,
+              let start = Calendar.current.dateInterval(of: .weekOfYear, for: Date())?.start else { return 0 }
+        return items.filter { $0.startDate >= start }
+            .reduce(0) { $0 + Int($1.durationSeconds) / 60 }
+    }
+
     var isLoadMore: Bool = false
     var hasMore: Bool = false
     var loadMoreError: Bool = false
