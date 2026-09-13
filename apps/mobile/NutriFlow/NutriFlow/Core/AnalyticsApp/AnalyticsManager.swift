@@ -5,7 +5,7 @@ enum AnalyticsMode {
     case live
 }
 
-final class AnalyticsManager: @unchecked Sendable {
+final class AnalyticsManager: AnalyticsTracking, @unchecked Sendable {
     static let shared = AnalyticsManager()
 
     private var providers: [AnalyticsProvider] = []
@@ -18,11 +18,10 @@ final class AnalyticsManager: @unchecked Sendable {
     func setMode(_ mode: AnalyticsMode) {
         switch mode {
         case .debug:
-            providers = [ConsoleAnalyticsProvider()]
+            providers = []
         case .live:
             providers = [
                 AmplitudeAnalyticsProvider(apiKey: APIConfig.amplitudeApiKey),
-                ConsoleAnalyticsProvider(),
             ]
         }
     }

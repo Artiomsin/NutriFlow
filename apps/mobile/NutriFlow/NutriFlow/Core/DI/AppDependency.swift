@@ -19,7 +19,7 @@ protocol AppDependency {
     var dailySummaryService: DailySummaryServiceProtocol { get }
     var goalsService: GoalsServiceProtocol { get }
     var analyticsService: AnalyticsServiceProtocol { get }
-    var analyticsManager: AnalyticsManager { get }
+    var analyticsTracker: AnalyticsTracking { get }
     var cacheService: CacheService { get }
     var googleSignInService: GoogleSignInService { get }
     var activityHealthKitService: ActivityHealthKitServiceProtocol { get }

@@ -46,7 +46,6 @@ struct ProgressDashboardView: View {
             async let goals: () = goalsVM.loadGoals()
             (_, _, _) = await (analytics, charts, goals)
         }
-        .onAppear { AnalyticsManager.shared.track(.screenView(screen: "progress")) }
         .task {
             async let analytics: () = analyticsVM.loadAnalytics()
             async let charts: () = chartVM.loadChartData()

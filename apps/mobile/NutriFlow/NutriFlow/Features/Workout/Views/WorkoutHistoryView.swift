@@ -42,6 +42,7 @@ struct WorkoutHistoryView: View {
         .background(AppTheme.background)
         .task {
             print("[WorkoutView] view appeared")
+            vm.trackScreenView("workout_history")
             await vm.onAppear()
         }
         .refreshable { await vm.refresh() }
@@ -54,6 +55,7 @@ struct WorkoutHistoryView: View {
             .task {
                 await vm.loadHeartRate(for: workout)
                 await vm.loadSeries(for: workout)
+                vm.trackScreenView("workout_detail")
                 print(
                     "[WorkoutDetail] passed in: " +
                     "hrPoints=\(vm.heartRatePoints.count) " +

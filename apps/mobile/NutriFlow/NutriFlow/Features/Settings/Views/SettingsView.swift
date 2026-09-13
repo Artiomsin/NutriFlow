@@ -35,7 +35,6 @@ struct SettingsView: View {
             .background(AppTheme.background)
             .refreshable { await viewModel.loadData() }
             .task {
-                AnalyticsManager.shared.track(.screenView(screen: "settings"))
                 await viewModel.loadData()
             }
             .navigationDestination(for: SettingsNavRoute.self) { route in

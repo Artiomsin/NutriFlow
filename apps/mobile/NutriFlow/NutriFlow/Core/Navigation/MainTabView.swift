@@ -50,7 +50,8 @@ struct MainTabView: View {
             profileService: container.profileService,
             userService: container.userService,
             cacheService: container.cacheService,
-            activitySync: container.activitySync
+            activitySync: container.activitySync,
+            analyticsTracker: container.analyticsTracker
         ))
     }
 
@@ -58,7 +59,7 @@ struct MainTabView: View {
         ZStack(alignment: .bottom) {
             AppTheme.background.ignoresSafeArea()
 
-            HomeView(homeViewModel: homeVM, foodService: container.foodService, coordinator: coordinator, tabBarState: tabBarState)
+            HomeView(homeViewModel: homeVM, foodService: container.foodService, coordinator: coordinator, tabBarState: tabBarState, analyticsTracker: container.analyticsTracker)
                 .equatable()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .opacity(selectedTab == 0 ? 1 : 0)
@@ -94,10 +95,18 @@ struct MainTabView: View {
         ) { _ in
             Task { await homeVM.handleBecameActive() }
         }
-        .onChange(of: selectedTab) { _, _ in
+        .onChange(of: selectedTab) { _, newTab in
             tabBarState.isTabBarHidden = false
             tabBarState.isTabBarMinimized = false
+            trackActiveTab(newTab)
         }
+        .onAppear {
+            trackActiveTab(selectedTab)
+        }
+    }
+
+    private func trackActiveTab(_ tab: Int) {
+        TabScreen(rawValue: tab)?.trackOpen(container.analyticsTracker)
     }
 }
 

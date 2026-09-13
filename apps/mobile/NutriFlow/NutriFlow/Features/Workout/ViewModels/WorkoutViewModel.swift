@@ -125,6 +125,9 @@ final class WorkoutViewModel {
     private let cacheService: CacheService?
 
     @ObservationIgnored
+    private let analyticsTracker: AnalyticsTracking?
+
+    @ObservationIgnored
     private var total: Int = 0
 
     @ObservationIgnored
@@ -141,11 +144,17 @@ final class WorkoutViewModel {
     init(
         healthKit: WorkoutHealthKitServiceProtocol,
         workoutService: WorkoutServiceProtocol,
-        cacheService: CacheService? = nil
+        cacheService: CacheService? = nil,
+        analyticsTracker: AnalyticsTracking? = nil
     ) {
         self.healthKit = healthKit
         self.workoutService = workoutService
         self.cacheService = cacheService
+        self.analyticsTracker = analyticsTracker
+    }
+
+    func trackScreenView(_ screen: String) {
+        analyticsTracker?.track(.screenView(screen: screen))
     }
 
     deinit {

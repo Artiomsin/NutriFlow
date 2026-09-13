@@ -21,15 +21,21 @@ final class ServingPickerViewModel {
     private let service: FoodServiceProtocol
     private let prefsStore = PreferencesStore.shared
     @ObservationIgnored private weak var coordinator: AppCoordinator?
+    @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
 
-    init(food: CatalogFood, service: FoodServiceProtocol, todayFoodVM: TodayFoodViewModel, suggestedGrams: Int?, suggestedUnit: String?, coordinator: AppCoordinator?) {
+    init(food: CatalogFood, service: FoodServiceProtocol, todayFoodVM: TodayFoodViewModel, suggestedGrams: Int?, suggestedUnit: String?, coordinator: AppCoordinator?, analyticsTracker: AnalyticsTracking? = nil) {
         self.food = food
         self.service = service
         self.todayFoodVM = todayFoodVM
         self.suggestedGrams = suggestedGrams
         self.suggestedUnit = suggestedUnit
         self.coordinator = coordinator
+        self.analyticsTracker = analyticsTracker
         self.gramsText = Self.gramsToDisplay(suggestedGrams, suggestedUnit: suggestedUnit)
+    }
+
+    func trackScreenView() {
+        analyticsTracker?.track(.screenView(screen: "serving_picker"))
     }
 
     var baseUnit: String { suggestedUnit ?? "g" }
@@ -104,8 +110,6 @@ final class ServingPickerViewModel {
                 imageUrl: food.imageUrl,
                 date: nil
             )
-
-            AnalyticsManager.shared.track(.foodAdded(name: food.name, calories: cal))
 
             await todayFoodVM.reloadAfterMutation()
             todayFoodVM.notifyDataMutated()

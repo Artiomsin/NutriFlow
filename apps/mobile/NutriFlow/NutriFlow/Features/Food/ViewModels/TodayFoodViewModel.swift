@@ -77,7 +77,6 @@ final class TodayFoodViewModel {
             let df = DateFormatter()
             df.dateFormat = "yyyy-MM-dd"
             try await service.deleteFoodEntry(id: id, date: df.string(from: Date()))
-            AnalyticsManager.shared.track(.foodDeleted)
             await reloadAfterMutation()
             notifyDataMutated()
             return true

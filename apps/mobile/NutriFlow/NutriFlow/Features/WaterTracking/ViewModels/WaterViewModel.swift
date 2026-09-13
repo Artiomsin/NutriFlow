@@ -12,16 +12,22 @@ final class WaterViewModel {
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let cacheService: CacheService?
     @ObservationIgnored private let progressRefreshState: ProgressRefreshState?
+    @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
 
-    init(coordinator: AppCoordinator, service: WaterTrackingServiceProtocol, cacheService: CacheService? = nil, progressRefreshState: ProgressRefreshState? = nil) {
+    init(coordinator: AppCoordinator, service: WaterTrackingServiceProtocol, cacheService: CacheService? = nil, progressRefreshState: ProgressRefreshState? = nil, analyticsTracker: AnalyticsTracking? = nil) {
         print("WaterViewModel init")
         self.coordinator = coordinator
         self.service = service
         self.cacheService = cacheService
         self.progressRefreshState = progressRefreshState
+        self.analyticsTracker = analyticsTracker
     }
 
     deinit { print("WaterViewModel deinit") }
+
+    func trackScreenView() {
+        analyticsTracker?.track(.screenView(screen: "add_water"))
+    }
     
     func loadToday() async {
         if let cached: [WaterEntry] = try? await cacheService?.get("water_today") {
@@ -62,7 +68,6 @@ final class WaterViewModel {
             print("[Network] WaterVM createWater")
             #endif
             try await service.createWaterEntry(amountMl: ml, date: nil)
-            AnalyticsManager.shared.track(.waterAdded(amountMl: ml))
             await cacheService?.remove("water_today")
             await cacheService?.remove("dashboard_today")
             await cacheService?.remove("summary_today")
@@ -104,7 +109,6 @@ final class WaterViewModel {
             print("[Network] WaterVM deleteWater")
             #endif
             try await service.deleteWaterEntry(id: id, date: nil)
-            AnalyticsManager.shared.track(.waterDeleted)
             await cacheService?.remove("water_today")
             await cacheService?.remove("dashboard_today")
             await cacheService?.remove("summary_today")

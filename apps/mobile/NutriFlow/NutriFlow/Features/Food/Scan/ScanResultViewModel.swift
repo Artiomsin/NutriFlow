@@ -133,8 +133,13 @@ final class ScanResultViewModel {
     private let todayFoodVM: TodayFoodViewModel
     private let imageData: Data?
     @ObservationIgnored private weak var coordinator: AppCoordinator?
+    @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
 
     var preferredUnits: PreferredUnits { prefsStore.preferredUnits }
+
+    func trackScreenView() {
+        analyticsTracker?.track(.screenView(screen: "scan_result"))
+    }
 
     var previewImage: UIImage? {
         guard let imageData else { return nil }
@@ -147,7 +152,8 @@ final class ScanResultViewModel {
         service: FoodServiceProtocol,
         todayFoodVM: TodayFoodViewModel,
         coordinator: AppCoordinator?,
-        prefsStore: PreferencesStore = PreferencesStore.shared
+        prefsStore: PreferencesStore = PreferencesStore.shared,
+        analyticsTracker: AnalyticsTracking? = nil
     ) {
         self.items = items.map { EditableScanFood($0, preferred: prefsStore.preferredUnits) }
         self.imageData = imageData
@@ -155,6 +161,7 @@ final class ScanResultViewModel {
         self.todayFoodVM = todayFoodVM
         self.coordinator = coordinator
         self.prefsStore = prefsStore
+        self.analyticsTracker = analyticsTracker
     }
 
     var selectedItems: [EditableScanFood] {
@@ -258,8 +265,6 @@ final class ScanResultViewModel {
                     imageUrl: imageUrl,
                     date: nil
                 )
-
-                AnalyticsManager.shared.track(.foodAdded(name: item.name, calories: item.calories(preferred: preferredUnits)))
             }
 
             await todayFoodVM.reloadAfterMutation()

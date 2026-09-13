@@ -15,15 +15,19 @@ struct ScanFoodView: View {
     @State
     private var viewModel: ScanFoodViewModel
     
+    private let analyticsTracker: AnalyticsTracking?
+    
     @Environment(\.dismiss)
     private var dismiss
     
-    init (service: FoodServiceProtocol, onFinished: @escaping ([FoodAnalysisItem], Data?)-> Void){
+    init (service: FoodServiceProtocol, analyticsTracker: AnalyticsTracking? = nil, onFinished: @escaping ([FoodAnalysisItem], Data?)-> Void){
         self.onFinished = onFinished
+        self.analyticsTracker = analyticsTracker
         _viewModel = State(
             initialValue: ScanFoodViewModel(
                 camera: CameraService(),
-                foodService: service
+                foodService: service,
+                analyticsTracker: analyticsTracker
             )
         )
         
@@ -49,6 +53,7 @@ struct ScanFoodView: View {
         }
         .task {
             print("[Scan] view appear, preparing camera")
+            viewModel.trackScreenView()
             await viewModel.prepareCamera()
         }
         .onDisappear{

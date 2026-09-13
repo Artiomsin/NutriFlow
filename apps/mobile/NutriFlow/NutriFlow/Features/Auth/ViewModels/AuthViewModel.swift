@@ -14,15 +14,21 @@ final class AuthViewModel {
     @ObservationIgnored private let authService: AuthServiceProtocol
     @ObservationIgnored private let profileService: ProfileServiceProtocol
     @ObservationIgnored private let googleSignInService: GoogleSignInService
+    @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private var activitySync: ActivitySyncProtocol?
 
-    init(authService: AuthServiceProtocol, profileService: ProfileServiceProtocol, googleSignInService: GoogleSignInService, coordinator: AppCoordinator, activitySync: ActivitySyncProtocol? = nil) {
+    init(authService: AuthServiceProtocol, profileService: ProfileServiceProtocol, googleSignInService: GoogleSignInService, coordinator: AppCoordinator, activitySync: ActivitySyncProtocol? = nil, analyticsTracker: AnalyticsTracking? = nil) {
         self.authService = authService
         self.profileService = profileService
         self.googleSignInService = googleSignInService
+        self.analyticsTracker = analyticsTracker
         self.coordinator = coordinator
         self.activitySync = activitySync
+    }
+
+    func onAppear() {
+        analyticsTracker?.track(.screenView(screen: "auth"))
     }
     
     func login() async {
@@ -45,7 +51,7 @@ final class AuthViewModel {
             }
             
             state = .authenticated
-            AnalyticsManager.shared.track(.loggedIn)
+            analyticsTracker?.track(.loggedIn)
         } catch {
             state = .error(error.localizedDescription)
         }
@@ -62,7 +68,7 @@ final class AuthViewModel {
                 lastName: lastName
             )
             state = .authenticated
-            AnalyticsManager.shared.track(.registered)
+            analyticsTracker?.track(.registered)
             coordinator?.goToProfileForm()
         } catch {
             state = .error(error.localizedDescription)
@@ -90,7 +96,7 @@ final class AuthViewModel {
             }
             
             state = .authenticated
-            AnalyticsManager.shared.track(.loggedIn)
+            analyticsTracker?.track(.loggedIn)
         } catch let error as GoogleSignInError {
             if case .cancelled = error {
                 state = .idle
@@ -121,7 +127,7 @@ final class AuthViewModel {
             }
 
             state = .authenticated
-            AnalyticsManager.shared.track(.loggedIn)
+            analyticsTracker?.track(.loggedIn)
         } catch {
             state = .error(error.localizedDescription)
         }
@@ -135,11 +141,11 @@ func logout() async {
     do {
         try await authService.logout()
         state = .unauthenticated
-        AnalyticsManager.shared.track(.loggedOut)
+        analyticsTracker?.track(.loggedOut)
         coordinator?.goToAuth()
     } catch {
         state = .unauthenticated
-        AnalyticsManager.shared.track(.loggedOut)
+        analyticsTracker?.track(.loggedOut)
         coordinator?.goToAuth()
     }
 }

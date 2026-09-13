@@ -160,11 +160,7 @@ struct ProfileFormView: View {
         .onTapGesture {
             focusedField = nil
         }
-        .onAppear {
-            AnalyticsManager.shared.track(
-                .screenView(screen: "profile_form")
-            )
-        }
+        .onAppear { viewModel.trackScreen("profile_form") }
     }
 }
 

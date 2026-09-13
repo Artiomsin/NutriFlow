@@ -6,6 +6,7 @@ import Observation
 final class SleepViewModel {
 
     private let coordinator: SleepSyncProtocol
+    @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
 
 
 
@@ -32,8 +33,13 @@ final class SleepViewModel {
         }
     }
 
-    init(coordinator: SleepSyncProtocol) {
+    init(coordinator: SleepSyncProtocol, analyticsTracker: AnalyticsTracking? = nil) {
         self.coordinator = coordinator
+        self.analyticsTracker = analyticsTracker
+    }
+
+    func trackScreenView() {
+        analyticsTracker?.track(.screenView(screen: "sleep_history"))
     }
 
    

@@ -17,18 +17,20 @@ struct HomeView: View {
     let foodService: FoodServiceProtocol
     let coordinator: AppCoordinator?
     let tabBarState: TabBarState
-    
+    let analyticsTracker: AnalyticsTracking?
+
     @State private var navPath: [HomeNavRoute] = []
     @State private var editingFood: FoodEntry?
     @State private var foodSearchVM: FoodSearchViewModel?
     @State private var isConnectingHealth = false
     
     
-    init(homeViewModel: HomeViewModel, foodService: FoodServiceProtocol, coordinator: AppCoordinator? = nil, tabBarState: TabBarState = TabBarState()) {
+    init(homeViewModel: HomeViewModel, foodService: FoodServiceProtocol, coordinator: AppCoordinator? = nil, tabBarState: TabBarState = TabBarState(), analyticsTracker: AnalyticsTracking? = nil) {
         self.homeViewModel = homeViewModel
         self.foodService = foodService
         self.coordinator = coordinator
         self.tabBarState = tabBarState
+        self.analyticsTracker = analyticsTracker
     }
     
     private var needsHealthConnect: Bool {
@@ -51,7 +53,7 @@ struct HomeView: View {
                     let _ = print("[Nav] destination -> \(route)")
                     switch route {
                     case .addFood:
-                        let addFoodVM = AddFoodViewModel(service: foodService, coordinator: coordinator)
+                        let addFoodVM = AddFoodViewModel(service: foodService, coordinator: coordinator, analyticsTracker: analyticsTracker)
                         AddFoodView(onSave: popToRoot, viewModel: addFoodVM, todayFoodVM: homeViewModel.todayFoodVM, onSearchCatalog: {
                             navPath.append(HomeNavRoute.foodSearch)
                         }, onSelectPopular: { food in
@@ -61,12 +63,12 @@ struct HomeView: View {
                         searchView
                             .task {
                                 if foodSearchVM == nil {
-                                    foodSearchVM = FoodSearchViewModel(service: foodService)
+                                    foodSearchVM = FoodSearchViewModel(service: foodService, analyticsTracker: analyticsTracker)
                                 }
                             }
                         
                     case .servingPicker(let food, let suggestedGrams, let suggestedUnit):
-                        let pickerVM = ServingPickerViewModel(food: food, service: foodService, todayFoodVM: homeViewModel.todayFoodVM, suggestedGrams: suggestedGrams, suggestedUnit: suggestedUnit, coordinator: coordinator)
+                        let pickerVM = ServingPickerViewModel(food: food, service: foodService, todayFoodVM: homeViewModel.todayFoodVM, suggestedGrams: suggestedGrams, suggestedUnit: suggestedUnit, coordinator: coordinator, analyticsTracker: analyticsTracker)
                         ServingPickerView(viewModel: pickerVM, onSave: popToRoot)
                     case .addWater:
                         AddWaterView(
@@ -74,7 +76,7 @@ struct HomeView: View {
                             onSave: { Task { await homeViewModel.loadDashboardSummary() } }
                         )
                     case .scanFood:
-                        ScanFoodView(service: foodService) { items, imageData in
+                        ScanFoodView(service: foodService, analyticsTracker: analyticsTracker) { items, imageData in
                             navPath.append(HomeNavRoute.scanResult(items, imageData))
                         }
                         
@@ -84,7 +86,8 @@ struct HomeView: View {
                             imageData: imageData,
                             service: foodService,
                             todayFoodVM: homeViewModel.todayFoodVM,
-                            coordinator: coordinator
+                            coordinator: coordinator,
+                            analyticsTracker: analyticsTracker
                         )
                         ScanResultView(viewModel: resultVM, onFinished: popToRoot)
                         
@@ -103,7 +106,7 @@ struct HomeView: View {
         }
         .background(AppTheme.background)
         .sheet(item: $editingFood) { entry in
-            let vm = EditFoodViewModel(entry: entry, foodService: foodService, coordinator: coordinator)
+            let vm = EditFoodViewModel(entry: entry, foodService: foodService, coordinator: coordinator, analyticsTracker: analyticsTracker)
             EditFoodView(viewModel: vm) {
                 await homeViewModel.todayFoodVM.reloadAfterMutation()
                 homeViewModel.todayFoodVM.notifyDataMutated()
@@ -199,9 +202,6 @@ struct HomeView: View {
                 group.addTask { await homeViewModel.waterVM.loadToday() }
             }
             
-        }
-        .onAppear {
-            AnalyticsManager.shared.track(.screenView(screen: "home"))
         }
     }
     
