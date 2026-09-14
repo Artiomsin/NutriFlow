@@ -7,6 +7,7 @@ import { db } from '../db/db';
 import { userProfiles } from '../db/schema/userProfiles';
 import { eq } from 'drizzle-orm';
 import { GoalsService } from '../goals/goals.service';
+import { WeightLogsService } from '../weight-logs/weight-logs.service';
 
 
 import type {
@@ -16,7 +17,10 @@ import type {
 
 @Injectable()
 export class ProfilesService {
-  constructor(private goalsService: GoalsService) {} 
+  constructor(
+    private goalsService: GoalsService,
+    private weightLogsService: WeightLogsService,
+  ) {} 
   
   async create(data: CreateProfileDto & { userId: string }) {
     const [profile] = await db
@@ -39,10 +43,12 @@ export class ProfilesService {
       if (!existing) {
         throw new Error('Profile creation failed');
       }
+      await this.logInitialWeight(data.userId, data.weight);
       await this.goalsService.calculate(data.userId);
       return existing;
     }
 
+    await this.logInitialWeight(data.userId, data.weight);
     await this.goalsService.calculate(data.userId);
     return profile;
   }
@@ -79,6 +85,9 @@ export class ProfilesService {
       .where(eq(userProfiles.userId, userId))
       .returning();
 
+    if (data.weight !== undefined && data.weight !== existing.weight) {
+      await this.logInitialWeight(userId, data.weight);
+    }
 
     await this.goalsService.calculate(userId);
     return profile;
@@ -106,6 +115,16 @@ export class ProfilesService {
       .limit(1);
 
     return profile;
+  }
+
+  private async logInitialWeight(userId: string, weight: number | null | undefined) {
+    if (!weight) return;
+
+    try {
+      await this.weightLogsService.record(userId, { weightKg: weight });
+    } catch (e) {
+      console.error('[WeightLogs] failed to log initial weight:', e);
+    }
   }
 
   async findAll(limit = 50, offset = 0) {

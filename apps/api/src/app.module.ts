@@ -14,6 +14,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { ActivityModule } from './activity/activity.module';
 import { WorkoutsModule } from './workouts/workouts.module';
 import { SleepModule } from './sleep/sleep.module';
+import { WeightLogsModule } from './weight-logs/weight-logs.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { SleepModule } from './sleep/sleep.module';
     ActivityModule,
     WorkoutsModule,
     SleepModule,
+    WeightLogsModule,
   ],
 })
 export class AppModule {}
