@@ -20,7 +20,9 @@ enum ProgressFactory {
             waterService: container.waterTrackingService,
             goalsService: container.goalsService,
             activityService: container.activityService,
-            cacheService: cache
+            cacheService: cache,
+            profileService: container.profileService,
+            workoutService: container.workoutService
         )
         let goalsVM = GoalsViewModel(
             coordinator: coordinator,

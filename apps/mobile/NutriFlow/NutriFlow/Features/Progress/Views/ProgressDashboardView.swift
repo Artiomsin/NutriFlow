@@ -44,13 +44,15 @@ struct ProgressDashboardView: View {
             async let analytics: () = analyticsVM.refreshData()
             async let charts: () = chartVM.refreshData()
             async let goals: () = goalsVM.loadGoals()
-            (_, _, _) = await (analytics, charts, goals)
+            async let weight: () = chartVM.loadWeightSummary()
+            (_, _, _, _) = await (analytics, charts, goals, weight)
         }
         .task {
             async let analytics: () = analyticsVM.loadAnalytics()
             async let charts: () = chartVM.loadChartData()
             async let goals: () = goalsVM.loadGoals()
-            (_, _, _) = await (analytics, charts, goals)
+            async let weight: () = chartVM.loadWeightSummary()
+            (_, _, _, _) = await (analytics, charts, goals, weight)
             let revision = progressRefreshState.revision
             switch analyticsVM.state {
             case .loaded, .empty:
@@ -78,7 +80,8 @@ struct ProgressDashboardView: View {
                 water: chartVM.selectedDateWater,
                 goals: chartVM.selectedDateGoals,
                 state: chartVM.dayDetailState,
-                activity: chartVM.selectedDateActivity
+                activity: chartVM.selectedDateActivity,
+                workouts: chartVM.selectedDateWorkouts
             )
         }
     }
@@ -116,6 +119,13 @@ struct ProgressDashboardView: View {
                     avgWater: analytics.averageWater,
                     daysTracked: analytics.daysTracked,
                     totalDays: analytics.totalDays
+                )
+                WeightCardView(
+                    points: chartVM.weightPoints,
+                    latestKg: chartVM.weightLatestKg,
+                    deltaKg: chartVM.weightDeltaKg,
+                    weeklyRateKg: chartVM.weightWeeklyRateKg,
+                    periodLabel: chartVM.weightPeriodLabel
                 )
             }
         case .empty:
@@ -256,7 +266,9 @@ private struct ProgressPreviewContent: View {
             foodService: MockFoodService(),
             waterService: MockWaterService(),
             goalsService: MockGoalsService(),
-            activityService: MockActivityService()
+            activityService: MockActivityService(),
+            profileService: MockProfileService(),
+            workoutService: MockWorkoutService()
         )
         let goalsVM = GoalsViewModel(
             coordinator: coordinator,

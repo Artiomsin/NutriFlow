@@ -34,7 +34,7 @@ final class MockFoodService: FoodServiceProtocol {
         FoodEntry(id: id, userId: "1", name: name ?? "Updated", calories: calories ?? 100, protein: protein, fat: fat, carbs: carbs, foodId: foodId, grams: grams, unit: "g", categoryName: categoryName, imageUrl: nil, createdAt: "2026-05-18T10:00:00Z", updatedAt: "2026-05-18T11:00:00Z")
     }
     func deleteFoodEntry(id: String, date: String? = nil) async throws { }
-
+    
     func searchFood(query: String, limit: Int, offset: Int) async throws -> FoodSearchResponse {
         FoodSearchResponse(
             foods: [],
@@ -140,7 +140,7 @@ final class MockDailySummaryService: DailySummaryServiceProtocol {
             waterEntries: MockWaterService().getTodayWater()
         )
     }
-
+    
     func getDailySummaryRange(from: String, to: String) async throws -> [DailySummary] {
         let fmt = DateFormatter()
         fmt.dateFormat = "yyyy-MM-dd"
@@ -178,6 +178,21 @@ final class MockProfileService: ProfileServiceProtocol {
         UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: weight, height: height, age: age, gender: gender, goal: goal, activityLevel: activityLevel, preferredUnits: preferredUnits, createdAt: nil, updatedAt: nil)
     }
     func deleteMyProfile() async throws { }
+    func getWeightLogs(from: String?, to: String?) async throws -> [WeightLog] {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = TimeZone.current
+        let weights: [Double] = [80.0, 79.8, 79.9, 79.6, 79.7, 79.5, 79.4]
+        return weights.enumerated().compactMap{index, kg in
+            guard let date = Calendar.current.date(byAdding: .day, value: index - (weights.count - 1), to: Date())else { return nil }
+            return WeightLog(
+                id: "mock-wl-\(index)",
+                weightKg: String(format: "%.1f", kg),
+                entryDate: formatter.string(from: date),
+                source: "manual"
+            )
+}
+    }
 }
 
 final class MockUserService: UserServiceProtocol {
@@ -193,7 +208,7 @@ final class MockUserService: UserServiceProtocol {
     }
 }
 
-    
+
 final class MockAuthService: AuthServiceProtocol {
     func register(email: String, password: String, firstName: String, lastName: String) async throws { }
     func login(email: String, password: String) async throws { }
@@ -321,17 +336,24 @@ final class MockWorkoutService: WorkoutServiceProtocol {
 
         let cal = Calendar.current
         var workouts: [WorkoutSyncEntry] = []
-        let counts = [3, 2, 1]
-        for count in counts {
-            guard let date = cal.date(byAdding: .day, value: -count, to: end) else { continue }
+        let templates: [(type: String, hour: Int, minute: Int, minutes: Int, kcal: Double, meters: Double?)] = [
+            ("Running", 8, 30, 45, 340, 5200),
+            ("Strength Training", 18, 0, 30, 240, nil),
+            ("Cycling", 12, 0, 60, 420, 18000),
+        ]
+        for template in templates {
+            var comps = cal.dateComponents([.year, .month, .day], from: end)
+            comps.hour = template.hour
+            comps.minute = template.minute
+            guard let start = cal.date(from: comps) else { continue }
             workouts.append(WorkoutSyncEntry(
                 healthKitWorkoutId: UUID().uuidString,
-                type: "Strength Training",
-                startDate: WorkoutMapper.isoString(from: date),
-                endDate: WorkoutMapper.isoString(from: date.addingTimeInterval(45 * 60)),
-                durationSeconds: 45 * 60,
-                caloriesBurned: 300,
-                distanceMeters: nil,
+                type: template.type,
+                startDate: WorkoutMapper.isoString(from: start),
+                endDate: WorkoutMapper.isoString(from: start.addingTimeInterval(Double(template.minutes) * 60)),
+                durationSeconds: Double(template.minutes) * 60,
+                caloriesBurned: template.kcal,
+                distanceMeters: template.meters,
                 heartRateAvg: 130,
                 heartRateMax: nil,
                 heartRateMin: nil,
@@ -366,7 +388,7 @@ final class MockSleepService: SleepServiceProtocol {
         df.timeZone = .current
         let start = from.flatMap { df.date(from: $0) } ?? Date()
         let end = to.flatMap { df.date(from: $0) } ?? Date()
-
+        
         var nights: [SleepSyncEntry] = []
         var day = start
         var index = 0
@@ -400,9 +422,9 @@ final class MockSleepService: SleepServiceProtocol {
 final class MockSleepHealthKit: SleepHealthKitServiceProtocol {
     var isAvailable: Bool { true }
     func permissionState() async -> HealthKitPermissionState { .authorized }
-
+    
     func requestAuthorization() async throws {}
-
+    
     func fetchHeartRateDuringSleep(
         from startDate: Date,
         to endDate: Date
@@ -425,10 +447,10 @@ final class MockSleepHealthKit: SleepHealthKitServiceProtocol {
         let deep = asleep * 0.21
         let rem = asleep * 0.22
         let awake = 900 * (1 + variation)
-
+        
         let nightStart = startDate.addingTimeInterval(7 * 3600)
         let nightEnd = startDate.addingTimeInterval(15 * 3600 + awake)
-
+        
         return HealthKitSleep(
             id: mockNightID(start: nightStart, end: nightEnd),
             startDate: nightStart,
@@ -456,13 +478,13 @@ final class MockSleepHealthKit: SleepHealthKitServiceProtocol {
             ]
         )
     }
-
+    
     func fetchSleep(from startDate: Date, to endDate: Date) async throws -> HealthKitSleep? {
         sampleNight(from: startDate, variation: 0.15)
     }
     
     
-
+    
     func fetchNights(from startDate: Date, to endDate: Date) async throws -> [HealthKitSleep] {
         (0..<7).map { day in
             sampleNight(from: startDate.addingTimeInterval(TimeInterval(day) * 86_400), variation: Double(day) * 0.07)
@@ -495,7 +517,7 @@ private func mockNightID(start: Date, end: Date) -> UUID {
 final class MockHealthKit: ActivityHealthKitServiceProtocol, WorkoutHealthKitServiceProtocol {
     var isAvailable: Bool { true }
     var onActivityChanged: (() -> Void)?
-
+    
     static let sampleWorkout = HealthKitWorkout(
         id: UUID(),
         workoutType: "Running",
@@ -508,7 +530,7 @@ final class MockHealthKit: ActivityHealthKitServiceProtocol, WorkoutHealthKitSer
         heartRateMax: 165,
         heartRateMin: 115
     )
-
+    
     func requestAuthorization() async throws {}
     func fetchToday() async -> DailyActivity {
         DailyActivity(date: "", steps: 0, activeCalories: 0, basalCalories: 0, distanceMeters: 0)
@@ -524,7 +546,7 @@ final class MockHealthKit: ActivityHealthKitServiceProtocol, WorkoutHealthKitSer
             HeartRatePoint(startDate: date, bpm: Double(Int.random(in: 110...150)))
         }
     }
-
+    
     func fetchWorkoutSeries(kind: WorkoutSeriesKind, workout: HealthKitWorkout) async -> [WorkoutSeriesPoint] {
         let startValue = kind == .speed ? 2.4 : kind == .cadence ? 84 : 210.0
         return stride(from: workout.startDate, through: workout.endDate, by: 120).enumerated().map { index, date in

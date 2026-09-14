@@ -7,6 +7,7 @@ struct DayDetailSheet: View {
     let goals: UserGoals?
     let state: DayDetailState
     let activity: ActivityDayPoint?
+    let workouts: [HealthKitWorkout]
     @State private var prefsStore = PreferencesStore.shared
 
     var body: some View {
@@ -47,6 +48,7 @@ struct DayDetailSheet: View {
         VStack(spacing: 20) {
             if let goals { goalSection(goals) }
             if let activity { activitySection(activity, goals: goals) }
+            workoutSection
             foodSection
             waterSection
         }
@@ -129,6 +131,26 @@ struct DayDetailSheet: View {
                     color: .pink,
                     icon: "flame.fill"
                 )
+            }
+        }
+        .padding()
+        .background(AppTheme.cardBackground)
+        .cornerRadius(AppTheme.cornerRadiusMedium)
+    }
+
+    private var workoutSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel("Workouts (\(workouts.count))", icon: "dumbbell.fill")
+
+            if workouts.isEmpty {
+                emptyRow("No workouts this day")
+            } else {
+                ForEach(workouts) { workout in
+                    WorkoutDayRow(workout: workout)
+                    if workout.id != workouts.last?.id {
+                        Divider().background(AppTheme.textTertiary.opacity(0.15))
+                    }
+                }
             }
         }
         .padding()
@@ -352,6 +374,57 @@ struct WaterRow: View {
     }
 }
 
+struct WorkoutDayRow: View {
+    let workout: HealthKitWorkout
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(Color.green.opacity(0.15))
+                .frame(width: 36, height: 36)
+                .overlay(Image(systemName: WorkoutFormatter.icon(for: workout.workoutType)).font(.caption2).foregroundColor(.green))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(workout.workoutType)
+                    .font(.body.weight(.medium))
+                    .foregroundColor(AppTheme.textPrimary)
+                HStack(spacing: 6) {
+                    Text(formatTime(WorkoutMapper.isoString(from: workout.startDate)))
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textTertiary)
+                    Text("· \(WorkoutFormatter.formattedDuration(workout.durationSeconds))")
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textTertiary)
+                }
+            }
+
+            Spacer()
+
+            if let kcal = workout.caloriesBurned {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\(UnitConversion.formatEnergyValue(kcal: Int(kcal), preferred: PreferencesStore.shared.preferredUnits))")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.green)
+                    Text(UnitConversion.formatEnergyUnit(preferred: PreferencesStore.shared.preferredUnits))
+                        .font(.caption2)
+                        .foregroundColor(AppTheme.textTertiary)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+private func previewDate(_ year: Int, _ month: Int, _ day: Int, _ hour: Int, _ minute: Int) -> Date {
+    var comps = DateComponents()
+    comps.year = year
+    comps.month = month
+    comps.day = day
+    comps.hour = hour
+    comps.minute = minute
+    return Calendar.current.date(from: comps) ?? Date()
+}
+
 func formatTime(_ iso: String) -> String {
     let fmt = ISO8601DateFormatter()
     fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -371,17 +444,37 @@ func formatTime(_ iso: String) -> String {
 
 #Preview("Day Detail") {
     DayDetailSheet(
-        dateStr: "2026-05-18",
+        dateStr: "2026-09-09",
         food: [
-            FoodEntry(id: "1", userId: "1", name: "Oatmeal", calories: 320, protein: 12, fat: 6, carbs: 56, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T08:00:00Z", updatedAt: nil),
-            FoodEntry(id: "2", userId: "1", name: "Chicken Breast", calories: 450, protein: 40, fat: 10, carbs: 0, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T13:00:00Z", updatedAt: nil),
+            FoodEntry(id: "1", userId: "1", name: "Oatmeal", calories: 320, protein: 12, fat: 6, carbs: 56, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-09-09T08:00:00Z", updatedAt: nil),
+            FoodEntry(id: "2", userId: "1", name: "Chicken Breast", calories: 450, protein: 40, fat: 10, carbs: 0, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-09-09T13:00:00Z", updatedAt: nil),
         ],
         water: [
-            WaterEntry(id: "1", userId: "1", amountMl: 500, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
-            WaterEntry(id: "2", userId: "1", amountMl: 300, createdAt: "2026-05-18T15:00:00Z", updatedAt: nil),
+            WaterEntry(id: "1", userId: "1", amountMl: 500, createdAt: "2026-09-09T10:00:00Z", updatedAt: nil),
+            WaterEntry(id: "2", userId: "1", amountMl: 300, createdAt: "2026-09-09T15:00:00Z", updatedAt: nil),
         ],
         goals: UserGoals(id: "1", userId: "1", dailyCaloriesGoal: 2200, dailyProteinGoal: 150, dailyFatGoal: 65, dailyCarbsGoal: 250, dailyWaterGoal: 3000, dailyStepsGoal: 5000, dailyActiveCaloriesGoal: 450, weeklyWorkoutsGoal: 33, weeklyWorkoutMinutesGoal: 44, nightlySleepMinMinutes: 456, nightlySleepMaxMinutes: 600,  source: "auto", createdAt: nil, updatedAt: nil),
         state: .loaded,
-        activity: ActivityDayPoint(date: "2026-05-18", steps: 8400, activeCalories: 380, basalCalories: 1700, distanceMeters: 6200, caloriesConsumed: 1950, netCalories: 1570)
+        activity: ActivityDayPoint(date: "2026-09-09", steps: 8400, activeCalories: 380, basalCalories: 1700, distanceMeters: 6200, caloriesConsumed: 1950, netCalories: 1570),
+        workouts: [
+            HealthKitWorkout(
+                id: UUID(),
+                workoutType: "Running",
+                startDate: previewDate(2026, 9, 9, 8, 30),
+                endDate: previewDate(2026, 9, 9, 9, 15),
+                durationSeconds: 2700,
+                caloriesBurned: 340,
+                distanceMeters: 5200
+            ),
+            HealthKitWorkout(
+                id: UUID(),
+                workoutType: "Strength Training",
+                startDate: previewDate(2026, 9, 9, 18, 0),
+                endDate: previewDate(2026, 9, 9, 18, 30),
+                durationSeconds: 1800,
+                caloriesBurned: 240,
+                distanceMeters: nil
+            )
+        ]
     )
 }
