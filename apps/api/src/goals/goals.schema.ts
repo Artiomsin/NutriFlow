@@ -1,6 +1,5 @@
 import { z } from 'zod';
 
-
 export const updateGoalsSchema = z.object({
   dailyCaloriesGoal: z.number().int().positive().nullable().optional(),
   dailyProteinGoal: z.number().int().positive().nullable().optional(),

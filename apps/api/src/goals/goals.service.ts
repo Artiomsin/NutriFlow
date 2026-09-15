@@ -9,6 +9,11 @@ import { userProfiles } from '../db/schema/userProfiles';
 import { eq } from 'drizzle-orm';
 import type { UpdateGoalsDto } from './goals.schema';
 import { invalidateAnalyticsCache } from '../redis';
+import {
+  recordGoalHistory,
+  rowToGoalMetrics,
+  EMPTY_GOALS_METRICS,
+} from './goals-history';
 
 @Injectable()
 export class GoalsService {
@@ -34,12 +39,19 @@ export class GoalsService {
         .update(userGoals)
         .set({
           ...data,
-          source: 'manual',
+          source: 'user',
           updatedAt: new Date(),
         })
         .where(eq(userGoals.userId, userId))
         .returning();
 
+      await recordGoalHistory(
+        userId,
+        rowToGoalMetrics(existing),
+        rowToGoalMetrics(goals),
+        'user',
+        'user_edit',
+      );
       await invalidateAnalyticsCache(userId);
 
       return goals;
@@ -50,10 +62,17 @@ export class GoalsService {
       .values({
         userId,
         ...data,
-        source: 'manual',
+        source: 'user',
       })
       .returning();
 
+    await recordGoalHistory(
+      userId,
+      EMPTY_GOALS_METRICS,
+      rowToGoalMetrics(goals),
+      'user',
+      'user_edit',
+    );
     await invalidateAnalyticsCache(userId);
 
     return goals;
@@ -70,14 +89,7 @@ export class GoalsService {
       throw new NotFoundException('Profile not found');
     }
 
-    const {
-      weight,
-      height,
-      age,
-      gender,
-      goal,
-      activityLevel,
-    } = profile;
+    const { weight, height, age, gender, goal, activityLevel } = profile;
 
     if (!weight || !height || !age || !gender || !goal || !activityLevel) {
       throw new BadRequestException(
@@ -96,8 +108,7 @@ export class GoalsService {
     const proteinCals = protein * 4;
     const fatCals = fat * 9;
 
-    const carbs =
-      (goalCalories - proteinCals - fatCals) / 4;
+    const carbs = (goalCalories - proteinCals - fatCals) / 4;
 
     const waterMultipliers: Record<string, number> = {
       low: 30,
@@ -105,18 +116,14 @@ export class GoalsService {
       high: 40,
     };
 
-    const water =
-      weight * (waterMultipliers[activityLevel] ?? 35);
+    const water = weight * (waterMultipliers[activityLevel] ?? 35);
 
     // Activity / workout / sleep
-    const activityGoals =
-      this.calculateActivityGoals(activityLevel);
+    const activityGoals = this.calculateActivityGoals(activityLevel);
 
-    const workoutGoals =
-      this.calculateWorkoutGoals(activityLevel);
+    const workoutGoals = this.calculateWorkoutGoals(activityLevel);
 
-    const sleepGoals =
-      this.calculateSleepGoals();
+    const sleepGoals = this.calculateSleepGoals();
 
     const calculated = {
       // Nutrition
@@ -142,39 +149,28 @@ export class GoalsService {
     const existing = await this.findByUserIdSafe(userId);
 
     if (existing) {
-      if (existing.source === 'manual') {
+      if (existing.source !== 'initial') {
         const merged = {
           dailyCaloriesGoal:
-            existing.dailyCaloriesGoal ??
-            calculated.dailyCaloriesGoal,
+            existing.dailyCaloriesGoal ?? calculated.dailyCaloriesGoal,
 
           dailyProteinGoal:
-            existing.dailyProteinGoal ??
-            calculated.dailyProteinGoal,
+            existing.dailyProteinGoal ?? calculated.dailyProteinGoal,
 
-          dailyFatGoal:
-            existing.dailyFatGoal ??
-            calculated.dailyFatGoal,
+          dailyFatGoal: existing.dailyFatGoal ?? calculated.dailyFatGoal,
 
-          dailyCarbsGoal:
-            existing.dailyCarbsGoal ??
-            calculated.dailyCarbsGoal,
+          dailyCarbsGoal: existing.dailyCarbsGoal ?? calculated.dailyCarbsGoal,
 
-          dailyWaterGoal:
-            existing.dailyWaterGoal ??
-            calculated.dailyWaterGoal,
+          dailyWaterGoal: existing.dailyWaterGoal ?? calculated.dailyWaterGoal,
 
-          dailyStepsGoal:
-            existing.dailyStepsGoal ??
-            calculated.dailyStepsGoal,
+          dailyStepsGoal: existing.dailyStepsGoal ?? calculated.dailyStepsGoal,
 
           dailyActiveCaloriesGoal:
             existing.dailyActiveCaloriesGoal ??
             calculated.dailyActiveCaloriesGoal,
 
           weeklyWorkoutsGoal:
-            existing.weeklyWorkoutsGoal ??
-            calculated.weeklyWorkoutsGoal,
+            existing.weeklyWorkoutsGoal ?? calculated.weeklyWorkoutsGoal,
 
           weeklyWorkoutMinutesGoal:
             existing.weeklyWorkoutMinutesGoal ??
@@ -188,7 +184,10 @@ export class GoalsService {
             existing.nightlySleepMaxMinutes ??
             calculated.nightlySleepMaxMinutes,
 
-          source: 'manual' as const,
+          source:
+            existing.source === 'personalized'
+              ? ('personalized' as const)
+              : ('user' as const),
           updatedAt: new Date(),
         };
 
@@ -197,6 +196,14 @@ export class GoalsService {
           .set(merged)
           .where(eq(userGoals.userId, userId))
           .returning();
+
+        await recordGoalHistory(
+          userId,
+          rowToGoalMetrics(existing),
+          rowToGoalMetrics(goals),
+          goals?.source ?? 'user',
+          'profile_recalculation',
+        );
 
         await invalidateAnalyticsCache(userId);
 
@@ -207,11 +214,19 @@ export class GoalsService {
         .update(userGoals)
         .set({
           ...calculated,
-          source: 'auto',
+          source: 'initial',
           updatedAt: new Date(),
         })
         .where(eq(userGoals.userId, userId))
         .returning();
+
+      await recordGoalHistory(
+        userId,
+        rowToGoalMetrics(existing),
+        rowToGoalMetrics(goals),
+        'initial',
+        'profile_recalculation',
+      );
 
       await invalidateAnalyticsCache(userId);
 
@@ -223,9 +238,17 @@ export class GoalsService {
       .values({
         userId,
         ...calculated,
-        source: 'auto',
+        source: 'initial',
       })
       .returning();
+
+    await recordGoalHistory(
+      userId,
+      EMPTY_GOALS_METRICS,
+      rowToGoalMetrics(goals),
+      'initial',
+      'initial_calculation',
+    );
 
     await invalidateAnalyticsCache(userId);
 
@@ -248,10 +271,7 @@ export class GoalsService {
       },
     };
 
-    return (
-      goals[activityLevel as keyof typeof goals] ??
-      goals.medium
-    );
+    return goals[activityLevel as keyof typeof goals] ?? goals.medium;
   }
 
   private calculateWorkoutGoals(activityLevel: string) {
@@ -270,10 +290,7 @@ export class GoalsService {
       },
     };
 
-    return (
-      goals[activityLevel as keyof typeof goals] ??
-      goals.medium
-    );
+    return goals[activityLevel as keyof typeof goals] ?? goals.medium;
   }
 
   private calculateSleepGoals() {
@@ -289,62 +306,39 @@ export class GoalsService {
     age: number,
     gender: string,
   ): number {
-    const base =
-      10 * weight +
-      6.25 * height -
-      5 * age;
+    const base = 10 * weight + 6.25 * height - 5 * age;
 
-    return gender === 'female'
-      ? base - 161
-      : base + 5;
+    return gender === 'female' ? base - 161 : base + 5;
   }
 
-  private calculateTDEE(
-    bmr: number,
-    activityLevel: string,
-  ): number {
+  private calculateTDEE(bmr: number, activityLevel: string): number {
     const multipliers: Record<string, number> = {
       low: 1.2,
       medium: 1.55,
       high: 1.9,
     };
 
-    return (
-      bmr *
-      (multipliers[activityLevel] ?? 1.2)
-    );
+    return bmr * (multipliers[activityLevel] ?? 1.2);
   }
 
-  private adjustForGoal(
-    tdee: number,
-    goal: string,
-  ): number {
+  private adjustForGoal(tdee: number, goal: string): number {
     const adjustments: Record<string, number> = {
       lose: 0.8,
       gain: 1.15,
       maintain: 1.0,
     };
 
-    return (
-      tdee *
-      (adjustments[goal] ?? 1.0)
-    );
+    return tdee * (adjustments[goal] ?? 1.0);
   }
 
-  private calculateProtein(
-    weight: number,
-    goal: string,
-  ): number {
+  private calculateProtein(weight: number, goal: string): number {
     const perKg: Record<string, number> = {
       lose: 2.0,
       gain: 2.0,
       maintain: 1.6,
     };
 
-    return (
-      weight *
-      (perKg[goal] ?? 1.6)
-    );
+    return weight * (perKg[goal] ?? 1.6);
   }
 
   private async findByUserIdSafe(userId: string) {
