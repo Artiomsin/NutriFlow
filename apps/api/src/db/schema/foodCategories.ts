@@ -1,9 +1,4 @@
-import {
-  pgSchema,
-  uuid,
-  varchar,
-  timestamp,
-} from 'drizzle-orm/pg-core';
+import { pgSchema, uuid, varchar, timestamp } from 'drizzle-orm/pg-core';
 
 const app = pgSchema('app');
 

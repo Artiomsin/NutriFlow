@@ -10,21 +10,30 @@ import { users } from './users';
 
 const app = pgSchema('app');
 
-export const waterEntries = app.table('water_entries', {
-  id: uuid('id').primaryKey().defaultRandom(),
+export const waterEntries = app.table(
+  'water_entries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
 
-  userId: uuid('user_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
 
-  amountMl: integer('amount_ml').notNull(),
+    amountMl: integer('amount_ml').notNull(),
 
-  entryDate: date('entry_date'),
+    entryDate: date('entry_date'),
 
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-}, (table) => ({
-  userDateIdx: index('idx_water_entries_user_date').on(table.userId, table.entryDate),
-}));
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    userDateIdx: index('idx_water_entries_user_date').on(
+      table.userId,
+      table.entryDate,
+    ),
+  }),
+);
 
 export type WaterEntry = typeof waterEntries.$inferSelect;
 export type NewWaterEntry = typeof waterEntries.$inferInsert;
