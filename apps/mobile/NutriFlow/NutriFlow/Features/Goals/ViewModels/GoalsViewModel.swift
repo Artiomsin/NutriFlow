@@ -121,11 +121,24 @@ final class GoalsViewModel {
     }
     
     func loadPersonalization() async {
+        if let cached: PersonalizationState = try? await cacheService?.get("goals_personalization") {
+            personalizationState = cached
+            return
+        }
         do {
-            personalizationState = try await service.getPersonalizationState()
+            let state = try await service.getPersonalizationState()
+            try? await cacheService?.set("goals_personalization", state, ttl: 300)
+            personalizationState = state
         } catch let error as APIError {
             if case .unauthorized = error { coordinator?.goToAuth() }
-        } catch {}
+            if let cached: PersonalizationState = try? await cacheService?.get("goals_personalization", ignoreTTL: true) {
+                personalizationState = cached
+            }
+        } catch {
+            if let cached: PersonalizationState = try? await cacheService?.get("goals_personalization", ignoreTTL: true) {
+                personalizationState = cached
+            }
+        }
     }
 
     @discardableResult
@@ -136,6 +149,7 @@ final class GoalsViewModel {
 
         do {
             let result = try await service.personalizeGoals()
+            await cacheService?.remove("goals_personalization")
             switch result {
             case .created(let rec), .pendingExists(let rec):
                 personalizationState = PersonalizationState(pending: rec, personalizationDue: false)
@@ -173,6 +187,7 @@ final class GoalsViewModel {
                 await loadGoals()
             }
             personalizationState = PersonalizationState(pending: nil, personalizationDue: false)
+            await cacheService?.remove("goals_personalization")
             return true
         } catch let error as APIError {
             if case .unauthorized = error { coordinator?.goToAuth() }
@@ -191,6 +206,7 @@ final class GoalsViewModel {
         do {
             _ = try await service.dismissRecommendation(id: recommendation.id)
             personalizationState = PersonalizationState(pending: nil, personalizationDue: false)
+            await cacheService?.remove("goals_personalization")
             return true
         } catch let error as APIError {
             if case .unauthorized = error { coordinator?.goToAuth() }
@@ -200,15 +216,19 @@ final class GoalsViewModel {
         }
     }
 
-    func loadGoalHistory() async -> [GoalHistoryEntry]{
+    func loadGoalHistory() async -> [GoalHistoryEntry] {
+        if let cached: [GoalHistoryEntry] = try? await cacheService?.get("goals_history") {
+            return cached
+        }
         do {
-            return try await service.getGoalHistory()
-        }catch let error as APIError {
-            if case .unauthorized = error { coordinator?.goToAuth()
-            }
-            return []
+            let entries = try await service.getGoalHistory()
+            try? await cacheService?.set("goals_history", entries, ttl: 300)
+            return entries
+        } catch let error as APIError {
+            if case .unauthorized = error { coordinator?.goToAuth() }
+            return (try? await cacheService?.get("goals_history", ignoreTTL: true)) ?? []
         } catch {
-            return []
+            return (try? await cacheService?.get("goals_history", ignoreTTL: true)) ?? []
         }
     }
 
@@ -242,6 +262,7 @@ final class GoalsViewModel {
             )
             state = .loaded(updated)
             try? await cacheService?.set("goals", updated, ttl: 1800)
+            await cacheService?.remove("goals_history")
             return true
         } catch let error as APIError {
             if case .unauthorized = error { coordinator?.goToAuth() }
