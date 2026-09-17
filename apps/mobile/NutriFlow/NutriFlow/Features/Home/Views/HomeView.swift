@@ -23,6 +23,7 @@ struct HomeView: View {
     @State private var editingFood: FoodEntry?
     @State private var foodSearchVM: FoodSearchViewModel?
     @State private var isConnectingHealth = false
+    @State private var hasLoaded = false
     
     
     init(homeViewModel: HomeViewModel, foodService: FoodServiceProtocol, coordinator: AppCoordinator? = nil, tabBarState: TabBarState = TabBarState(), analyticsTracker: AnalyticsTracking? = nil) {
@@ -209,16 +210,17 @@ struct HomeView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .refreshable { await homeViewModel.refreshAll() }
-        .task {
-            await withDiscardingTaskGroup { group in
-                group.addTask { await homeViewModel.onAppear() }
-                group.addTask { await homeViewModel.loadAll() }
-                group.addTask { await homeViewModel.todayFoodVM.loadToday() }
-                group.addTask { await homeViewModel.waterVM.loadToday() }
-                group.addTask { await homeViewModel.goalsVM.loadPersonalization() }
+        .refreshable {
+            let task = Task { await homeViewModel.refreshAll() }
+            await task.value
+        }
+        .onAppear {
+            guard !hasLoaded else { return }
+            hasLoaded = true
+            Task {
+                await homeViewModel.onAppear()
+                await homeViewModel.loadAll()
             }
-            
         }
     }
     
@@ -249,12 +251,6 @@ struct HomeView: View {
         tabBarState.isTabBarHidden = false
         tabBarState.isTabBarMinimized = false
         Task { await homeViewModel.loadDashboardSummary() }
-    }
-}
-
-extension HomeView: Equatable {
-    static func == (lhs: HomeView, rhs: HomeView) -> Bool {
-        lhs.tabBarState === rhs.tabBarState
     }
 }
 

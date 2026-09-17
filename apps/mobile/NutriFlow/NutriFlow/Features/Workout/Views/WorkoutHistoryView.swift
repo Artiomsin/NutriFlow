@@ -45,7 +45,10 @@ struct WorkoutHistoryView: View {
             vm.trackScreenView("workout_history")
             await vm.onAppear()
         }
-        .refreshable { await vm.refresh() }
+        .refreshable {
+            let task = Task { await vm.refresh() }
+            await task.value
+        }
         .navigationDestination(item: $vm.selectedWorkout) { workout in
             WorkoutDetailView(
                 workout: workout,

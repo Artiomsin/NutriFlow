@@ -60,7 +60,6 @@ struct MainTabView: View {
             AppTheme.background.ignoresSafeArea()
 
             HomeView(homeViewModel: homeVM, foodService: container.foodService, coordinator: coordinator, tabBarState: tabBarState, analyticsTracker: container.analyticsTracker)
-                .equatable()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .opacity(selectedTab == 0 ? 1 : 0)
                 .allowsHitTesting(selectedTab == 0)

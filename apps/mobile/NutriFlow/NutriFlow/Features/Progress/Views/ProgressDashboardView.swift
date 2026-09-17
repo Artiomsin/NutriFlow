@@ -41,11 +41,14 @@ struct ProgressDashboardView: View {
             tabBarState: tabBarState
         )
         .refreshable {
-            async let analytics: () = analyticsVM.refreshData()
-            async let charts: () = chartVM.refreshData()
-            async let goals: () = goalsVM.loadGoals()
-            async let weight: () = chartVM.loadWeightSummary()
-            (_, _, _, _) = await (analytics, charts, goals, weight)
+            let task = Task {
+                async let analytics: () = analyticsVM.refreshData()
+                async let charts: () = chartVM.refreshData()
+                async let goals: () = goalsVM.loadGoals()
+                async let weight: () = chartVM.loadWeightSummary()
+                (_, _, _, _) = await (analytics, charts, goals, weight)
+            }
+            await task.value
         }
         .task {
             async let analytics: () = analyticsVM.loadAnalytics()

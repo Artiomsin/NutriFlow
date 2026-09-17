@@ -43,7 +43,10 @@ struct SettingsView: View {
                 isActive: { navPath.isEmpty }
             )
             .background(AppTheme.background)
-            .refreshable { await viewModel.loadData() }
+            .refreshable {
+                let task = Task { await viewModel.loadData() }
+                await task.value
+            }
             .task {
                 await viewModel.loadData()
             }

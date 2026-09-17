@@ -49,7 +49,10 @@ struct SleepHistoryView: View {
                 }
             }
         }
-        .refreshable { await vm.refreshHistory() }
+        .refreshable {
+            let task = Task { await vm.refreshHistory() }
+            await task.value
+        }
         .background(AppTheme.background)
         .navigationTitle("Sleep")
         .navigationBarTitleDisplayMode(.inline)
