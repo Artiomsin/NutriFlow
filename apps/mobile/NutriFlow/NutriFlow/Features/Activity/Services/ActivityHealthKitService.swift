@@ -171,7 +171,7 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
             options: .strictStartDate
         )
 
-        return await withCheckedContinuation(isolation: MainActor.shared) { continuation in
+        return await withCheckedContinuation { continuation in
 
             let query = HKStatisticsQuery(
                 quantityType: type,
