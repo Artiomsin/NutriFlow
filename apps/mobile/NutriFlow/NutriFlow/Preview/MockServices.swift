@@ -289,6 +289,39 @@ final class MockAnalyticsService: AnalyticsServiceProtocol {
 }
 
 final class MockGoalsService: GoalsServiceProtocol {
+    
+    func personalizeGoals() async throws -> PersonalizeResult {
+        .insufficientData
+
+    }
+    
+    func getPersonalizationState() async throws -> PersonalizationState {
+        PersonalizationState(pending: nil, personalizationDue: false)
+    }
+    func dismissRecommendation(id: String) async throws -> DismissResult {
+        DismissResult(dismissed: true)
+    }
+
+    func acceptRecommendation(id: String) async throws -> GoalMetrics {
+        GoalMetrics(
+            dailyCaloriesGoal: 2200,
+            dailyProteinGoal: 150,
+            dailyFatGoal: 65,
+            dailyCarbsGoal: 250,
+            dailyWaterGoal: 3000,
+            dailyStepsGoal: 8000,
+            dailyActiveCaloriesGoal: 500,
+            weeklyWorkoutsGoal: 5,
+            weeklyWorkoutMinutesGoal: 155,
+            nightlySleepMinMinutes: 234,
+            nightlySleepMaxMinutes: 500
+        )
+    }
+
+    func getGoalHistory() async throws -> [GoalHistoryEntry] {
+        []
+    }
+
     func getGoals() async throws -> UserGoals {
         UserGoals(
             id: "1",

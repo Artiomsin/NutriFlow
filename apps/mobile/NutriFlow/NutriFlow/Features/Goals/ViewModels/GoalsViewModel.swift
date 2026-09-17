@@ -5,7 +5,9 @@ import Observation
 @MainActor
 final class GoalsViewModel {
     var state: GoalsState = .idle
-
+    var personalizationState: PersonalizationState?
+    var isProcessingPersonalization = false
+    
     @ObservationIgnored private let service: GoalsServiceProtocol
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let cacheService: CacheService?
@@ -117,4 +119,98 @@ final class GoalsViewModel {
         guard days > 0 else { return weeklyGoal }
         return Int((Double(weeklyGoal) * Double(days) / 7.0).rounded())
     }
+    
+    func loadPersonalization() async {
+        do {
+            personalizationState = try await service.getPersonalizationState()
+        } catch let error as APIError {
+            if case .unauthorized = error { coordinator?.goToAuth() }
+        } catch {}
+    }
+
+    @discardableResult
+    func requestPersonalization() async -> PersonalizeResult? {
+        guard !isProcessingPersonalization else { return nil }
+        isProcessingPersonalization = true
+        defer { isProcessingPersonalization = false }
+
+        do {
+            let result = try await service.personalizeGoals()
+            switch result {
+            case .created(let rec), .pendingExists(let rec):
+                personalizationState = PersonalizationState(pending: rec, personalizationDue: false)
+            case .notDue:
+                personalizationState = PersonalizationState(
+                    pending: personalizationState?.pending,
+                    personalizationDue: false
+                )
+            case .insufficientData:
+                personalizationState = PersonalizationState(pending: nil, personalizationDue: true)
+            }
+            return result
+        } catch let error as APIError {
+            if case .unauthorized = error { coordinator?.goToAuth() }
+            return nil
+        } catch {
+            return nil
+        }
+    }
+    
+    @discardableResult
+    func acceptRecommendation(_ recommendation: GoalRecommendation) async -> Bool {
+        guard !isProcessingPersonalization else { return false }
+        isProcessingPersonalization = true
+        defer { isProcessingPersonalization = false }
+
+        do {
+            let metrics = try await service.acceptRecommendation(id: recommendation.id)
+            if case .loaded(let goals) = state {
+                let updated = goals.applying(metrics, source: "personalized")
+                state = .loaded(updated)
+                try? await cacheService?.set("goals", updated, ttl: 1800)
+            } else {
+                await cacheService?.remove("goals")
+                await loadGoals()
+            }
+            personalizationState = PersonalizationState(pending: nil, personalizationDue: false)
+            return true
+        } catch let error as APIError {
+            if case .unauthorized = error { coordinator?.goToAuth() }
+            return false
+        } catch {
+            return false
+        }
+    }
+    
+    @discardableResult
+    func dismissRecommendation(_ recommendation: GoalRecommendation) async -> Bool {
+        guard !isProcessingPersonalization else { return false }
+        isProcessingPersonalization = true
+        defer { isProcessingPersonalization = false }
+
+        do {
+            _ = try await service.dismissRecommendation(id: recommendation.id)
+            personalizationState = PersonalizationState(pending: nil, personalizationDue: false)
+            return true
+        } catch let error as APIError {
+            if case .unauthorized = error { coordinator?.goToAuth() }
+            return false
+        } catch {
+            return false
+        }
+    }
+
+    func loadGoalHistory() async -> [GoalHistoryEntry]{
+        do {
+            return try await service.getGoalHistory()
+        }catch let error as APIError {
+            if case .unauthorized = error { coordinator?.goToAuth()
+            }
+            return []
+        } catch {
+            return []
+        }
+    }
+
+    
 }
