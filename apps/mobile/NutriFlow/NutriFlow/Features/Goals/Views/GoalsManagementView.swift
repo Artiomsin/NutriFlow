@@ -104,35 +104,35 @@ struct GoalsManagementView: View {
 
     private var nutritionSection: some View {
         groupedSection(title: "Nutrition") {
-            stepperRow(label: "Calories", value: $calories, range: 1000...5000, step: 50, unit: UnitConversion.formatEnergyUnit(preferred: PreferencesStore.shared.preferredUnits))
+            stepperRow(label: "Calories", caption: "per day", value: $calories, range: 1000...5000, step: 50, unit: UnitConversion.formatEnergyUnit(preferred: PreferencesStore.shared.preferredUnits))
             divider
-            stepperRow(label: "Protein", value: $protein, range: 30...300, step: 5, unit: "g")
+            stepperRow(label: "Protein", caption: "per day", value: $protein, range: 30...300, step: 5, unit: "g")
             divider
-            stepperRow(label: "Fat", value: $fat, range: 20...200, step: 5, unit: "g")
+            stepperRow(label: "Fat", caption: "per day", value: $fat, range: 20...200, step: 5, unit: "g")
             divider
-            stepperRow(label: "Carbs", value: $carbs, range: 50...600, step: 5, unit: "g")
+            stepperRow(label: "Carbs", caption: "per day", value: $carbs, range: 50...600, step: 5, unit: "g")
             divider
-            stepperRow(label: "Water", value: $water, range: 500...6000, step: 100, unit: "ml")
+            stepperRow(label: "Water", caption: "per day", value: $water, range: 500...6000, step: 100, unit: "ml")
         }
     }
 
     private var activitySection: some View {
         groupedSection(title: "Activity") {
-            stepperRow(label: "Steps", value: $steps, range: 1000...30000, step: 500, unit: "steps")
+            stepperRow(label: "Steps", caption: "per day", value: $steps, range: 1000...30000, step: 500, unit: "steps")
             divider
-            stepperRow(label: "Active calories", value: $activeCalories, range: 100...3000, step: 50, unit: UnitConversion.formatEnergyUnit(preferred: PreferencesStore.shared.preferredUnits))
+            stepperRow(label: "Active calories", caption: "per day", value: $activeCalories, range: 100...3000, step: 50, unit: UnitConversion.formatEnergyUnit(preferred: PreferencesStore.shared.preferredUnits))
             divider
-            stepperRow(label: "Workouts / week", value: $workouts, range: 1...14, step: 1, unit: "")
+            stepperRow(label: "Workouts", caption: "per week", value: $workouts, range: 1...14, step: 1, unit: "")
             divider
-            stepperRow(label: "Workout minutes / week", value: $workoutMinutes, range: 15...900, step: 15, unit: "min")
+            stepperRow(label: "Workout minutes", caption: "per week", value: $workoutMinutes, range: 15...900, step: 15, unit: "min")
         }
     }
 
     private var sleepSection: some View {
         groupedSection(title: "Sleep") {
-            stepperRow(label: "Sleep min / night", value: $sleepMinMin, range: 180...720, step: 30, unit: "min")
+            stepperRow(label: "Min sleep", caption: "per night", value: $sleepMinMin, range: 180...720, step: 30, unit: "min")
             divider
-            stepperRow(label: "Sleep max / night", value: $sleepMaxMin, range: 360...960, step: 30, unit: "min")
+            stepperRow(label: "Max sleep", caption: "per night", value: $sleepMaxMin, range: 360...960, step: 30, unit: "min")
         }
     }
 
@@ -156,23 +156,42 @@ struct GoalsManagementView: View {
 
     private var divider: some View {
         Divider()
-            .padding(.leading, 52)
+            .padding(.leading, AppTheme.paddingHorizontal + 20)
             .opacity(0.3)
     }
 
-    private func stepperRow(label: String, value: Binding<Int>, range: ClosedRange<Int>, step: Int, unit: String) -> some View {
+    private func stepperRow(
+        label: String,
+        caption: String? = nil,
+        value: Binding<Int>,
+        range: ClosedRange<Int>,
+        step: Int,
+        unit: String
+    ) -> some View {
         HStack(spacing: 12) {
             Circle()
                 .fill(AppTheme.accent.opacity(0.8))
                 .frame(width: 8, height: 8)
-            Text(label)
-                .font(.system(size: 15))
-                .foregroundColor(AppTheme.textPrimary)
-            Spacer()
-            Text("\(value.wrappedValue.formatted()) \(unit)")
-                .font(.system(size: 14, weight: .semibold))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(label)
+                    .font(.system(size: 15))
+                    .foregroundColor(AppTheme.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                if let caption {
+                    Text(caption)
+                        .font(.system(size: 11))
+                        .foregroundColor(AppTheme.textTertiary)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 12)
+            Text(unit.isEmpty ? value.wrappedValue.formatted() : "\(value.wrappedValue.formatted()) \(unit)")
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .monospacedDigit()
                 .foregroundColor(AppTheme.textSecondary)
-                .frame(minWidth: 90, alignment: .trailing)
+                .lineLimit(1)
+                .layoutPriority(1)
             Stepper(
                 "",
                 value: value,

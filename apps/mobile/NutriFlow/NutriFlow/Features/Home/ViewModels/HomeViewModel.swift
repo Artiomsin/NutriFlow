@@ -147,7 +147,7 @@ final class HomeViewModel {
                 print("[HomeVM] loadDashboardSummary → fallback to stale cache")
                 dailySummaryState = cached.id == nil ? .empty : .loaded(cached)
             } else {
-                print("[HomeVM] loadDashboardSummary → FAIL, no cache")
+                print("[HomeVM] loadDashboardSummary → FAIL, no cache | API \(error)")
                 dailySummaryState = .error(error)
             }
         } catch {
@@ -155,7 +155,7 @@ final class HomeViewModel {
                 print("[HomeVM] loadDashboardSummary → fallback to stale cache")
                 dailySummaryState = cached.id == nil ? .empty : .loaded(cached)
             } else {
-                print("[HomeVM] loadDashboardSummary → FAIL, no cache")
+                print("[HomeVM] loadDashboardSummary → FAIL, no cache | \(error)")
                 dailySummaryState = .error(error)
             }
         }

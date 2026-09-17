@@ -48,9 +48,9 @@ final class TodayFoodViewModel {
                 print("[TodayFoodVM] loadToday → fallback to stale cache (\(cached.count) entries)")
                 state = .loaded(cached)
             } else if case .loaded = state {
-                print("[TodayFoodVM] loadToday → FAIL, keeping existing data")
+                print("[TodayFoodVM] loadToday → FAIL, keeping existing data | \(error)")
             } else {
-                print("[TodayFoodVM] loadToday → FAIL, no cache")
+                print("[TodayFoodVM] loadToday → FAIL, no cache | \(error)")
                 state = .error(error)
             }
         }

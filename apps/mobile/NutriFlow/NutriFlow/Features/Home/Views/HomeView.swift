@@ -258,6 +258,8 @@ extension HomeView: Equatable {
     }
 }
 
+
+
 private struct FoodSectionView: View {
     @Bindable var todayFoodVM: TodayFoodViewModel
     let onAddFood: () -> Void
