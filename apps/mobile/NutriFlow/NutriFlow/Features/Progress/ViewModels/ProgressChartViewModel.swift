@@ -1,6 +1,12 @@
 import Foundation
 import Observation
 
+struct WeightPoint: Identifiable {
+    let id = UUID()
+    let date: Date
+    let kg: Double
+}
+
 @Observable
 @MainActor
 final class ProgressChartViewModel {
@@ -16,6 +22,11 @@ final class ProgressChartViewModel {
     var avgFat: Double = 0
     var avgCarbs: Double = 0
     var daysCount: Int = 0
+    var weightLatestKg: Double?
+    var weightDeltaKg: Double?
+    var weightWeeklyRateKg: Double?
+    var weightPeriodLabel: String = ""
+    var weightPoints: [WeightPoint] = []
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let service: DailySummaryServiceProtocol
     @ObservationIgnored private let foodService: FoodServiceProtocol?
@@ -23,6 +34,8 @@ final class ProgressChartViewModel {
     @ObservationIgnored private let goalsService: GoalsServiceProtocol?
     @ObservationIgnored private let activityService: ActivityServiceProtocol?
     @ObservationIgnored private let cacheService: CacheService?
+    @ObservationIgnored private let profileService: ProfileServiceProtocol?
+    @ObservationIgnored private let workoutService: WorkoutServiceProtocol?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var loadTaskID = 0
     @ObservationIgnored private let periodState: PeriodState
@@ -30,10 +43,12 @@ final class ProgressChartViewModel {
 
     var showDaySheet = false
     var dayDetailState: DayDetailState = .idle
+    var selectedDateStr: String = ""
     var selectedDateFood: [FoodEntry] = []
     var selectedDateWater: [WaterEntry] = []
-    var selectedDateStr: String = ""
     var selectedDateGoals: UserGoals?
+    var selectedDateActivity: ActivityDayPoint?
+    var selectedDateWorkouts: [HealthKitWorkout] = []
 
     var canTapBars: Bool {
         periodState.type != .today && aggregationLevel() == .day
@@ -56,7 +71,7 @@ final class ProgressChartViewModel {
         return f
     }()
 
-    init(coordinator: AppCoordinator, service: DailySummaryServiceProtocol, periodState: PeriodState, foodService: FoodServiceProtocol? = nil, waterService: WaterTrackingServiceProtocol? = nil, goalsService: GoalsServiceProtocol? = nil, activityService: ActivityServiceProtocol? = nil, cacheService: CacheService? = nil) {
+    init(coordinator: AppCoordinator, service: DailySummaryServiceProtocol, periodState: PeriodState, foodService: FoodServiceProtocol? = nil, waterService: WaterTrackingServiceProtocol? = nil, goalsService: GoalsServiceProtocol? = nil, activityService: ActivityServiceProtocol? = nil, cacheService: CacheService? = nil, profileService: ProfileServiceProtocol? = nil, workoutService: WorkoutServiceProtocol? = nil) {
         print("ProgressChartViewModel init")
         self.coordinator = coordinator
         self.service = service
@@ -66,6 +81,8 @@ final class ProgressChartViewModel {
         self.goalsService = goalsService
         self.activityService = activityService
         self.cacheService = cacheService
+        self.profileService = profileService
+        self.workoutService = workoutService
     }
 
     deinit {
@@ -78,19 +95,25 @@ final class ProgressChartViewModel {
         selectedDateFood = []
         selectedDateWater = []
         selectedDateGoals = nil
+        selectedDateActivity = nil
+        selectedDateWorkouts = []
         dayDetailState = .loading
 
         do {
             async let food = foodService?.getFoodByDate(date: date) ?? []
             async let water = waterService?.getWaterByDate(date: date) ?? []
             async let goals = goalsService?.getGoals()
+            async let activity = loadActivityDay(date)
+            async let workouts = loadWorkoutsDay(date)
 
-            let (f, w, g) = try await (food, water, goals)
+            let (f, w, g, a, wo) = try await (food, water, goals, activity, workouts)
             try Task.checkCancellation()
 
             selectedDateFood = f
             selectedDateWater = w
             selectedDateGoals = g
+            selectedDateActivity = a
+            selectedDateWorkouts = wo
             dayDetailState = .loaded
             showDaySheet = true
         } catch is CancellationError {
@@ -98,6 +121,25 @@ final class ProgressChartViewModel {
         } catch {
             dayDetailState = .error(error)
             showDaySheet = true
+        }
+    }
+
+    private func loadWorkoutsDay(_ date: String) async -> [HealthKitWorkout] {
+        guard let workoutService else { return [] }
+        do {
+            let response = try await workoutService.getHistory(from: date, to: date, limit: nil, offset: nil)
+            return response.workouts.compactMap { WorkoutMapper.toWorkout($0) }
+        } catch {
+            return []
+        }
+    }
+
+    private func loadActivityDay(_ date: String) async -> ActivityDayPoint? {
+        guard let activityService else { return nil }
+        do {
+            return try await activityService.getRange(from: date, to: date).first
+        } catch {
+            return nil
         }
     }
 
@@ -160,6 +202,13 @@ final class ProgressChartViewModel {
             if days <= 60 { return .week }
             return .month
         }
+    }
+
+    var periodDays: Int {
+        let range = currentRange()
+        guard let from = Self.dateOnlyFormatter.date(from: range.from),
+              let to = Self.dateOnlyFormatter.date(from: range.to) else { return 0 }
+        return (Calendar.current.dateComponents([.day], from: from, to: to).day ?? 0) + 1
     }
 
     private func currentRange() -> (from: String, to: String) {
@@ -337,6 +386,65 @@ final class ProgressChartViewModel {
         return true
     }
 
+    
+    func loadWeightSummary() async {
+        guard let profileService else { return }
+
+        let range = currentRange()
+        weightPeriodLabel = periodLabel()
+
+        var weights: [WeightPoint] = []
+
+        do {
+            let logs = try await profileService.getWeightLogs(from: range.from, to: range.to)
+            weights = logs
+                .compactMap { log -> WeightPoint? in
+                    guard let kg = log.weightValue,
+                          let date = Self.dateOnlyFormatter.date(from: String(log.entryDate.prefix(10))) else { return nil }
+                    return WeightPoint(date: date, kg: kg)
+                }
+                .sorted { $0.date < $1.date }
+        } catch {
+            weights = []
+        }
+
+        weightPoints = weights
+
+        guard let latest = weights.last else {
+            if let profile = try? await profileService.getMyProfile(), let kg = profile.weight {
+                weightLatestKg = kg
+                weightPoints = [WeightPoint(date: Date(), kg: kg)]
+            }
+            return
+        }
+
+        weightLatestKg = latest.kg
+
+        if let first = weights.first {
+            weightDeltaKg = latest.kg - first.kg
+            let days = max(1, Calendar.current.dateComponents([.day], from: first.date, to: latest.date).day ?? 1)
+            weightWeeklyRateKg = (latest.kg - first.kg) / (Double(days) / 7.0)
+        } else {
+            weightDeltaKg = nil
+            weightWeeklyRateKg = nil
+        }
+    }
+
+    private func periodLabel() -> String {
+        switch periodState.type {
+        case .today:
+            return "Today"
+        case .week:
+            return "7 days"
+        case .month:
+            return "30 days"
+        case .custom:
+            let from = Self.labelFormatter.string(from: periodState.fromDate)
+            let to = Self.labelFormatter.string(from: periodState.toDate)
+            return "\(from) – \(to)"
+        }
+    }
+
     func loadChartData(keepLoadedData: Bool = false) async {
         let currentID = loadTaskID
         let summariesKey = chartSummariesKey
@@ -489,6 +597,7 @@ final class ProgressChartViewModel {
         loadTaskID &+= 1
         loadTask = Task { [weak self] in
             await self?.loadChartData()
+            await self?.loadWeightSummary()
         }
     }
 
@@ -500,6 +609,7 @@ final class ProgressChartViewModel {
         loadTaskID &+= 1
         loadTask = Task { [weak self] in
             await self?.loadChartData()
+            await self?.loadWeightSummary()
         }
     }
 
@@ -512,7 +622,11 @@ final class ProgressChartViewModel {
         let sums = chartData.reduce(
             (cal: 0, water: 0, prot: 0.0, fat: 0.0, carbs: 0.0)
         ) { acc, pt in
-            (acc.cal + pt.calories, acc.water + pt.waterMl, acc.prot + pt.protein, acc.fat + pt.fat, acc.carbs + pt.carbs)
+            (acc.cal + pt.calories,
+             acc.water + pt.waterMl,
+             acc.prot + pt.protein,
+             acc.fat + pt.fat,
+             acc.carbs + pt.carbs)
         }
         totalCaloriesSum = sums.cal
         totalWaterSum = sums.water

@@ -29,6 +29,17 @@ struct AnalyticsResponse: Codable, Sendable {
     let goalWater: Int?
     let goalWaterPct: Int?
 
+    let avgSteps: Int?
+    let avgActiveCalories: Int?
+    let goalSteps: Int?
+    let goalStepsPct: Int?
+    let goalActiveCalories: Int?
+    let goalActiveCaloriesPct: Int?
+    let sleepTotalNights: Int?
+    let sleepNightsInRange: Int?
+    let workoutsDone: Int?
+    let workoutMinutes: Int?
+
     let daysTracked: Int
     let totalDays: Int
 

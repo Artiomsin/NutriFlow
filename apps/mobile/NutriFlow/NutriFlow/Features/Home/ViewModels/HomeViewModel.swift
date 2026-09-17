@@ -111,6 +111,7 @@ final class HomeViewModel {
         await withDiscardingTaskGroup { [self] group in
             group.addTask { await self.loadDashboardSummary() }
             group.addTask { await self.goalsVM.loadGoals() }
+            group.addTask { await self.goalsVM.loadPersonalization() }
             group.addTask { await self.todayFoodVM.loadToday() }
             group.addTask { await self.waterVM.loadToday() }
             
@@ -121,6 +122,9 @@ final class HomeViewModel {
         await withDiscardingTaskGroup { [self] group in
             group.addTask { await self.loadDashboardSummary() }
             group.addTask { await self.goalsVM.loadGoals() }
+            group.addTask { await self.goalsVM.loadPersonalization() }
+            group.addTask { await self.todayFoodVM.loadToday() }
+            group.addTask { await self.waterVM.loadToday() }
         }
     }
 
@@ -146,7 +150,7 @@ final class HomeViewModel {
                 print("[HomeVM] loadDashboardSummary → fallback to stale cache")
                 dailySummaryState = cached.id == nil ? .empty : .loaded(cached)
             } else {
-                print("[HomeVM] loadDashboardSummary → FAIL, no cache")
+                print("[HomeVM] loadDashboardSummary → FAIL, no cache | API \(error)")
                 dailySummaryState = .error(error)
             }
         } catch {
@@ -154,7 +158,7 @@ final class HomeViewModel {
                 print("[HomeVM] loadDashboardSummary → fallback to stale cache")
                 dailySummaryState = cached.id == nil ? .empty : .loaded(cached)
             } else {
-                print("[HomeVM] loadDashboardSummary → FAIL, no cache")
+                print("[HomeVM] loadDashboardSummary → FAIL, no cache | \(error)")
                 dailySummaryState = .error(error)
             }
         }

@@ -36,6 +36,7 @@ struct ScanResultView: View {
         .background(AppTheme.background)
         .navigationTitle("Scan Result")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { viewModel.trackScreenView() }
     }
 
     private var headerSection: some View {

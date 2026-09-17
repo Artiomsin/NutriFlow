@@ -34,7 +34,7 @@ final class MockFoodService: FoodServiceProtocol {
         FoodEntry(id: id, userId: "1", name: name ?? "Updated", calories: calories ?? 100, protein: protein, fat: fat, carbs: carbs, foodId: foodId, grams: grams, unit: "g", categoryName: categoryName, imageUrl: nil, createdAt: "2026-05-18T10:00:00Z", updatedAt: "2026-05-18T11:00:00Z")
     }
     func deleteFoodEntry(id: String, date: String? = nil) async throws { }
-
+    
     func searchFood(query: String, limit: Int, offset: Int) async throws -> FoodSearchResponse {
         FoodSearchResponse(
             foods: [],
@@ -140,7 +140,7 @@ final class MockDailySummaryService: DailySummaryServiceProtocol {
             waterEntries: MockWaterService().getTodayWater()
         )
     }
-
+    
     func getDailySummaryRange(from: String, to: String) async throws -> [DailySummary] {
         let fmt = DateFormatter()
         fmt.dateFormat = "yyyy-MM-dd"
@@ -178,6 +178,21 @@ final class MockProfileService: ProfileServiceProtocol {
         UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: weight, height: height, age: age, gender: gender, goal: goal, activityLevel: activityLevel, preferredUnits: preferredUnits, createdAt: nil, updatedAt: nil)
     }
     func deleteMyProfile() async throws { }
+    func getWeightLogs(from: String?, to: String?) async throws -> [WeightLog] {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = TimeZone.current
+        let weights: [Double] = [80.0, 79.8, 79.9, 79.6, 79.7, 79.5, 79.4]
+        return weights.enumerated().compactMap{index, kg in
+            guard let date = Calendar.current.date(byAdding: .day, value: index - (weights.count - 1), to: Date())else { return nil }
+            return WeightLog(
+                id: "mock-wl-\(index)",
+                weightKg: String(format: "%.1f", kg),
+                entryDate: formatter.string(from: date),
+                source: "manual"
+            )
+}
+    }
 }
 
 final class MockUserService: UserServiceProtocol {
@@ -193,7 +208,7 @@ final class MockUserService: UserServiceProtocol {
     }
 }
 
-    
+
 final class MockAuthService: AuthServiceProtocol {
     func register(email: String, password: String, firstName: String, lastName: String) async throws { }
     func login(email: String, password: String) async throws { }
@@ -253,6 +268,16 @@ final class MockAnalyticsService: AnalyticsServiceProtocol {
             goalCarbsPct: 60,
             goalWater: 3000,
             goalWaterPct: 67,
+            avgSteps: 8600,
+            avgActiveCalories: 430,
+            goalSteps: 10000,
+            goalStepsPct: 86,
+            goalActiveCalories: 500,
+            goalActiveCaloriesPct: 86,
+            sleepTotalNights: 7,
+            sleepNightsInRange: 4,
+            workoutsDone: 3,
+            workoutMinutes: 135,
             daysTracked: 5,
             totalDays: 7,
             streak: 3,
@@ -264,6 +289,109 @@ final class MockAnalyticsService: AnalyticsServiceProtocol {
 }
 
 final class MockGoalsService: GoalsServiceProtocol {
+    
+    func personalizeGoals() async throws -> PersonalizeResult {
+        .insufficientData
+
+    }
+    
+    func getPersonalizationState() async throws -> PersonalizationState {
+        PersonalizationState(
+            pending: GoalRecommendation(
+                id: "mock-rec-1",
+                userId: "1",
+                status: "pending",
+                previousGoals: GoalMetrics(
+                    dailyCaloriesGoal: 2200, dailyProteinGoal: 150,
+                    dailyFatGoal: 65, dailyCarbsGoal: 250, dailyWaterGoal: 3000,
+                    dailyStepsGoal: 8000, dailyActiveCaloriesGoal: 500,
+                    weeklyWorkoutsGoal: 5, weeklyWorkoutMinutesGoal: 155,
+                    nightlySleepMinMinutes: 234, nightlySleepMaxMinutes: 500
+                ),
+                recommendedGoals: GoalMetrics(
+                    dailyCaloriesGoal: 2050, dailyProteinGoal: 160,
+                    dailyFatGoal: 60, dailyCarbsGoal: 230, dailyWaterGoal: 3000,
+                    dailyStepsGoal: 9000, dailyActiveCaloriesGoal: 550,
+                    weeklyWorkoutsGoal: 6, weeklyWorkoutMinutesGoal: 180,
+                    nightlySleepMinMinutes: 240, nightlySleepMaxMinutes: 510
+                ),
+                analysisPeriodStart: "2026-09-03",
+                analysisPeriodEnd: "2026-09-17",
+                reasons: [
+                    "Your weekly calories were 10% below target",
+                    "Your average sleep is shorter than the recommended range"
+                ],
+                confidence: RecommendationConfidence(
+                    level: "high", dataQualityScore: 0.87, trackedDays: 14,
+                    weightLogsCount: 0, activityDays: 12, workoutCount: 4,
+                    sleepNights: 14, adherenceStepsPct: 0.72, weightTrendKgPerWeek: nil
+                ),
+                createdAt: "2026-09-17T08:00:00Z",
+                expiresAt: "2026-09-24T08:00:00Z",
+                acceptedAt: nil,
+                dismissedAt: nil
+            ),
+            personalizationDue: false
+        )
+    }
+    func dismissRecommendation(id: String) async throws -> DismissResult {
+        DismissResult(dismissed: true)
+    }
+
+    func acceptRecommendation(id: String) async throws -> GoalMetrics {
+        GoalMetrics(
+            dailyCaloriesGoal: 2200,
+            dailyProteinGoal: 150,
+            dailyFatGoal: 65,
+            dailyCarbsGoal: 250,
+            dailyWaterGoal: 3000,
+            dailyStepsGoal: 8000,
+            dailyActiveCaloriesGoal: 500,
+            weeklyWorkoutsGoal: 5,
+            weeklyWorkoutMinutesGoal: 155,
+            nightlySleepMinMinutes: 234,
+            nightlySleepMaxMinutes: 500
+        )
+    }
+
+    func getGoalHistory() async throws -> [GoalHistoryEntry] {
+        [
+            GoalHistoryEntry(
+                id: "h1",
+                userId: "1",
+                goalType: "nutrition",
+                metric: "dailyCaloriesGoal",
+                oldValue: 2200,
+                newValue: 2050,
+                source: "personalized",
+                reason: "Weekly calories were 10% below target",
+                createdAt: "2026-09-17T08:00:00Z"
+            ),
+            GoalHistoryEntry(
+                id: "h2",
+                userId: "1",
+                goalType: "activity",
+                metric: "dailyStepsGoal",
+                oldValue: 8000,
+                newValue: 9000,
+                source: "personalized",
+                reason: "Averaged 8,600 steps on tracked days",
+                createdAt: "2026-09-17T08:00:01Z"
+            ),
+            GoalHistoryEntry(
+                id: "h3",
+                userId: "1",
+                goalType: "sleep",
+                metric: "nightlySleepMinMinutes",
+                oldValue: 234,
+                newValue: 240,
+                source: "user",
+                reason: nil,
+                createdAt: "2026-09-01T10:00:00Z"
+            )
+        ]
+    }
+
     func getGoals() async throws -> UserGoals {
         UserGoals(
             id: "1",
@@ -273,12 +401,18 @@ final class MockGoalsService: GoalsServiceProtocol {
             dailyFatGoal: 65,
             dailyCarbsGoal: 250,
             dailyWaterGoal: 3000,
+            dailyStepsGoal: 8000,
+            dailyActiveCaloriesGoal: 500,
+            weeklyWorkoutsGoal: 5,
+            weeklyWorkoutMinutesGoal: 155,
+            nightlySleepMinMinutes: 234,
+            nightlySleepMaxMinutes: 500,
             source: "auto",
             createdAt: nil,
             updatedAt: nil
         )
     }
-    func updateGoals(calories: Int?, protein: Int?, fat: Int?, carbs: Int?, water: Int?) async throws -> UserGoals {
+    func updateGoals(calories: Int?, protein: Int?, fat: Int?, carbs: Int?, water: Int?, steps: Int?,activeCalories: Int?,workouts: Int?,workoutMinutes: Int?,sleepMinMinutes: Int?,sleepMaxMinutes: Int?) async throws -> UserGoals {
         try await getGoals()
     }
     func calculateGoals() async throws -> UserGoals {
@@ -294,7 +428,51 @@ final class MockWorkoutService: WorkoutServiceProtocol {
         limit: Int?,
         offset: Int?
     ) async throws -> WorkoutHistoryResponse {
-        WorkoutHistoryResponse(total: 0, workouts: [])
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        df.timeZone = .current
+        guard let from, let to,
+              let _ = df.date(from: from),
+              let end = df.date(from: to) else {
+            return WorkoutHistoryResponse(total: 0, workouts: [])
+        }
+
+        let cal = Calendar.current
+        var workouts: [WorkoutSyncEntry] = []
+        let templates: [(type: String, hour: Int, minute: Int, minutes: Int, kcal: Double, meters: Double?)] = [
+            ("Running", 8, 30, 45, 340, 5200),
+            ("Strength Training", 18, 0, 30, 240, nil),
+            ("Cycling", 12, 0, 60, 420, 18000),
+        ]
+        for template in templates {
+            var comps = cal.dateComponents([.year, .month, .day], from: end)
+            comps.hour = template.hour
+            comps.minute = template.minute
+            guard let start = cal.date(from: comps) else { continue }
+            workouts.append(WorkoutSyncEntry(
+                healthKitWorkoutId: UUID().uuidString,
+                type: template.type,
+                startDate: WorkoutMapper.isoString(from: start),
+                endDate: WorkoutMapper.isoString(from: start.addingTimeInterval(Double(template.minutes) * 60)),
+                durationSeconds: Double(template.minutes) * 60,
+                caloriesBurned: template.kcal,
+                distanceMeters: template.meters,
+                heartRateAvg: 130,
+                heartRateMax: nil,
+                heartRateMin: nil,
+                avgSpeedMps: nil,
+                maxSpeedMps: nil,
+                avgCadence: nil,
+                maxCadence: nil,
+                avgPowerWatts: nil,
+                maxPowerWatts: nil,
+                elevationGainMeters: nil,
+                steps: nil,
+                indoor: nil,
+                details: nil
+            ))
+        }
+        return WorkoutHistoryResponse(total: workouts.count, workouts: workouts)
     }
     func deleteMissing(from startDate: String, healthKitWorkoutIds: [String]) async throws {}
 }
@@ -307,7 +485,39 @@ final class MockSleepService: SleepServiceProtocol {
         limit: Int?,
         offset: Int?
     ) async throws -> SleepHistoryResponse {
-        SleepHistoryResponse(total: 0, nights: [])
+        let cal = Calendar.current
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        df.timeZone = .current
+        let start = from.flatMap { df.date(from: $0) } ?? Date()
+        let end = to.flatMap { df.date(from: $0) } ?? Date()
+        
+        var nights: [SleepSyncEntry] = []
+        var day = start
+        var index = 0
+        while day <= end && nights.count < 10 {
+            let inRange = index >= 1 && index <= 4
+            let sleepStart = cal.date(byAdding: .hour, value: -8, to: day) ?? day
+            nights.append(SleepSyncEntry(
+                startDate: SleepMapper.isoString(from: sleepStart),
+                endDate: SleepMapper.isoString(from: sleepStart.addingTimeInterval(inRange ? 8 * 3600 : 5 * 3600)),
+                timeInBedSeconds: inRange ? 8 * 3600 : 5 * 3600,
+                asleepSeconds: inRange ? 7 * 3600 : 3 * 3600,
+                awakeSeconds: inRange ? 1 * 3600 : 2 * 3600,
+                coreSeconds: nil,
+                deepSeconds: nil,
+                remSeconds: nil,
+                unspecifiedSeconds: nil,
+                awakenings: nil,
+                onsetLatencySeconds: nil,
+                efficiency: nil,
+                segmentCount: nil,
+                heartRateAvg: nil
+            ))
+            index += 1
+            day = cal.date(byAdding: .day, value: 1, to: day) ?? day
+        }
+        return SleepHistoryResponse(total: nights.count, nights: nights)
     }
     func deleteMissing(from startDate: String, startDates: [String]) async throws {}
 }
@@ -315,9 +525,9 @@ final class MockSleepService: SleepServiceProtocol {
 final class MockSleepHealthKit: SleepHealthKitServiceProtocol {
     var isAvailable: Bool { true }
     func permissionState() async -> HealthKitPermissionState { .authorized }
-
+    
     func requestAuthorization() async throws {}
-
+    
     func fetchHeartRateDuringSleep(
         from startDate: Date,
         to endDate: Date
@@ -340,10 +550,10 @@ final class MockSleepHealthKit: SleepHealthKitServiceProtocol {
         let deep = asleep * 0.21
         let rem = asleep * 0.22
         let awake = 900 * (1 + variation)
-
+        
         let nightStart = startDate.addingTimeInterval(7 * 3600)
         let nightEnd = startDate.addingTimeInterval(15 * 3600 + awake)
-
+        
         return HealthKitSleep(
             id: mockNightID(start: nightStart, end: nightEnd),
             startDate: nightStart,
@@ -371,13 +581,13 @@ final class MockSleepHealthKit: SleepHealthKitServiceProtocol {
             ]
         )
     }
-
+    
     func fetchSleep(from startDate: Date, to endDate: Date) async throws -> HealthKitSleep? {
         sampleNight(from: startDate, variation: 0.15)
     }
     
     
-
+    
     func fetchNights(from startDate: Date, to endDate: Date) async throws -> [HealthKitSleep] {
         (0..<7).map { day in
             sampleNight(from: startDate.addingTimeInterval(TimeInterval(day) * 86_400), variation: Double(day) * 0.07)
@@ -410,7 +620,7 @@ private func mockNightID(start: Date, end: Date) -> UUID {
 final class MockHealthKit: ActivityHealthKitServiceProtocol, WorkoutHealthKitServiceProtocol {
     var isAvailable: Bool { true }
     var onActivityChanged: (() -> Void)?
-
+    
     static let sampleWorkout = HealthKitWorkout(
         id: UUID(),
         workoutType: "Running",
@@ -423,7 +633,7 @@ final class MockHealthKit: ActivityHealthKitServiceProtocol, WorkoutHealthKitSer
         heartRateMax: 165,
         heartRateMin: 115
     )
-
+    
     func requestAuthorization() async throws {}
     func fetchToday() async -> DailyActivity {
         DailyActivity(date: "", steps: 0, activeCalories: 0, basalCalories: 0, distanceMeters: 0)
@@ -439,7 +649,7 @@ final class MockHealthKit: ActivityHealthKitServiceProtocol, WorkoutHealthKitSer
             HeartRatePoint(startDate: date, bpm: Double(Int.random(in: 110...150)))
         }
     }
-
+    
     func fetchWorkoutSeries(kind: WorkoutSeriesKind, workout: HealthKitWorkout) async -> [WorkoutSeriesPoint] {
         let startValue = kind == .speed ? 2.4 : kind == .cadence ? 84 : 210.0
         return stride(from: workout.startDate, through: workout.endDate, by: 120).enumerated().map { index, date in

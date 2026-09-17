@@ -48,9 +48,9 @@ final class TodayFoodViewModel {
                 print("[TodayFoodVM] loadToday → fallback to stale cache (\(cached.count) entries)")
                 state = .loaded(cached)
             } else if case .loaded = state {
-                print("[TodayFoodVM] loadToday → FAIL, keeping existing data")
+                print("[TodayFoodVM] loadToday → FAIL, keeping existing data | \(error)")
             } else {
-                print("[TodayFoodVM] loadToday → FAIL, no cache")
+                print("[TodayFoodVM] loadToday → FAIL, no cache | \(error)")
                 state = .error(error)
             }
         }
@@ -77,7 +77,6 @@ final class TodayFoodViewModel {
             let df = DateFormatter()
             df.dateFormat = "yyyy-MM-dd"
             try await service.deleteFoodEntry(id: id, date: df.string(from: Date()))
-            AnalyticsManager.shared.track(.foodDeleted)
             await reloadAfterMutation()
             notifyDataMutated()
             return true

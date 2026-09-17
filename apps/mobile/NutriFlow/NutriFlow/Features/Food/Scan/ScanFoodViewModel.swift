@@ -31,14 +31,21 @@ final class ScanFoodViewModel {
 
     private let foodService: FoodServiceProtocol
     let camera: CameraService
+    @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
 
         init(
             camera: CameraService,
-            foodService: FoodServiceProtocol
+            foodService: FoodServiceProtocol,
+            analyticsTracker: AnalyticsTracking? = nil
         ) {
             self.camera = camera
             self.foodService = foodService
+            self.analyticsTracker = analyticsTracker
         }
+
+    func trackScreenView() {
+        analyticsTracker?.track(.screenView(screen: "scan_food"))
+    }
     
     func prepareCamera() async {
             guard state != .preparing else { return }

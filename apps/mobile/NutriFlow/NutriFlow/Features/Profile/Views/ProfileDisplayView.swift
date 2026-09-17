@@ -104,7 +104,7 @@ struct ProfileDisplayView: View {
         }
         .navigationTitle("Profile")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { AnalyticsManager.shared.track(.screenView(screen: "profile")) }
+        .onAppear { viewModel.trackScreen("profile") }
     }
 }
 

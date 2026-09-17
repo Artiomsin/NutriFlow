@@ -48,7 +48,7 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
             ascending: false
         )
 
-        let workouts: [HKWorkout] = await withCheckedContinuation(isolation: MainActor.shared) { continuation in
+        let workouts: [HKWorkout] = await withCheckedContinuation { continuation in
 
             let query = HKSampleQuery(
                 sampleType: workoutType,
@@ -83,7 +83,7 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
             ascending: false
         )
 
-        let fetched: HKWorkout? = await withCheckedContinuation(isolation: MainActor.shared) { continuation in
+        let fetched: HKWorkout? = await withCheckedContinuation { continuation in
             let query = HKSampleQuery(
                 sampleType: workoutType,
                 predicate: nil,
@@ -181,7 +181,7 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
         type: HKQuantityType,
         predicate: NSPredicate
     ) async -> [HKQuantitySample] {
-        await withCheckedContinuation(isolation: MainActor.shared) { continuation in
+        await withCheckedContinuation { continuation in
             let query = HKSampleQuery(
                 sampleType: type,
                 predicate: predicate,

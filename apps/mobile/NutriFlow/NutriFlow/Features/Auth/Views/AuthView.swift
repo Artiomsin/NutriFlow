@@ -123,9 +123,7 @@ struct AuthView: View {
             checkAutofillLogin()
         }
         .onAppear {
-            AnalyticsManager.shared.track(
-                .screenView(screen: "auth")
-            )
+            viewModel.onAppear()
         }
     }
     

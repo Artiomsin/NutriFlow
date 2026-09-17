@@ -62,7 +62,10 @@ struct EditFoodView: View {
                         .foregroundColor(AppTheme.accent)
                 }
             }
-            .task { await viewModel.loadCategories() }
+            .task {
+            viewModel.trackScreenView()
+            await viewModel.loadCategories()
+        }
             .onChange(of: viewModel.photosItem) { _, item in viewModel.loadImage(item) }
             .onChange(of: viewModel.grams) { _, newValue in viewModel.recalculateMacros(from: newValue) }
             .onChange(of: viewModel.name) { _, _ in viewModel.showNameWarning = false }

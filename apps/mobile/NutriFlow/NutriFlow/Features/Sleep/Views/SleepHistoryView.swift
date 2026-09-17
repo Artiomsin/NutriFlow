@@ -49,11 +49,17 @@ struct SleepHistoryView: View {
                 }
             }
         }
-        .refreshable { await vm.refreshHistory() }
+        .refreshable {
+            let task = Task { await vm.refreshHistory() }
+            await task.value
+        }
         .background(AppTheme.background)
         .navigationTitle("Sleep")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await vm.loadHistoryIfNeeded() }
+        .task {
+            vm.trackScreenView()
+            await vm.loadHistoryIfNeeded()
+        }
         .navigationDestination(item: $vm.selectedNight) { night in
             NightDetailView(vm: vm, night: night)
                 .task { await vm.loadNightDetail(night) }

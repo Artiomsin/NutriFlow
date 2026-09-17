@@ -29,6 +29,7 @@ final class ProfileViewModel {
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let cacheService: CacheService?
     @ObservationIgnored private let activitySync: ActivitySyncProtocol?
+    @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
 
     init(
         coordinator: AppCoordinator,
@@ -36,7 +37,8 @@ final class ProfileViewModel {
         profileService: ProfileServiceProtocol,
         userService: UserServiceProtocol,
         cacheService: CacheService? = nil,
-        activitySync: ActivitySyncProtocol? = nil
+        activitySync: ActivitySyncProtocol? = nil,
+        analyticsTracker: AnalyticsTracking? = nil
     ) {
         print("ProfileViewModel init")
         self.coordinator = coordinator
@@ -45,9 +47,14 @@ final class ProfileViewModel {
         self.userService = userService
         self.cacheService = cacheService
         self.activitySync = activitySync
+        self.analyticsTracker = analyticsTracker
     }
 
     deinit { print("ProfileViewModel deinit") }
+
+    func trackScreen(_ screen: String) {
+        analyticsTracker?.track(.screenView(screen: screen))
+    }
 
     func loadData() async {
         if let cachedUser: User = try? await cacheService?.get("user"),
@@ -176,7 +183,6 @@ final class ProfileViewModel {
             await cacheService?.remove("profile_empty")
             await cacheService?.remove("profile")
             await cacheService?.remove("goals")
-            AnalyticsManager.shared.track(.profileCreated)
             coordinator?.goToMain()
 
         } catch {
@@ -201,9 +207,8 @@ final class ProfileViewModel {
             mapProfile(profile)
             state = .loaded(profile)
             await cacheService?.remove("profile")
-            await cacheService?.remove("goals")
-            AnalyticsManager.shared.track(.profileUpdated)
-
+await cacheService?.remove("goals")
+ 
         } catch {
             state = .error(error)
         }

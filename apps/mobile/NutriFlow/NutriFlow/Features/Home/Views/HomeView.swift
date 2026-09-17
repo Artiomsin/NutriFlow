@@ -17,29 +17,32 @@ struct HomeView: View {
     let foodService: FoodServiceProtocol
     let coordinator: AppCoordinator?
     let tabBarState: TabBarState
-    
+    let analyticsTracker: AnalyticsTracking?
+
     @State private var navPath: [HomeNavRoute] = []
     @State private var editingFood: FoodEntry?
     @State private var foodSearchVM: FoodSearchViewModel?
     @State private var isConnectingHealth = false
-
+    @State private var hasLoaded = false
     
-    init(homeViewModel: HomeViewModel, foodService: FoodServiceProtocol, coordinator: AppCoordinator? = nil, tabBarState: TabBarState = TabBarState()) {
+    
+    init(homeViewModel: HomeViewModel, foodService: FoodServiceProtocol, coordinator: AppCoordinator? = nil, tabBarState: TabBarState = TabBarState(), analyticsTracker: AnalyticsTracking? = nil) {
         self.homeViewModel = homeViewModel
         self.foodService = foodService
         self.coordinator = coordinator
         self.tabBarState = tabBarState
+        self.analyticsTracker = analyticsTracker
     }
-
+    
     private var needsHealthConnect: Bool {
         homeViewModel.activityVM.needsHealthConnect
-            || homeViewModel.sleepVM.needsHealthConnect
+        || homeViewModel.sleepVM.needsHealthConnect
     }
-
+    
     private func connectHealthKit() async {
         isConnectingHealth = true
         defer { isConnectingHealth = false }
-
+        
         await homeViewModel.connectHealth()
         await homeViewModel.workoutVM.loadLatest()
     }
@@ -51,7 +54,7 @@ struct HomeView: View {
                     let _ = print("[Nav] destination -> \(route)")
                     switch route {
                     case .addFood:
-                        let addFoodVM = AddFoodViewModel(service: foodService, coordinator: coordinator)
+                        let addFoodVM = AddFoodViewModel(service: foodService, coordinator: coordinator, analyticsTracker: analyticsTracker)
                         AddFoodView(onSave: popToRoot, viewModel: addFoodVM, todayFoodVM: homeViewModel.todayFoodVM, onSearchCatalog: {
                             navPath.append(HomeNavRoute.foodSearch)
                         }, onSelectPopular: { food in
@@ -61,12 +64,12 @@ struct HomeView: View {
                         searchView
                             .task {
                                 if foodSearchVM == nil {
-                                    foodSearchVM = FoodSearchViewModel(service: foodService)
+                                    foodSearchVM = FoodSearchViewModel(service: foodService, analyticsTracker: analyticsTracker)
                                 }
                             }
                         
                     case .servingPicker(let food, let suggestedGrams, let suggestedUnit):
-                        let pickerVM = ServingPickerViewModel(food: food, service: foodService, todayFoodVM: homeViewModel.todayFoodVM, suggestedGrams: suggestedGrams, suggestedUnit: suggestedUnit, coordinator: coordinator)
+                        let pickerVM = ServingPickerViewModel(food: food, service: foodService, todayFoodVM: homeViewModel.todayFoodVM, suggestedGrams: suggestedGrams, suggestedUnit: suggestedUnit, coordinator: coordinator, analyticsTracker: analyticsTracker)
                         ServingPickerView(viewModel: pickerVM, onSave: popToRoot)
                     case .addWater:
                         AddWaterView(
@@ -74,7 +77,7 @@ struct HomeView: View {
                             onSave: { Task { await homeViewModel.loadDashboardSummary() } }
                         )
                     case .scanFood:
-                        ScanFoodView(service: foodService) { items, imageData in
+                        ScanFoodView(service: foodService, analyticsTracker: analyticsTracker) { items, imageData in
                             navPath.append(HomeNavRoute.scanResult(items, imageData))
                         }
                         
@@ -84,16 +87,17 @@ struct HomeView: View {
                             imageData: imageData,
                             service: foodService,
                             todayFoodVM: homeViewModel.todayFoodVM,
-                            coordinator: coordinator
+                            coordinator: coordinator,
+                            analyticsTracker: analyticsTracker
                         )
                         ScanResultView(viewModel: resultVM, onFinished: popToRoot)
-
+                        
                     case .workoutHistory:
                         WorkoutHistoryView(vm: homeViewModel.workoutVM)
-
+                        
                     case .sleepHistory:
                         SleepHistoryView(vm: homeViewModel.sleepVM)
-
+                        
                     }
                 }
         }
@@ -103,7 +107,7 @@ struct HomeView: View {
         }
         .background(AppTheme.background)
         .sheet(item: $editingFood) { entry in
-            let vm = EditFoodViewModel(entry: entry, foodService: foodService, coordinator: coordinator)
+            let vm = EditFoodViewModel(entry: entry, foodService: foodService, coordinator: coordinator, analyticsTracker: analyticsTracker)
             EditFoodView(viewModel: vm) {
                 await homeViewModel.todayFoodVM.reloadAfterMutation()
                 homeViewModel.todayFoodVM.notifyDataMutated()
@@ -119,14 +123,31 @@ struct HomeView: View {
                 
                 DailySummarySectionView(homeViewModel: homeViewModel)
 
+                GoalPersonalizationSection(
+                    state: homeViewModel.goalsVM.personalizationState,
+                    goals: homeViewModel.userGoals,
+                    isProcessing: homeViewModel.goalsVM.isProcessingPersonalization,
+                    onRequest: {
+                        Task { await homeViewModel.goalsVM.requestPersonalization() }
+                    },
+                    onAccept: { recommendation in
+                        Task { await homeViewModel.goalsVM.acceptRecommendation(recommendation) }
+                    },
+                    onDismiss: { recommendation in
+                        Task { await homeViewModel.goalsVM.dismissRecommendation(recommendation) }
+                    }
+                )
+                .padding(.horizontal, AppTheme.paddingHorizontal)
+
                 if needsHealthConnect {
                     HealthKitConnectCard(isConnecting: isConnectingHealth) {
                         await connectHealthKit()
                     }
                     .padding(.horizontal, AppTheme.paddingHorizontal)
                 } else {
-                    ActivityCard(vm: homeViewModel.activityVM)
-                        .padding(.horizontal, AppTheme.paddingHorizontal)
+                    ActivityCard(vm: homeViewModel.activityVM,stepGoal: homeViewModel.userGoals?.dailyStepsGoal, activeCaloriesGoal: homeViewModel.userGoals?.dailyActiveCaloriesGoal
+                    )
+                    .padding(.horizontal, AppTheme.paddingHorizontal)
                     LastWorkoutCard(
                         workout: homeViewModel.workoutVM.lastWorkout,
                         healthAccessDenied: homeViewModel.workoutVM.healthAccessDenied,
@@ -138,13 +159,17 @@ struct HomeView: View {
                             tabBarState.isTabBarHidden = true
                             navPath.append(HomeNavRoute.workoutHistory)
                             print("[Nav] appended workoutHistory, path=\(navPath)")
-                        }
+                        },
+                        weeklyWorkoutsGoal: homeViewModel.userGoals?.weeklyWorkoutsGoal,
+                        weeklyWorkoutMinutesGoal: homeViewModel.userGoals?.weeklyWorkoutMinutesGoal,
+                        weekWorkoutsCount: homeViewModel.workoutVM.weekWorkoutsCount,
+                        weekWorkoutMinutes: homeViewModel.workoutVM.weekWorkoutMinutes
                     )
                     .padding(.horizontal, AppTheme.paddingHorizontal)
-                    SleepCard(vm: homeViewModel.sleepVM) {
+                    SleepCard(vm: homeViewModel.sleepVM, onTap:  {
                         tabBarState.isTabBarHidden = true
                         navPath.append(HomeNavRoute.sleepHistory)
-                    }
+                    }, goals: homeViewModel.userGoals)
                     .padding(.horizontal, AppTheme.paddingHorizontal)
                 }
                 FoodSectionView(
@@ -185,18 +210,17 @@ struct HomeView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .refreshable { await homeViewModel.refreshAll() }
-        .task {
-            await withDiscardingTaskGroup { group in
-                group.addTask { await homeViewModel.onAppear() }
-                group.addTask { await homeViewModel.loadAll() }
-                group.addTask { await homeViewModel.todayFoodVM.loadToday() }
-                group.addTask { await homeViewModel.waterVM.loadToday() }
-            }
-            
+        .refreshable {
+            let task = Task { await homeViewModel.refreshAll() }
+            await task.value
         }
         .onAppear {
-            AnalyticsManager.shared.track(.screenView(screen: "home"))
+            guard !hasLoaded else { return }
+            hasLoaded = true
+            Task {
+                await homeViewModel.onAppear()
+                await homeViewModel.loadAll()
+            }
         }
     }
     
@@ -230,11 +254,7 @@ struct HomeView: View {
     }
 }
 
-extension HomeView: Equatable {
-    static func == (lhs: HomeView, rhs: HomeView) -> Bool {
-        lhs.tabBarState === rhs.tabBarState
-    }
-}
+
 
 private struct FoodSectionView: View {
     @Bindable var todayFoodVM: TodayFoodViewModel
@@ -293,7 +313,7 @@ private struct DailySummarySectionView: View {
 }
 
 extension HomeFactory {
-
+    
     @MainActor
     static func makePreviewViewModel() -> HomeViewModel {
         let coordinator = AppCoordinator(container: AppDependencyContainer())
@@ -313,9 +333,43 @@ extension HomeFactory {
         goalsVM.state = .loaded(UserGoals(
             id: "1", userId: "1",
             dailyCaloriesGoal: 2200, dailyProteinGoal: 150,
-            dailyFatGoal: 65, dailyCarbsGoal: 250, dailyWaterGoal: 3000,
+            dailyFatGoal: 65, dailyCarbsGoal: 250, dailyWaterGoal: 3000,dailyStepsGoal: 3000, dailyActiveCaloriesGoal: 233, weeklyWorkoutsGoal: 231,weeklyWorkoutMinutesGoal: 675,nightlySleepMinMinutes: 45,nightlySleepMaxMinutes: 342,
+            
             source: "auto", createdAt: nil, updatedAt: nil
         ))
+        
+        goalsVM.personalizationState = PersonalizationState(
+            pending: GoalRecommendation(
+                id: "rec-1", userId: "1", status: "pending",
+                previousGoals: GoalMetrics(
+                    dailyCaloriesGoal: 2200, dailyProteinGoal: 150,
+                    dailyFatGoal: 65, dailyCarbsGoal: 250, dailyWaterGoal: 3000,
+                    dailyStepsGoal: 8000, dailyActiveCaloriesGoal: 500,
+                    weeklyWorkoutsGoal: 5, weeklyWorkoutMinutesGoal: 155,
+                    nightlySleepMinMinutes: 234, nightlySleepMaxMinutes: 500
+                ),
+                recommendedGoals: GoalMetrics(
+                    dailyCaloriesGoal: 2050, dailyProteinGoal: 160,
+                    dailyFatGoal: 60, dailyCarbsGoal: 230, dailyWaterGoal: 3000,
+                    dailyStepsGoal: 9000, dailyActiveCaloriesGoal: 550,
+                    weeklyWorkoutsGoal: 6, weeklyWorkoutMinutesGoal: 180,
+                    nightlySleepMinMinutes: 240, nightlySleepMaxMinutes: 510
+                ),
+                analysisPeriodStart: "2026-09-03", analysisPeriodEnd: "2026-09-17",
+                reasons: [
+                    "Your weekly calories were 10% below target",
+                    "Your average sleep is shorter than the recommended range"
+                ],
+                confidence: RecommendationConfidence(
+                    level: "high", dataQualityScore: 0.87, trackedDays: 14,
+                    weightLogsCount: 0, activityDays: 12, workoutCount: 4,
+                    sleepNights: 14, adherenceStepsPct: 0.72, weightTrendKgPerWeek: nil
+                ),
+                createdAt: "2026-09-17T08:00:00Z", expiresAt: "2026-09-24T08:00:00Z",
+                acceptedAt: nil, dismissedAt: nil
+            ),
+            personalizationDue: false
+        )
         
         let dailySummaryVM = DailySummaryState.loaded(DailySummary(
             id: "1",
@@ -366,7 +420,7 @@ extension HomeFactory {
             heartRateAvg: 58,
             segments: []
         )])
-
+        
         let vm = HomeViewModel(
             coordinator: coordinator,
             dailySummaryService: MockDailySummaryService(),

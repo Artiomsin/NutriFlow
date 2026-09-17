@@ -29,6 +29,7 @@ final class AddFoodViewModel {
 
     @ObservationIgnored private let service: FoodServiceProtocol
     @ObservationIgnored private weak var coordinator: AppCoordinator?
+    @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
     @ObservationIgnored private let prefsStore = PreferencesStore.shared
 
     var gramsLabel: String {
@@ -52,13 +53,18 @@ final class AddFoodViewModel {
         return Int(UnitConversion.grams(fromDisplay: value, baseUnit: "g", preferred: prefsStore.preferredUnits).rounded())
     }
 
-    init(service: FoodServiceProtocol, coordinator: AppCoordinator?) {
+    init(service: FoodServiceProtocol, coordinator: AppCoordinator?, analyticsTracker: AnalyticsTracking? = nil) {
         print("AddFoodViewModel init")
         self.service = service
         self.coordinator = coordinator
+        self.analyticsTracker = analyticsTracker
     }
 
     deinit { print("AddFoodViewModel deinit") }
+
+    func trackScreenView() {
+        analyticsTracker?.track(.screenView(screen: "add_food"))
+    }
 
     func loadCategories() async {
         guard categories.isEmpty else { return }
@@ -114,8 +120,6 @@ final class AddFoodViewModel {
                 date: nil
             )
 
-            AnalyticsManager.shared.track(.foodAdded(name: name, calories: caloriesInt))
-
             clearForm()
             state = .idle
         } catch let error as APIError {
@@ -151,8 +155,6 @@ final class AddFoodViewModel {
                 imageUrl: food.imageUrl,
                 date: nil
             )
-
-            AnalyticsManager.shared.track(.foodAdded(name: food.name, calories: cal))
 
             state = .idle
         } catch let error as APIError {

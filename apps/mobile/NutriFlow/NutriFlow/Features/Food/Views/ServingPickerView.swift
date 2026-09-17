@@ -37,6 +37,7 @@ struct ServingPickerView: View {
         .background(AppTheme.background)
         .navigationTitle("Add Portion")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { viewModel.trackScreenView() }
     }
 
     private var headerSection: some View {

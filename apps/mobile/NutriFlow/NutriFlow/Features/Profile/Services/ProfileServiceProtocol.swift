@@ -3,4 +3,5 @@ protocol ProfileServiceProtocol: Sendable {
     func createProfile(weight: Double?, height: Int?, age: Int?, gender: Gender?, goal: Goal?, activityLevel: ActivityLevel?, preferredUnits: PreferredUnits?) async throws -> UserProfile
     func updateMyProfile(weight: Double?, height: Int?, age: Int?, gender: Gender?, goal: Goal?, activityLevel: ActivityLevel?, preferredUnits: PreferredUnits?) async throws -> UserProfile
     func deleteMyProfile() async throws
+    func getWeightLogs(from: String?, to: String?) async throws -> [WeightLog]
 }

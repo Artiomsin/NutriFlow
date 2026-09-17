@@ -5,4 +5,6 @@ enum ProfileEndpoints {
     static let createProfile = "/profiles"
     static let updateMyProfile = "/profiles/me"
     static let deleteMyProfile = "/profiles/me"
+    static let weightLogs = "/weight-logs"
+
 }

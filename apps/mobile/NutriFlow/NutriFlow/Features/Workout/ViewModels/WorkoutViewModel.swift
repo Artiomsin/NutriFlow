@@ -48,6 +48,19 @@ final class WorkoutViewModel {
 
     var lastWorkout: HealthKitWorkout?
 
+    var weekWorkoutsCount: Int {
+        guard case .loaded(let items) = state,
+              let start = Calendar.current.dateInterval(of: .weekOfYear, for: Date())?.start else { return 0 }
+        return items.filter { $0.startDate >= start }.count
+    }
+
+    var weekWorkoutMinutes: Int {
+        guard case .loaded(let items) = state,
+              let start = Calendar.current.dateInterval(of: .weekOfYear, for: Date())?.start else { return 0 }
+        return items.filter { $0.startDate >= start }
+            .reduce(0) { $0 + Int($1.durationSeconds) / 60 }
+    }
+
     var isLoadMore: Bool = false
     var hasMore: Bool = false
     var loadMoreError: Bool = false
@@ -112,6 +125,9 @@ final class WorkoutViewModel {
     private let cacheService: CacheService?
 
     @ObservationIgnored
+    private let analyticsTracker: AnalyticsTracking?
+
+    @ObservationIgnored
     private var total: Int = 0
 
     @ObservationIgnored
@@ -128,11 +144,17 @@ final class WorkoutViewModel {
     init(
         healthKit: WorkoutHealthKitServiceProtocol,
         workoutService: WorkoutServiceProtocol,
-        cacheService: CacheService? = nil
+        cacheService: CacheService? = nil,
+        analyticsTracker: AnalyticsTracking? = nil
     ) {
         self.healthKit = healthKit
         self.workoutService = workoutService
         self.cacheService = cacheService
+        self.analyticsTracker = analyticsTracker
+    }
+
+    func trackScreenView(_ screen: String) {
+        analyticsTracker?.track(.screenView(screen: screen))
     }
 
     deinit {

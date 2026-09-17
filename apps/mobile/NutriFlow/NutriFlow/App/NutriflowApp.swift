@@ -6,6 +6,8 @@ struct NutriflowApp: App {
 
     private let container = AppDependencyContainer()
     private let coordinator: AppCoordinator
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var hasRecordedActive = false
 
     init() {
         self.coordinator = AppCoordinator(container: container)
@@ -25,7 +27,22 @@ struct NutriflowApp: App {
             }
             .preferredColorScheme(.dark)
             .task {
+                container.analyticsTracker.track(.appLaunched)
                 await coordinator.bootstrap()
+            }
+            .onChange(of: scenePhase) { _, phase in
+                switch phase {
+                case .active:
+                    if hasRecordedActive {
+                        container.analyticsTracker.track(.appForeground)
+                    } else {
+                        hasRecordedActive = true
+                    }
+                case .background:
+                    container.analyticsTracker.track(.appBackground)
+                default:
+                    break
+                }
             }
             .onOpenURL { url in
                 GIDSignIn.sharedInstance.handle(url)

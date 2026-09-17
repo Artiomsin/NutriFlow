@@ -10,6 +10,7 @@ final class EditFoodViewModel {
     let entry: FoodEntry
     private let foodService: FoodServiceProtocol
     @ObservationIgnored private weak var coordinator: AppCoordinator?
+    @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
     private let prefsStore = PreferencesStore.shared
 
     var name: String
@@ -58,10 +59,11 @@ final class EditFoodViewModel {
     var fatLabel: String { "Fat (\(macroUnit))" }
     var carbsLabel: String { "Carbs (\(macroUnit))" }
 
-    init(entry: FoodEntry, foodService: FoodServiceProtocol, coordinator: AppCoordinator? = nil) {
+    init(entry: FoodEntry, foodService: FoodServiceProtocol, coordinator: AppCoordinator? = nil, analyticsTracker: AnalyticsTracking? = nil) {
         self.entry = entry
         self.foodService = foodService
         self.coordinator = coordinator
+        self.analyticsTracker = analyticsTracker
         self.name = entry.name
         let prefs = PreferencesStore.shared.preferredUnits
         self.calories = "\(UnitConversion.formatEnergyValue(kcal: entry.calories, preferred: prefs))"
@@ -74,6 +76,10 @@ final class EditFoodViewModel {
             return UnitConversion.formatDisplayValue(value, displayUnit: unit)
         } ?? ""
         self.selectedCategoryName = entry.categoryName
+    }
+
+    func trackScreenView() {
+        analyticsTracker?.track(.screenView(screen: "edit_food"))
     }
 
     private func toGrams(_ value: String) -> Double? {

@@ -155,13 +155,7 @@ struct EditProfileView: View {
         .onTapGesture {
             dismissKeyboard()
         }
-        .onAppear {
-            AnalyticsManager.shared.track(
-                .screenView(
-                    screen: "edit_profile"
-                )
-            )
-        }
+        .onAppear { viewModel.trackScreen("edit_profile") }
     }
 
     private func dismissKeyboard() {

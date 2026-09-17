@@ -41,4 +41,20 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
         )
         try await client.sendVoid(request)
     }
+
+    func getWeightLogs(from: String?, to: String?) async throws -> [WeightLog] {
+        var query: [URLQueryItem] = []
+        if let from {
+            query.append(URLQueryItem(name: "from", value: from))
+        }
+        if let to {
+            query.append(URLQueryItem(name: "to", value: to))
+        }
+        let request = APIRequest<NeverBody>(
+            path: ProfileEndpoints.weightLogs,
+            method: .GET,
+            queryItems: query
+        )
+        return try await client.send(request)
+    }
 }

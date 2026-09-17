@@ -55,6 +55,7 @@ struct AddFoodView: View {
         .navigationTitle("Add Food")
         .navigationBarTitleDisplayMode(.inline)
         .task {
+            viewModel.trackScreenView()
             await viewModel.loadCategories()
             await viewModel.loadPopular()
         }

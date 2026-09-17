@@ -1,7 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { db } from '../db/db';
 import { dailySummary } from '../db/schema/dailySummary';
+import { dailyActivity } from '../db/schema/dailyActivity';
 import { userGoals } from '../db/schema/userGoals';
+import { userSleep } from '../db/schema/userSleep';
+import { userWorkouts } from '../db/schema/userWorkouts';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { cacheGet, cacheSet } from '../redis';
 
@@ -56,6 +59,42 @@ export class AnalyticsService {
       (toMs - fromMs) / (1000 * 60 * 60 * 24),
     );
     const daysTracked = days.length;
+
+    const activityRows = await db
+      .select()
+      .from(dailyActivity)
+      .where(
+        and(
+          eq(dailyActivity.userId, userId),
+          gte(dailyActivity.date, fromDate),
+          lte(dailyActivity.date, toDate),
+        ),
+      );
+
+    const sleepStart = new Date(`${fromDate}T00:00:00.000Z`);
+    const sleepEnd = new Date(`${toDate}T23:59:59.999Z`);
+    const [sleepRows, workoutRows] = await Promise.all([
+      db
+        .select()
+        .from(userSleep)
+        .where(
+          and(
+            eq(userSleep.userId, userId),
+            gte(userSleep.startDate, sleepStart),
+            lte(userSleep.startDate, sleepEnd),
+          ),
+        ),
+      db
+        .select()
+        .from(userWorkouts)
+        .where(
+          and(
+            eq(userWorkouts.userId, userId),
+            gte(userWorkouts.startDate, sleepStart),
+            lte(userWorkouts.startDate, sleepEnd),
+          ),
+        ),
+    ]);
     const avgCalories = daysTracked > 0
       ? Math.round(days.reduce((s, d) => s + (d.totalCalories ?? 0), 0) / daysTracked)
       : 0;
@@ -91,6 +130,41 @@ export class AnalyticsService {
     const goalWaterPct = goalWater && goalWater > 0
       ? Math.round((avgWater / goalWater) * 100)
       : null;
+
+    const avgSteps = activityRows.length > 0
+      ? Math.round(activityRows.reduce((s, d) => s + (d.steps ?? 0), 0) / activityRows.length)
+      : 0;
+    const avgActiveCalories = activityRows.length > 0
+      ? Math.round(activityRows.reduce((s, d) => s + (d.activeCalories ?? 0), 0) / activityRows.length)
+      : 0;
+    const goalSteps = goals?.dailyStepsGoal ?? null;
+    const goalActiveCalories = goals?.dailyActiveCaloriesGoal ?? null;
+    const goalStepsPct = goalSteps && goalSteps > 0
+      ? Math.round((avgSteps / goalSteps) * 100)
+      : null;
+    const goalActiveCaloriesPct = goalActiveCalories && goalActiveCalories > 0
+      ? Math.round((avgActiveCalories / goalActiveCalories) * 100)
+      : null;
+
+    const sleepMinMinutes = goals?.nightlySleepMinMinutes ?? null;
+    const sleepMaxMinutes = goals?.nightlySleepMaxMinutes ?? null;
+    const sleepNights = sleepRows.filter((n) => n.asleepSeconds != null);
+    const sleepTotalNights = sleepNights.length;
+    const sleepNightsInRange =
+      sleepTotalNights > 0 && sleepMinMinutes && sleepMaxMinutes
+        ? sleepNights.filter((n) => {
+            const minutes = Number(n.asleepSeconds) / 60;
+            return minutes >= sleepMinMinutes && minutes <= sleepMaxMinutes;
+          }).length
+        : 0;
+
+    const workoutsDone = workoutRows.length;
+    const workoutMinutes = Math.round(
+      workoutRows.reduce(
+        (s, w) => s + Number(w.durationSeconds) / 60,
+        0,
+      ),
+    );
     const streak = this.calculateStreak(days);
     const trend = this.calculateTrend(days);
     const daily = days.map((d) => {
@@ -143,6 +217,16 @@ export class AnalyticsService {
       streakStart: streak.start,
       trend,
       daily,
+      avgSteps,
+      avgActiveCalories,
+      goalSteps,
+      goalStepsPct,
+      goalActiveCalories,
+      goalActiveCaloriesPct,
+      sleepTotalNights,
+      sleepNightsInRange,
+      workoutsDone,
+      workoutMinutes,
     };
   }
   private calculateStreak(days: { date: string; totalCalories: number | null }[]) {

@@ -22,6 +22,7 @@ struct FoodSearchView: View {
         .background(AppTheme.background)
         .navigationTitle("Search Food")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { foodSearchVM.trackScreenView() }
     }
     
     private var searchBar: some View {

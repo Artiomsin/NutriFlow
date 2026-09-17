@@ -11,3 +11,6 @@ export * from './userFoodStats';
 export * from './dailyActivity';
 export * from './userWorkouts';
 export * from './userSleep';
+export * from './weightLogs';
+export * from './goalHistory';
+export * from './goalRecommendations';

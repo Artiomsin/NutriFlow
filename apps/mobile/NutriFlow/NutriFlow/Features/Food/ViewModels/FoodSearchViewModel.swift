@@ -26,10 +26,16 @@ final class FoodSearchViewModel {
     @ObservationIgnored private var offset: Int = 0
     @ObservationIgnored private let pageSize: Int = 20
     @ObservationIgnored private var selectionInFlight: Set<String> = []
+    @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
 
-    init(service: FoodServiceProtocol) {
+    init(service: FoodServiceProtocol, analyticsTracker: AnalyticsTracking? = nil) {
         print("FoodSearchViewModel init")
         self.service = service
+        self.analyticsTracker = analyticsTracker
+    }
+
+    func trackScreenView() {
+        analyticsTracker?.track(.screenView(screen: "food_search"))
     }
 
     deinit {

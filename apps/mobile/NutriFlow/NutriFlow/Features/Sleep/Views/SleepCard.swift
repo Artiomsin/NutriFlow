@@ -10,6 +10,7 @@ struct SleepCard: View {
 
     @Bindable var vm: SleepViewModel
     var onTap: () -> Void = {}
+    var goals: UserGoals? = nil
 
     var body: some View {
         switch vm.state {
@@ -187,6 +188,21 @@ struct SleepCard: View {
                     .foregroundColor(AppTheme.textSecondary)
                     
             }
+
+            if let minMinutes = goals?.nightlySleepMinMinutes,
+               let maxMinutes = goals?.nightlySleepMaxMinutes,
+               maxMinutes > 0 {
+                ActivityGoalRow(
+                    icon: "moon.zzz.fill",
+                    label: "Sleep goal",
+                    current: Int(sleep.asleepSeconds / 60),
+                    goal: maxMinutes,
+                    color: .indigo,
+                    displayCurrent: hours(sleep.asleepSeconds),
+                    displayGoal: sleepGoalRangeText(min: minMinutes, max: maxMinutes),
+                    hasGlass: false
+                )
+            }
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -196,6 +212,10 @@ struct SleepCard: View {
 
     private func hours(_ seconds: Double) -> String {
         String(format: "%.1fh", seconds / 3600)
+    }
+
+    private func sleepGoalRangeText(min: Int, max: Int) -> String {
+        String(format: "%.0f–%.0f h", Double(min) / 60, Double(max) / 60)
     }
 
     private func statistics(_ sleep: HealthKitSleep) -> String {

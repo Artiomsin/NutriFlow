@@ -13,6 +13,7 @@ struct MainTabView: View {
     @State private var homeVM: HomeViewModel
     @State private var analyticsVM: AnalyticsViewModel
     @State private var chartVM: ProgressChartViewModel
+    @State private var progressGoalsVM: GoalsViewModel
     @State private var profileVM: ProfileViewModel
 
     init(container: AppDependency, coordinator: AppCoordinator) {
@@ -41,6 +42,7 @@ struct MainTabView: View {
         )
         self._analyticsVM = State(initialValue: progress.0)
         self._chartVM = State(initialValue: progress.1)
+        self._progressGoalsVM = State(initialValue: progress.2)
 
         self._profileVM = State(initialValue: ProfileViewModel(
             coordinator: coordinator,
@@ -48,7 +50,8 @@ struct MainTabView: View {
             profileService: container.profileService,
             userService: container.userService,
             cacheService: container.cacheService,
-            activitySync: container.activitySync
+            activitySync: container.activitySync,
+            analyticsTracker: container.analyticsTracker
         ))
     }
 
@@ -56,8 +59,7 @@ struct MainTabView: View {
         ZStack(alignment: .bottom) {
             AppTheme.background.ignoresSafeArea()
 
-            HomeView(homeViewModel: homeVM, foodService: container.foodService, coordinator: coordinator, tabBarState: tabBarState)
-                .equatable()
+            HomeView(homeViewModel: homeVM, foodService: container.foodService, coordinator: coordinator, tabBarState: tabBarState, analyticsTracker: container.analyticsTracker)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .opacity(selectedTab == 0 ? 1 : 0)
                 .allowsHitTesting(selectedTab == 0)
@@ -65,6 +67,7 @@ struct MainTabView: View {
             ProgressDashboardView(
                 analyticsVM: analyticsVM,
                 chartVM: chartVM,
+                goalsVM: progressGoalsVM,
                 periodState: periodState,
                 tabBarState: tabBarState,
                 progressRefreshState: progressRefreshState,
@@ -74,7 +77,7 @@ struct MainTabView: View {
             .opacity(selectedTab == 1 ? 1 : 0)
             .allowsHitTesting(selectedTab == 1)
 
-            SettingsView(viewModel: profileVM, coordinator: coordinator, tabBarState: tabBarState)
+            SettingsView(viewModel: profileVM, goalsVM: progressGoalsVM, coordinator: coordinator, tabBarState: tabBarState)
                 .equatable()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .opacity(selectedTab == 2 ? 1 : 0)
@@ -91,10 +94,18 @@ struct MainTabView: View {
         ) { _ in
             Task { await homeVM.handleBecameActive() }
         }
-        .onChange(of: selectedTab) { _, _ in
+        .onChange(of: selectedTab) { _, newTab in
             tabBarState.isTabBarHidden = false
             tabBarState.isTabBarMinimized = false
+            trackActiveTab(newTab)
         }
+        .onAppear {
+            trackActiveTab(selectedTab)
+        }
+    }
+
+    private func trackActiveTab(_ tab: Int) {
+        TabScreen(rawValue: tab)?.trackOpen(container.analyticsTracker)
     }
 }
 
