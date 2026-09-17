@@ -212,5 +212,44 @@ final class GoalsViewModel {
         }
     }
 
+    @discardableResult
+    func updateGoals(
+        calories: Int?,
+        protein: Int?,
+        fat: Int?,
+        carbs: Int?,
+        water: Int?,
+        steps: Int?,
+        activeCalories: Int?,
+        workouts: Int?,
+        workoutMinutes: Int?,
+        sleepMinMinutes: Int?,
+        sleepMaxMinutes: Int?
+    ) async -> Bool {
+        do {
+            let updated = try await service.updateGoals(
+                calories: calories,
+                protein: protein,
+                fat: fat,
+                carbs: carbs,
+                water: water,
+                steps: steps,
+                activeCalories: activeCalories,
+                workouts: workouts,
+                workoutMinutes: workoutMinutes,
+                sleepMinMinutes: sleepMinMinutes,
+                sleepMaxMinutes: sleepMaxMinutes
+            )
+            state = .loaded(updated)
+            try? await cacheService?.set("goals", updated, ttl: 1800)
+            return true
+        } catch let error as APIError {
+            if case .unauthorized = error { coordinator?.goToAuth() }
+            return false
+        } catch {
+            return false
+        }
+    }
+
     
 }

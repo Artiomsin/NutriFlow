@@ -3,13 +3,22 @@ import SwiftUI
 enum SettingsNavRoute: Hashable {
     case profile
     case editProfile
+    case goals
 }
 
 struct SettingsView: View {
     @Bindable var viewModel: ProfileViewModel
+    let goalsVM: GoalsViewModel
     let coordinator: AppCoordinator?
     var tabBarState: TabBarState = TabBarState()
     @State private var navPath: [SettingsNavRoute] = []
+
+    init(viewModel: ProfileViewModel, goalsVM: GoalsViewModel, coordinator: AppCoordinator?, tabBarState: TabBarState = TabBarState()) {
+        self.viewModel = viewModel
+        self.goalsVM = goalsVM
+        self.coordinator = coordinator
+        self.tabBarState = tabBarState
+    }
 
     var body: some View {
         let _ = print("SettingsView body")
@@ -22,6 +31,7 @@ struct SettingsView: View {
 
                     LazyVStack(spacing: 24) {
                         accountSection
+                        goalsSection
                         unitsSection
                     }
                     .padding(.horizontal, AppTheme.paddingHorizontal)
@@ -45,6 +55,8 @@ struct SettingsView: View {
                     }
                 case .editProfile:
                     EditProfileView(viewModel: viewModel)
+                case .goals:
+                    GoalsManagementView(goalsVM: goalsVM)
                 }
             }
         }
@@ -80,6 +92,21 @@ struct SettingsView: View {
         }
     }
 
+
+    private var goalsSection: some View {
+        VStack(spacing: 10) {
+            HStack {
+                Text("Goals")
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundColor(AppTheme.textTertiary)
+                Spacer()
+            }
+            .padding(.leading, 2)
+
+            SettingsRow(icon: "target", title: "Manage Your Goals")
+                .onTapGesture { navPath.append(.goals) }
+        }
+    }
 
     private var unitsSection: some View {
         VStack(spacing: 10) {
@@ -191,6 +218,10 @@ extension SettingsView: Equatable {
         profileService: MockProfileService(),
         userService: MockUserService()
     )
-    SettingsView(viewModel: viewModel, coordinator: coordinator)
+    SettingsView(
+        viewModel: viewModel,
+        goalsVM: GoalsViewModel(coordinator: coordinator, service: MockGoalsService()),
+        coordinator: coordinator
+    )
         .preferredColorScheme(.dark)
 }

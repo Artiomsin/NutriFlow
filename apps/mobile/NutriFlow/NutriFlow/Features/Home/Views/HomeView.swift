@@ -121,7 +121,23 @@ struct HomeView: View {
                 header
                 
                 DailySummarySectionView(homeViewModel: homeViewModel)
-                
+
+                GoalPersonalizationSection(
+                    state: homeViewModel.goalsVM.personalizationState,
+                    goals: homeViewModel.userGoals,
+                    isProcessing: homeViewModel.goalsVM.isProcessingPersonalization,
+                    onRequest: {
+                        Task { await homeViewModel.goalsVM.requestPersonalization() }
+                    },
+                    onAccept: { recommendation in
+                        Task { await homeViewModel.goalsVM.acceptRecommendation(recommendation) }
+                    },
+                    onDismiss: { recommendation in
+                        Task { await homeViewModel.goalsVM.dismissRecommendation(recommendation) }
+                    }
+                )
+                .padding(.horizontal, AppTheme.paddingHorizontal)
+
                 if needsHealthConnect {
                     HealthKitConnectCard(isConnecting: isConnectingHealth) {
                         await connectHealthKit()
@@ -200,6 +216,7 @@ struct HomeView: View {
                 group.addTask { await homeViewModel.loadAll() }
                 group.addTask { await homeViewModel.todayFoodVM.loadToday() }
                 group.addTask { await homeViewModel.waterVM.loadToday() }
+                group.addTask { await homeViewModel.goalsVM.loadPersonalization() }
             }
             
         }
@@ -322,6 +339,39 @@ extension HomeFactory {
             
             source: "auto", createdAt: nil, updatedAt: nil
         ))
+        
+        goalsVM.personalizationState = PersonalizationState(
+            pending: GoalRecommendation(
+                id: "rec-1", userId: "1", status: "pending",
+                previousGoals: GoalMetrics(
+                    dailyCaloriesGoal: 2200, dailyProteinGoal: 150,
+                    dailyFatGoal: 65, dailyCarbsGoal: 250, dailyWaterGoal: 3000,
+                    dailyStepsGoal: 8000, dailyActiveCaloriesGoal: 500,
+                    weeklyWorkoutsGoal: 5, weeklyWorkoutMinutesGoal: 155,
+                    nightlySleepMinMinutes: 234, nightlySleepMaxMinutes: 500
+                ),
+                recommendedGoals: GoalMetrics(
+                    dailyCaloriesGoal: 2050, dailyProteinGoal: 160,
+                    dailyFatGoal: 60, dailyCarbsGoal: 230, dailyWaterGoal: 3000,
+                    dailyStepsGoal: 9000, dailyActiveCaloriesGoal: 550,
+                    weeklyWorkoutsGoal: 6, weeklyWorkoutMinutesGoal: 180,
+                    nightlySleepMinMinutes: 240, nightlySleepMaxMinutes: 510
+                ),
+                analysisPeriodStart: "2026-09-03", analysisPeriodEnd: "2026-09-17",
+                reasons: [
+                    "Your weekly calories were 10% below target",
+                    "Your average sleep is shorter than the recommended range"
+                ],
+                confidence: RecommendationConfidence(
+                    level: "high", dataQualityScore: 0.87, trackedDays: 14,
+                    weightLogsCount: 0, activityDays: 12, workoutCount: 4,
+                    sleepNights: 14, adherenceStepsPct: 0.72, weightTrendKgPerWeek: nil
+                ),
+                createdAt: "2026-09-17T08:00:00Z", expiresAt: "2026-09-24T08:00:00Z",
+                acceptedAt: nil, dismissedAt: nil
+            ),
+            personalizationDue: false
+        )
         
         let dailySummaryVM = DailySummaryState.loaded(DailySummary(
             id: "1",

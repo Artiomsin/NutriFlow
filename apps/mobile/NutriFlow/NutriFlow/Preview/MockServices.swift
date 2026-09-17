@@ -296,7 +296,43 @@ final class MockGoalsService: GoalsServiceProtocol {
     }
     
     func getPersonalizationState() async throws -> PersonalizationState {
-        PersonalizationState(pending: nil, personalizationDue: false)
+        PersonalizationState(
+            pending: GoalRecommendation(
+                id: "mock-rec-1",
+                userId: "1",
+                status: "pending",
+                previousGoals: GoalMetrics(
+                    dailyCaloriesGoal: 2200, dailyProteinGoal: 150,
+                    dailyFatGoal: 65, dailyCarbsGoal: 250, dailyWaterGoal: 3000,
+                    dailyStepsGoal: 8000, dailyActiveCaloriesGoal: 500,
+                    weeklyWorkoutsGoal: 5, weeklyWorkoutMinutesGoal: 155,
+                    nightlySleepMinMinutes: 234, nightlySleepMaxMinutes: 500
+                ),
+                recommendedGoals: GoalMetrics(
+                    dailyCaloriesGoal: 2050, dailyProteinGoal: 160,
+                    dailyFatGoal: 60, dailyCarbsGoal: 230, dailyWaterGoal: 3000,
+                    dailyStepsGoal: 9000, dailyActiveCaloriesGoal: 550,
+                    weeklyWorkoutsGoal: 6, weeklyWorkoutMinutesGoal: 180,
+                    nightlySleepMinMinutes: 240, nightlySleepMaxMinutes: 510
+                ),
+                analysisPeriodStart: "2026-09-03",
+                analysisPeriodEnd: "2026-09-17",
+                reasons: [
+                    "Your weekly calories were 10% below target",
+                    "Your average sleep is shorter than the recommended range"
+                ],
+                confidence: RecommendationConfidence(
+                    level: "high", dataQualityScore: 0.87, trackedDays: 14,
+                    weightLogsCount: 0, activityDays: 12, workoutCount: 4,
+                    sleepNights: 14, adherenceStepsPct: 0.72, weightTrendKgPerWeek: nil
+                ),
+                createdAt: "2026-09-17T08:00:00Z",
+                expiresAt: "2026-09-24T08:00:00Z",
+                acceptedAt: nil,
+                dismissedAt: nil
+            ),
+            personalizationDue: false
+        )
     }
     func dismissRecommendation(id: String) async throws -> DismissResult {
         DismissResult(dismissed: true)
@@ -319,7 +355,41 @@ final class MockGoalsService: GoalsServiceProtocol {
     }
 
     func getGoalHistory() async throws -> [GoalHistoryEntry] {
-        []
+        [
+            GoalHistoryEntry(
+                id: "h1",
+                userId: "1",
+                goalType: "nutrition",
+                metric: "dailyCaloriesGoal",
+                oldValue: 2200,
+                newValue: 2050,
+                source: "personalized",
+                reason: "Weekly calories were 10% below target",
+                createdAt: "2026-09-17T08:00:00Z"
+            ),
+            GoalHistoryEntry(
+                id: "h2",
+                userId: "1",
+                goalType: "activity",
+                metric: "dailyStepsGoal",
+                oldValue: 8000,
+                newValue: 9000,
+                source: "personalized",
+                reason: "Averaged 8,600 steps on tracked days",
+                createdAt: "2026-09-17T08:00:01Z"
+            ),
+            GoalHistoryEntry(
+                id: "h3",
+                userId: "1",
+                goalType: "sleep",
+                metric: "nightlySleepMinMinutes",
+                oldValue: 234,
+                newValue: 240,
+                source: "user",
+                reason: nil,
+                createdAt: "2026-09-01T10:00:00Z"
+            )
+        ]
     }
 
     func getGoals() async throws -> UserGoals {

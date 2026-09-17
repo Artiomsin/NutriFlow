@@ -78,7 +78,7 @@ struct MainTabView: View {
             .opacity(selectedTab == 1 ? 1 : 0)
             .allowsHitTesting(selectedTab == 1)
 
-            SettingsView(viewModel: profileVM, coordinator: coordinator, tabBarState: tabBarState)
+            SettingsView(viewModel: profileVM, goalsVM: progressGoalsVM, coordinator: coordinator, tabBarState: tabBarState)
                 .equatable()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .opacity(selectedTab == 2 ? 1 : 0)

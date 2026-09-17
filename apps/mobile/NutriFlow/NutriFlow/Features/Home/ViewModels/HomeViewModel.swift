@@ -111,6 +111,7 @@ final class HomeViewModel {
         await withDiscardingTaskGroup { [self] group in
             group.addTask { await self.loadDashboardSummary() }
             group.addTask { await self.goalsVM.loadGoals() }
+            group.addTask { await self.goalsVM.loadPersonalization() }
             group.addTask { await self.todayFoodVM.loadToday() }
             group.addTask { await self.waterVM.loadToday() }
             
