@@ -199,9 +199,7 @@ final class AnalyticsViewModel {
                 periodState.fromDate = Calendar.current.date(byAdding: .day, value: -6, to: periodState.toDate) ?? periodState.toDate
             }
         }
-        loadTask?.cancel()
-        loadTaskID &+= 1
-        loadTask = Task { [weak self] in await self?.loadAnalytics() }
+        startPeriodLoad()
     }
 
     func setCustomRange(from: Date, to: Date) {
@@ -213,9 +211,22 @@ final class AnalyticsViewModel {
             state = .idle
             return
         }
+        startPeriodLoad()
+    }
+
+    private func startPeriodLoad() {
+        let keepsPreviousAnalytics: Bool
+        if case .loaded = state {
+            keepsPreviousAnalytics = true
+        } else {
+            keepsPreviousAnalytics = false
+        }
+
         loadTask?.cancel()
         loadTaskID &+= 1
-        loadTask = Task { [weak self] in await self?.loadAnalytics() }
+        loadTask = Task { [weak self] in
+            await self?.loadAnalytics(keepLoadedData: keepsPreviousAnalytics)
+        }
     }
 
     private func formatDate(_ date: Date) -> String {

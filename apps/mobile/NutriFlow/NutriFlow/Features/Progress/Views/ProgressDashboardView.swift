@@ -144,20 +144,31 @@ struct ProgressDashboardView: View {
         case .idle, .loading:
             ProgressView().tint(.white).frame(maxWidth: .infinity).padding(.vertical, 20)
         case .loaded(let data):
-            if !data.isEmpty {
-                VStack(spacing: 20) {
-                    CaloriesChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
-                    WaterChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
-                    NutritionChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
-                    ActivityChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
-                }
-            } else {
-                if case .empty = analyticsVM.state {
+            ZStack {
+                if !data.isEmpty {
+                    VStack(spacing: 20) {
+                        CaloriesChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
+                        WaterChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
+                        NutritionChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
+                        ActivityChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
+                    }
+                } else if case .empty = analyticsVM.state {
                     EmptyView()
                 } else {
                     emptyState
                 }
             }
+            .overlay {
+                if chartVM.isPeriodLoading {
+                    RoundedRectangle(cornerRadius: AppRadius.medium)
+                        .fill(AppColors.background.opacity(0.55))
+                        .overlay {
+                            ProgressView()
+                                .tint(AppColors.accent)
+                        }
+                }
+            }
+            .allowsHitTesting(!chartVM.isPeriodLoading)
         case .error:
             EmptyView()
         }

@@ -13,6 +13,7 @@ final class ProgressChartViewModel {
 
     var chartState: ChartState = .idle
     var chartData: [ChartDataPoint] = []
+    var isPeriodLoading = false
 
     var selectedDate: Date = Date()
 
@@ -593,23 +594,35 @@ final class ProgressChartViewModel {
 
     func setPeriod(_ period: PeriodType) {
         periodState.type = period
-        loadTask?.cancel()
-        loadTaskID &+= 1
-        loadTask = Task { [weak self] in
-            await self?.loadChartData()
-            await self?.loadWeightSummary()
-        }
+        startPeriodLoad()
     }
 
     func setCustomRange(from: Date, to: Date) {
         periodState.fromDate = from
         periodState.toDate = to
         periodState.type = .custom
+        startPeriodLoad()
+    }
+
+    private func startPeriodLoad() {
+        let keepsPreviousCharts: Bool
+        if case .loaded = chartState {
+            keepsPreviousCharts = true
+        } else {
+            keepsPreviousCharts = false
+        }
+
+        isPeriodLoading = keepsPreviousCharts
         loadTask?.cancel()
         loadTaskID &+= 1
+        let taskID = loadTaskID
+
         loadTask = Task { [weak self] in
-            await self?.loadChartData()
-            await self?.loadWeightSummary()
+            guard let self else { return }
+            await self.loadChartData(keepLoadedData: keepsPreviousCharts)
+            await self.loadWeightSummary()
+            guard self.loadTaskID == taskID else { return }
+            self.isPeriodLoading = false
         }
     }
 
