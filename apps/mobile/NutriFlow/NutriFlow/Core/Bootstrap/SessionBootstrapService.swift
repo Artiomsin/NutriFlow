@@ -19,8 +19,8 @@ final class SessionBootstrapService: Sendable {
         self.sessionService = sessionService
     }
 
-    func restoreSession() async -> SessionBootstrapResult {
-        guard sessionService.getRefreshToken() != nil else {
+    func restoreSession() async throws -> SessionBootstrapResult {
+        guard try sessionService.getRefreshToken() != nil else {
             return .auth
         }
 
@@ -30,7 +30,7 @@ final class SessionBootstrapService: Sendable {
         } catch APIError.notFound {
             return .profileForm
         } catch {
-            sessionService.clear()
+            try sessionService.clear()
             return .auth
         }
     }
