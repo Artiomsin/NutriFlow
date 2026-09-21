@@ -6,11 +6,18 @@ struct ActivityGoalRow: View {
     let current: Int
     let goal: Int
     let color: Color
+
     var unit: String = ""
     var displayCurrent: String? = nil
     var displayGoal: String? = nil
     var completionColor: Color? = nil
     var hasGlass: Bool = true
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var isLight: Bool {
+        colorScheme == .light
+    }
 
     private var pct: Double {
         guard goal > 0 else { return 0 }
@@ -18,118 +25,229 @@ struct ActivityGoalRow: View {
     }
 
     private var currentText: String {
-        displayCurrent ?? NumberFormatter.groupingFormatter.string(from: NSNumber(value: current)) ?? "\(current)"
+        displayCurrent
+            ?? NumberFormatter.groupingFormatter.string(
+                from: NSNumber(value: current)
+            )
+            ?? "\(current)"
     }
 
     private var goalText: String {
-        displayGoal ?? NumberFormatter.groupingFormatter.string(from: NSNumber(value: goal)) ?? "\(goal)"
+        displayGoal
+            ?? NumberFormatter.groupingFormatter.string(
+                from: NSNumber(value: goal)
+            )
+            ?? "\(goal)"
+    }
+
+    private var progressColor: Color {
+        pct >= 1.0
+            ? (completionColor ?? color)
+            : color
+    }
+
+    private var iconColor: Color {
+        if pct >= 1.0 {
+            return .white
+        }
+        return color
     }
 
     var body: some View {
         HStack(spacing: 10) {
-            ZStack(alignment: .bottom) {
-                RoundedRectangle(cornerRadius: 15)
-                    .fill(.thinMaterial)
-
-                let fillHeight = max(70 * pct, 12)
-                let fillRadius = min(15, fillHeight / 2)
-
-                RoundedRectangle(cornerRadius: fillRadius)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                pct >= 1.0
-                                    ? (completionColor ?? color).opacity(0.45)
-                                    : color.opacity(0.45),
-                                pct >= 1.0
-                                    ? (completionColor ?? color).opacity(0.6)
-                                    : color.opacity(0.95),
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .frame(height: fillHeight)
-                    .mask(
-                        LinearGradient(
-                            colors: [.black.opacity(0), .black],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: fillRadius)
-                            .stroke(color.opacity(0.85), lineWidth: 1.2)
-                    )
-                    .shadow(color: color.opacity(0.5), radius: 5)
-
-                Image(systemName: icon)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(.white)
-                    .shadow(color: color, radius: 7)
-                    .padding(.bottom, 7)
-            }
-            .frame(width: 46, height: 70)
-            .clipShape(RoundedRectangle(cornerRadius: 15))
-            .overlay(
-                RoundedRectangle(cornerRadius: 15)
-                    .stroke(.white.opacity(0.18), lineWidth: 1)
-            )
-            .shadow(color: color.opacity(0.35), radius: 11, y: 5)
+            progressColumn
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(label)
                     .font(.caption2)
-                    .foregroundColor(AppTheme.textSecondary)
-                Text("\(currentText) / \(goalText)\(unit.isEmpty ? "" : " \(unit)")")
-                    .font(.caption.weight(.semibold))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundStyle(AppColors.textSecondary)
+
+                Text(
+                    "\(currentText) / \(goalText)" +
+                    (unit.isEmpty ? "" : " \(unit)")
+                )
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppColors.textPrimary)
+
                 Text("\(Int(pct * 100))%")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .font(
+                        .system(
+                            size: 24,
+                            weight: .bold,
+                            design: .rounded
+                        )
+                    )
                     .foregroundStyle(
                         LinearGradient(
                             colors: pct >= 1.0
-                                ? [completionColor ?? color, (completionColor ?? color).opacity(0.6)]
-                                : [color, color.opacity(0.6)],
+                                ? [
+                                    progressColor,
+                                    progressColor.opacity(0.72)
+                                ]
+                                : [
+                                    color,
+                                    color.opacity(0.60)
+                                ],
                             startPoint: .top,
                             endPoint: .bottom
                         )
                     )
             }
+
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background {
             RoundedRectangle(cornerRadius: 17)
-                .fill(hasGlass ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(AppTheme.cardBackground))
-        }
-        .background {
-            if hasGlass {
-                RoundedRectangle(cornerRadius: 17)
-                    .fill(.thinMaterial)
-                    .shadow(color: .black.opacity(0.3), radius: 16, y: 8)
-            }
+                .fill(
+                    hasGlass
+                        ? AnyShapeStyle(.regularMaterial)
+                        : AnyShapeStyle(AppColors.surface)
+                )
         }
         .overlay {
-            if hasGlass {
-                RoundedRectangle(cornerRadius: 17)
+            RoundedRectangle(cornerRadius: 17)
+                .stroke(
+                    hasGlass
+                        ? (
+                            isLight
+                                ? Color.black.opacity(0.055)
+                                : Color.white.opacity(0.10)
+                        )
+                        : AppColors.border.opacity(isLight ? 0.75 : 1.0),
+                    lineWidth: 1
+                )
+        }
+        .shadow(
+            color: hasGlass
+                ? (
+                    isLight
+                        ? Color.black.opacity(0.045)
+                        : Color.black.opacity(0.20)
+                )
+                : Color.black.opacity(
+                    isLight ? 0.025 : 0.07
+                ),
+            radius: hasGlass
+                ? (isLight ? 11 : 17)
+                : 8,
+            x: 0,
+            y: hasGlass
+                ? (isLight ? 3 : 7)
+                : 3
+        )
+    }
+
+    private var progressColumn: some View {
+        ZStack(alignment: .bottom) {
+            RoundedRectangle(cornerRadius: 15)
+                .fill(
+                    isLight
+                        ? AppColors.surfaceSecondary
+                        : Color.white.opacity(0.07)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: 15)
+                        .stroke(
+                            isLight
+                                ? AppColors.border.opacity(0.8)
+                                : Color.white.opacity(0.12),
+                            lineWidth: 1
+                        )
+                }
+
+            let fillHeight = max(70 * pct, 12)
+            let fillRadius = min(15, fillHeight / 2)
+
+            if pct >= 1.0 {
+                RoundedRectangle(cornerRadius: 15)
                     .fill(
                         LinearGradient(
-                            colors: [.white.opacity(0.14), .white.opacity(0.02)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                            colors: [
+                                progressColor,
+                                progressColor.opacity(0.88)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
                         )
                     )
-                    .blendMode(.plusLighter)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 15)
+                            .stroke(
+                                progressColor.opacity(0.90),
+                                lineWidth: 1.2
+                            )
+                    }
+                    .shadow(
+                        color: progressColor.opacity(0.25),
+                        radius: 7,
+                        y: 3
+                    )
+            } else {
+                RoundedRectangle(cornerRadius: fillRadius)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                color.opacity(0.45),
+                                color.opacity(0.95)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(height: fillHeight)
+                    .mask {
+                        LinearGradient(
+                            colors: [
+                                Color.black.opacity(0),
+                                Color.black
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: fillRadius)
+                            .stroke(
+                                color.opacity(0.78),
+                                lineWidth: 1
+                            )
+                    }
+                    .shadow(
+                        color: color.opacity(0.20),
+                        radius: 5,
+                        y: 3
+                    )
             }
+
+            Image(systemName: icon)
+                .font(
+                    .system(
+                        size: 17,
+                        weight: .semibold
+                    )
+                )
+                .foregroundStyle(iconColor)
+                .shadow(
+                    color: isLight
+                        ? Color.white.opacity(0.18)
+                        : color.opacity(0.40),
+                    radius: isLight ? 2 : 6
+                )
+                .padding(.bottom, 7)
         }
-        .overlay {
-            if hasGlass {
-                RoundedRectangle(cornerRadius: 17)
-                    .stroke(.white.opacity(0.18), lineWidth: 1)
-            }
-        }
+        .frame(width: 46, height: 70)
+        .clipShape(
+            RoundedRectangle(cornerRadius: 15)
+        )
+        .shadow(
+            color: isLight
+                ? Color.black.opacity(0.04)
+                : color.opacity(0.18),
+            radius: isLight ? 6 : 10,
+            y: 4
+        )
     }
 }
 
@@ -143,17 +261,18 @@ private extension NumberFormatter {
     }()
 }
 
-#Preview("Liquid") {
+#Preview("Activity Goal Row") {
     VStack(spacing: 24) {
         ActivityGoalRow(
             icon: "figure.walk",
             label: "Steps",
-            current: 5000,
+            current: 9000,
             goal: 10000,
             color: .green,
             unit: "steps"
         )
-ActivityGoalRow(
+
+        ActivityGoalRow(
             icon: "flame.fill",
             label: "Active kcal",
             current: 400,
@@ -161,6 +280,7 @@ ActivityGoalRow(
             color: .orange,
             unit: "kcal"
         )
+
         ActivityGoalRow(
             icon: "figure.run",
             label: "No glass",
@@ -170,6 +290,7 @@ ActivityGoalRow(
             unit: "steps",
             hasGlass: false
         )
+
         ActivityGoalRow(
             icon: "figure.walk",
             label: "Steps (low)",
@@ -179,8 +300,7 @@ ActivityGoalRow(
             unit: "steps"
         )
     }
-    .padding(.horizontal, AppTheme.paddingHorizontal)
+    .padding(.horizontal, AppSpacing.paddingHorizontal)
     .padding(.vertical, 20)
-    .background(AppTheme.background)
-    .preferredColorScheme(.dark)
+    .background(AppColors.background)
 }

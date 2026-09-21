@@ -5,6 +5,7 @@ struct ActivityCard: View {
     
     @Bindable var vm: ActivityViewModel
     @State private var prefsStore = PreferencesStore.shared
+    @Environment(\.colorScheme) private var colorScheme
     
     var stepGoal: Int?
     var activeCaloriesGoal: Int?
@@ -20,14 +21,14 @@ struct ActivityCard: View {
             deniedPrompt
         case .loading:
             HStack {
-                ProgressView().tint(AppTheme.accent)
+                ProgressView().tint(AppColors.accent)
                 Text("Loading activity...")
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
             }
             .frame(maxWidth: .infinity)
             .padding()
-            .background(AppTheme.cardBackground)
-            .cornerRadius(AppTheme.cornerRadiusMedium)
+            .background(AppColors.surface)
+            .cornerRadius(AppRadius.medium)
         case .loaded(let activity):
             activityContent(activity)
         case .error:
@@ -38,64 +39,64 @@ struct ActivityCard: View {
     private var accessPrompt: some View {
         VStack(spacing: 12) {
             Image(systemName: "figure.walk")
-                .font(Font.largeNumber)
-                .foregroundColor(AppTheme.accent)
+                .font(AppTypography.displayNumber)
+                .foregroundColor(AppColors.accent)
             Text("Track your activity")
                 .font(.headline)
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
             Text("Connect Apple Health to see your steps and calories burned.")
                 .font(.footnote)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
             Button {
                 Task { await vm.connectTapped() }
             } label: {
-                Text("Connect Health")
-                    .font(.headline)
-                    .foregroundColor(.black)
+                    Text("Connect Health")
+                        .font(.headline)
+                        .foregroundColor(AppColors.accentOnPrimary)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(AppTheme.accent)
-                    .cornerRadius(AppTheme.cornerRadiusMedium)
+                    .background(AppColors.accent)
+                    .cornerRadius(AppRadius.medium)
             }
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .background(AppColors.surface)
+        .cornerRadius(AppRadius.medium)
     }
     
     private var deniedPrompt: some View {
         VStack(spacing: 12) {
             Image(systemName: "heart.slash")
-                .font(Font.largeNumber)
-                .foregroundColor(AppTheme.textSecondary)
+                .font(AppTypography.displayNumber)
+                .foregroundColor(AppColors.textSecondary)
             Text("Health access is off")
                 .font(.headline)
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
             Text("Enable it in Settings to see your activity.")
                 .font(.footnote)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
             Button {
                 vm.openSettings()
             } label: {
                 Text("Open Settings")
                     .font(.headline)
-                    .foregroundColor(AppTheme.accent)
+                    .foregroundColor(AppColors.accent)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(AppTheme.cardBackground)
+                    .background(AppColors.surface)
                     .overlay(
-                        RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                            .stroke(AppTheme.accent, lineWidth: 1.5)
+                        RoundedRectangle(cornerRadius: AppRadius.medium)
+                            .stroke(AppColors.accent, lineWidth: 1.5)
                     )
             }
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .background(AppColors.surface)
+        .cornerRadius(AppRadius.medium)
     }
     
     private func activityContent(_ activity: DailyActivity) -> some View {
@@ -142,18 +143,23 @@ struct ActivityCard: View {
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .background(AppColors.surface)
+        .cornerRadius(AppRadius.medium)
+        .shadow(
+            color: colorScheme == .dark ? .black.opacity(0.45) : .black.opacity(0.06),
+            radius: colorScheme == .dark ? 14 : 5,
+            y: colorScheme == .dark ? 8 : 2
+        )
     }
     
     private func loadingPlaceholder(_ text: String) -> some View {
         Text(text)
             .font(.footnote)
-            .foregroundColor(AppTheme.textSecondary)
+            .foregroundColor(AppColors.textSecondary)
             .frame(maxWidth: .infinity)
             .padding()
-            .background(AppTheme.cardBackground)
-            .cornerRadius(AppTheme.cornerRadiusMedium)
+            .background(AppColors.surface)
+            .cornerRadius(AppRadius.medium)
     }
 }
 
@@ -165,13 +171,13 @@ private struct ActivityMetric: View {
     var body: some View {
         VStack(spacing: 6) {
             Image(systemName: icon)
-                .foregroundColor(AppTheme.accent)
+                .foregroundColor(AppColors.accent)
             Text(value)
                 .font(.headline)
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
             Text(unit)
                 .font(.caption)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
         }
         .frame(maxWidth: .infinity)
     }
@@ -183,8 +189,8 @@ private struct ActivityMetric: View {
     vm.state = .loaded(DailyActivity(date: "2026-09-04", steps: 8543, activeCalories: 412, basalCalories: 1500, distanceMeters: 5200))
     return ActivityCard(vm: vm, stepGoal: 3444, activeCaloriesGoal: 455)
         .padding()
-        .background(AppTheme.background)
-        .preferredColorScheme(.dark)
+        .background(AppColors.background)
+        
 }
 
 #Preview("Needs Access") {
@@ -192,8 +198,8 @@ private struct ActivityMetric: View {
     vm.state = .needsAccess
     return ActivityCard(vm: vm)
         .padding()
-        .background(AppTheme.background)
-        .preferredColorScheme(.dark)
+        .background(AppColors.background)
+        
 }
 
 #Preview("Denied") {
@@ -201,6 +207,6 @@ private struct ActivityMetric: View {
     vm.state = .denied
     return ActivityCard(vm: vm)
         .padding()
-        .background(AppTheme.background)
-        .preferredColorScheme(.dark)
+        .background(AppColors.background)
+        
 }

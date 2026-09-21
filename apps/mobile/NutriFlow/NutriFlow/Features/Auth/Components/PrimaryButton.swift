@@ -11,11 +11,11 @@ struct PrimaryButton: View {
         Button(action: action) {
             Text(title)
                 .font(.headline)
-                .foregroundColor(AppTheme.primaryButtonText)
+                .foregroundColor(AppColors.accentOnPrimary)
                 .frame(maxWidth: .infinity)
-                .frame(height: AppTheme.buttonHeight)
-                .background(AppTheme.accent)
-                .cornerRadius(AppTheme.cornerRadiusMedium)
+                .frame(height: AppSpacing.buttonHeight)
+                .background(AppColors.accent)
+                .cornerRadius(AppRadius.medium)
         }
     }
 }

@@ -12,6 +12,8 @@ struct SettingsView: View {
     let coordinator: AppCoordinator?
     var tabBarState: TabBarState = TabBarState()
     @State private var navPath: [SettingsNavRoute] = []
+    @Environment(ThemeStore.self)
+    private var themeStore
 
     init(viewModel: ProfileViewModel, goalsVM: GoalsViewModel, coordinator: AppCoordinator?, tabBarState: TabBarState = TabBarState()) {
         self.viewModel = viewModel
@@ -33,8 +35,9 @@ struct SettingsView: View {
                         accountSection
                         goalsSection
                         unitsSection
+                        appearanceSection
                     }
-                    .padding(.horizontal, AppTheme.paddingHorizontal)
+                    .padding(.horizontal, AppSpacing.paddingHorizontal)
                 }
                 .padding(.bottom, 100)
             }
@@ -42,7 +45,7 @@ struct SettingsView: View {
                 tabBarState: tabBarState,
                 isActive: { navPath.isEmpty }
             )
-            .background(AppTheme.background)
+            .background(AppColors.background)
             .refreshable {
                 let task = Task { await viewModel.loadData() }
                 await task.value
@@ -63,7 +66,7 @@ struct SettingsView: View {
                 }
             }
         }
-        .tint(AppTheme.accent)
+        .tint(AppColors.accent)
         .onChange(of: navPath) { _, newPath in
             tabBarState.isTabBarHidden = !newPath.isEmpty
         }
@@ -71,8 +74,8 @@ struct SettingsView: View {
 
     private var header: some View {
         Text("Settings")
-            .font(Font.h1)
-            .foregroundColor(AppTheme.textPrimary)
+            .font(AppTypography.heading1)
+            .foregroundColor(AppColors.textPrimary)
             .frame(maxWidth: .infinity)
     }
 
@@ -82,7 +85,7 @@ struct SettingsView: View {
             HStack {
                 Text("Account")
                     .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(AppTheme.textTertiary)
+                    .foregroundColor(AppColors.textTertiary )
                 Spacer()
             }
             .padding(.leading, 2)
@@ -101,7 +104,7 @@ struct SettingsView: View {
             HStack {
                 Text("Goals")
                     .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(AppTheme.textTertiary)
+                    .foregroundColor(AppColors.textTertiary )
                 Spacer()
             }
             .padding(.leading, 2)
@@ -111,12 +114,85 @@ struct SettingsView: View {
         }
     }
 
+    private var appearanceSection: some View {
+        VStack(spacing: 10) {
+            HStack {
+                Text("Appearance")
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(AppColors.textTertiary)
+
+                Spacer()
+            }
+            .padding(.leading, 2)
+
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 12) {
+                    Image(systemName: "circle.lefthalf.filled")
+                        .font(
+                            .system(
+                                size: AppSpacing.iconSize,
+                                weight: .medium
+                            )
+                        )
+                        .foregroundStyle(AppColors.accent)
+                        .frame(width: 30)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Theme")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(AppColors.textPrimary)
+
+                        Text(themeStore.mode.title)
+                            .font(.caption)
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
+
+                    Spacer()
+                }
+
+                Picker(
+                    "Theme",
+                    selection: Binding(
+                        get: {
+                            themeStore.mode
+                        },
+                        set: {
+                            themeStore.mode = $0
+                        }
+                    )
+                ) {
+                    ForEach(ThemeMode.allCases) { mode in
+                        Text(mode.title)
+                            .tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .tint(AppColors.accent)
+            }
+            .padding(.horizontal, AppSpacing.paddingHorizontal)
+            .padding(.vertical, 14)
+            .background(AppColors.surface)
+            .overlay {
+                RoundedRectangle(cornerRadius: AppRadius.medium)
+                    .stroke(
+                        AppColors.border,
+                        lineWidth: 1
+                    )
+            }
+            .clipShape(
+                RoundedRectangle(
+                    cornerRadius: AppRadius.medium
+                )
+            )
+        }
+    }
+    
     private var unitsSection: some View {
         VStack(spacing: 10) {
             HStack {
                 Text("Units")
                     .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(AppTheme.textTertiary)
+                    .foregroundColor(AppColors.textTertiary )
                 Spacer()
             }
             .padding(.leading, 2)
@@ -154,8 +230,8 @@ struct SettingsView: View {
                     label: { $0 == .kcal ? "kcal" : "kJ" }
                 )
             }
-            .background(AppTheme.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium))
+            .background(AppColors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: AppRadius.medium))
         }
     }
 
@@ -169,13 +245,13 @@ struct SettingsView: View {
     ) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: AppTheme.iconSize))
-                .foregroundColor(AppTheme.accent)
+                .font(.system(size: AppSpacing.iconSize))
+                .foregroundColor(AppColors.accent)
                 .frame(width: 30)
 
             Text(title)
                 .font(.system(size: 15))
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
 
             Spacer()
 
@@ -189,28 +265,24 @@ struct SettingsView: View {
                     } label: {
                         Text(label(option))
                             .font(.system(size: 12, weight: active ? .semibold : .regular))
-                            .foregroundColor(active ? AppTheme.primaryButtonText : AppTheme.textSecondary)
+                            .foregroundColor(active ? AppColors.accentOnPrimary : AppColors.textSecondary)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
-                            .background(active ? AppTheme.accent : Color.clear)
+                            .background(active ? AppColors.accent : Color.clear)
                             .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                 }
             }
             .padding(2)
-            .background(AppTheme.fieldBackground)
+            .background(AppColors.surfaceSecondary)
             .clipShape(RoundedRectangle(cornerRadius: 8))
         }
-        .padding(.horizontal, AppTheme.paddingHorizontal)
+        .padding(.horizontal, AppSpacing.paddingHorizontal)
         .padding(.vertical, 12)
     }
 }
 
-extension SettingsView: Equatable {
-    static func == (lhs: SettingsView, rhs: SettingsView) -> Bool {
-        lhs.tabBarState === rhs.tabBarState
-    }
-}
+
 
 #Preview("Settings") {
     let container = AppDependencyContainer()
@@ -226,5 +298,6 @@ extension SettingsView: Equatable {
         goalsVM: GoalsViewModel(coordinator: coordinator, service: MockGoalsService()),
         coordinator: coordinator
     )
-        .preferredColorScheme(.dark)
+    .environment(container.themeStore)
+        
 }

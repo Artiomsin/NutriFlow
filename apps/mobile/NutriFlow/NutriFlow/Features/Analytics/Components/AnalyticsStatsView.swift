@@ -79,20 +79,20 @@ private struct StatCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.caption2)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
                 HStack(spacing: 4) {
                     Text(value)
                         .font(.subheadline.bold())
-                        .foregroundColor(AppTheme.textPrimary)
+                        .foregroundColor(AppColors.textPrimary)
                     Text(unit)
                         .font(.caption2)
-                        .foregroundColor(AppTheme.textTertiary)
+                        .foregroundColor(AppColors.textTertiary)
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .background(AppColors.surface)
+        .cornerRadius(AppRadius.medium)
     }
 }

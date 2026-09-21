@@ -43,7 +43,7 @@ struct RingProgressView: View {
 
             Text(title)
                 .font(.caption2)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
@@ -73,20 +73,20 @@ struct RingProgressView: View {
 
             Text(title)
                 .font(.caption2)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
 
             HStack(spacing: 2) {
                 Text(value)
                     .font(.caption2.bold())
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundColor(AppColors.textPrimary)
                 Text(unit)
                     .font(.caption2)
-                    .foregroundColor(AppTheme.textTertiary)
+                    .foregroundColor(AppColors.textTertiary)
             }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .background(AppColors.surface)
+        .cornerRadius(AppRadius.medium)
     }
 }

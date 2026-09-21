@@ -29,10 +29,10 @@ struct WorkoutDetailView: View {
                 metricsCard
                 chartsCard
             }
-            .padding(AppTheme.paddingHorizontal)
+            .padding(AppSpacing.paddingHorizontal)
             .padding(.vertical)
         }
-        .background(AppTheme.background)
+        .background(AppColors.background)
         .navigationTitle(workout.workoutType)
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -45,7 +45,7 @@ struct WorkoutDetailView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Label("Metrics", systemImage: "gauge")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
                 LazyVGrid(
                     columns: [
                         GridItem(.flexible(), spacing: 12),
@@ -60,8 +60,8 @@ struct WorkoutDetailView: View {
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AppTheme.cardBackground)
-            .cornerRadius(AppTheme.cornerRadiusMedium)
+            .background(AppColors.surface)
+            .cornerRadius(AppRadius.medium)
         }
     }
 
@@ -171,7 +171,7 @@ struct WorkoutDetailView: View {
         VStack(alignment: .leading, spacing: 16) {
             Label(WorkoutFormatter.formattedDate(workout.startDate), systemImage: "calendar")
                 .font(.subheadline)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
 
             HStack {
                 stat(value: WorkoutFormatter.formattedDuration(workout.durationSeconds), label: "Duration")
@@ -185,8 +185,8 @@ struct WorkoutDetailView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .background(AppColors.surface)
+        .cornerRadius(AppRadius.medium)
     }
 
     private func stat(value: String, label: String) -> some View {
@@ -196,10 +196,10 @@ struct WorkoutDetailView: View {
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
             Text(label.uppercased())
                 .font(.caption2.weight(.medium))
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -231,21 +231,21 @@ struct WorkoutDetailView: View {
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AppTheme.cardBackground)
-            .cornerRadius(AppTheme.cornerRadiusMedium)
+            .background(AppColors.surface)
+            .cornerRadius(AppRadius.medium)
         } else {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Heart Rate")
                     .font(.headline)
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundColor(AppColors.textPrimary)
                 Text("No heart rate data for this workout.")
                     .font(.footnote)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AppTheme.cardBackground)
-            .cornerRadius(AppTheme.cornerRadiusMedium)
+            .background(AppColors.surface)
+            .cornerRadius(AppRadius.medium)
         }
     }
 
@@ -264,10 +264,10 @@ struct WorkoutDetailView: View {
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
             Text(label.uppercased())
                 .font(.caption2.weight(.medium))
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -279,15 +279,15 @@ struct WorkoutDetailView: View {
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
             Text(label.uppercased())
                 .font(.caption2.weight(.medium))
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(AppTheme.accent.opacity(0.07))
-        .cornerRadius(AppTheme.cornerRadiusSmall)
+        .background(AppColors.accent.opacity(0.07))
+        .cornerRadius(AppRadius.small)
     }
 
     private var chart: some View {
@@ -297,14 +297,14 @@ struct WorkoutDetailView: View {
                 y: .value("BPM", point.bpm)
             )
             .interpolationMethod(.catmullRom)
-            .foregroundStyle(AppTheme.accent.opacity(0.35))
+            .foregroundStyle(AppColors.accent.opacity(0.35))
             .lineStyle(StrokeStyle(lineWidth: 1.5))
 
             PointMark(
                 x: .value("Time", point.startDate),
                 y: .value("BPM", point.bpm)
             )
-            .foregroundStyle(AppTheme.accent)
+            .foregroundStyle(AppColors.accent)
             .symbolSize(26)
         }
         .chartYScale(domain: .automatic(includesZero: false))
@@ -325,10 +325,10 @@ struct WorkoutDetailView: View {
     private func zoneChip(label: String, ok: Bool) -> some View {
         Text(label)
             .font(.caption.bold())
-            .foregroundColor(ok ? AppTheme.accent : AppTheme.textSecondary)
+            .foregroundColor(ok ? AppColors.accent : AppColors.textSecondary)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(ok ? AppTheme.accent.opacity(0.12) : AppTheme.cardBackground)
+            .background(ok ? AppColors.accent.opacity(0.12) : AppColors.surface)
             .cornerRadius(8)
     }
 
@@ -340,15 +340,15 @@ struct WorkoutDetailView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Label("Charts", systemImage: "chart.xyaxis.line")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
                 ForEach(available, id: \.kind) { item in
                     seriesChart(item)
                 }
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AppTheme.cardBackground)
-            .cornerRadius(AppTheme.cornerRadiusMedium)
+            .background(AppColors.surface)
+            .cornerRadius(AppRadius.medium)
         }
     }
 
@@ -356,14 +356,14 @@ struct WorkoutDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(seriesTitle(item.kind))
                 .font(.caption.weight(.semibold))
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
             Chart(item.points) { point in
                 LineMark(
                     x: .value("Time", point.date),
                     y: .value("Value", displayValue(point.value, kind: item.kind))
                 )
                 .interpolationMethod(.catmullRom)
-                .foregroundStyle(AppTheme.accent.opacity(0.6))
+                .foregroundStyle(AppColors.accent.opacity(0.6))
                 .lineStyle(StrokeStyle(lineWidth: 1.5))
             }
             .chartYScale(domain: .automatic(includesZero: false))

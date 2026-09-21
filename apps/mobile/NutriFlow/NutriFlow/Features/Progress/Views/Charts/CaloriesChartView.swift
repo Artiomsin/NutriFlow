@@ -27,9 +27,9 @@ struct CaloriesChartView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "flame.fill").foregroundColor(.orange)
-                Text("Calories").font(.headline).foregroundColor(AppTheme.textPrimary)
+                Text("Calories").font(.headline).foregroundColor(AppColors.textPrimary)
                 Spacer()
-                Text("\(UnitConversion.formatEnergyValue(kcal: totalCalories, preferred: prefsStore.preferredUnits)) \(UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits))").font(.subheadline).foregroundColor(AppTheme.textSecondary)
+                Text("\(UnitConversion.formatEnergyValue(kcal: totalCalories, preferred: prefsStore.preferredUnits)) \(UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits))").font(.subheadline).foregroundColor(AppColors.textSecondary)
             }
             
             Chart(filteredData) { point in
@@ -41,14 +41,14 @@ struct CaloriesChartView: View {
             .chartYScale(domain: 0 ... Double(maxYValue))
             .chartYAxis {
                 AxisMarks(position: .leading, values: .automatic(desiredCount: 5)) { _ in
-                    AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.3))
-                    AxisValueLabel().foregroundStyle(AppTheme.textTertiary)
+                    AxisGridLine().foregroundStyle(AppColors.textTertiary .opacity(0.3))
+                    AxisValueLabel().foregroundStyle(AppColors.textTertiary )
                 }
             }
             .chartXAxis {
                 AxisMarks { _ in
-                    AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.15))
-                    AxisValueLabel().foregroundStyle(AppTheme.textTertiary)
+                    AxisGridLine().foregroundStyle(AppColors.textTertiary .opacity(0.15))
+                    AxisValueLabel().foregroundStyle(AppColors.textTertiary )
                 }
             }
             .chartXSelection(value: $selection)
@@ -62,8 +62,8 @@ struct CaloriesChartView: View {
             }
         }
         .padding()
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .background(AppColors.surface)
+        .cornerRadius(AppRadius.medium)
     }
 
     private var totalCalories: Int {

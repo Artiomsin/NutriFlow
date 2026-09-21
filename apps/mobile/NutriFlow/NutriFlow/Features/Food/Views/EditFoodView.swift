@@ -41,7 +41,7 @@ struct EditFoodView: View {
                         .padding(.horizontal, 14)
                         .frame(maxWidth: .infinity)
                         .background(.red.opacity(0.1))
-                        .cornerRadius(AppTheme.cornerRadiusMedium)
+                        .cornerRadius(AppRadius.medium)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
 
@@ -52,14 +52,14 @@ struct EditFoodView: View {
                 .padding(20)
             }
             .scrollDismissesKeyboard(.interactively)
-            .background(AppTheme.background.ignoresSafeArea())
+            .background(AppColors.background.ignoresSafeArea())
             .animation(.easeInOut(duration: 0.25), value: viewModel.showNameWarning)
             .navigationTitle("Edit Food")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
-                        .foregroundColor(AppTheme.accent)
+                        .foregroundColor(AppColors.accent)
                 }
             }
             .task {
@@ -70,7 +70,7 @@ struct EditFoodView: View {
             .onChange(of: viewModel.grams) { _, newValue in viewModel.recalculateMacros(from: newValue) }
             .onChange(of: viewModel.name) { _, _ in viewModel.showNameWarning = false }
         }
-        .tint(AppTheme.accent)
+        .tint(AppColors.accent)
     }
 
     init(viewModel: EditFoodViewModel, onSave: @escaping () async -> Void) {
@@ -99,7 +99,7 @@ struct EditFoodView: View {
             }
             .frame(height: 180)
             .frame(maxWidth: .infinity)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium))
+            .clipShape(RoundedRectangle(cornerRadius: AppRadius.medium))
         }
     }
 
@@ -159,15 +159,15 @@ struct EditFoodView: View {
                 } label: {
                     HStack {
                         Text(viewModel.selectedCategoryName ?? viewModel.entry.categoryName ?? "Select category")
-                            .foregroundColor(AppTheme.textPrimary)
+                            .foregroundColor(AppColors.textPrimary)
                         Spacer()
                         Image(systemName: "chevron.down")
                             .font(.caption)
-                            .foregroundColor(AppTheme.textTertiary)
+                            .foregroundColor(AppColors.textTertiary)
                     }
                     .padding(14)
-                    .background(AppTheme.fieldBackground)
-                    .cornerRadius(AppTheme.cornerRadiusMedium)
+                    .background(AppColors.surfaceSecondary)
+                    .cornerRadius(AppRadius.medium)
                 }
             }
         }
@@ -177,10 +177,10 @@ struct EditFoodView: View {
         HStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.caption)
-                .foregroundColor(AppTheme.accent)
+                .foregroundColor(AppColors.accent)
             Text(text)
                 .font(.subheadline.weight(.semibold))
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
         }
     }
 
@@ -192,7 +192,7 @@ struct EditFoodView: View {
             HStack(spacing: 8) {
                 if viewModel.isLoading {
                     ProgressView()
-                        .tint(.black)
+                        .tint(AppColors.accentOnPrimary)
                 } else {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.subheadline)
@@ -204,14 +204,14 @@ struct EditFoodView: View {
             .padding(.vertical, 16)
             .background(
                 LinearGradient(
-                    gradient: Gradient(colors: [AppTheme.accent, AppTheme.accent.opacity(0.8)]),
+                    gradient: Gradient(colors: [AppColors.accent, AppColors.accent.opacity(0.8)]),
                     startPoint: .leading,
                     endPoint: .trailing
                 ),
-                in: RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
+                in: RoundedRectangle(cornerRadius: AppRadius.medium)
             )
-            .foregroundColor(.black)
-            .shadow(color: AppTheme.accent.opacity(0.3), radius: 12, y: 6)
+            .foregroundColor(AppColors.accentOnPrimary)
+            .shadow(color: AppColors.accent.opacity(0.3), radius: 12, y: 6)
         }
         .disabled(viewModel.name.trimmingCharacters(in: .whitespaces).isEmpty || viewModel.isLoading)
         .opacity((viewModel.name.trimmingCharacters(in: .whitespaces).isEmpty || viewModel.isLoading) ? 0.6 : 1)
@@ -250,8 +250,8 @@ struct EditFoodView: View {
         ),
         onSave: {}
     )
-    .background(AppTheme.background)
-    .preferredColorScheme(.dark)
+    .background(AppColors.background)
+    
 }
 
 private struct PhotoSectionContent: View {
@@ -268,16 +268,16 @@ private struct PhotoSectionContent: View {
                 .resizable()
                 .scaledToFill()
         } else {
-            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                .fill(AppTheme.fieldBackground)
+            RoundedRectangle(cornerRadius: AppRadius.medium)
+                .fill(AppColors.surfaceSecondary)
                 .overlay {
                     VStack(spacing: 8) {
                         Image(systemName: "camera.fill")
                             .font(.title2)
-                            .foregroundColor(AppTheme.accent)
+                            .foregroundColor(AppColors.accent)
                         Text("Tap to change photo")
                             .font(.subheadline)
-                            .foregroundColor(AppTheme.textSecondary)
+                            .foregroundColor(AppColors.textSecondary)
                     }
                 }
         }

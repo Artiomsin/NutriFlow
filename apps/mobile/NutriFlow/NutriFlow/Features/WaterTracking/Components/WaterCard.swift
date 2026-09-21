@@ -22,15 +22,15 @@ struct WaterCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(UnitConversion.formatAmount(grams: entry.amountMl, unit: "ml", preferred: prefsStore.preferredUnits))
                     .font(.headline)
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundColor(AppColors.textPrimary)
 
                 HStack(spacing: 6) {
                     Image(systemName: "clock")
                         .font(.caption2)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundColor(AppColors.textSecondary)
                     Text(formatTime(entry.createdAt))
                         .font(.caption)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundColor(AppColors.textSecondary)
                 }
             }
 
@@ -41,17 +41,17 @@ struct WaterCard: View {
             } label: {
                 Image(systemName: "trash.fill")
                     .font(.system(size: 11))
-                    .foregroundColor(AppTheme.error)
+                    .foregroundColor(AppColors.error)
                     .padding(8)
-                    .background(AppTheme.error.opacity(0.12))
+                    .background(AppColors.error.opacity(0.12))
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .background(AppColors.surface)
+        .cornerRadius(AppRadius.medium)
         .contentShape(Rectangle())
         .alert("Delete Water", isPresented: $showDeleteAlert) {
             Button("Cancel", role: .cancel) {}

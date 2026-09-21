@@ -35,22 +35,22 @@ struct GoalRecommendationCard: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .background(AppColors.surface)
+        .cornerRadius(AppRadius.medium)
     }
 
     private var header: some View {
         HStack(spacing: 10) {
             Image(systemName: "sparkles")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(AppTheme.accent)
+                .foregroundColor(AppColors.accent)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Goal recommendations")
                     .font(.headline)
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundColor(AppColors.textPrimary)
                 Text("Based on your recent activity")
                     .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
             }
             Spacer()
             confidenceChip
@@ -65,11 +65,11 @@ struct GoalRecommendationCard: View {
         }
         return Text(text)
             .font(.caption.weight(.semibold))
-            .foregroundColor(AppTheme.accent)
+            .foregroundColor(AppColors.accent)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background(AppTheme.accent.opacity(0.12))
-            .cornerRadius(AppTheme.chipCornerRadius)
+            .background(AppColors.accent.opacity(0.12))
+            .cornerRadius(AppRadius.chip)
     }
 
     private func diffList(_ rows: [DiffRow]) -> some View {
@@ -79,24 +79,24 @@ struct GoalRecommendationCard: View {
                     Circle().fill(row.color).frame(width: 8, height: 8)
                     Text(row.label)
                         .font(.footnote)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundColor(AppColors.textSecondary)
                     Spacer()
                     Text(row.from)
                         .font(.footnote.weight(.semibold))
-                        .foregroundColor(AppTheme.textTertiary)
+                        .foregroundColor(AppColors.textTertiary )
                         .strikethrough()
                     Image(systemName: "arrow.right")
                         .font(.caption2)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundColor(AppColors.textSecondary)
                     Text(row.to)
                         .font(.footnote.weight(.bold))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .foregroundColor(AppColors.textPrimary)
                 }
             }
             if let extra = rows.count > 3 ? rows.count - 3 : nil {
                 Text("+\(extra) more goals updated")
                     .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
@@ -108,7 +108,7 @@ struct GoalRecommendationCard: View {
             ForEach(Array(reasons.prefix(2)), id: \.self) { reason in
                 Label(reason, systemImage: "checkmark.circle.fill")
                     .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
             }
         }
     }
@@ -120,24 +120,24 @@ struct GoalRecommendationCard: View {
             } label: {
                 Text("Apply")
                     .font(.headline)
-                    .foregroundColor(.black)
+                    .foregroundColor(AppColors.accentOnPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(AppTheme.accent)
-                    .cornerRadius(AppTheme.cornerRadiusMedium)
+                    .background(AppColors.accent)
+                    .cornerRadius(AppRadius.medium)
             }
             Button {
                 onDismiss()
             } label: {
                 Text("Dismiss")
                     .font(.headline)
-                    .foregroundColor(AppTheme.accent)
+                    .foregroundColor(AppColors.accent)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(AppTheme.cardBackground)
+                    .background(AppColors.surface)
                     .overlay(
-                        RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                            .stroke(AppTheme.accent, lineWidth: 1.5)
+                        RoundedRectangle(cornerRadius: AppRadius.medium)
+                            .stroke(AppColors.accent, lineWidth: 1.5)
                     )
             }
         }
@@ -219,19 +219,19 @@ struct GoalPersonalizationSection: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "sparkles")
-                        .foregroundColor(AppTheme.accent)
+                        .foregroundColor(AppColors.accent)
                     Text("Update my goals to match my stats")
                         .font(.subheadline)
-                        .foregroundColor(AppTheme.textPrimary)
+                        .foregroundColor(AppColors.textPrimary)
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption2)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundColor(AppColors.textSecondary)
                 }
                 .padding()
                 .frame(maxWidth: .infinity)
-                .background(AppTheme.cardBackground)
-                .cornerRadius(AppTheme.cornerRadiusMedium)
+                .background(AppColors.surface)
+                .cornerRadius(AppRadius.medium)
             }
             .disabled(isProcessing)
             .opacity(isProcessing ? 0.6 : 1)
@@ -297,8 +297,8 @@ private extension NumberFormatter {
             onDismiss: { _ in }
         )
     }
-    .padding(.horizontal, AppTheme.paddingHorizontal)
-    .background(AppTheme.background)
+    .padding(.horizontal, AppSpacing.paddingHorizontal)
+    .background(AppColors.background)
     .preferredColorScheme(.dark)
 }
 
@@ -311,7 +311,7 @@ private extension NumberFormatter {
         onAccept: { _ in },
         onDismiss: { _ in }
     )
-    .padding(.horizontal, AppTheme.paddingHorizontal)
-    .background(AppTheme.background)
+    .padding(.horizontal, AppSpacing.paddingHorizontal)
+    .background(AppColors.background)
     .preferredColorScheme(.dark)
 }

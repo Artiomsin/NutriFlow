@@ -14,7 +14,7 @@ struct TabBarButton: View {
             Image(systemName: icon)
                 .font(
                     .system(
-                        size: AppTheme.tabBarIconSize,
+                        size: AppSpacing.tabBarIconSize,
                         weight: isSelected || isHighlighted
                             ? .semibold
                             : .regular
@@ -23,8 +23,8 @@ struct TabBarButton: View {
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(
                     isSelected || isHighlighted
-                        ? AppTheme.accent
-                        : AppTheme.textSecondary
+                        ? AppColors.accent
+                        : AppColors.textSecondary
                 )
                 .scaleEffect(
                     isHighlighted ? 1.12 : 1
@@ -45,8 +45,8 @@ struct TabBarButton: View {
                 ))
                 .foregroundStyle(
                     isSelected || isHighlighted
-                        ? AppTheme.accent
-                        : AppTheme.textSecondary
+                        ? AppColors.accent
+                        : AppColors.textSecondary
                 )
                 .opacity(
                     isHighlighted

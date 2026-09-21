@@ -23,7 +23,7 @@ struct PeriodSelectorView: View {
             if selectedPeriod == .custom {
                 Text("\(formatDate(fromDate)) - \(formatDate(toDate))")
                     .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
             }
         }
         .sheet(isPresented: $showDatePicker) {
@@ -53,10 +53,10 @@ struct PeriodChip: View {
         Button(action: action) {
             Text(title)
                 .font(.subheadline.weight(isSelected ? .semibold : .regular))
-                .foregroundColor(isSelected ? .black : AppTheme.textSecondary)
+                .foregroundColor(isSelected ? AppColors.accentOnPrimary : AppColors.textSecondary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(isSelected ? AppTheme.accent : AppTheme.cardBackground)
+                .background(isSelected ? AppColors.accent : AppColors.surface)
                 .cornerRadius(20)
         }
     }
@@ -71,22 +71,22 @@ struct DateRangePickerSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AppTheme.background.ignoresSafeArea()
+                AppColors.background.ignoresSafeArea()
                     VStack(spacing: 12) {
                     CustomCalendarView(fromDate: $fromDate, toDate: $toDate)
 
                     Text("\(formatDate(fromDate)) — \(formatDate(toDate))")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .foregroundColor(AppColors.textPrimary)
 
                     Button("Apply") {
                         onApply(fromDate, toDate)
                     }
                     .font(.headline)
-                    .foregroundColor(.black)
+                    .foregroundColor(AppColors.accentOnPrimary)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(AppTheme.accent)
+                    .background(AppColors.accent)
                     .cornerRadius(12)
                 }
                 .padding(.horizontal)
@@ -95,11 +95,11 @@ struct DateRangePickerSheet: View {
                 ToolbarItem(placement: .principal) {
                     Text("Select Date Range")
                         .font(.headline.weight(.semibold))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .foregroundColor(AppColors.textPrimary)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Cancel") { dismiss() }
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundColor(AppColors.textSecondary)
                 }
             }
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -126,7 +126,7 @@ struct PeriodSelectorPreviewContent: View {
     @State private var toDate = Date()
     var body: some View {
         ZStack {
-            AppTheme.background.ignoresSafeArea()
+            AppColors.background.ignoresSafeArea()
             PeriodSelectorView(
                 selectedPeriod: selectedPeriod,
                 fromDate: fromDate,

@@ -76,10 +76,10 @@ struct AuthView: View {
                         }
                     }
                     .signInWithAppleButtonStyle(.black)
-                    .frame(height: AppTheme.buttonHeight)
-                    .cornerRadius(AppTheme.cornerRadiusMedium)
+                    .frame(height: AppSpacing.buttonHeight)
+                    .cornerRadius(AppRadius.medium)
                     .overlay(
-                        RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
+                        RoundedRectangle(cornerRadius: AppRadius.medium)
                             .stroke(Color.white, lineWidth: 1)
                     )
                 }
@@ -93,7 +93,7 @@ struct AuthView: View {
                         : "Already have account? Sign in"
                     )
                     .font(.footnote)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
                 }
                 
                 if case .error(let message) = viewModel.state {
@@ -110,7 +110,7 @@ struct AuthView: View {
             .frame(maxWidth: .infinity)
         }
         .background(
-            AppTheme.background
+            AppColors.background
                 .ignoresSafeArea()
         )
         .scrollDismissesKeyboard(.interactively)

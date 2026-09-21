@@ -46,11 +46,11 @@ struct WeightCardView: View {
             HStack {
                 Text("Weight")
                     .font(.headline)
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundColor(AppColors.textPrimary)
                 Spacer()
                 Text(periodLabel)
                     .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
             }
 
             if points.count > 1 {
@@ -59,20 +59,20 @@ struct WeightCardView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(latestText)
                         .font(.system(size: 26, weight: .semibold))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .foregroundColor(AppColors.textPrimary)
                     Text(targetUnit)
                         .font(.footnote)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundColor(AppColors.textSecondary)
                     Spacer()
                     if let deltaText {
                         Text("\(deltaText) \(targetUnit)")
                             .font(.footnote)
-                            .foregroundColor(AppTheme.textPrimary)
+                            .foregroundColor(AppColors.textPrimary)
                     }
                     if let rateText {
                         Text("· \(rateText) \(targetUnit)/week")
                             .font(.footnote)
-                            .foregroundColor(AppTheme.textTertiary)
+                            .foregroundColor(AppColors.textTertiary )
                     }
                 }
             } else {
@@ -80,12 +80,12 @@ struct WeightCardView: View {
                      ? "Enter your weight in Profile — trend will appear here"
                      : "Track your weight for a few days to see the trend")
                     .font(.footnote)
-                    .foregroundColor(AppTheme.textTertiary)
+                    .foregroundColor(AppColors.textTertiary )
             }
         }
         .padding(14)
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .background(AppColors.surface)
+        .cornerRadius(AppRadius.medium)
     }
 
     private var chart: some View {
@@ -97,10 +97,10 @@ struct WeightCardView: View {
                 )
                 .interpolationMethod(.catmullRom)
                 .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
-                .foregroundStyle(AppTheme.accent)
+                .foregroundStyle(AppColors.accent)
                 .symbol {
                     Circle()
-                        .fill(AppTheme.accent)
+                        .fill(AppColors.accent)
                         .frame(width: 6, height: 6)
                 }
                 .symbolSize(20)

@@ -13,8 +13,8 @@ struct WaterSection: View {
             HStack {
 
                 Text("Water")
-                    .font(Font.h3)
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.title3.weight(.bold))
+                    .foregroundColor(AppColors.textPrimary)
 
                 Spacer()
 
@@ -27,10 +27,10 @@ struct WaterSection: View {
                         Text("Add")
                             .font(.system(size: 13, weight: .semibold))
                     }
-                    .foregroundColor(.black)
+                    .foregroundColor(AppColors.accentOnPrimary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
-                    .background(AppTheme.accent)
+                    .background(AppColors.accent)
                     .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -89,16 +89,16 @@ struct WaterSection: View {
         VStack(spacing: 10) {
             Image(systemName: "drop.circle")
                 .font(.system(size: 42))
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
 
             Text("No water added today")
                 .font(.subheadline)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .background(AppColors.surface)
+        .cornerRadius(AppRadius.medium)
     }
 }
 
@@ -124,7 +124,7 @@ struct WaterSectionPreview: View {
             onDeleteWater: { _ in }
         )
         .padding()
-        .background(AppTheme.background)
+        .background(AppColors.background)
         .preferredColorScheme(.dark)
     }
 }

@@ -9,8 +9,8 @@ struct AuthHeaderView: View {
         VStack(spacing: 6) {
             
             Text(isLogin ? "Welcome back" : "Create account")
-                .font(Font.h1)
-                .foregroundColor(AppTheme.textPrimary)
+                .font(AppTypography.heading1)
+                .foregroundColor(AppColors.textPrimary)
             
             Text(
                 isLogin
@@ -18,7 +18,7 @@ struct AuthHeaderView: View {
                 : "Register to get started"
             )
             .font(.footnote)
-            .foregroundColor(AppTheme.textSecondary)
+            .foregroundColor(AppColors.textSecondary)
         }
         .padding(.bottom, 10)
     }

@@ -18,7 +18,7 @@ struct AuthPasswordField<Field: Hashable>: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Password")
                 .font(.caption)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
                 .frame(height: 16, alignment: .leading)
 
             HStack(spacing: 8) {
@@ -28,7 +28,7 @@ struct AuthPasswordField<Field: Hashable>: View {
                         .autocorrectionDisabled()
                         .keyboardType(.default)
                         .textContentType(textContentType)
-                        .foregroundColor(AppTheme.textPrimary)
+                        .foregroundColor(AppColors.textPrimary)
                         .submitLabel(submitLabel)
                         .onSubmit { onSubmit?() }
                         .focusedIf(isSecure, focus, equals: focusValue)
@@ -40,7 +40,7 @@ struct AuthPasswordField<Field: Hashable>: View {
                         .autocorrectionDisabled()
                         .keyboardType(.default)
                         .textContentType(textContentType)
-                        .foregroundColor(AppTheme.textPrimary)
+                        .foregroundColor(AppColors.textPrimary)
                         .submitLabel(submitLabel)
                         .onSubmit { onSubmit?() }
                         .focusedIf(!isSecure, focus, equals: focusValue)
@@ -57,7 +57,7 @@ struct AuthPasswordField<Field: Hashable>: View {
                             ? "eye.slash"
                             : "eye"
                     )
-                    .foregroundColor(AppTheme.textTertiary)
+                    .foregroundColor(AppColors.textTertiary)
                 }
                 .buttonStyle(.plain)
             }
@@ -70,15 +70,15 @@ struct AuthPasswordField<Field: Hashable>: View {
 
     private var fieldBackground: some View {
         RoundedRectangle(
-            cornerRadius: AppTheme.cornerRadiusMedium
+            cornerRadius: AppRadius.medium
         )
-        .fill(AppTheme.fieldBackground)
+        .fill(AppColors.surfaceSecondary)
         .overlay(
             RoundedRectangle(
-                cornerRadius: AppTheme.cornerRadiusMedium
+                cornerRadius: AppRadius.medium
             )
             .stroke(
-                AppTheme.fieldBorder,
+                AppColors.border,
                 lineWidth: 1
             )
         )

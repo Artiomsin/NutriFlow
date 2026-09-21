@@ -57,7 +57,7 @@ struct MainTabView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            AppTheme.background.ignoresSafeArea()
+            AppColors.background.ignoresSafeArea()
 
             HomeView(homeViewModel: homeVM, foodService: container.foodService, coordinator: coordinator, tabBarState: tabBarState, analyticsTracker: container.analyticsTracker)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -78,14 +78,13 @@ struct MainTabView: View {
             .allowsHitTesting(selectedTab == 1)
 
             SettingsView(viewModel: profileVM, goalsVM: progressGoalsVM, coordinator: coordinator, tabBarState: tabBarState)
-                .equatable()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .opacity(selectedTab == 2 ? 1 : 0)
                 .allowsHitTesting(selectedTab == 2)
 
             AnimatedTabBar(tabBarState: tabBarState, selectedTab: $selectedTab)
         }
-        .preferredColorScheme(.dark)
+        
         .ignoresSafeArea(.keyboard)
         .onReceive(
             NotificationCenter.default.publisher(
@@ -127,9 +126,11 @@ private struct AnimatedTabBar: View {
 #Preview("Main Tab") {
     let container = AppDependencyContainer()
     let coordinator = AppCoordinator(container: container)
+
     MainTabView(
         container: container,
         coordinator: coordinator,
         previewHomeVM: HomeFactory.makePreviewViewModel()
     )
+    .environment(container.themeStore)
 }

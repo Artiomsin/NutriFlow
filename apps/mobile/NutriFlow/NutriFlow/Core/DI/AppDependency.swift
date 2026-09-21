@@ -4,7 +4,8 @@ import Foundation
 protocol AppDependency {
 
     var httpClient: HTTPClient { get }
-
+    var themeStore: ThemeStore { get }
+    
     var tokenStorage: TokenStorage { get }
 
     var sessionService: AuthSessionService { get }

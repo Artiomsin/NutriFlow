@@ -35,7 +35,7 @@ struct ProgressDashboardView: View {
                 chartsContent
                 Spacer(minLength: 100)
             }
-            .padding(.horizontal, AppTheme.paddingHorizontal)
+            .padding(.horizontal, AppSpacing.paddingHorizontal)
         }
         .minimizeTabBarOnScroll(
             tabBarState: tabBarState
@@ -92,12 +92,12 @@ struct ProgressDashboardView: View {
     private var header: some View {
         VStack(spacing: 6) {
             Text("Progress")
-                .font(Font.h1)
-                .foregroundColor(AppTheme.textPrimary)
-                .padding(.top, AppTheme.headerPaddingTop)
+                .font(AppTypography.heading1)
+                .foregroundColor(AppColors.textPrimary)
+                .padding(.top, AppSpacing.headerPaddingTop)
             Text("Your nutrition trends")
                 .font(.footnote)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
         }
     }
 
@@ -221,14 +221,14 @@ private struct RingItem: Identifiable {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "chart.bar.xaxis")
-                .font(Font.largeNumber)
-                .foregroundColor(AppTheme.textSecondary)
+                .font(AppTypography.displayNumber)
+                .foregroundColor(AppColors.textSecondary)
             Text("No data for this period")
                 .font(.headline)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
             Text("Start tracking to see statistics")
                 .font(.subheadline)
-                .foregroundColor(AppTheme.textTertiary)
+                .foregroundColor(AppColors.textTertiary )
                 .multilineTextAlignment(.center)
         }
         .padding(.vertical, 40)
@@ -250,7 +250,7 @@ private struct ProgressPreviewContent: View {
                 progressRefreshState: ProgressRefreshState(),
                 isActive: true
             )
-            .background(AppTheme.background)
+            .background(AppColors.background)
     }
 
     private func makePreviewData() -> (analytics: AnalyticsViewModel, chart: ProgressChartViewModel, goals: GoalsViewModel, period: PeriodState) {

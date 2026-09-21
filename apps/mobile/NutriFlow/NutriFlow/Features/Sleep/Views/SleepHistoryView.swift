@@ -10,38 +10,38 @@ struct SleepHistoryView: View {
         ScrollView(showsIndicators: false) {
             switch vm.state {
             case .idle:
-                ProgressView().tint(AppTheme.accent)
+                ProgressView().tint(AppColors.accent)
                     .frame(maxWidth: .infinity, minHeight: 300)
             case .loading:
-                ProgressView().tint(AppTheme.accent)
+                ProgressView().tint(AppColors.accent)
                     .frame(maxWidth: .infinity, minHeight: 300)
             case .needsAccess:
                 Text("Connect Apple Health to see sleep history")
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
                     .frame(maxWidth: .infinity, minHeight: 300)
             case .denied:
                 Text("Sleep access is off. Enable Apple Health in Settings.")
                     .font(.footnote)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity, minHeight: 300)
             case .error(let message):
                 Text("Failed to load sleep: \(message)")
                     .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity, minHeight: 300)
             case .loaded, .empty:
                 if vm.isHistoryLoading && vm.history.isEmpty {
-                    ProgressView().tint(AppTheme.accent)
+                    ProgressView().tint(AppColors.accent)
                         .frame(maxWidth: .infinity, minHeight: 300)
                 } else if vm.history.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "moon")
                             .font(.title2)
-                            .foregroundColor(AppTheme.textSecondary)
+                            .foregroundColor(AppColors.textSecondary)
                         Text("No sleep data yet")
-                            .foregroundColor(AppTheme.textSecondary)
+                            .foregroundColor(AppColors.textSecondary)
                     }
                     .frame(maxWidth: .infinity, minHeight: 300)
                 } else {
@@ -53,7 +53,7 @@ struct SleepHistoryView: View {
             let task = Task { await vm.refreshHistory() }
             await task.value
         }
-        .background(AppTheme.background)
+        .background(AppColors.background)
         .navigationTitle("Sleep")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -72,7 +72,7 @@ struct SleepHistoryView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Nights")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
                 VStack(spacing: 8) {
                     ForEach(nights) { night in
                         Button { vm.selectedNight = night } label: {
@@ -83,7 +83,7 @@ struct SleepHistoryView: View {
                 }
             }
         }
-        .padding(.horizontal, AppTheme.paddingHorizontal)
+        .padding(.horizontal, AppSpacing.paddingHorizontal)
         .padding(.vertical)
     }
 
@@ -91,13 +91,13 @@ struct SleepHistoryView: View {
         VStack(alignment: .leading, spacing: 10) {
             Label("Last 7 nights", systemImage: "chart.bar.fill")
                 .font(.subheadline.weight(.semibold))
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
             Chart(nights.sorted { $0.startDate < $1.startDate }) { night in
                 BarMark(
                     x: .value("Date", night.startDate, unit: .day),
                     y: .value("Hours", night.asleepSeconds / 3600)
                 )
-                .foregroundStyle(AppTheme.accent.opacity(0.8))
+                .foregroundStyle(AppColors.accent.opacity(0.8))
                 .cornerRadius(4)
             }
             .chartXAxis { AxisMarks(values: .stride(by: .day)) }
@@ -105,8 +105,8 @@ struct SleepHistoryView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .background(AppColors.surface)
+        .cornerRadius(AppRadius.medium)
     }
 
     private func nightRow(_ night: HealthKitSleep) -> some View {
@@ -114,11 +114,11 @@ struct SleepHistoryView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(night.startDate, format: .dateTime.weekday().month().day())
                     .font(.subheadline.weight(.semibold))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundColor(AppColors.textPrimary)
                 if let efficiency = night.efficiency {
                     Text("\(Int(efficiency))% efficiency")
                         .font(.caption)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundColor(AppColors.textSecondary)
                 }
             }
             Spacer()
@@ -126,19 +126,19 @@ struct SleepHistoryView: View {
                 if let hr = night.heartRateAvg {
                     Label(String(format: "%.0f bpm", hr), systemImage: "heart.fill")
                         .font(.caption)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundColor(AppColors.textSecondary)
                 }
                 Text(String(format: "%.1fh", night.asleepSeconds / 3600))
                     .font(.headline)
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundColor(AppColors.textPrimary)
                 Image(systemName: "chevron.right")
                     .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
             }
         }
         .padding()
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .background(AppColors.surface)
+        .cornerRadius(AppRadius.medium)
     }
 }
 
@@ -157,10 +157,10 @@ private struct NightDetailView: View {
                 stageProportions
                 comparisonChart
             }
-            .padding(.horizontal, AppTheme.paddingHorizontal)
+            .padding(.horizontal, AppSpacing.paddingHorizontal)
             .padding(.vertical)
         }
-        .background(AppTheme.background)
+        .background(AppColors.background)
         .navigationTitle(
             Text(night.startDate, format: .dateTime.weekday().month().day())
         )
@@ -176,8 +176,8 @@ private struct NightDetailView: View {
             metric("gauge.with.dots.needle.50percent", night.efficiency.map { "\(Int($0))%" } ?? "–", "efficiency")
         }
         .padding()
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .background(AppColors.surface)
+        .cornerRadius(AppRadius.medium)
     }
 
     private var timelineChart: some View {
@@ -276,15 +276,15 @@ private struct NightDetailView: View {
                 }
                 .frame(height: 160)
                 HStack(spacing: 8) {
-                    legendItem("This night", AppTheme.accent)
-                    legendItem("avg (\(avgNightCount))", AppTheme.textSecondary.opacity(0.6))
+                    legendItem("This night", AppColors.accent)
+                    legendItem("avg (\(avgNightCount))", AppColors.textSecondary.opacity(0.6))
                 }
             }
         } else {
             chartCard("This night vs average", "chart.bar.doc.horizontal", showStagesLegend: false) {
                 Text("Need at least 2 other nights to compare")
                     .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
             }
         }
     }
@@ -294,7 +294,7 @@ private struct NightDetailView: View {
     }
 
     private func seriesColor(for series: String) -> Color {
-        series == "This night" ? AppTheme.accent : AppTheme.textSecondary.opacity(0.6)
+        series == "This night" ? AppColors.accent : AppColors.textSecondary.opacity(0.6)
     }
 
     private func comparisonBars() -> [ComparisonBar]? {
@@ -337,7 +337,7 @@ private struct NightDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             Label(title, systemImage: icon)
                 .font(.subheadline.weight(.semibold))
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
             content()
             if showStagesLegend {
                 HStack(spacing: 8) {
@@ -350,8 +350,8 @@ private struct NightDetailView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .background(AppColors.surface)
+        .cornerRadius(AppRadius.medium)
     }
 
     private func legendItem(_ text: String, _ color: Color) -> some View {
@@ -359,28 +359,28 @@ private struct NightDetailView: View {
             Circle().fill(color).frame(width: 6, height: 6)
             Text(text)
                 .font(.caption2)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
         }
     }
 }
 
 private func metric(_ icon: String, _ value: String, _ unit: String) -> some View {
     VStack(spacing: 6) {
-        Image(systemName: icon).foregroundColor(AppTheme.accent)
-        Text(value).font(.subheadline.bold()).foregroundColor(AppTheme.textPrimary)
-        Text(unit).font(.caption2).foregroundColor(AppTheme.textSecondary)
+        Image(systemName: icon).foregroundColor(AppColors.accent)
+        Text(value).font(.subheadline.bold()).foregroundColor(AppColors.textPrimary)
+        Text(unit).font(.caption2).foregroundColor(AppColors.textSecondary)
     }
     .frame(maxWidth: .infinity)
 }
 
 private func color(for stage: SleepStage) -> Color {
     switch stage {
-    case .inBed: return AppTheme.textSecondary.opacity(0.4)
+    case .inBed: return AppColors.textSecondary.opacity(0.4)
     case .awake: return .orange.opacity(0.7)
-    case .core: return AppTheme.accent.opacity(0.45)
-    case .deep: return AppTheme.accent.opacity(0.8)
-    case .rem: return AppTheme.accent
-    case .unspecified: return AppTheme.textSecondary.opacity(0.5)
+    case .core: return AppColors.accent.opacity(0.45)
+    case .deep: return AppColors.accent.opacity(0.8)
+    case .rem: return AppColors.accent
+    case .unspecified: return AppColors.textSecondary.opacity(0.5)
     }
 }
 

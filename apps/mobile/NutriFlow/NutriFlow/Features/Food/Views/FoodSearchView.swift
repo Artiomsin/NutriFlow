@@ -19,7 +19,7 @@ struct FoodSearchView: View {
                 .contentShape(Rectangle())
                 .onTapGesture { searchFocused = false }
         }
-        .background(AppTheme.background)
+        .background(AppColors.background)
         .navigationTitle("Search Food")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { foodSearchVM.trackScreenView() }
@@ -29,11 +29,11 @@ struct FoodSearchView: View {
         HStack {
             Image(systemName: "magnifyingglass")
                 .font(.subheadline)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
             
             TextField("Search food...", text: $foodSearchVM.query)
                 .focused($searchFocused)
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
                 .autocorrectionDisabled()
                 .onChange(of: foodSearchVM.query) { _, _ in foodSearchVM.search() }
                 .onSubmit { searchFocused = false }
@@ -45,7 +45,7 @@ struct FoodSearchView: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.subheadline)
-                        .foregroundColor(AppTheme.textTertiary)
+                        .foregroundColor(AppColors.textTertiary)
                 }
                 .transition(.scale.combined(with: .opacity))
             }
@@ -54,7 +54,7 @@ struct FoodSearchView: View {
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(AppTheme.cardBackground)
+                .fill(AppColors.surface)
                 .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
         )
         .padding(.horizontal, 16)
@@ -71,10 +71,10 @@ struct FoodSearchView: View {
                 Spacer()
                 Image(systemName: "carrot.fill")
                     .font(.system(size: 40))
-                    .foregroundColor(AppTheme.textTertiary)
+                    .foregroundColor(AppColors.textTertiary)
                 Text("Start typing to search")
                     .font(.subheadline)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
                 Spacer()
             }
             
@@ -102,7 +102,7 @@ struct FoodSearchView: View {
                     Spacer()
                     Text("No results found")
                         .font(.subheadline)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundColor(AppColors.textSecondary)
                     Spacer()
                 }
             } else {
@@ -134,12 +134,12 @@ struct FoodSearchView: View {
                                 Text("Failed to load. Retry")
                             }
                             .font(.subheadline)
-                            .foregroundColor(AppTheme.accent)
+                            .foregroundColor(AppColors.accent)
                             .padding(.vertical, 16)
                         }
                     } else if foodSearchVM.hasMore || foodSearchVM.isLoadMore {
                         ProgressView()
-                            .tint(AppTheme.accent)
+                            .tint(AppColors.accent)
                             .padding(.vertical, 20)
                     }
                 }
@@ -191,7 +191,7 @@ private var skeletonCard: some View {
         }
         .padding(12)
     }
-    .background(AppTheme.cardBackground)
+    .background(AppColors.surface)
     .clipShape(RoundedRectangle(cornerRadius: 14))
 }
 
@@ -208,7 +208,7 @@ struct FoodCardSearch: View {
                 imageSection
                 infoSection
             }
-            .background(AppTheme.cardBackground)
+            .background(AppColors.surface)
             .clipShape(RoundedRectangle(cornerRadius: 14))
         }
         .buttonStyle(.plain)
@@ -257,19 +257,14 @@ struct FoodCardSearch: View {
     }
     
     private var fallbackImage: some View {
-        ZStack {
-            Color(red: 0.06, green: 0.1, blue: 0.15)
-            Image(systemName: "fork.knife")
-                .font(.system(size: 28))
-                .foregroundColor(AppTheme.textTertiary.opacity(0.3))
-        }
+        FoodImagePlaceholder(cornerRadius: 0, iconSize: 30)
     }
     
     private var infoSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(food.name)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
                 .multilineTextAlignment(.leading)
                 .lineLimit(2)
                 .truncationMode(.tail)
@@ -282,13 +277,13 @@ struct FoodCardSearch: View {
                 if let cat = food.categoryName, !cat.isEmpty {
                     Text(cat)
                         .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(AppTheme.accent)
+                        .foregroundColor(AppColors.accent)
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
                         .background(
-                            AppTheme.accent.opacity(0.1),
+                            AppColors.accent.opacity(0.1),
                             in: RoundedRectangle(cornerRadius: 6)
                         )
                 }
@@ -298,7 +293,7 @@ struct FoodCardSearch: View {
             HStack {
                 Text("\(UnitConversion.formatEnergyValue(kcal: food.caloriesPer100g, preferred: prefsStore.preferredUnits)) \(UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits))")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(AppTheme.textTertiary)
+                    .foregroundColor(AppColors.textTertiary)
                     .lineLimit(1)
 
                 Spacer(minLength: 8)
@@ -332,7 +327,7 @@ private struct MacroVal: View {
                 .minimumScaleFactor(0.6)
             Text(label)
                 .font(.system(size: 8, weight: .semibold))
-                .foregroundColor(AppTheme.textTertiary)
+                .foregroundColor(AppColors.textTertiary)
         }
         .frame(width: 28)
     }
@@ -386,7 +381,7 @@ struct SourceBadge: View {
             onSelect: { _, _, _ in }
         )
     }
-    .preferredColorScheme(.dark)
+    
 }
 
 #Preview("Food Card (long name)") {
@@ -441,8 +436,8 @@ struct SourceBadge: View {
         )
     }
     .padding(14)
-    .background(AppTheme.background)
-    .preferredColorScheme(.dark)
+    .background(AppColors.background)
+    
 }
 
 

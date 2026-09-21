@@ -35,7 +35,7 @@ struct ActivityChartView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "flame.fill").foregroundColor(.orange)
-                Text("Energy").font(.headline).foregroundColor(AppTheme.textPrimary)
+                Text("Energy").font(.headline).foregroundColor(AppColors.textPrimary)
                 Spacer()
             }
 
@@ -65,14 +65,14 @@ struct ActivityChartView: View {
             .chartYScale(domain: 0 ... Double(maxYValue))
             .chartYAxis {
                 AxisMarks(position: .leading, values: .automatic(desiredCount: 5)) { _ in
-                    AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.3))
-                    AxisValueLabel().foregroundStyle(AppTheme.textTertiary)
+                    AxisGridLine().foregroundStyle(AppColors.textTertiary .opacity(0.3))
+                    AxisValueLabel().foregroundStyle(AppColors.textTertiary )
                 }
             }
             .chartXAxis {
                 AxisMarks { _ in
-                    AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.15))
-                    AxisValueLabel().foregroundStyle(AppTheme.textTertiary)
+                    AxisGridLine().foregroundStyle(AppColors.textTertiary .opacity(0.15))
+                    AxisValueLabel().foregroundStyle(AppColors.textTertiary )
                 }
             }
             .chartXSelection(value: $selection)
@@ -86,14 +86,14 @@ struct ActivityChartView: View {
             }
         }
         .padding()
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .background(AppColors.surface)
+        .cornerRadius(AppRadius.medium)
     }
 
     private func legendDot(color: Color, text: String) -> some View {
         HStack(spacing: 6) {
             Circle().fill(color).frame(width: 8, height: 8)
-            Text(text).font(.caption).foregroundColor(AppTheme.textSecondary)
+            Text(text).font(.caption).foregroundColor(AppColors.textSecondary)
         }
     }
 
@@ -143,6 +143,6 @@ struct ActivityChartView: View {
     }
     return ActivityChartView(data: data)
         .padding()
-        .background(AppTheme.background)
-        .preferredColorScheme(.dark)
+        .background(AppColors.background)
+       // .preferredColorScheme(.dark)
 }

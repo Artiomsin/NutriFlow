@@ -13,10 +13,10 @@ struct AnalyticsHeroView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(streak)-day streak")
                         .font(.subheadline.bold())
-                        .foregroundColor(AppTheme.textPrimary)
+                        .foregroundColor(AppColors.textPrimary)
                     Text("Keep going!")
                         .font(.caption2)
-                        .foregroundColor(AppTheme.textTertiary)
+                        .foregroundColor(AppColors.textTertiary)
                 }
             }
 
@@ -36,11 +36,11 @@ struct AnalyticsHeroView: View {
             .cornerRadius(20)
         }
         .padding(16)
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .background(AppColors.surface)
+        .cornerRadius(AppRadius.medium)
         .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                .stroke(AppTheme.cardBorder, lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppRadius.medium)
+                .stroke(AppColors.border, lineWidth: 1)
         )
     }
 

@@ -6,7 +6,7 @@ struct ProfileDisplayView: View {
 
     var body: some View {
         ZStack {
-            AppTheme.background.ignoresSafeArea()
+            AppColors.background.ignoresSafeArea()
 
             GeometryReader { geo in
                 ScrollView(showsIndicators: false) {
@@ -14,18 +14,18 @@ struct ProfileDisplayView: View {
                     if case .loaded = viewModel.state {
                         VStack(spacing: 16) {
                             Image(systemName: "person.circle.fill")
-                                .font(.system(size: AppTheme.avatarSize))
-                                .foregroundColor(AppTheme.accent)
+                                .font(.system(size: AppSpacing.avatarSize))
+                                .foregroundColor(AppColors.accent)
 
                             VStack(spacing: 12) {
                                 VStack(spacing: 4) {
                                     Text("\(viewModel.firstName) \(viewModel.lastName)")
                                         .font(.title2.bold())
-                                        .foregroundColor(AppTheme.textPrimary)
+                                        .foregroundColor(AppColors.textPrimary)
 
                                     Text(viewModel.email)
                                         .font(.subheadline)
-                                        .foregroundColor(AppTheme.textSecondary)
+                                        .foregroundColor(AppColors.textSecondary)
                                 }
 
                                 Button {
@@ -36,11 +36,11 @@ struct ProfileDisplayView: View {
                                         Text("Edit profile")
                                     }
                                     .font(.subheadline.weight(.semibold))
-                                    .foregroundColor(AppTheme.primaryButtonText)
+                                    .foregroundColor(AppColors.accentOnPrimary)
                                     .padding(.horizontal, 16)
                                     .padding(.vertical, 10)
-                                    .background(AppTheme.accent)
-                                    .cornerRadius(AppTheme.cornerRadiusSmall)
+                                    .background(AppColors.accent)
+                                    .cornerRadius(AppRadius.small)
                                 }
                             }
                         }
@@ -84,22 +84,22 @@ struct ProfileDisplayView: View {
                     } else if case .empty = viewModel.state {
                         VStack(spacing: 16) {
                             Image(systemName: "person.circle.fill")
-                                .font(.system(size: AppTheme.avatarSize))
-                                .foregroundColor(AppTheme.accent)
+                                .font(.system(size: AppSpacing.avatarSize))
+                                .foregroundColor(AppColors.accent)
                             Text("No profile data. Please create your profile.")
-                                .foregroundColor(AppTheme.textSecondary)
+                                .foregroundColor(AppColors.textSecondary)
                                 .multilineTextAlignment(.center)
                         }
                     } else if case .error(let error) = viewModel.state {
                         ErrorMessageView(text: error.localizedDescription)
                     }
                 }
-                .padding(.horizontal, AppTheme.paddingHorizontal)
-                .padding(.bottom, AppTheme.bottomPadding)
-                .frame(minHeight: geo.size.height - AppTheme.bottomPadding)
+                .padding(.horizontal, AppSpacing.paddingHorizontal)
+                .padding(.bottom, AppSpacing.bottomPadding)
+                .frame(minHeight: geo.size.height - AppSpacing.bottomPadding)
                 }
                 .scrollContentBackground(.hidden)
-                .background(AppTheme.background)
+                .background(AppColors.background)
             }
         }
         .navigationTitle("Profile")
@@ -121,5 +121,5 @@ struct ProfileDisplayView: View {
         ProfileDisplayView(viewModel: viewModel, onEdit: {})
             .task { await viewModel.loadData() }
     }
-    .preferredColorScheme(.dark)
+    
 }
