@@ -16,10 +16,6 @@ struct AppCard<Content: View>: View {
             .background(
                 RoundedRectangle(cornerRadius: AppRadius.large)
                     .fill(AppColors.surface)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: AppRadius.large)
-                            .stroke(AppColors.border, lineWidth: 1)
-                    )
             )
     }
 }

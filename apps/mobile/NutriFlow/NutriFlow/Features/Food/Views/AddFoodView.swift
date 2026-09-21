@@ -268,23 +268,37 @@ private struct PopularCard: View {
         return !category.isEmpty && category != "NOT A BRANDED ITEM"
     }
 
+    private var hasImage: Bool {
+        food.imageUrl.flatMap(URL.init(string:)) != nil
+    }
+
+    private var primaryTextColor: Color {
+        hasImage ? .white : AppColors.textPrimary
+    }
+
+    private var secondaryTextColor: Color {
+        hasImage ? .white.opacity(0.9) : AppColors.textSecondary
+    }
+
     var body: some View {
         Button(action: onTap) {
             ZStack(alignment: .bottom) {
                 imageView
                     .frame(width: 175, height: 205)
-                    .overlay(
-                        LinearGradient(
-                            colors: [.clear, .black.opacity(0.6)],
-                            startPoint: .center,
-                            endPoint: .bottom
-                        )
-                    )
+                    .overlay {
+                        if hasImage {
+                            LinearGradient(
+                                colors: [.clear, .black.opacity(0.6)],
+                                startPoint: .center,
+                                endPoint: .bottom
+                            )
+                        }
+                    }
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(food.name)
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(primaryTextColor)
                         .lineLimit(2)
 
                     HStack(spacing: 5) {
@@ -296,7 +310,7 @@ private struct PopularCard: View {
                             .font(.system(size: 9))
                         Spacer()
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(secondaryTextColor)
 
                     HStack(spacing: 4) {
                         macroPill(color: Color(red: 0.4, green: 0.72, blue: 1.0), label: "P", grams: food.proteinPer100g)
@@ -306,7 +320,10 @@ private struct PopularCard: View {
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(
+                    hasImage ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(AppColors.surfaceElevated),
+                    in: RoundedRectangle(cornerRadius: 16)
+                )
                 .padding(10)
             }
             .frame(width: 175, height: 205)
@@ -321,10 +338,10 @@ private struct PopularCard: View {
                     Text((food.categoryName ?? "").uppercased())
                         .font(.system(size: 8, weight: .bold))
                         .tracking(0.6)
-                        .foregroundColor(.white)
+                        .foregroundColor(AppColors.textPrimary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(.ultraThinMaterial, in: Capsule())
+                        .background(AppColors.surface.opacity(0.88), in: Capsule())
                         .padding(10)
                 }
             }
@@ -335,7 +352,11 @@ private struct PopularCard: View {
     @ViewBuilder
     private var imageView: some View {
         ZStack {
-            FoodImagePlaceholder(cornerRadius: 0, iconSize: 28)
+            FoodImagePlaceholder(
+                cornerRadius: 0,
+                iconSize: 30,
+                usesTintedBackground: true
+            )
             if let url = food.imageUrl.flatMap({ URL(string: $0) }) {
                 KFImage(url)
                     .fade(duration: 0.25)
@@ -356,13 +377,13 @@ private struct PopularCard: View {
                 .font(.system(size: 9, weight: .bold))
                 .foregroundColor(color)
             Text("\(UnitConversion.macroDisplay(grams: Double(grams ?? 0), preferred: preferred)) \(unit)")
-                .font(.system(size: 9))
-                .foregroundColor(.white.opacity(0.95))
+                .font(.system(size: 9, weight: .medium))
+                .foregroundColor(hasImage ? .white.opacity(0.95) : AppColors.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.65)
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 3)
-        .background(color.opacity(0.25), in: Capsule())
+        .background(color.opacity(hasImage ? 0.25 : 0.14), in: Capsule())
     }
 }

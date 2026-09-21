@@ -50,10 +50,6 @@ struct HealthKitConnectCard: View {
         .padding(.bottom, 16)
         .frame(maxWidth: .infinity)
         .background(AppColors.surface)
-        .overlay(
-            RoundedRectangle(cornerRadius: AppRadius.medium)
-                .stroke(AppColors.border, lineWidth: 1)
-        )
         .cornerRadius(AppRadius.medium)
     }
 }

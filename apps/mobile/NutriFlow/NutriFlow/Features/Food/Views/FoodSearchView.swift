@@ -277,13 +277,13 @@ struct FoodCardSearch: View {
                 if let cat = food.categoryName, !cat.isEmpty {
                     Text(cat)
                         .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(AppColors.accent)
+                        .foregroundColor(AppColors.textSecondary)
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
                         .background(
-                            AppColors.accent.opacity(0.1),
+                            AppColors.surfaceSecondary,
                             in: RoundedRectangle(cornerRadius: 6)
                         )
                 }

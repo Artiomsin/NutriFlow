@@ -38,10 +38,6 @@ struct AnalyticsHeroView: View {
         .padding(16)
         .background(AppColors.surface)
         .cornerRadius(AppRadius.medium)
-        .overlay(
-            RoundedRectangle(cornerRadius: AppRadius.medium)
-                .stroke(AppColors.border, lineWidth: 1)
-        )
     }
 
     private var trendIcon: String {

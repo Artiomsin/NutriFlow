@@ -176,10 +176,6 @@ struct DarkOnboardingCard: View {
             .background(
                 RoundedRectangle(cornerRadius: 20)
                     .fill(AppColors.surface)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(AppColors.border, lineWidth: 1)
-                    )
             )
             .padding(.horizontal, 24)
             .opacity(isAnimating ? 1 : 0)

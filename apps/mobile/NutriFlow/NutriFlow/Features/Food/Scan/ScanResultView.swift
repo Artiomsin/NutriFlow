@@ -144,10 +144,6 @@ struct ScanResultView: View {
             RoundedRectangle(cornerRadius: 18)
                 .fill(AppColors.surface)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(AppColors.border, lineWidth: 1)
-        )
         .opacity(item.isSelected ? 1 : 0.55)
     }
 

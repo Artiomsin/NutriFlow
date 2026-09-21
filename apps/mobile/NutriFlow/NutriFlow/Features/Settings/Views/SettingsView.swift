@@ -172,13 +172,6 @@ struct SettingsView: View {
             .padding(.horizontal, AppSpacing.paddingHorizontal)
             .padding(.vertical, 14)
             .background(AppColors.surface)
-            .overlay {
-                RoundedRectangle(cornerRadius: AppRadius.medium)
-                    .stroke(
-                        AppColors.border,
-                        lineWidth: 1
-                    )
-            }
             .clipShape(
                 RoundedRectangle(
                     cornerRadius: AppRadius.medium

@@ -115,7 +115,7 @@ struct ActivityGoalRow: View {
                                 ? Color.black.opacity(0.055)
                                 : Color.white.opacity(0.10)
                         )
-                        : AppColors.border.opacity(isLight ? 0.75 : 1.0),
+                        : .clear,
                     lineWidth: 1
                 )
         }
