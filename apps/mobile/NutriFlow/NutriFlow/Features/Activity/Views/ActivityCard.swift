@@ -157,7 +157,7 @@ struct ActivityCard: View {
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .appGlassSurface()
+        .appGlassSurface(level: .prominent)
     }
     
     private func loadingPlaceholder(_ text: String) -> some View {

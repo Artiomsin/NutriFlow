@@ -36,7 +36,7 @@ struct AnalyticsHeroView: View {
             .cornerRadius(20)
         }
         .padding(16)
-        .appGlassSurface()
+        .appGlassSurface(level: .prominent)
     }
 
     private var trendIcon: String {

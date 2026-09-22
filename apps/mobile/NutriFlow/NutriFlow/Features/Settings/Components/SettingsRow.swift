@@ -29,6 +29,6 @@ struct SettingsRow: View {
                 .foregroundColor(AppColors.textSecondary)
         }
         .padding()
-        .appGlassSurface(level: .inset)
+        .appGlassSurface(level: .interactive)
     }
 }

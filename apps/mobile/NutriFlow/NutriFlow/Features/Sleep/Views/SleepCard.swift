@@ -217,7 +217,7 @@ struct SleepCard: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .appGlassSurface()
+        .appGlassSurface(level: .prominent)
     }
 
     private func hours(_ seconds: Double) -> String {

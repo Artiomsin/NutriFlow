@@ -17,8 +17,6 @@ struct LastWorkoutCard: View {
     var weekWorkoutsCount: Int = 0
     var weekWorkoutMinutes: Int = 0
 
-    @Environment(\.colorScheme) private var colorScheme
-
     var body: some View {
         if healthAccessDenied {
             deniedPrompt
@@ -102,12 +100,7 @@ struct LastWorkoutCard: View {
         .buttonStyle(.plain)
         .padding()
         .frame(maxWidth: .infinity)
-        .appGlassSurface()
-        .shadow(
-            color: colorScheme == .dark ? .black.opacity(0.45) : .black.opacity(0.06),
-            radius: colorScheme == .dark ? 14 : 5,
-            y: colorScheme == .dark ? 8 : 2
-        )
+        .appGlassSurface(level: .prominent)
     }
 
     private var deniedPrompt: some View {

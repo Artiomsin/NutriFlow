@@ -50,7 +50,7 @@ struct WaterCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .appGlassSurface()
+        .appGlassSurface(level: .interactive)
         .contentShape(Rectangle())
         .alert("Delete Water", isPresented: $showDeleteAlert) {
             Button("Cancel", role: .cancel) {}

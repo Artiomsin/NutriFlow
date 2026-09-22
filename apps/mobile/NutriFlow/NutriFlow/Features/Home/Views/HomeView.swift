@@ -309,7 +309,7 @@ private struct DailySummarySectionView: View {
         foodService: MockFoodService()
     )
     .background(AppColors.background)
-    .environment(\.glassEffectsMode, .off)
+    .environment(\.glassEffectsMode, .subtle)
     
     
 }

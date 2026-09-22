@@ -87,6 +87,6 @@ struct DailySummaryCard: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .appGlassSurface()
+        .appGlassSurface(level: .prominent)
     }
 }

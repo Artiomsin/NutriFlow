@@ -137,5 +137,5 @@ private struct AnimatedTabBar: View {
         previewHomeVM: HomeFactory.makePreviewViewModel()
     )
     .environment(container.themeStore)
-    .environment(\.glassEffectsMode, .off)
+    .environment(\.glassEffectsMode, .subtle)
 }
