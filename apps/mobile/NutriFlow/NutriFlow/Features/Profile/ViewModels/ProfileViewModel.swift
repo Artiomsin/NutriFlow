@@ -56,6 +56,13 @@ final class ProfileViewModel {
         analyticsTracker?.track(.screenView(screen: screen))
     }
 
+    private func invalidateAggregateCaches() async {
+        await cacheService?.remove("summary_today")
+        await cacheService?.removeByPrefix("chart_summaries")
+        await cacheService?.removeByPrefix("analytics_")
+        await cacheService?.remove("goals_personalization")
+    }
+
     func loadData() async {
         if let cachedUser: User = try? await cacheService?.get("user"),
            let cachedProfile: UserProfile = try? await cacheService?.get("profile") {
@@ -183,6 +190,7 @@ final class ProfileViewModel {
             await cacheService?.remove("profile_empty")
             await cacheService?.remove("profile")
             await cacheService?.remove("goals")
+            await invalidateAggregateCaches()
             coordinator?.goToMain()
 
         } catch {
@@ -207,7 +215,8 @@ final class ProfileViewModel {
             mapProfile(profile)
             state = .loaded(profile)
             await cacheService?.remove("profile")
-await cacheService?.remove("goals")
+            await cacheService?.remove("goals")
+            await invalidateAggregateCaches()
  
         } catch {
             state = .error(error)
@@ -248,6 +257,7 @@ await cacheService?.remove("goals")
             state = .empty
             await cacheService?.remove("profile")
             await cacheService?.remove("goals")
+            await invalidateAggregateCaches()
             try? await cacheService?.set("profile_empty", true, ttl: 1800)
 
         } catch {

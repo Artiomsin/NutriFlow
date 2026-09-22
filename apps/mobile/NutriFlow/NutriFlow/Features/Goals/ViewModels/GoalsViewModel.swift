@@ -190,6 +190,8 @@ final class GoalsViewModel {
             }
             personalizationState = PersonalizationState(pending: nil, personalizationDue: false)
             await cacheService?.remove("goals_personalization")
+            await cacheService?.remove("summary_today")
+            await cacheService?.removeByPrefix("chart_summaries")
             await cacheService?.removeByPrefix("analytics_")
             progressRefreshState?.invalidate()
             return true
