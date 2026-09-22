@@ -337,7 +337,6 @@ final class ProgressChartViewModel {
     func refreshData() async {
         await cacheService?.remove(chartSummariesKey)
         await cacheService?.remove(chartSummariesKey + "_activity")
-        await cacheService?.remove("chart_today")
         if periodState.type == .today {
             await cacheService?.remove("food_today")
             await cacheService?.remove("water_today")

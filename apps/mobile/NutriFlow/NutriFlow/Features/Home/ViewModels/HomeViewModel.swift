@@ -106,9 +106,7 @@ final class HomeViewModel {
     func refreshAll() async {
         await cacheService?.remove("food_today")
         await cacheService?.remove("water_today")
-        await cacheService?.remove("dashboard_today")
         await cacheService?.remove("summary_today")
-        await cacheService?.remove("chart_today")
         await cacheService?.removeByPrefix("chart_summaries")
         
 

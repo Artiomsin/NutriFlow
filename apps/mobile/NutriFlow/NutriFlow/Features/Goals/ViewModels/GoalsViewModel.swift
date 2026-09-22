@@ -268,8 +268,6 @@ final class GoalsViewModel {
             try? await cacheService?.set("goals", updated, ttl: 1800)
             await cacheService?.remove("goals_history")
             await cacheService?.remove("summary_today")
-            await cacheService?.remove("dashboard_today")
-            await cacheService?.remove("chart_today")
             await cacheService?.removeByPrefix("chart_summaries")
             await cacheService?.removeByPrefix("analytics_")
             progressRefreshState?.invalidate()
