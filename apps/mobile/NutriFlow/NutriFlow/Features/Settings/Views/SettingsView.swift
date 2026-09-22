@@ -168,6 +168,31 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.segmented)
                 .tint(AppColors.accent)
+
+                Divider()
+                    .opacity(0.3)
+
+                Toggle(
+                    isOn: Binding(
+                        get: {
+                            themeStore.glassEffectsMode == GlassEffectsMode.subtle
+                        },
+                        set: { isEnabled in
+                            themeStore.glassEffectsMode = isEnabled ? GlassEffectsMode.subtle : GlassEffectsMode.off
+                        }
+                    )
+                ) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Glass Effects")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(AppColors.textPrimary)
+
+                        Text("Use subtle glass on supported interface elements.")
+                            .font(.caption)
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
+                }
+                .tint(AppColors.accent)
             }
             .padding(.horizontal, AppSpacing.paddingHorizontal)
             .padding(.vertical, 14)

@@ -123,7 +123,7 @@ struct ActivityCard: View {
                     goal: goal,
                     color: .green,
                     unit: "steps",
-                    hasGlass: false
+                    hasGlass: true
 
                     
                 )

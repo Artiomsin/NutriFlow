@@ -103,7 +103,21 @@ struct ActivityGoalRow: View {
                 .fill(
                     hasGlass
                         ? AnyShapeStyle(.regularMaterial)
-                        : AnyShapeStyle(AppColors.surface)
+                        : AnyShapeStyle(
+                            LinearGradient(
+                                colors: isLight
+                                    ? [
+                                        AppColors.surfaceSecondary,
+                                        Color.black.opacity(0.025)
+                                    ]
+                                    : [
+                                        Color.white.opacity(0.07),
+                                        Color.white.opacity(0.035)
+                                    ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
                 )
         }
         .overlay {
