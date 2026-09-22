@@ -8,8 +8,12 @@ struct FoodImagePlaceholder: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        RoundedRectangle(cornerRadius: cornerRadius)
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             .fill(backgroundStyle)
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(borderColor, lineWidth: 0.8)
+            }
             .overlay {
                 Image(systemName: "fork.knife")
                     .font(.system(size: iconSize, weight: .medium))
@@ -33,6 +37,20 @@ struct FoodImagePlaceholder: View {
             )
         }
 
-        return AnyShapeStyle(AppColors.surface)
+        return AnyShapeStyle(
+            colorScheme == .light
+                ? AppColors.surfaceSecondary
+                : Color.white.opacity(0.09)
+        )
+    }
+
+    private var borderColor: Color {
+        if usesTintedBackground {
+            return AppColors.success.opacity(colorScheme == .light ? 0.32 : 0.42)
+        }
+
+        return colorScheme == .light
+            ? AppColors.border.opacity(0.80)
+            : Color.white.opacity(0.14)
     }
 }

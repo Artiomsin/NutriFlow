@@ -83,7 +83,7 @@ struct LastWorkoutCard: View {
                         goal: goal,
                         color: .blue,
                         unit: "",
-                        hasGlass: false
+                       
                     )
                 }
                 if let goal = weeklyWorkoutMinutesGoal, goal > 0 {
@@ -94,7 +94,7 @@ struct LastWorkoutCard: View {
                         goal: goal,
                         color: .teal,
                         unit: "min",
-                        hasGlass: false
+        
                     )
                 }
             }
@@ -102,8 +102,7 @@ struct LastWorkoutCard: View {
         .buttonStyle(.plain)
         .padding()
         .frame(maxWidth: .infinity)
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
         .shadow(
             color: colorScheme == .dark ? .black.opacity(0.45) : .black.opacity(0.06),
             radius: colorScheme == .dark ? 14 : 5,
@@ -125,8 +124,7 @@ struct LastWorkoutCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 }
 

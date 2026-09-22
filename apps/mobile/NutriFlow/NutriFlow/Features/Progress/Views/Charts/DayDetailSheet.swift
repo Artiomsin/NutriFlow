@@ -104,8 +104,7 @@ struct DayDetailSheet: View {
             }
         }
         .padding()
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 
     private func activitySection(_ activity: ActivityDayPoint, goals: UserGoals?) -> some View {
@@ -134,8 +133,7 @@ struct DayDetailSheet: View {
             }
         }
         .padding()
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 
     private var workoutSection: some View {
@@ -154,8 +152,7 @@ struct DayDetailSheet: View {
             }
         }
         .padding()
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 
     private var foodSection: some View {
@@ -174,8 +171,7 @@ struct DayDetailSheet: View {
             }
         }
         .padding()
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 
     private var waterSection: some View {
@@ -194,8 +190,7 @@ struct DayDetailSheet: View {
             }
         }
         .padding()
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 
     private func sectionLabel(_ text: String, icon: String) -> some View {
@@ -252,8 +247,7 @@ struct DetailStatCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.small)
+        .appGlassSurface(cornerRadius: AppRadius.small, level: .inset)
     }
 }
 

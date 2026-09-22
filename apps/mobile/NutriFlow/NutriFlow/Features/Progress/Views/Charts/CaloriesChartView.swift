@@ -62,8 +62,7 @@ struct CaloriesChartView: View {
             }
         }
         .padding()
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 
     private var totalCalories: Int {

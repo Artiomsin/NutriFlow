@@ -60,7 +60,7 @@ struct NutritionChartView: View {
                 }
             }
         }
-        .padding().background(AppColors.surface).cornerRadius(AppRadius.medium)
+        .padding().appGlassSurface()
     }
 
     private var avgProtein: Int { guard !data.isEmpty else { return 0 }; return Int(data.reduce(0) { $0 + $1.protein } / Double(data.count)) }

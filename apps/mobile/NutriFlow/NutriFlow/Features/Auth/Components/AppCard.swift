@@ -13,9 +13,6 @@ struct AppCard<Content: View>: View {
         content
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: AppRadius.large)
-                    .fill(AppColors.surface)
-            )
+            .appGlassSurface(cornerRadius: AppRadius.large)
     }
 }

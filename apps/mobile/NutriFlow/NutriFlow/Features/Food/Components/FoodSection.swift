@@ -109,8 +109,7 @@ struct FoodSection: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)
-        .background(AppColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .appGlassSurface(cornerRadius: 14)
     }
 }
 

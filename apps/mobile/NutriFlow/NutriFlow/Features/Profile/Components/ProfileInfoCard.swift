@@ -23,7 +23,6 @@ struct ProfileInfoCard: View {
                 .foregroundColor(AppColors.textPrimary)
         }
         .padding()
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 }

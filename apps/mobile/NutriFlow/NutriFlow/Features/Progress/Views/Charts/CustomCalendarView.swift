@@ -37,8 +37,7 @@ struct CustomCalendarView: View {
                     .font(.body)
                     .foregroundColor(AppColors.textSecondary)
                     .frame(width: 36, height: 36)
-                    .background(AppColors.surface)
-                    .cornerRadius(8)
+                    .appGlassSurface(cornerRadius: 8, level: .inset)
             }
 
             Spacer()

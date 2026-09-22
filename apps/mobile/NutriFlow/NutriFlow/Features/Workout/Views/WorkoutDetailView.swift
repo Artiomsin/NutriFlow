@@ -60,8 +60,7 @@ struct WorkoutDetailView: View {
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AppColors.surface)
-            .cornerRadius(AppRadius.medium)
+            .appGlassSurface()
         }
     }
 
@@ -185,8 +184,7 @@ struct WorkoutDetailView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 
     private func stat(value: String, label: String) -> some View {
@@ -231,8 +229,7 @@ struct WorkoutDetailView: View {
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AppColors.surface)
-            .cornerRadius(AppRadius.medium)
+            .appGlassSurface()
         } else {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Heart Rate")
@@ -244,8 +241,7 @@ struct WorkoutDetailView: View {
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AppColors.surface)
-            .cornerRadius(AppRadius.medium)
+            .appGlassSurface()
         }
     }
 
@@ -347,8 +343,7 @@ struct WorkoutDetailView: View {
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AppColors.surface)
-            .cornerRadius(AppRadius.medium)
+            .appGlassSurface()
         }
     }
 

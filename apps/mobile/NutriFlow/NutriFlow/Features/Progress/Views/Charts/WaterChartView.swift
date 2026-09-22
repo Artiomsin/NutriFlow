@@ -58,7 +58,7 @@ struct WaterChartView: View {
                 }
             }
         }
-        .padding().background(AppColors.surface).cornerRadius(AppRadius.medium)
+        .padding().appGlassSurface()
     }
 
     private var totalWater: Int { data.reduce(0) { $0 + $1.waterMl } }

@@ -111,8 +111,7 @@ struct SleepHistoryView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 
     private func nightRow(_ night: HealthKitSleep) -> some View {
@@ -143,8 +142,7 @@ struct SleepHistoryView: View {
             }
         }
         .padding()
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 }
 
@@ -182,8 +180,7 @@ private struct NightDetailView: View {
             metric("gauge.with.dots.needle.50percent", night.efficiency.map { "\(Int($0))%" } ?? "–", "efficiency")
         }
         .padding()
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 
     private var timelineChart: some View {
@@ -356,8 +353,7 @@ private struct NightDetailView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 
     private func legendItem(_ text: String, _ color: Color) -> some View {

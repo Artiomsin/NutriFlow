@@ -139,7 +139,7 @@ struct WorkoutHistoryView: View {
                         .foregroundColor(AppColors.accent)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(AppColors.surface)
+                        .appGlassSurface(level: .inset)
                         .overlay(
                             RoundedRectangle(cornerRadius: AppRadius.medium)
                                 .stroke(AppColors.accent, lineWidth: 1.5)
@@ -295,8 +295,7 @@ private struct WorkoutRow: View {
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 }
 

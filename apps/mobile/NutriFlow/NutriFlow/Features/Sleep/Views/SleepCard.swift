@@ -22,8 +22,7 @@ struct SleepCard: View {
             }
             .frame(maxWidth: .infinity)
             .padding()
-            .background(AppColors.surface)
-            .cornerRadius(AppRadius.medium)
+            .appGlassSurface()
         case .needsAccess:
             accessPrompt
         case .denied:
@@ -75,8 +74,7 @@ struct SleepCard: View {
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 
     private var deniedPrompt: some View {
@@ -95,8 +93,7 @@ struct SleepCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 
     private var unavailablePrompt: some View {
@@ -110,8 +107,7 @@ struct SleepCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 
     private var emptyPrompt: some View {
@@ -135,8 +131,7 @@ struct SleepCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 
     private var settingsPrompt: some View {
@@ -153,8 +148,7 @@ struct SleepCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 
     private func sleepContent(_ sleep: HealthKitSleep) -> some View {
@@ -217,14 +211,13 @@ struct SleepCard: View {
                     color: .indigo,
                     displayCurrent: hours(sleep.asleepSeconds),
                     displayGoal: sleepGoalRangeText(min: minMinutes, max: maxMinutes),
-                    hasGlass: false
+                    
                 )
             }
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 
     private func hours(_ seconds: Double) -> String {

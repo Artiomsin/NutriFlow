@@ -97,8 +97,7 @@ struct WaterSection: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 }
 

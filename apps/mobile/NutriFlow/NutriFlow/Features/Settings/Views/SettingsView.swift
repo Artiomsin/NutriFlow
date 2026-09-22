@@ -201,12 +201,7 @@ struct SettingsView: View {
             }
             .padding(.horizontal, AppSpacing.paddingHorizontal)
             .padding(.vertical, 14)
-            .background(AppColors.surface)
-            .clipShape(
-                RoundedRectangle(
-                    cornerRadius: AppRadius.medium
-                )
-            )
+            .appGlassSurface()
         }
     }
     
@@ -253,8 +248,7 @@ struct SettingsView: View {
                     label: { $0 == .kcal ? "kcal" : "kJ" }
                 )
             }
-            .background(AppColors.surface)
-            .clipShape(RoundedRectangle(cornerRadius: AppRadius.medium))
+            .appGlassSurface()
         }
     }
 

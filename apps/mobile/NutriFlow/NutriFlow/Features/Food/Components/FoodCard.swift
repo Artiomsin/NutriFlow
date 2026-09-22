@@ -86,8 +86,7 @@ struct FoodCard: View {
             }
         }
         .padding(12)
-        .background(AppColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .appGlassSurface(cornerRadius: 14)
         .alert("Delete Food", isPresented: $showDeleteAlert) {
             Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {

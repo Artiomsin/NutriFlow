@@ -5,7 +5,6 @@ struct ActivityCard: View {
     
     @Bindable var vm: ActivityViewModel
     @State private var prefsStore = PreferencesStore.shared
-    @Environment(\.colorScheme) private var colorScheme
     
     var stepGoal: Int?
     var activeCaloriesGoal: Int?
@@ -29,8 +28,7 @@ struct ActivityCard: View {
             }
             .frame(maxWidth: .infinity)
             .padding()
-            .background(AppColors.surface)
-            .cornerRadius(AppRadius.medium)
+            .appGlassSurface()
         case .loaded(let activity):
             activityContent(activity)
         case .error:
@@ -64,8 +62,7 @@ struct ActivityCard: View {
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
     
     private var deniedPrompt: some View {
@@ -88,7 +85,7 @@ struct ActivityCard: View {
                     .foregroundColor(AppColors.accent)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(AppColors.surface)
+                    .appGlassSurface(level: .inset)
                     .overlay(
                         RoundedRectangle(cornerRadius: AppRadius.medium)
                             .stroke(AppColors.accent, lineWidth: 1.5)
@@ -97,8 +94,7 @@ struct ActivityCard: View {
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
     
     private var unavailablePrompt: some View {
@@ -116,8 +112,7 @@ struct ActivityCard: View {
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
     
     private func activityContent(_ activity: DailyActivity) -> some View {
@@ -144,9 +139,7 @@ struct ActivityCard: View {
                     goal: goal,
                     color: .green,
                     unit: "steps",
-                    hasGlass: true
-
-                    
+                    isEmbedded: true
                 )
             }
             if let goal = activeCaloriesGoal, goal > 0 {
@@ -157,20 +150,14 @@ struct ActivityCard: View {
                     goal: goal,
                     color: .orange,
                     unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits),
-                    hasGlass: false
+                    isEmbedded: true
                 )
             }
             
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
-        .shadow(
-            color: colorScheme == .dark ? .black.opacity(0.45) : .black.opacity(0.06),
-            radius: colorScheme == .dark ? 14 : 5,
-            y: colorScheme == .dark ? 8 : 2
-        )
+        .appGlassSurface()
     }
     
     private func loadingPlaceholder(_ text: String) -> some View {
@@ -179,8 +166,144 @@ struct ActivityCard: View {
             .foregroundColor(AppColors.textSecondary)
             .frame(maxWidth: .infinity)
             .padding()
-            .background(AppColors.surface)
-            .cornerRadius(AppRadius.medium)
+            .appGlassSurface()
+    }
+}
+
+private struct ActivityCardSurface: ViewModifier {
+    let glassEffectsMode: GlassEffectsMode
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if glassEffectsMode == .subtle {
+            content
+                .background {
+                    ZStack {
+                        RoundedRectangle(
+                            cornerRadius: AppRadius.medium,
+                            style: .continuous
+                        )
+                        .fill(
+                            ActivityGlassPalette.cardBase(for: colorScheme)
+                                .opacity(colorScheme == .light ? 0.66 : 0.72)
+                        )
+
+                        LinearGradient(
+                            colors: [
+                                Color.black
+                                    .opacity(colorScheme == .light ? 0.025 : 0.18),
+                                Color(
+                                    red: 0.20,
+                                    green: 0.08,
+                                    blue: 0.34
+                                )
+                                .opacity(colorScheme == .light ? 0.03 : 0.16),
+                                Color(
+                                    red: 0.07,
+                                    green: 0.11,
+                                    blue: 0.30
+                                )
+                                .opacity(colorScheme == .light ? 0.02 : 0.12),
+                                Color.black
+                                    .opacity(colorScheme == .light ? 0.06 : 0.30)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+
+                        RadialGradient(
+                            colors: [
+                                Color.black
+                                    .opacity(colorScheme == .light ? 0.04 : 0.24),
+                                .clear
+                            ],
+                            center: .topLeading,
+                            startRadius: 0,
+                            endRadius: 240
+                        )
+
+                        RadialGradient(
+                            colors: [
+                                Color.black
+                                    .opacity(colorScheme == .light ? 0.07 : 0.34),
+                                .clear
+                            ],
+                            center: .bottomTrailing,
+                            startRadius: 0,
+                            endRadius: 260
+                        )
+
+                        RadialGradient(
+                            colors: [
+                                Color(
+                                    red: 0.43,
+                                    green: 0.16,
+                                    blue: 0.68
+                                )
+                                .opacity(colorScheme == .light ? 0.025 : 0.16),
+                                .clear
+                            ],
+                            center: .bottomLeading,
+                            startRadius: 0,
+                            endRadius: 180
+                        )
+
+                        RadialGradient(
+                            colors: [
+                                Color(
+                                    red: 0.14,
+                                    green: 0.18,
+                                    blue: 0.48
+                                )
+                                .opacity(colorScheme == .light ? 0.02 : 0.12),
+                                .clear
+                            ],
+                            center: .topTrailing,
+                            startRadius: 0,
+                            endRadius: 170
+                        )
+                    }
+                    .clipShape(
+                        RoundedRectangle(
+                            cornerRadius: AppRadius.medium,
+                            style: .continuous
+                        )
+                    )
+                }
+                .glassEffect(
+                    .regular,
+                    in: .rect(cornerRadius: AppRadius.medium)
+                )
+                .overlay {
+                    RoundedRectangle(
+                        cornerRadius: AppRadius.medium,
+                        style: .continuous
+                    )
+                    .stroke(
+                        ActivityGlassPalette.border(
+                            for: colorScheme,
+                            isInset: false
+                        ),
+                        lineWidth: 0.8
+                    )
+                }
+                .shadow(
+                    color: .black.opacity(colorScheme == .light ? 0.10 : 0.20),
+                    radius: colorScheme == .light ? 12 : 14,
+                    y: colorScheme == .light ? 5 : 7
+                )
+        } else {
+            content
+                .background(
+                    AppColors.surface,
+                    in: RoundedRectangle(
+                        cornerRadius: AppRadius.medium,
+                        style: .continuous
+                    )
+                )
+        }
     }
 }
 
@@ -211,6 +334,7 @@ private struct ActivityMetric: View {
     return ActivityCard(vm: vm, stepGoal: 3444, activeCaloriesGoal: 455)
         .padding()
         .background(AppColors.background)
+        .environment(\.glassEffectsMode, .subtle)
         
 }
 

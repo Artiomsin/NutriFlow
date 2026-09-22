@@ -93,8 +93,7 @@ struct AddFoodView: View {
                     .font(.caption)
             }
             .padding(14)
-            .background(AppColors.surface)
-            .cornerRadius(AppRadius.medium)
+            .appGlassSurface()
         }
         .buttonStyle(.plain)
     }

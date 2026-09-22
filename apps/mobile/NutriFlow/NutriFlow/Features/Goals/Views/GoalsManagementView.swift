@@ -149,8 +149,7 @@ struct GoalsManagementView: View {
             VStack(spacing: 0) {
                 content()
             }
-            .background(AppColors.surface)
-            .clipShape(RoundedRectangle(cornerRadius: AppRadius.medium))
+            .appGlassSurface()
         }
     }
 
@@ -269,8 +268,7 @@ struct GoalsManagementView: View {
                     .foregroundColor(AppColors.textSecondary)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(AppColors.surface)
-                    .cornerRadius(AppRadius.medium)
+                    .appGlassSurface()
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(history.prefix(20).enumerated()), id: \.element.id) { index, entry in
@@ -280,8 +278,7 @@ struct GoalsManagementView: View {
                         }
                     }
                 }
-                .background(AppColors.surface)
-                .clipShape(RoundedRectangle(cornerRadius: AppRadius.medium))
+                .appGlassSurface()
             }
         }
     }

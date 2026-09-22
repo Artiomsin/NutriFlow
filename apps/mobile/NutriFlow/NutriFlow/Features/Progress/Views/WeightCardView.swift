@@ -84,8 +84,7 @@ struct WeightCardView: View {
             }
         }
         .padding(14)
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 
     private var chart: some View {

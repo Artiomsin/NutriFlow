@@ -35,8 +35,7 @@ struct GoalRecommendationCard: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 
     private var header: some View {
@@ -134,7 +133,7 @@ struct GoalRecommendationCard: View {
                     .foregroundColor(AppColors.accent)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(AppColors.surface)
+                    .appGlassSurface(level: .inset)
                     .overlay(
                         RoundedRectangle(cornerRadius: AppRadius.medium)
                             .stroke(AppColors.accent, lineWidth: 1.5)
@@ -230,8 +229,7 @@ struct GoalPersonalizationSection: View {
                 }
                 .padding()
                 .frame(maxWidth: .infinity)
-                .background(AppColors.surface)
-                .cornerRadius(AppRadius.medium)
+                .appGlassSurface(level: .inset)
             }
             .disabled(isProcessing)
             .opacity(isProcessing ? 0.6 : 1)

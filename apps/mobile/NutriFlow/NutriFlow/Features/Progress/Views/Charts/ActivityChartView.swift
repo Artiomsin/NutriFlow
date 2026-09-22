@@ -86,8 +86,7 @@ struct ActivityChartView: View {
             }
         }
         .padding()
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface()
     }
 
     private func legendDot(color: Color, text: String) -> some View {

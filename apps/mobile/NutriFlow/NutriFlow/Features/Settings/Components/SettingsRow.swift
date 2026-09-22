@@ -29,7 +29,6 @@ struct SettingsRow: View {
                 .foregroundColor(AppColors.textSecondary)
         }
         .padding()
-        .background(AppColors.surface)
-        .cornerRadius(AppRadius.medium)
+        .appGlassSurface(level: .inset)
     }
 }
