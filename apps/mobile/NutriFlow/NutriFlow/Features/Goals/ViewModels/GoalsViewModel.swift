@@ -11,12 +11,14 @@ final class GoalsViewModel {
     @ObservationIgnored private let service: GoalsServiceProtocol
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let cacheService: CacheService?
+    @ObservationIgnored private let progressRefreshState: ProgressRefreshState?
 
-    init(coordinator: AppCoordinator, service: GoalsServiceProtocol, cacheService: CacheService? = nil) {
+    init(coordinator: AppCoordinator, service: GoalsServiceProtocol, cacheService: CacheService? = nil, progressRefreshState: ProgressRefreshState? = nil) {
         print("GoalsViewModel init")
         self.coordinator = coordinator
         self.service = service
         self.cacheService = cacheService
+        self.progressRefreshState = progressRefreshState
     }
 
     deinit { print("GoalsViewModel deinit") }
@@ -188,6 +190,8 @@ final class GoalsViewModel {
             }
             personalizationState = PersonalizationState(pending: nil, personalizationDue: false)
             await cacheService?.remove("goals_personalization")
+            await cacheService?.removeByPrefix("analytics_")
+            progressRefreshState?.invalidate()
             return true
         } catch let error as APIError {
             if case .unauthorized = error { coordinator?.goToAuth() }
@@ -267,6 +271,8 @@ final class GoalsViewModel {
             await cacheService?.remove("dashboard_today")
             await cacheService?.remove("chart_today")
             await cacheService?.removeByPrefix("chart_summaries")
+            await cacheService?.removeByPrefix("analytics_")
+            progressRefreshState?.invalidate()
             return true
         } catch let error as APIError {
             if case .unauthorized = error { coordinator?.goToAuth() }

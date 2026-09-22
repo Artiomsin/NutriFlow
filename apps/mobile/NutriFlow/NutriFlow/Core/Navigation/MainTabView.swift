@@ -38,7 +38,8 @@ struct MainTabView: View {
         let progress = ProgressFactory.make(
             coordinator: coordinator,
             container: container,
-            periodState: period
+            periodState: period,
+            progressRefreshState: refreshState
         )
         self._analyticsVM = State(initialValue: progress.0)
         self._chartVM = State(initialValue: progress.1)
