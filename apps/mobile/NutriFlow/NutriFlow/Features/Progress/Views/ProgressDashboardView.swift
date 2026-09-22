@@ -12,6 +12,7 @@ struct ProgressDashboardView: View {
 
     @State private var prefsStore = PreferencesStore.shared
     @State private var hasLoadedProgress = false
+    @State private var isInitialProgressLoading = false
 
     var body: some View {
         let _ = print("ProgressDashboardView body")
@@ -82,24 +83,40 @@ struct ProgressDashboardView: View {
 
     @MainActor
     private func loadInitialIfNeeded() {
-        guard isActive, !hasLoadedProgress else { return }
+        guard isActive, !hasLoadedProgress, !isInitialProgressLoading else {
+            return
+        }
+
+        isInitialProgressLoading = true
         let revision = progressRefreshState.revision
+
         Task {
+            defer {
+                isInitialProgressLoading = false
+            }
+
             async let analytics: () = analyticsVM.loadAnalytics()
             async let charts: () = chartVM.loadChartData()
             async let goals: () = goalsVM.loadGoals()
             async let weight: () = chartVM.loadWeightSummary()
             (_, _, _, _) = await (analytics, charts, goals, weight)
+
+            var didLoadDashboard = false
+
             switch analyticsVM.state {
             case .loaded, .empty:
                 analyticsVM.markRevisionAsCurrent(revision)
+                didLoadDashboard = true
             default:
                 break
             }
+
             if case .loaded = chartVM.chartState {
                 chartVM.markRevisionAsCurrent(revision)
+                didLoadDashboard = true
             }
-            hasLoadedProgress = true
+
+            hasLoadedProgress = didLoadDashboard
         }
     }
 
