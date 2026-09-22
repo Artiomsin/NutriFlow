@@ -151,8 +151,6 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
         }
 
         observers.removeAll()
-
-        onActivityChanged = nil
     }
 
 
