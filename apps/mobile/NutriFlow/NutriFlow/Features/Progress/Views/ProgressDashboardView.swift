@@ -11,6 +11,7 @@ struct ProgressDashboardView: View {
     let isActive: Bool
 
     @State private var prefsStore = PreferencesStore.shared
+    @State private var hasLoadedProgress = false
 
     var body: some View {
         let _ = print("ProgressDashboardView body")
@@ -50,30 +51,20 @@ struct ProgressDashboardView: View {
             }
             await task.value
         }
-        .task {
-            async let analytics: () = analyticsVM.loadAnalytics()
-            async let charts: () = chartVM.loadChartData()
-            async let goals: () = goalsVM.loadGoals()
-            async let weight: () = chartVM.loadWeightSummary()
-            (_, _, _, _) = await (analytics, charts, goals, weight)
-            let revision = progressRefreshState.revision
-            switch analyticsVM.state {
-            case .loaded, .empty:
-                analyticsVM.markRevisionAsCurrent(revision)
-            default:
-                break
-            }
-            if case .loaded = chartVM.chartState {
-                chartVM.markRevisionAsCurrent(revision)
-            }
+        .onAppear {
+            loadInitialIfNeeded()
         }
         .onChange(of: isActive) { _, active in
             guard active else { return }
-            let revision = progressRefreshState.revision
-            Task {
-                async let analytics: () = analyticsVM.refreshIfNeeded(currentRevision: revision)
-                async let charts: () = chartVM.refreshIfNeeded(currentRevision: revision)
-                (_, _) = await (analytics, charts)
+            if hasLoadedProgress {
+                let revision = progressRefreshState.revision
+                Task {
+                    async let analytics: () = analyticsVM.refreshIfNeeded(currentRevision: revision)
+                    async let charts: () = chartVM.refreshIfNeeded(currentRevision: revision)
+                    (_, _) = await (analytics, charts)
+                }
+            } else {
+                loadInitialIfNeeded()
             }
         }
         .sheet(isPresented: $chartVM.showDaySheet) {
@@ -86,6 +77,29 @@ struct ProgressDashboardView: View {
                 activity: chartVM.selectedDateActivity,
                 workouts: chartVM.selectedDateWorkouts
             )
+        }
+    }
+
+    @MainActor
+    private func loadInitialIfNeeded() {
+        guard isActive, !hasLoadedProgress else { return }
+        let revision = progressRefreshState.revision
+        Task {
+            async let analytics: () = analyticsVM.loadAnalytics()
+            async let charts: () = chartVM.loadChartData()
+            async let goals: () = goalsVM.loadGoals()
+            async let weight: () = chartVM.loadWeightSummary()
+            (_, _, _, _) = await (analytics, charts, goals, weight)
+            switch analyticsVM.state {
+            case .loaded, .empty:
+                analyticsVM.markRevisionAsCurrent(revision)
+            default:
+                break
+            }
+            if case .loaded = chartVM.chartState {
+                chartVM.markRevisionAsCurrent(revision)
+            }
+            hasLoadedProgress = true
         }
     }
 

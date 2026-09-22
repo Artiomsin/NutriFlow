@@ -11,15 +11,18 @@ struct SettingsView: View {
     let goalsVM: GoalsViewModel
     let coordinator: AppCoordinator?
     var tabBarState: TabBarState = TabBarState()
+    let isActive: Bool
     @State private var navPath: [SettingsNavRoute] = []
+    @State private var hasLoadedSettings = false
     @Environment(ThemeStore.self)
     private var themeStore
 
-    init(viewModel: ProfileViewModel, goalsVM: GoalsViewModel, coordinator: AppCoordinator?, tabBarState: TabBarState = TabBarState()) {
+    init(viewModel: ProfileViewModel, goalsVM: GoalsViewModel, coordinator: AppCoordinator?, tabBarState: TabBarState = TabBarState(), isActive: Bool = true) {
         self.viewModel = viewModel
         self.goalsVM = goalsVM
         self.coordinator = coordinator
         self.tabBarState = tabBarState
+        self.isActive = isActive
     }
 
     var body: some View {
@@ -50,7 +53,9 @@ struct SettingsView: View {
                 let task = Task { await viewModel.loadData() }
                 await task.value
             }
-            .task {
+            .task(id: isActive) {
+                guard isActive, !hasLoadedSettings else { return }
+                hasLoadedSettings = true
                 await viewModel.loadData()
             }
             .navigationDestination(for: SettingsNavRoute.self) { route in
