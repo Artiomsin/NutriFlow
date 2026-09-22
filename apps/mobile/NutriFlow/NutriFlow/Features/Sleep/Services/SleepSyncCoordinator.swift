@@ -34,12 +34,20 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
         self.cacheService = cacheService
     }
 
-    func permissionState() async -> HealthKitPermissionState {
+    var isAvailable: Bool {
+        healthKitService.isAvailable
+    }
+
+    func permissionState() async -> HealthKitAuthorization {
         await healthKitService.permissionState()
     }
 
 
     func connect() async -> SleepConnectionResult {
+        guard healthKitService.isAvailable else {
+            return .needsAccess
+        }
+
         do {
             try await healthKitService.requestAuthorization()
         } catch {
@@ -51,7 +59,7 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
             return .authorized
         case .denied:
             return .denied
-        case .notDetermined:
+        case .notDetermined, .unknown:
             return .needsAccess
         }
     }

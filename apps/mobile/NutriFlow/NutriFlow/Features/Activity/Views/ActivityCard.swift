@@ -19,6 +19,8 @@ struct ActivityCard: View {
             accessPrompt
         case .denied:
             deniedPrompt
+        case .unavailable:
+            unavailablePrompt
         case .loading:
             HStack {
                 ProgressView().tint(AppColors.accent)
@@ -92,6 +94,25 @@ struct ActivityCard: View {
                             .stroke(AppColors.accent, lineWidth: 1.5)
                     )
             }
+        }
+        .padding()
+        .frame(maxWidth: .infinity)
+        .background(AppColors.surface)
+        .cornerRadius(AppRadius.medium)
+    }
+    
+    private var unavailablePrompt: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "heart.slash")
+                .font(AppTypography.displayNumber)
+                .foregroundColor(AppColors.textSecondary)
+            Text("Health data unavailable")
+                .font(.headline)
+                .foregroundColor(AppColors.textPrimary)
+            Text("Apple Health isn't available on this device, so activity can't be tracked.")
+                .font(.footnote)
+                .foregroundColor(AppColors.textSecondary)
+                .multilineTextAlignment(.center)
         }
         .padding()
         .frame(maxWidth: .infinity)

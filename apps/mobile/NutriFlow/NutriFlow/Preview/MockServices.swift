@@ -524,7 +524,7 @@ final class MockSleepService: SleepServiceProtocol {
 
 final class MockSleepHealthKit: SleepHealthKitServiceProtocol {
     var isAvailable: Bool { true }
-    func permissionState() async -> HealthKitPermissionState { .authorized }
+    func permissionState() async -> HealthKitAuthorization { .authorized }
     
     func requestAuthorization() async throws {}
     
@@ -643,7 +643,7 @@ final class MockHealthKit: ActivityHealthKitServiceProtocol, WorkoutHealthKitSer
     func enableBackgroundDelivery() async throws {}
     func startObserving() {}
     func stopObserving() {}
-    func permissionState() async -> HealthKitPermissionState { .authorized }
+    func permissionState() async -> HealthKitAuthorization { .authorized }
     func fetchHeartRateWorkout(for workout: HealthKitWorkout) async -> [HeartRatePoint] {
         stride(from: workout.startDate, through: workout.endDate, by: 60).map { date in
             HeartRatePoint(startDate: date, bpm: Double(Int.random(in: 110...150)))

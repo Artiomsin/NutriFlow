@@ -21,7 +21,7 @@ final class SleepHealthKitService: SleepHealthKitServiceProtocol {
     private let heartRateType: HKQuantityType
 
 
-    init(healthStore: HKHealthStore = HealthKitAuthorization.shared.sharedStore) {
+    init(healthStore: HKHealthStore = HealthKitAccess.shared.sharedStore) {
         self.healthStore = healthStore
         self.heartRateType = HKQuantityType(.heartRate)
         self.sleepType = HKObjectType.categoryType(
@@ -33,8 +33,8 @@ final class SleepHealthKitService: SleepHealthKitServiceProtocol {
         HKHealthStore.isHealthDataAvailable()
     }
 
-    func permissionState() async -> HealthKitPermissionState {
-        await HealthKitAuthorization.shared.permissionState(for: .sleep)
+    func permissionState() async -> HealthKitAuthorization {
+        await HealthKitAccess.shared.permissionState(for: .sleep)
     }
 
     func requestAuthorization() async throws {
@@ -42,7 +42,7 @@ final class SleepHealthKitService: SleepHealthKitServiceProtocol {
             throw SleepHealthKitError.healthKitUnavailable
         }
 
-        try await HealthKitAuthorization.shared.requestAuthorization()
+        try await HealthKitAccess.shared.requestAuthorization()
     }
 
     func fetchHeartRateDuringSleep(

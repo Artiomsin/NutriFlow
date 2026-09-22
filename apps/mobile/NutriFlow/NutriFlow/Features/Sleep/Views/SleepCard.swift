@@ -28,6 +28,8 @@ struct SleepCard: View {
             accessPrompt
         case .denied:
             deniedPrompt
+        case .unavailable:
+            unavailablePrompt
         case .empty:
             emptyPrompt
                 .contentShape(Rectangle())
@@ -90,6 +92,21 @@ struct SleepCard: View {
             }
             .font(.caption)
             .foregroundColor(AppColors.accent)
+        }
+        .frame(maxWidth: .infinity)
+        .padding()
+        .background(AppColors.surface)
+        .cornerRadius(AppRadius.medium)
+    }
+
+    private var unavailablePrompt: some View {
+        HStack {
+            Image(systemName: "moon.zzz")
+                .foregroundColor(AppColors.textSecondary)
+            Text("Health data unavailable on this device")
+                .font(.footnote)
+                .foregroundColor(AppColors.textSecondary)
+            Spacer()
         }
         .frame(maxWidth: .infinity)
         .padding()

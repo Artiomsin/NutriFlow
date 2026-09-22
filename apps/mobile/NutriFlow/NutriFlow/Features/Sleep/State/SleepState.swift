@@ -13,4 +13,5 @@ enum SleepState {
     case empty
     case error(String)
     case denied
+    case unavailable
 }

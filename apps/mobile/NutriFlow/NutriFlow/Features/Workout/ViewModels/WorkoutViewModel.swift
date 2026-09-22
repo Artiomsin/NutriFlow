@@ -1111,6 +1111,18 @@ final class WorkoutViewModel {
 
             return .notDetermined
 
+        case .unknown:
+
+            needsHealthConnect = true
+            healthAccessDenied = false
+            healthKitUnavailable = false
+
+            print(
+                "[WorkoutVM] HealthKit state unknown"
+            )
+
+            return .notDetermined
+
         case .denied:
 
             needsHealthConnect = true
@@ -1137,7 +1149,8 @@ final class WorkoutViewModel {
             return true
 
         case .notDetermined,
-             .denied:
+             .denied,
+             .unknown:
             return false
         }
     }

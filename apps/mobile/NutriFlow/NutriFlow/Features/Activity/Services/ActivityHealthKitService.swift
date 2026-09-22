@@ -3,7 +3,7 @@ import HealthKit
 
 final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol {
 
-    private let store = HealthKitAuthorization.shared.sharedStore
+    private let store = HealthKitAccess.shared.sharedStore
 
     private let activityTypesToRead: Set<HKQuantityType> = [
             HKQuantityType(.stepCount),
@@ -33,8 +33,8 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
     }
 
 
-    func permissionState() async -> HealthKitPermissionState {
-        await HealthKitAuthorization.shared.permissionState(for: .activity)
+    func permissionState() async -> HealthKitAuthorization {
+        await HealthKitAccess.shared.permissionState(for: .activity)
     }
 
     func requestAuthorization() async throws {
@@ -42,7 +42,7 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
             return
         }
 
-        try await HealthKitAuthorization.shared.requestAuthorization()
+        try await HealthKitAccess.shared.requestAuthorization()
     }
 
 

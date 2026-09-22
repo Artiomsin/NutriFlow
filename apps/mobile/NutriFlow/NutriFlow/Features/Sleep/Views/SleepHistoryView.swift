@@ -25,6 +25,12 @@ struct SleepHistoryView: View {
                     .foregroundColor(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity, minHeight: 300)
+            case .unavailable:
+                Text("Health data unavailable on this device")
+                    .font(.footnote)
+                    .foregroundColor(AppColors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, minHeight: 300)
             case .error(let message):
                 Text("Failed to load sleep: \(message)")
                     .font(.caption)

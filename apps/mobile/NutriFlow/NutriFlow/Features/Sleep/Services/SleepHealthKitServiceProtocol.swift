@@ -9,7 +9,7 @@ import Foundation
 
 protocol SleepHealthKitServiceProtocol: Sendable {
     var isAvailable: Bool { get }
-    func permissionState() async -> HealthKitPermissionState
+    func permissionState() async -> HealthKitAuthorization
     
     func requestAuthorization() async throws
     
