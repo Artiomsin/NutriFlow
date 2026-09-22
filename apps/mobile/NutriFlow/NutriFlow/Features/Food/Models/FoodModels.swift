@@ -41,13 +41,14 @@ struct UpdateFoodEntryRequest: Codable, Sendable {
     let fat: Int?
     let carbs: Int?
     let grams: Int?
+    let unit: String?
     let foodId: String?
     let date: String?
     let imageUrl: String?
     let categoryName: String?
 
     enum CodingKeys: String, CodingKey {
-        case name, calories, protein, fat, carbs, grams, foodId, date, imageUrl, categoryName
+        case name, calories, protein, fat, carbs, grams, unit, foodId, date, imageUrl, categoryName
     }
 
     func encode(to encoder: Encoder) throws {
@@ -58,6 +59,7 @@ struct UpdateFoodEntryRequest: Codable, Sendable {
         try container.encodeIfPresent(fat, forKey: .fat)
         try container.encodeIfPresent(carbs, forKey: .carbs)
         try container.encodeIfPresent(grams, forKey: .grams)
+        try container.encodeIfPresent(unit, forKey: .unit)
         try container.encodeIfPresent(foodId, forKey: .foodId)
         try container.encodeIfPresent(date, forKey: .date)
         try container.encodeIfPresent(imageUrl, forKey: .imageUrl)

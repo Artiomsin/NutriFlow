@@ -254,6 +254,7 @@ export class FoodService {
     let newCarbs = existing.carbs ?? 0;
     let newEntryDate = data.date ?? existing.entryDate;
     let newImageUrl = data.imageUrl ?? existing.imageUrl;
+    let newUnit = data.unit ?? existing.unit;
 
     const [originalFood] = existing.foodId && !data.foodId
       ? await db.select().from(foods).where(eq(foods.id, existing.foodId)).limit(1)
@@ -261,7 +262,7 @@ export class FoodService {
     const isUserFood = originalFood?.source === 'user' && originalFood?.createdBy === userId;
     const needsFork = !!(originalFood && !isUserFood && !data.foodId && data.name);
 
-    const needTransaction = !!(data.name || data.foodId || data.grams !== undefined || data.calories !== undefined || data.protein !== undefined || data.fat !== undefined || data.carbs !== undefined || data.imageUrl || data.date || needsFork);
+    const needTransaction = !!(data.name || data.foodId || data.grams !== undefined || data.calories !== undefined || data.protein !== undefined || data.fat !== undefined || data.carbs !== undefined || data.imageUrl || data.date || data.unit !== undefined || needsFork);
 
     if (data.foodId) {
       newFoodId = data.foodId;
@@ -359,6 +360,7 @@ export class FoodService {
           .set({
             name: newName,
             grams: newGrams,
+            unit: newUnit,
             foodId: newFoodId,
             calories: newCalories,
             protein: newProtein,

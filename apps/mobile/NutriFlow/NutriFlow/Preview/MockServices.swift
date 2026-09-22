@@ -26,12 +26,13 @@ final class MockFoodService: FoodServiceProtocol {
         fat: Int?,
         carbs: Int?,
         grams: Int?,
+        unit: String?,
         foodId: String?,
         date: String?,
         imageUrl: String?,
         categoryName: String?
     ) async throws -> FoodEntry {
-        FoodEntry(id: id, userId: "1", name: name ?? "Updated", calories: calories ?? 100, protein: protein, fat: fat, carbs: carbs, foodId: foodId, grams: grams, unit: "g", categoryName: categoryName, imageUrl: nil, createdAt: "2026-05-18T10:00:00Z", updatedAt: "2026-05-18T11:00:00Z")
+        FoodEntry(id: id, userId: "1", name: name ?? "Updated", calories: calories ?? 100, protein: protein, fat: fat, carbs: carbs, foodId: foodId, grams: grams, unit: unit ?? "g", categoryName: categoryName, imageUrl: nil, createdAt: "2026-05-18T10:00:00Z", updatedAt: "2026-05-18T11:00:00Z")
     }
     func deleteFoodEntry(id: String, date: String? = nil) async throws { }
     

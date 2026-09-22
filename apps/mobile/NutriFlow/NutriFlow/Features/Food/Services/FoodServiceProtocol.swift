@@ -32,6 +32,7 @@ protocol FoodServiceProtocol: Sendable {
         fat: Int?,
         carbs: Int?,
         grams: Int?,
+        unit: String?,
         foodId: String?,
         date: String?,
         imageUrl: String?,
