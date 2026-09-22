@@ -34,7 +34,8 @@ enum HomeFactory {
             workoutVM: workoutVM,
             sleepVM: sleepVM,
             activitySync: container.activitySync,
-            cacheService: cache
+            cacheService: cache,
+            progressRefreshState: progressRefreshState
         )
     }
 }

@@ -24,6 +24,8 @@ final class HomeViewModel {
     @ObservationIgnored let foodService: FoodServiceProtocol
     @ObservationIgnored private let cacheService: CacheService?
     @ObservationIgnored private let activitySync: ActivitySyncProtocol
+    @ObservationIgnored private let progressRefreshState: ProgressRefreshState?
+    @ObservationIgnored private var lastGoalsRevision: UInt?
 
     
     @ObservationIgnored private var lastForegroundRefreshAt: Date?
@@ -41,7 +43,8 @@ final class HomeViewModel {
         sleepVM: SleepViewModel,
         activitySync: ActivitySyncProtocol,
         
-        cacheService: CacheService? = nil
+        cacheService: CacheService? = nil,
+        progressRefreshState: ProgressRefreshState? = nil
     ) {
         print("HomeViewModel init")
         self.coordinator = coordinator
@@ -54,6 +57,7 @@ final class HomeViewModel {
         self.workoutVM = workoutVM
         self.sleepVM = sleepVM
         self.activitySync = activitySync
+        self.progressRefreshState = progressRefreshState
         
         self.cacheService = cacheService
 
@@ -126,6 +130,19 @@ final class HomeViewModel {
             group.addTask { await self.todayFoodVM.loadToday() }
             group.addTask { await self.waterVM.loadToday() }
         }
+        lastGoalsRevision = progressRefreshState?.revision
+    }
+
+    func refreshGoalsIfNeeded() async {
+        guard let revision = progressRefreshState?.revision else { return }
+        guard lastGoalsRevision != revision else { return }
+
+        await withDiscardingTaskGroup { [self] group in
+            group.addTask { await self.loadDashboardSummary() }
+            group.addTask { await self.goalsVM.loadGoals() }
+            group.addTask { await self.goalsVM.loadPersonalization() }
+        }
+        lastGoalsRevision = revision
     }
 
     func loadDashboardSummary() async {

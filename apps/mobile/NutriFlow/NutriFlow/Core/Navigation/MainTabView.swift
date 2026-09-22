@@ -98,6 +98,9 @@ struct MainTabView: View {
             tabBarState.isTabBarHidden = false
             tabBarState.isTabBarMinimized = false
             trackActiveTab(newTab)
+            if newTab == 0 {
+                Task { await homeVM.refreshGoalsIfNeeded() }
+            }
         }
         .onAppear {
             trackActiveTab(selectedTab)
