@@ -698,44 +698,6 @@ final class WorkoutViewModel {
                 entries: entries
             )
 
-            if
-                isFull,
-                let pruneStart =
-                    Calendar.current.date(
-                        byAdding: .day,
-                        value: -Self.pruneWindowDays,
-                        to: end
-                    ),
-                pruneStart >= start
-            {
-
-                let pruneIds =
-                    local
-                        .filter {
-                            $0.startDate >= pruneStart
-                        }
-                        .map {
-                            $0.id.uuidString
-                        }
-
-                try await workoutService.deleteMissing(
-                    from: WorkoutMapper.isoString(
-                        from: pruneStart
-                    ),
-                    healthKitWorkoutIds: pruneIds
-                )
-
-                print(
-                    "[WorkoutVM] pruned ghosts within \(Self.pruneWindowDays)d"
-                )
-
-            } else {
-
-                print(
-                    "[WorkoutVM] prune skipped"
-                )
-            }
-
             lastWorkoutSyncedAt = Date()
 
             if isFull {
@@ -750,6 +712,57 @@ final class WorkoutViewModel {
 
             print(
                 "[WorkoutVM] sync failed: \(error)"
+            )
+
+            return
+        }
+
+        // Ghost prune runs best-effort, separately from the sync.
+        // A failure here must not roll back the sync timestamps above:
+        // otherwise every failed prune would keep lastWorkoutSyncedAt
+        // nil and re-trigger a full 365d sync on the next run.
+        if
+            isFull,
+            let pruneStart =
+                Calendar.current.date(
+                    byAdding: .day,
+                    value: -Self.pruneWindowDays,
+                    to: end
+                ),
+            pruneStart >= start
+        {
+
+            let pruneIds =
+                local
+                    .filter {
+                        $0.startDate >= pruneStart
+                    }
+                    .map {
+                        $0.id.uuidString
+                    }
+
+            do {
+                try await workoutService.deleteMissing(
+                    from: WorkoutMapper.isoString(
+                        from: pruneStart
+                    ),
+                    healthKitWorkoutIds: pruneIds
+                )
+
+                print(
+                    "[WorkoutVM] pruned ghosts within \(Self.pruneWindowDays)d"
+                )
+            } catch {
+                print(
+                    "[WorkoutVM] prune failed: \(error) " +
+                    "(ghosts retried at next reconciliation)"
+                )
+            }
+
+        } else {
+
+            print(
+                "[WorkoutVM] prune skipped"
             )
         }
     }
