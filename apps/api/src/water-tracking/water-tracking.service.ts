@@ -4,6 +4,7 @@ import { waterEntries } from '../db/schema/waterEntries';
 import { eq, and, sql } from 'drizzle-orm';
 import { invalidateAnalyticsCache } from '../redis';
 import { DailySummaryService } from '../daily-summary/daily-summary.service';
+import { currentUserDate } from '../common/time/user-date';
 import type { CreateWaterEntryDto } from './water-tracking.schema';
 
 @Injectable()
@@ -12,23 +13,34 @@ export class WaterTrackingService {
   constructor(private readonly dailySummaryService: DailySummaryService) {}
 
   async create(userId: string, dto: CreateWaterEntryDto) {
-    const [entry] = await db
-      .insert(waterEntries)
-      .values({
-        userId,
-        amountMl: dto.amountMl,
-        entryDate: dto.date,
-      })
-      .returning();
+    const entryDate = dto.date ?? await currentUserDate(userId);
+    const entry = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(waterEntries)
+        .values({
+          userId,
+          amountMl: dto.amountMl,
+          entryDate,
+        })
+        .returning();
 
-    await this.dailySummaryService.adjust(userId, { waterMl: dto.amountMl, date: dto.date });
+      await this.dailySummaryService.adjust(
+        userId,
+        { waterMl: dto.amountMl, date: entryDate },
+        tx,
+      );
+
+      return created;
+    });
+
     await invalidateAnalyticsCache(userId);
 
     return entry;
   }
 
   async getToday(userId: string, dateStr?: string) {
-    const dateClause = dateStr ? sql`${dateStr}::date` : sql`CURRENT_DATE`;
+    const date = dateStr ?? await currentUserDate(userId);
+    const dateClause = sql`${date}::date`;
     return db
       .select()
       .from(waterEntries)
@@ -53,28 +65,37 @@ export class WaterTrackingService {
   }
 
   async delete(userId: string, id: string, date?: string) {
-    const [deleted] = await db
-      .delete(waterEntries)
-      .where(
-        and(
-          eq(waterEntries.id, id),
-          eq(waterEntries.userId, userId),
-        ),
-      )
-      .returning();
+    const result = await db.transaction(async (tx) => {
+      const [deleted] = await tx
+        .delete(waterEntries)
+        .where(
+          and(
+            eq(waterEntries.id, id),
+            eq(waterEntries.userId, userId),
+          ),
+        )
+        .returning();
 
-    if (!deleted) {
-      throw new NotFoundException('Water entry not found');
-    }
+      if (!deleted) {
+        throw new NotFoundException('Water entry not found');
+      }
 
-    const deletedDate = date ?? deleted.entryDate ?? (deleted.createdAt instanceof Date
-      ? deleted.createdAt.toISOString().split('T')[0]
-      : undefined);
+      const deletedDate = deleted.entryDate ?? date ?? (deleted.createdAt instanceof Date
+        ? deleted.createdAt.toISOString().split('T')[0]
+        : undefined);
 
-    await this.dailySummaryService.adjust(userId, { waterMl: -deleted.amountMl, date: deletedDate });
+      await this.dailySummaryService.adjust(
+        userId,
+        { waterMl: -deleted.amountMl, date: deletedDate },
+        tx,
+      );
+
+      return { message: 'Deleted' };
+    });
+
     await invalidateAnalyticsCache(userId);
 
-    return { message: 'Deleted' };
+    return result;
   }
 
 }

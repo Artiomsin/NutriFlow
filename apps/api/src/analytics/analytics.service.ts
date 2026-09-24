@@ -7,6 +7,7 @@ import { userSleep } from '../db/schema/userSleep';
 import { userWorkouts } from '../db/schema/userWorkouts';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { cacheGet, cacheSet } from '../redis';
+import { currentUserDate } from '../common/time/user-date';
 
 @Injectable()
 export class AnalyticsService {
@@ -14,9 +15,8 @@ export class AnalyticsService {
     const cacheKey = `analytics:${userId}:${period}`;
     const cached = await cacheGet<any>(cacheKey);
     if (cached) return cached;
-    const now = new Date();
-    const toDate = this.toDateStr(now);
-    const from = new Date(now);
+    const toDate = await currentUserDate(userId);
+    const from = new Date(`${toDate}T12:00:00Z`);
     from.setDate(from.getDate() - (period === 'week' ? 6 : 29));
     const fromDate = this.toDateStr(from);
     const result = await this.computeAnalytics(userId, fromDate, toDate, period);
@@ -57,7 +57,7 @@ export class AnalyticsService {
     const toMs = new Date(toDate).getTime();
     const totalDays = Math.round(
       (toMs - fromMs) / (1000 * 60 * 60 * 24),
-    );
+    ) + 1;
     const daysTracked = days.length;
 
     const activityRows = await db
@@ -71,8 +71,6 @@ export class AnalyticsService {
         ),
       );
 
-    const sleepStart = new Date(`${fromDate}T00:00:00.000Z`);
-    const sleepEnd = new Date(`${toDate}T23:59:59.999Z`);
     const [sleepRows, workoutRows] = await Promise.all([
       db
         .select()
@@ -80,8 +78,8 @@ export class AnalyticsService {
         .where(
           and(
             eq(userSleep.userId, userId),
-            gte(userSleep.startDate, sleepStart),
-            lte(userSleep.startDate, sleepEnd),
+            gte(userSleep.localDate, fromDate),
+            lte(userSleep.localDate, toDate),
           ),
         ),
       db
@@ -90,8 +88,8 @@ export class AnalyticsService {
         .where(
           and(
             eq(userWorkouts.userId, userId),
-            gte(userWorkouts.startDate, sleepStart),
-            lte(userWorkouts.startDate, sleepEnd),
+            gte(userWorkouts.localDate, fromDate),
+            lte(userWorkouts.localDate, toDate),
           ),
         ),
     ]);
@@ -165,7 +163,7 @@ export class AnalyticsService {
         0,
       ),
     );
-    const streak = this.calculateStreak(days);
+    const streak = this.calculateStreak(days, toDate);
     const trend = this.calculateTrend(days);
     const daily = days.map((d) => {
       const cals = d.totalCalories ?? 0;
@@ -229,14 +227,16 @@ export class AnalyticsService {
       workoutMinutes,
     };
   }
-  private calculateStreak(days: { date: string; totalCalories: number | null }[]) {
+  private calculateStreak(
+    days: { date: string; totalCalories: number | null }[],
+    anchorDate: string,
+  ) {
     if (days.length === 0) {
       return { count: 0, start: null };
     }
     let count = 0;
     let start = '';
-    const today = new Date();
-    const todayStr = this.toDateStr(today);
+    const today = new Date(`${anchorDate}T12:00:00Z`);
     const dateSet = new Set(
       days.map((d) => d.date),
     );

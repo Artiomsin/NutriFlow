@@ -8,6 +8,7 @@ export const syncWorkoutSchema = z.object({
   type: z.string().min(1).max(50),
   startDate: z.string().regex(isoRegex),
   endDate: z.string().regex(isoRegex),
+  localDate: z.string().regex(dateRegex),
   durationSeconds: z.number().min(0),
   caloriesBurned: z.number().min(0).optional(),
   distanceMeters: z.number().min(0).optional(),
@@ -32,7 +33,11 @@ export const syncWorkoutsSchema = z.object({
 
 export const deleteMissingSchema = z.object({
   startDate: z.string().regex(isoRegex),
+  endDate: z.string().regex(isoRegex),
   healthKitWorkoutIds: z.array(z.string().min(1).max(64)).min(0).max(500),
+}).refine((value) => new Date(value.endDate) >= new Date(value.startDate), {
+  message: 'endDate must not be before startDate',
+  path: ['endDate'],
 });
 
 export const historyQuerySchema = z.object({

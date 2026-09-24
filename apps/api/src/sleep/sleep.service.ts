@@ -3,6 +3,7 @@ import { db } from '../db/db';
 import { userSleep } from '../db/schema/userSleep';
 import { and, eq, gte, lte, desc, count, notInArray } from 'drizzle-orm';
 import type { SyncSleepDto } from './sleep.schema';
+import { invalidateAnalyticsCache } from '../redis';
 
 @Injectable()
 export class SleepService {
@@ -15,6 +16,7 @@ export class SleepService {
           userId,
           startDate: new Date(n.startDate),
           endDate: new Date(n.endDate),
+          localDate: n.localDate,
           timeInBedSeconds: n.timeInBedSeconds != null ? String(n.timeInBedSeconds) : null,
           asleepSeconds: n.asleepSeconds != null ? String(n.asleepSeconds) : null,
           awakeSeconds: n.awakeSeconds != null ? String(n.awakeSeconds) : null,
@@ -35,6 +37,7 @@ export class SleepService {
             target: [userSleep.userId, userSleep.startDate],
             set: {
               endDate: new Date(n.endDate),
+              localDate: n.localDate,
               timeInBedSeconds: n.timeInBedSeconds != null ? String(n.timeInBedSeconds) : null,
               asleepSeconds: n.asleepSeconds != null ? String(n.asleepSeconds) : null,
               awakeSeconds: n.awakeSeconds != null ? String(n.awakeSeconds) : null,
@@ -52,11 +55,18 @@ export class SleepService {
         synced += 1;
       }
     });
+    await invalidateAnalyticsCache(userId);
     return { synced };
   }
 
-  async deleteMissing(userId: string, startDate: string, startDates: string[]) {
+  async deleteMissing(
+    userId: string,
+    startDate: string,
+    endDate: string,
+    startDates: string[],
+  ) {
     const windowStart = new Date(startDate);
+    const windowEnd = new Date(endDate);
     const kept = startDates.map((d) => new Date(d));
     const res = await db
       .delete(userSleep)
@@ -64,10 +74,12 @@ export class SleepService {
         and(
           eq(userSleep.userId, userId),
           gte(userSleep.startDate, windowStart),
+          lte(userSleep.startDate, windowEnd),
           kept.length > 0 ? notInArray(userSleep.startDate, kept) : undefined,
         ),
       )
       .returning({ id: userSleep.id });
+    await invalidateAnalyticsCache(userId);
     return { deleted: res.length };
   }
 
@@ -101,6 +113,7 @@ export class SleepService {
       nights: rows.map((r) => ({
         startDate: r.startDate.toISOString(),
         endDate: r.endDate.toISOString(),
+        localDate: r.localDate,
         timeInBedSeconds: r.timeInBedSeconds != null ? Number(r.timeInBedSeconds) : null,
         asleepSeconds: r.asleepSeconds != null ? Number(r.asleepSeconds) : null,
         awakeSeconds: r.awakeSeconds != null ? Number(r.awakeSeconds) : null,

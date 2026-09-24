@@ -45,22 +45,33 @@ export class GoalPersonalizationService {
       return { status: 'insufficient_data' };
     }
 
-    const [row] = await db
-      .insert(goalRecommendations)
-      .values({
-        userId,
-        status: 'pending',
-        previousGoals: recommendation.previousGoals,
-        recommendedGoals: recommendation.recommendedGoals,
-        analysisPeriodStart: recommendation.analysisPeriodStart,
-        analysisPeriodEnd: recommendation.analysisPeriodEnd,
-        reasons: recommendation.reasons,
-        confidence: recommendation.confidence,
-        expiresAt: new Date(
-          now.getTime() + RECOMMENDATION_TTL_DAYS * 24 * 60 * 60 * 1000,
-        ),
-      })
-      .returning();
+    let row: typeof goalRecommendations.$inferSelect;
+    try {
+      const [created] = await db
+        .insert(goalRecommendations)
+        .values({
+          userId,
+          status: 'pending',
+          previousGoals: recommendation.previousGoals,
+          recommendedGoals: recommendation.recommendedGoals,
+          analysisPeriodStart: recommendation.analysisPeriodStart,
+          analysisPeriodEnd: recommendation.analysisPeriodEnd,
+          reasons: recommendation.reasons,
+          confidence: recommendation.confidence,
+          expiresAt: new Date(
+            now.getTime() + RECOMMENDATION_TTL_DAYS * 24 * 60 * 60 * 1000,
+          ),
+        })
+        .returning();
+      if (!created) throw new Error('Failed to create recommendation');
+      row = created;
+    } catch (error) {
+      if (!this.isUniqueViolation(error)) throw error;
+
+      const existing = await this.findPending(userId);
+      if (existing) return { status: 'pending_exists', recommendation: existing };
+      throw error;
+    }
 
     return { status: 'created', recommendation: row };
   }
@@ -72,6 +83,13 @@ export class GoalPersonalizationService {
       pending: pending ?? null,
       personalizationDue: this.isDue(await this.getLastEvaluationAt(userId)),
     };
+  }
+
+  private isUniqueViolation(error: unknown): boolean {
+    return typeof error === 'object'
+      && error !== null
+      && 'code' in error
+      && (error as { code?: unknown }).code === '23505';
   }
 
   async acceptRecommendation(userId: string, recommendationId: string) {

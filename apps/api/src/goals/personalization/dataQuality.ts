@@ -37,23 +37,22 @@ export function evaluateDataQuality(
   const workoutCount = input.workouts.length;
 
   const domainSufficient = {
-    nutrition: weightLogsCount + nutritionDays >= 2,
+    nutrition: nutritionDays >= thresholds.nutritionDaysMin,
     activity: activityDays >= thresholds.activityDaysMin,
     workout: workoutCount >= thresholds.workoutCountMin,
     sleep: sleepNights >= thresholds.sleepNightsMin,
   };
 
-  const dimensions = 4;
+  const dimensions = 5;
   const score = Math.min(
     1,
     (weightLogsCount / thresholds.weightLogsMin +
       activityDays / thresholds.activityDaysMin +
-      (nutritionDays / thresholds.nutritionDaysMin) * 0.5 +
-      weightLogsCount / thresholds.weightLogsMin +
+      nutritionDays / thresholds.nutritionDaysMin +
       sleepNights / thresholds.sleepNightsMin +
       workoutCount / thresholds.workoutCountMin) /
-      dimensions /
-      1.5,
+    dimensions /
+    1,
   );
 
   const isEnough = Object.values(domainSufficient).some(Boolean);

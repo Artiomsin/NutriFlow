@@ -32,8 +32,11 @@ export class DailySummaryController {
   ) {}
 
   @Get('today')
-  findToday(@User() user: AuthPayload, @Query('date') date?: string) {
-    return this.dailySummaryService.findToday(user.userId, date);
+  findToday(
+    @User() user: AuthPayload,
+    @Query(new ZodValidationPipe(dateQuerySchema)) query: DateQueryDto,
+  ) {
+    return this.dailySummaryService.findToday(user.userId, query.date);
   }
 
   @Get()
@@ -49,8 +52,11 @@ export class DailySummaryController {
   }
 
   @Get('dashboard')
-  findTodayDashboard(@User() user: AuthPayload, @Query('date') date?: string) {
-    return this.dailySummaryService.findTodayDashboard(user.userId, date);
+  findTodayDashboard(
+    @User() user: AuthPayload,
+    @Query(new ZodValidationPipe(dateQuerySchema)) query: DateQueryDto,
+  ) {
+    return this.dailySummaryService.findTodayDashboard(user.userId, query.date);
   }
 
   @Get('range')

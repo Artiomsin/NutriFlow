@@ -32,6 +32,7 @@ export const userProfiles = app.table(
     gender: varchar('gender', { length: 10 }),
     goal: varchar('goal', { length: 20 }),
     activityLevel: varchar('activity_level', { length: 20 }),
+    timeZone: varchar('time_zone', { length: 64 }).notNull().default('UTC'),
 
     preferredUnits: jsonb('preferred_units')
       .$type<{

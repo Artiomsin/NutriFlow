@@ -43,6 +43,11 @@ export class SleepController {
     @User() user: AuthPayload,
     @Body(new ZodValidationPipe(deleteMissingSchema)) dto: DeleteMissingDto,
   ) {
-    return this.sleepService.deleteMissing(user.userId, dto.startDate, dto.startDates);
+    return this.sleepService.deleteMissing(
+      user.userId,
+      dto.startDate,
+      dto.endDate,
+      dto.startDates,
+    );
   }
 }

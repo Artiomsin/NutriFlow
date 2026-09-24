@@ -1,8 +1,8 @@
 import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
 
 import { ActivityService } from './activity.service';
-import { syncActivitySchema } from './activity.schema';
-import type { SyncActivityDto } from './activity.schema';
+import { syncActivitySchema, rangeQuerySchema, optionalDateQuerySchema } from './activity.schema';
+import type { SyncActivityDto, RangeQueryDto, OptionalDateQueryDto } from './activity.schema';
 
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
 import { JwtAuthGuard } from '../auth/jwt.guard';
@@ -25,14 +25,20 @@ export class ActivityController {
 
     @UseGuards(JwtAuthGuard)
       @Get('today')
-      getToday(@User() user: AuthPayload, @Query('date') date?: string) {
-        return this.activityService.getToday(user.userId, date);
+      getToday(
+        @User() user: AuthPayload,
+        @Query(new ZodValidationPipe(optionalDateQuerySchema)) query: OptionalDateQueryDto,
+      ) {
+        return this.activityService.getToday(user.userId, query.date);
     }
 
   @UseGuards(JwtAuthGuard)
   @Get('range')
-  getRange(@User() user: AuthPayload, @Query('from') from: string, @Query('to') to: string) {
-    return this.activityService.getRange(user.userId, from, to);
+  getRange(
+    @User() user: AuthPayload,
+    @Query(new ZodValidationPipe(rangeQuerySchema)) query: RangeQueryDto,
+  ) {
+    return this.activityService.getRange(user.userId, query.from, query.to);
   }
   
 }

@@ -36,7 +36,7 @@ export const foodEntries = app.table(
 
     imageUrl: varchar('image_url', { length: 500 }),
 
-    entryDate: date('entry_date'),
+    entryDate: date('entry_date').notNull(),
 
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()
