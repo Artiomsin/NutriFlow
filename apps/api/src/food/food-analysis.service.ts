@@ -127,7 +127,14 @@ export class FoodAnalysisService {
       'Gemini raw response: ' + (response.text ?? 'null').slice(0, 1000),
     );
 
-    return JSON.parse(response.text ?? '[]');
+    try {
+      return JSON.parse(response.text ?? '[]');
+    } catch {
+      this.logger.error('Gemini returned invalid JSON');
+      throw new BadGatewayException(
+        'Food analysis service returned an invalid response. Please try again later.',
+      );
+    }
   }
 
   private extractStatus(e: unknown): number | null {

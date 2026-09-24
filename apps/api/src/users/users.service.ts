@@ -10,40 +10,19 @@ import * as bcrypt from 'bcrypt';
 import { db } from '../db/db';
 import { users } from '../db/schema/users';
 
-import type { CreateUserDto, UpdateUserDto } from './users.schema';
+import type { UpdateUserDto } from './users.schema';
 
 @Injectable()
 export class UsersService {
 
-  async create(data: CreateUserDto) {
-    const existing = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, data.email))
-      .limit(1)
-      .then(r => r[0]);
-
-    if (existing) {
-      throw new ConflictException('Email already exists');
-    }
-
-    const passwordHash = await bcrypt.hash(data.password, 10);
-
-    const result = await db
-      .insert(users)
-      .values({
-        email: data.email,
-        passwordHash,
-        firstName: data.firstName,
-        lastName: data.lastName,
-      })
-      .returning();
-
-    return result[0];
-  }
-
-  async findAll(limit = 50, offset = 0) {
-    return db.select().from(users).limit(limit).offset(offset);
+  private toSafeUser(user: typeof users.$inferSelect) {
+    const {
+      passwordHash: _passwordHash,
+      googleId: _googleId,
+      appleId: _appleId,
+      ...safe
+    } = user;
+    return safe;
   }
 
   async findOne(id: string) {
@@ -58,7 +37,7 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    return user;
+    return this.toSafeUser(user);
   }
 
   async updateMe(userId: string, data: UpdateUserDto) {
@@ -101,6 +80,6 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    return updated;
+    return this.toSafeUser(updated);
   }
 }

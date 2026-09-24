@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+export const dateString = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD');
+
 // ── Food Entry (daily diary) ──────────────────────────────────────
 
 export const createFoodEntrySchema = z.object({
@@ -21,13 +25,18 @@ export const createFoodEntrySchema = z.object({
   barcode: z.string().max(50).optional(),
   servingGrams: z.number().int().nonnegative().max(10000).optional(),
 
-  date: z.string().optional(),
+  date: dateString.optional(),
 });
 
 export const updateFoodEntrySchema = createFoodEntrySchema.partial();
 
 export type CreateFoodEntryDto = z.infer<typeof createFoodEntrySchema>;
 export type UpdateFoodEntryDto = z.infer<typeof updateFoodEntrySchema>;
+
+export const optionalDateQuerySchema = z.object({ date: dateString.optional() });
+export const requiredDateQuerySchema = z.object({ date: dateString });
+export type OptionalDateQueryDto = z.infer<typeof optionalDateQuerySchema>;
+export type RequiredDateQueryDto = z.infer<typeof requiredDateQuerySchema>;
 
 // ── Food Categories ───────────────────────────────────────────────
 
@@ -62,7 +71,7 @@ export const createFoodSchema = z.object({
 export type CreateFoodDto = z.infer<typeof createFoodSchema>;
 
 export const searchFoodQuerySchema = z.object({
-  q: z.string().min(1).max(100),
+  q: z.string().trim().min(1).max(100),
   limit: z.coerce.number().int().min(1).max(50).optional().default(20),
   offset: z.coerce.number().int().min(0).max(500).optional().default(0),
 });

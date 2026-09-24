@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { env } from '../config/env';
 import { randomUUID } from 'node:crypto';
+import sharp from 'sharp';
 
 @Injectable()
 export class UploadService {
@@ -26,15 +27,33 @@ export class UploadService {
   }
 
   async upload(buffer: Buffer, mime: string): Promise<string> {
+    const metadata = await sharp(buffer, { failOn: 'error' }).metadata().catch(() => null);
+    const formatToMime: Record<string, string> = {
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      webp: 'image/webp',
+      heif: 'image/heif',
+    };
+    const actualMime = metadata?.format ? formatToMime[metadata.format] : undefined;
+    if (!actualMime) {
+      throw new BadRequestException('The uploaded file is not a supported image');
+    }
+
     if (this.s3) {
-      const ext = mime === 'image/png' ? '.png' : '.jpg';
+      const ext = actualMime === 'image/png'
+        ? '.png'
+        : actualMime === 'image/webp'
+          ? '.webp'
+          : actualMime === 'image/heif'
+            ? '.heif'
+            : '.jpg';
       const key = `uploads/${randomUUID()}${ext}`;
       await this.s3.send(
         new PutObjectCommand({
           Bucket: this.bucket,
           Key: key,
           Body: buffer,
-          ContentType: mime,
+          ContentType: actualMime,
         }),
       );
       return `${this.publicUrl}/${key}`;
