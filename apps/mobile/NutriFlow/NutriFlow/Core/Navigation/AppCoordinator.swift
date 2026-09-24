@@ -53,7 +53,17 @@ final class AppCoordinator {
             return
         }
 
-        let result = await container.sessionBootstrapService.restoreSession()
+        let result: SessionBootstrapResult
+        do {
+            result = try await container.sessionBootstrapService.restoreSession()
+        } catch {
+            #if DEBUG
+            print("[Session] Failed to restore the session: \(error)")
+            #endif
+            route = .auth
+            return
+        }
+
         route = switch result {
         case .auth: .auth
         case .profileForm: .profileForm

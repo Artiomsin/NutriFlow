@@ -17,11 +17,11 @@ struct WorkoutHistoryView: View {
             switch vm.state {
             case .idle:
                 ProgressView()
-                    .tint(AppTheme.accent)
+                    .tint(AppColors.accent)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .loading:
                 ProgressView()
-                    .tint(AppTheme.accent)
+                    .tint(AppColors.accent)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .error:
                 errorView
@@ -39,7 +39,7 @@ struct WorkoutHistoryView: View {
         }
         .navigationTitle("Workouts")
         .navigationBarTitleDisplayMode(.inline)
-        .background(AppTheme.background)
+        .background(AppColors.background)
         .task {
             print("[WorkoutView] view appeared")
             vm.trackScreenView("workout_history")
@@ -77,16 +77,16 @@ struct WorkoutHistoryView: View {
     private var errorView: some View {
         VStack(spacing: 12) {
             Image(systemName: "wrench.and.screwdriver")
-                .font(Font.largeNumber)
-                .foregroundColor(AppTheme.textSecondary)
+                .font(AppTypography.displayNumber)
+                .foregroundColor(AppColors.textSecondary)
             Text("Couldn't load workouts")
                 .font(.headline)
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
             Button("Try Again") {
                 Task { await vm.refresh() }
             }
             .font(.headline)
-            .foregroundColor(AppTheme.accent)
+            .foregroundColor(AppColors.accent)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -94,25 +94,25 @@ struct WorkoutHistoryView: View {
     private var needsAccessView: some View {
             VStack(spacing: 12) {
                 Image(systemName: "figure.run")
-                    .font(Font.largeNumber)
-                    .foregroundColor(AppTheme.accent)
+                    .font(AppTypography.displayNumber)
+                    .foregroundColor(AppColors.accent)
                 Text("Track your workouts")
                     .font(.headline)
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundColor(AppColors.textPrimary)
                 Text("Connect Apple Health to see your training history.")
                     .font(.footnote)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
                 Button {
                     Task { await vm.connectTapped() }
                 } label: {
                     Text("Connect Health")
                         .font(.headline)
-                        .foregroundColor(.black)
+                        .foregroundColor(AppColors.accentOnPrimary)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(AppTheme.accent)
-                        .cornerRadius(AppTheme.cornerRadiusMedium)
+                        .background(AppColors.accent)
+                        .cornerRadius(AppRadius.medium)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -122,27 +122,27 @@ struct WorkoutHistoryView: View {
     private var deniedView: some View {
             VStack(spacing: 12) {
                 Image(systemName: "heart.slash")
-                    .font(Font.largeNumber)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(AppTypography.displayNumber)
+                    .foregroundColor(AppColors.textSecondary)
                 Text("Workouts access is off")
                     .font(.headline)
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundColor(AppColors.textPrimary)
                 Text("Enable Workouts in Settings to see your training history.")
                     .font(.footnote)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
                 Button {
                     openSettings()
                 } label: {
                     Text("Open Settings")
                         .font(.headline)
-                        .foregroundColor(AppTheme.accent)
+                        .foregroundColor(AppColors.accent)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(AppTheme.cardBackground)
+                        .appGlassSurface(level: .inset)
                         .overlay(
-                            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                                .stroke(AppTheme.accent, lineWidth: 1.5)
+                            RoundedRectangle(cornerRadius: AppRadius.medium)
+                                .stroke(AppColors.accent, lineWidth: 1.5)
                         )
                 }
                 Button {
@@ -150,7 +150,7 @@ struct WorkoutHistoryView: View {
                 } label: {
                     Text("Try Again")
                         .font(.subheadline)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundColor(AppColors.textSecondary)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -160,14 +160,14 @@ struct WorkoutHistoryView: View {
     private var emptyView: some View {
         VStack(spacing: 12) {
             Image(systemName: "figure.run")
-                .font(Font.largeNumber)
-                .foregroundColor(AppTheme.textSecondary)
+                .font(AppTypography.displayNumber)
+                .foregroundColor(AppColors.textSecondary)
             Text("No workouts yet")
                 .font(.headline)
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
             Text("Your workouts from Apple Health will appear here.")
                 .font(.footnote)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -220,16 +220,16 @@ struct WorkoutHistoryView: View {
                             Text("Failed to load. Retry")
                         }
                         .font(.subheadline)
-                        .foregroundColor(AppTheme.accent)
+                        .foregroundColor(AppColors.accent)
                         .padding(.vertical, 16)
                     }
                 } else if vm.hasMore || vm.isLoadMore {
                     ProgressView()
-                        .tint(AppTheme.accent)
+                        .tint(AppColors.accent)
                         .padding(.vertical, 20)
                 }
             }
-            .padding(.horizontal, AppTheme.paddingHorizontal)
+            .padding(.horizontal, AppSpacing.paddingHorizontal)
             .padding(.vertical)
         }
         .onScrollGeometryChange(for: CGFloat.self) { geometry in
@@ -261,18 +261,18 @@ private struct WorkoutRow: View {
         HStack(spacing: 12) {
             Image(systemName: WorkoutFormatter.icon(for: workout.workoutType))
                 .font(.title3)
-                .foregroundColor(AppTheme.accent)
+                .foregroundColor(AppColors.accent)
                 .frame(width: 44, height: 44)
-                .background(AppTheme.accent.opacity(0.12))
-                .cornerRadius(AppTheme.cornerRadiusMedium)
+                .background(AppColors.accent.opacity(0.12))
+                .cornerRadius(AppRadius.medium)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(workout.workoutType)
                     .font(.headline)
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundColor(AppColors.textPrimary)
                 Text(WorkoutFormatter.formattedDate(workout.startDate))
                     .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
             }
 
             Spacer()
@@ -280,11 +280,11 @@ private struct WorkoutRow: View {
             VStack(alignment: .trailing, spacing: 4) {
                 Text(WorkoutFormatter.formattedDuration(workout.durationSeconds))
                     .font(.footnote)
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundColor(AppColors.textPrimary)
                 if let kcal = workout.caloriesBurned {
                     Text("\(Int(kcal)) kcal")
                         .font(.caption)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundColor(AppColors.textSecondary)
                 }
             }
 
@@ -295,8 +295,7 @@ private struct WorkoutRow: View {
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .appGlassSurface()
     }
 }
 
@@ -309,7 +308,7 @@ private struct SparklineChart: View {
                 x: .value("Time", bar.date, unit: .minute),
                 y: .value("BPM", bar.bpm)
             )
-            .foregroundStyle(AppTheme.accent.gradient)
+            .foregroundStyle(AppColors.accent.gradient)
             .cornerRadius(1.5)
         }
         .chartXAxis(.hidden)

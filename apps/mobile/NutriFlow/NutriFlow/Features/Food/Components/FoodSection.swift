@@ -19,7 +19,7 @@ struct FoodSection: View {
         HStack {
             Text("Today's Food")
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
 
             Spacer()
 
@@ -32,12 +32,12 @@ struct FoodSection: View {
                     Text("Scan")
                         .font(.system(size: 13, weight: .semibold))
                 }
-                .foregroundColor(AppTheme.accent)
+                .foregroundColor(AppColors.accent)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
                 .overlay(
                     Capsule()
-                        .stroke(AppTheme.accent, lineWidth: 1.5)
+                        .stroke(AppColors.accent, lineWidth: 1.5)
                 )
             }
             .buttonStyle(.plain)
@@ -51,10 +51,10 @@ struct FoodSection: View {
                     Text("Add")
                         .font(.system(size: 13, weight: .semibold))
                 }
-                .foregroundColor(.black)
+                .foregroundColor(AppColors.accentOnPrimary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
-                .background(AppTheme.accent)
+                .background(AppColors.accent)
                 .clipShape(Capsule())
             }
             .buttonStyle(.plain)
@@ -67,7 +67,7 @@ struct FoodSection: View {
 
         case .idle, .loading:
             ProgressView()
-                .tint(AppTheme.accent)
+                .tint(AppColors.accent)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 32)
 
@@ -87,7 +87,7 @@ struct FoodSection: View {
         case .error(let error):
             Text(error.localizedDescription)
                 .font(.subheadline)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 32)
         }
@@ -101,16 +101,15 @@ struct FoodSection: View {
         VStack(spacing: 10) {
             Image(systemName: "fork.knife")
                 .font(.system(size: 32))
-                .foregroundColor(AppTheme.textTertiary)
+                .foregroundColor(AppColors.textTertiary)
 
             Text("No meals logged today")
                 .font(.subheadline)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)
-        .background(AppTheme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .appGlassSurface(cornerRadius: 14)
     }
 }
 
@@ -136,7 +135,7 @@ struct FoodSectionPreview: View {
             onDeleteFood: { _ in }
         )
         .padding()
-        .background(AppTheme.background)
-        .preferredColorScheme(.dark)
+        .background(AppColors.background)
+       // .preferredColorScheme(.dark)
     }
 }

@@ -34,12 +34,20 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
         self.cacheService = cacheService
     }
 
-    func permissionState() async -> HealthKitPermissionState {
+    var isAvailable: Bool {
+        healthKitService.isAvailable
+    }
+
+    func permissionState() async -> HealthKitAuthorization {
         await healthKitService.permissionState()
     }
 
 
     func connect() async -> SleepConnectionResult {
+        guard healthKitService.isAvailable else {
+            return .needsAccess
+        }
+
         do {
             try await healthKitService.requestAuthorization()
         } catch {
@@ -51,7 +59,7 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
             return .authorized
         case .denied:
             return .denied
-        case .notDetermined:
+        case .notDetermined, .unknown:
             return .needsAccess
         }
     }
@@ -101,19 +109,22 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
             forKey: Self.lastNightFetchedKey
         )
 
+        // Backend only when data actually changed/new. Refresh the cache
+        // (sync baseline) only after the backend accepted the payload;
+        // otherwise keep the old cache so the diff is retried next run.
+        if changed {
+            let synced = await syncEntries([
+                SleepMapper.toEntry(sleep)
+            ])
+            guard synced else { return sleep }
+        }
+
         // Fresh HealthKit data always refreshes cache + TTL.
         try? await cacheService.set(
             Self.lastNightCacheKey,
             sleep,
             ttl: Self.lastNightCacheTTL
         )
-
-        // Backend only when data actually changed/new.
-        if changed {
-            await syncEntries([
-                SleepMapper.toEntry(sleep)
-            ])
-        }
 
         return sleep
     }
@@ -193,17 +204,20 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
             fresh: sorted
         )
 
+        // Backend only receives changed/new nights. Refresh the cache
+        // (sync baseline) only after the backend accepted the payload;
+        // otherwise keep the old cache so the batches are retried next run.
+        if !changed.isEmpty {
+            let synced = await syncNow(changed)
+            guard synced else { return sorted }
+        }
+
         // Fresh HealthKit data always refreshes history cache + TTL.
         try? await cacheService.set(
             Self.historyCacheKey,
             sorted,
             ttl: Self.historyCacheTTL
         )
-
-        // Backend only receives changed/new nights.
-        if !changed.isEmpty {
-            await syncNow(changed)
-        }
 
         if reconcile {
             await reconcileBackend(
@@ -251,7 +265,7 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
 
     private func syncNow(
         _ nights: [HealthKitSleep]
-    ) async {
+    ) async -> Bool {
         await syncEntries(
             nights.map {
                 SleepMapper.toEntry($0)
@@ -261,9 +275,9 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
 
     private func syncEntries(
         _ entries: [SleepSyncEntry]
-    ) async {
+    ) async -> Bool {
         guard !entries.isEmpty else {
-            return
+            return true
         }
 
         do {
@@ -275,10 +289,14 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
                 "[SleepSync] synced \(entries.count) nights"
             )
 
+            return true
+
         } catch {
             print(
                 "[SleepSync] backend sync failed: \(error)"
             )
+
+            return false
         }
     }
 

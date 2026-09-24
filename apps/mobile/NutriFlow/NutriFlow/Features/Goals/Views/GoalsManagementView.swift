@@ -54,10 +54,10 @@ struct GoalsManagementView: View {
                 saveButton
                 historySection
             }
-            .padding(.horizontal, AppTheme.paddingHorizontal)
+            .padding(.horizontal, AppSpacing.paddingHorizontal)
             .padding(.bottom, 40)
         }
-        .background(AppTheme.background)
+        .background(AppColors.background)
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -79,12 +79,12 @@ struct GoalsManagementView: View {
     private var header: some View {
         VStack(spacing: 6) {
             Text("Goals")
-                .font(Font.h1)
-                .foregroundColor(AppTheme.textPrimary)
-                .padding(.top, AppTheme.headerPaddingTop)
+                .font(AppTypography.heading1)
+                .foregroundColor(AppColors.textPrimary)
+                .padding(.top, AppSpacing.headerPaddingTop)
             Text("Manage your daily targets")
                 .font(.footnote)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
             sourceBadge
         }
     }
@@ -94,11 +94,11 @@ struct GoalsManagementView: View {
         if let goals = currentGoals {
             Text(sourceLabel(goals.source))
                 .font(.caption.weight(.semibold))
-                .foregroundColor(AppTheme.accent)
+                .foregroundColor(AppColors.accent)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
-                .background(AppTheme.accent.opacity(0.12))
-                .cornerRadius(AppTheme.chipCornerRadius)
+                .background(AppColors.accent.opacity(0.12))
+                .cornerRadius(AppRadius.chip)
         }
     }
 
@@ -141,7 +141,7 @@ struct GoalsManagementView: View {
             HStack {
                 Text(title)
                     .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(AppTheme.textTertiary)
+                    .foregroundColor(AppColors.textTertiary )
                 Spacer()
             }
             .padding(.leading, 2)
@@ -149,14 +149,13 @@ struct GoalsManagementView: View {
             VStack(spacing: 0) {
                 content()
             }
-            .background(AppTheme.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium))
+            .appGlassSurface()
         }
     }
 
     private var divider: some View {
         Divider()
-            .padding(.leading, AppTheme.paddingHorizontal + 20)
+            .padding(.leading, AppSpacing.paddingHorizontal + 20)
             .opacity(0.3)
     }
 
@@ -170,28 +169,55 @@ struct GoalsManagementView: View {
     ) -> some View {
         HStack(spacing: 12) {
             Circle()
-                .fill(AppTheme.accent.opacity(0.8))
+                .fill(AppColors.accent.opacity(0.8))
                 .frame(width: 8, height: 8)
             VStack(alignment: .leading, spacing: 1) {
                 Text(label)
                     .font(.system(size: 15))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundColor(AppColors.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
                 if let caption {
                     Text(caption)
                         .font(.system(size: 11))
-                        .foregroundColor(AppTheme.textTertiary)
+                        .foregroundColor(AppColors.textTertiary )
                         .lineLimit(1)
                 }
             }
             Spacer(minLength: 12)
-            Text(unit.isEmpty ? value.wrappedValue.formatted() : "\(value.wrappedValue.formatted()) \(unit)")
+            HStack(spacing: 4) {
+                TextField(
+                    "",
+                    text: Binding(
+                        get: { String(value.wrappedValue) },
+                        set: { newValue in
+                            let filtered = newValue.filter { "0123456789".contains($0) }
+                            if let intVal = Int(filtered) {
+                                value.wrappedValue = intVal
+                            } else if filtered.isEmpty {
+                                value.wrappedValue = 0
+                            }
+                        }
+                    )
+                )
+                .keyboardType(.numberPad)
+                .multilineTextAlignment(.trailing)
                 .font(.system(size: 14, weight: .semibold, design: .rounded))
                 .monospacedDigit()
-                .foregroundColor(AppTheme.textSecondary)
-                .lineLimit(1)
-                .layoutPriority(1)
+                .foregroundColor(AppColors.textPrimary)
+                .tint(AppColors.accent)
+                .frame(width: 75)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 4)
+                .background(AppColors.surfaceSecondary)
+                .cornerRadius(6)
+
+                if !unit.isEmpty {
+                    Text(unit)
+                        .font(.system(size: 13))
+                        .foregroundColor(AppColors.textSecondary)
+                }
+            }
             Stepper(
                 "",
                 value: value,
@@ -200,7 +226,7 @@ struct GoalsManagementView: View {
             )
             .labelsHidden()
         }
-        .padding(.horizontal, AppTheme.paddingHorizontal)
+        .padding(.horizontal, AppSpacing.paddingHorizontal)
         .padding(.vertical, 8)
     }
 
@@ -216,13 +242,13 @@ struct GoalsManagementView: View {
             } else {
                 Text(showSaved ? "Saved" : "Save goals")
                     .font(.headline)
-                    .foregroundColor(AppTheme.primaryButtonText)
+                    .foregroundColor(AppColors.accentOnPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
             }
         }
-        .background(showSaved ? AppTheme.accent.opacity(0.7) : AppTheme.accent)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .background(showSaved ? AppColors.accent.opacity(0.7) : AppColors.accent)
+        .cornerRadius(AppRadius.medium)
         .disabled(isSaving)
     }
 
@@ -231,7 +257,7 @@ struct GoalsManagementView: View {
             HStack {
                 Text("History")
                     .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(AppTheme.textTertiary)
+                    .foregroundColor(AppColors.textTertiary )
                 Spacer()
             }
             .padding(.leading, 2)
@@ -239,11 +265,10 @@ struct GoalsManagementView: View {
             if history.isEmpty {
                 Text("No changes yet")
                     .font(.footnote)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(AppTheme.cardBackground)
-                    .cornerRadius(AppTheme.cornerRadiusMedium)
+                    .appGlassSurface()
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(history.prefix(20).enumerated()), id: \.element.id) { index, entry in
@@ -253,8 +278,7 @@ struct GoalsManagementView: View {
                         }
                     }
                 }
-                .background(AppTheme.cardBackground)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium))
+                .appGlassSurface()
             }
         }
     }
@@ -264,28 +288,28 @@ struct GoalsManagementView: View {
             HStack {
                 Text(metricLabel(entry.metric))
                     .font(.system(size: 15))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundColor(AppColors.textPrimary)
                 Spacer()
                 Text(shortDate(entry.createdAt))
                     .font(.caption)
-                    .foregroundColor(AppTheme.textTertiary)
+                    .foregroundColor(AppColors.textTertiary )
             }
             HStack(spacing: 6) {
                 Text(valueText(entry))
                     .font(.footnote)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
                 Spacer()
                 Text(sourceLabel(entry.source))
                     .font(.caption2.weight(.semibold))
-                    .foregroundColor(AppTheme.accent)
+                    .foregroundColor(AppColors.accent)
             }
             if let reason = entry.reason, !reason.isEmpty {
                 Text(reason)
                     .font(.caption2)
-                    .foregroundColor(AppTheme.textTertiary)
+                    .foregroundColor(AppColors.textTertiary )
             }
         }
-        .padding(.horizontal, AppTheme.paddingHorizontal)
+        .padding(.horizontal, AppSpacing.paddingHorizontal)
         .padding(.vertical, 10)
     }
 
@@ -393,6 +417,6 @@ struct GoalsManagementView: View {
     return NavigationStack {
         GoalsManagementView(goalsVM: goalsVM)
     }
-    .background(AppTheme.background)
-    .preferredColorScheme(.dark)
+    .background(AppColors.background)
+    
 }

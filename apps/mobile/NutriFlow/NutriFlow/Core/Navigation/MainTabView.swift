@@ -38,7 +38,8 @@ struct MainTabView: View {
         let progress = ProgressFactory.make(
             coordinator: coordinator,
             container: container,
-            periodState: period
+            periodState: period,
+            progressRefreshState: refreshState
         )
         self._analyticsVM = State(initialValue: progress.0)
         self._chartVM = State(initialValue: progress.1)
@@ -57,7 +58,7 @@ struct MainTabView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            AppTheme.background.ignoresSafeArea()
+            AppColors.background.ignoresSafeArea()
 
             HomeView(homeViewModel: homeVM, foodService: container.foodService, coordinator: coordinator, tabBarState: tabBarState, analyticsTracker: container.analyticsTracker)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -77,15 +78,14 @@ struct MainTabView: View {
             .opacity(selectedTab == 1 ? 1 : 0)
             .allowsHitTesting(selectedTab == 1)
 
-            SettingsView(viewModel: profileVM, goalsVM: progressGoalsVM, coordinator: coordinator, tabBarState: tabBarState)
-                .equatable()
+            SettingsView(viewModel: profileVM, goalsVM: progressGoalsVM, coordinator: coordinator, tabBarState: tabBarState, isActive: selectedTab == 2)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .opacity(selectedTab == 2 ? 1 : 0)
                 .allowsHitTesting(selectedTab == 2)
 
             AnimatedTabBar(tabBarState: tabBarState, selectedTab: $selectedTab)
         }
-        .preferredColorScheme(.dark)
+        
         .ignoresSafeArea(.keyboard)
         .onReceive(
             NotificationCenter.default.publisher(
@@ -98,6 +98,9 @@ struct MainTabView: View {
             tabBarState.isTabBarHidden = false
             tabBarState.isTabBarMinimized = false
             trackActiveTab(newTab)
+            if newTab == 0 {
+                Task { await homeVM.refreshGoalsIfNeeded() }
+            }
         }
         .onAppear {
             trackActiveTab(selectedTab)
@@ -127,9 +130,12 @@ private struct AnimatedTabBar: View {
 #Preview("Main Tab") {
     let container = AppDependencyContainer()
     let coordinator = AppCoordinator(container: container)
+
     MainTabView(
         container: container,
         coordinator: coordinator,
         previewHomeVM: HomeFactory.makePreviewViewModel()
     )
+    .environment(container.themeStore)
+    .environment(\.glassEffectsMode, .subtle)
 }

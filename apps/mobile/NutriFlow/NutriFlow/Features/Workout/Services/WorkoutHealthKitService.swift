@@ -3,7 +3,7 @@ import HealthKit
 
 final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
 
-    private let store = HealthKitAuthorization.shared.sharedStore
+    private let store = HealthKitAccess.shared.sharedStore
     private var rawWorkouts: [UUID: HKWorkout] = [:]
 
     private let workoutType = HKObjectType.workoutType()
@@ -15,8 +15,8 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
     }
 
 
-    func permissionState() async -> HealthKitPermissionState {
-        await HealthKitAuthorization.shared.permissionState(for: .workout)
+    func permissionState() async -> HealthKitAuthorization {
+        await HealthKitAccess.shared.permissionState(for: .workout)
     }
 
     func requestAuthorization() async throws {
@@ -24,7 +24,7 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
             return
         }
 
-        try await HealthKitAuthorization.shared.requestAuthorization()
+        try await HealthKitAccess.shared.requestAuthorization()
     }
 
 

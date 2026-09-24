@@ -12,7 +12,8 @@ struct SleepNightDetailResult: Sendable {
 }
 
 protocol SleepSyncProtocol: AnyObject {
-    func permissionState() async -> HealthKitPermissionState
+    var isAvailable: Bool { get }
+    func permissionState() async -> HealthKitAuthorization
     func connect() async -> SleepConnectionResult
     func loadLastNight() async throws -> HealthKitSleep?
     func loadHistoryIfNeeded() async throws -> [HealthKitSleep]

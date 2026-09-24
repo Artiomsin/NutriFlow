@@ -39,7 +39,7 @@ struct AddFoodView: View {
                 if !viewModel.popularFoods.isEmpty { popularSection }
                 if viewModel.isLoadingPopular && viewModel.popularFoods.isEmpty {
                     ProgressView()
-                        .tint(AppTheme.accent)
+                        .tint(AppColors.accent)
                 }
                 photoPicker
                 formSection()
@@ -51,7 +51,7 @@ struct AddFoodView: View {
             .padding()
         }
         .scrollDismissesKeyboard(.interactively)
-        .background(AppTheme.background.ignoresSafeArea())
+        .background(AppColors.background.ignoresSafeArea())
         .navigationTitle("Add Food")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -66,7 +66,7 @@ struct AddFoodView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Popular")
                 .font(.subheadline.weight(.semibold))
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
@@ -93,8 +93,7 @@ struct AddFoodView: View {
                     .font(.caption)
             }
             .padding(14)
-            .background(AppTheme.cardBackground)
-            .cornerRadius(AppTheme.cornerRadiusMedium)
+            .appGlassSurface()
         }
         .buttonStyle(.plain)
     }
@@ -107,20 +106,20 @@ struct AddFoodView: View {
                     .scaledToFill()
                     .frame(height: 250)
                     .frame(maxWidth: .infinity)
-                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium))
+                    .clipShape(RoundedRectangle(cornerRadius: AppRadius.medium))
             } else {
-                RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                    .fill(AppTheme.fieldBackground)
+                RoundedRectangle(cornerRadius: AppRadius.medium)
+                    .fill(AppColors.surfaceSecondary)
                     .frame(height: 250)
                     .frame(maxWidth: .infinity)
                     .overlay {
                         VStack(spacing: 8) {
                             Image(systemName: "camera.fill")
                                 .font(.title2)
-                                .foregroundColor(AppTheme.accent)
+                                .foregroundColor(AppColors.accent)
                             Text("Add photo")
                                 .font(.subheadline)
-                                .foregroundColor(AppTheme.textSecondary)
+                                .foregroundColor(AppColors.textSecondary)
                         }
                     }
             }
@@ -167,15 +166,15 @@ struct AddFoodView: View {
                 } label: {
                     HStack {
                         Text(viewModel.selectedCategory?.name ?? "Select category")
-                            .foregroundColor(viewModel.selectedCategory == nil ? AppTheme.textTertiary : AppTheme.textPrimary)
+                            .foregroundColor(viewModel.selectedCategory == nil ? AppColors.textTertiary : AppColors.textPrimary)
                         Spacer()
                         Image(systemName: "chevron.down")
                             .font(.caption)
-                            .foregroundColor(AppTheme.textTertiary)
+                            .foregroundColor(AppColors.textTertiary)
                     }
                     .padding(14)
-                    .background(AppTheme.fieldBackground)
-                    .cornerRadius(AppTheme.cornerRadiusMedium)
+                    .background(AppColors.surfaceSecondary)
+                    .cornerRadius(AppRadius.medium)
                 }
             }
         }
@@ -185,10 +184,10 @@ struct AddFoodView: View {
         HStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.caption)
-                .foregroundColor(AppTheme.accent)
+                .foregroundColor(AppColors.accent)
             Text(text)
                 .font(.subheadline.weight(.semibold))
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
         }
     }
 
@@ -206,21 +205,21 @@ struct AddFoodView: View {
         } label: {
             switch viewModel.state {
             case .uploading, .saving:
-                ProgressView().tint(.black)
+                ProgressView().tint(AppColors.accentOnPrimary)
             case .error(let e):
-                Text(e.localizedDescription).font(.caption).foregroundColor(AppTheme.error)
+                Text(e.localizedDescription).font(.caption).foregroundColor(AppColors.error)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
             case .idle:
                 Text("Save")
                     .font(.headline)
-                    .foregroundColor(.black)
+                    .foregroundColor(AppColors.accentOnPrimary)
             }
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background(canSave ? AppTheme.accent : AppTheme.accent.opacity(0.3))
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .background(canSave ? AppColors.accent : AppColors.accent.opacity(0.3))
+        .cornerRadius(AppRadius.medium)
         .disabled(!canSave)
     }
 
@@ -255,7 +254,7 @@ struct AddFoodView: View {
     NavigationStack {
         AddFoodView(onSave: {}, viewModel: AddFoodViewModel(service: MockFoodService(), coordinator: nil), todayFoodVM: TodayFoodViewModel(service: MockFoodService(), coordinator: AppCoordinator(container: AppDependencyContainer())))
     }
-    .preferredColorScheme(.dark)
+    
 }
 
 private struct PopularCard: View {
@@ -268,23 +267,37 @@ private struct PopularCard: View {
         return !category.isEmpty && category != "NOT A BRANDED ITEM"
     }
 
+    private var hasImage: Bool {
+        food.imageUrl.flatMap(URL.init(string:)) != nil
+    }
+
+    private var primaryTextColor: Color {
+        hasImage ? .white : AppColors.textPrimary
+    }
+
+    private var secondaryTextColor: Color {
+        hasImage ? .white.opacity(0.9) : AppColors.textSecondary
+    }
+
     var body: some View {
         Button(action: onTap) {
             ZStack(alignment: .bottom) {
                 imageView
                     .frame(width: 175, height: 205)
-                    .overlay(
-                        LinearGradient(
-                            colors: [.clear, .black.opacity(0.6)],
-                            startPoint: .center,
-                            endPoint: .bottom
-                        )
-                    )
+                    .overlay {
+                        if hasImage {
+                            LinearGradient(
+                                colors: [.clear, .black.opacity(0.6)],
+                                startPoint: .center,
+                                endPoint: .bottom
+                            )
+                        }
+                    }
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(food.name)
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(primaryTextColor)
                         .lineLimit(2)
 
                     HStack(spacing: 5) {
@@ -296,7 +309,7 @@ private struct PopularCard: View {
                             .font(.system(size: 9))
                         Spacer()
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(secondaryTextColor)
 
                     HStack(spacing: 4) {
                         macroPill(color: Color(red: 0.4, green: 0.72, blue: 1.0), label: "P", grams: food.proteinPer100g)
@@ -306,7 +319,10 @@ private struct PopularCard: View {
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(
+                    hasImage ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(AppColors.surfaceElevated),
+                    in: RoundedRectangle(cornerRadius: 16)
+                )
                 .padding(10)
             }
             .frame(width: 175, height: 205)
@@ -321,10 +337,10 @@ private struct PopularCard: View {
                     Text((food.categoryName ?? "").uppercased())
                         .font(.system(size: 8, weight: .bold))
                         .tracking(0.6)
-                        .foregroundColor(.white)
+                        .foregroundColor(AppColors.textPrimary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(.ultraThinMaterial, in: Capsule())
+                        .background(AppColors.surface.opacity(0.88), in: Capsule())
                         .padding(10)
                 }
             }
@@ -335,10 +351,11 @@ private struct PopularCard: View {
     @ViewBuilder
     private var imageView: some View {
         ZStack {
-            Color(red: 0.1, green: 0.15, blue: 0.25)
-            Image(systemName: "fork.knife")
-                .font(.system(size: 26))
-                .foregroundColor(Color(red: 0.3, green: 0.6, blue: 1.0).opacity(0.5))
+            FoodImagePlaceholder(
+                cornerRadius: 0,
+                iconSize: 30,
+                usesTintedBackground: true
+            )
             if let url = food.imageUrl.flatMap({ URL(string: $0) }) {
                 KFImage(url)
                     .fade(duration: 0.25)
@@ -359,13 +376,13 @@ private struct PopularCard: View {
                 .font(.system(size: 9, weight: .bold))
                 .foregroundColor(color)
             Text("\(UnitConversion.macroDisplay(grams: Double(grams ?? 0), preferred: preferred)) \(unit)")
-                .font(.system(size: 9))
-                .foregroundColor(.white.opacity(0.95))
+                .font(.system(size: 9, weight: .medium))
+                .foregroundColor(hasImage ? .white.opacity(0.95) : AppColors.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.65)
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 3)
-        .background(color.opacity(0.25), in: Capsule())
+        .background(color.opacity(hasImage ? 0.25 : 0.14), in: Capsule())
     }
 }

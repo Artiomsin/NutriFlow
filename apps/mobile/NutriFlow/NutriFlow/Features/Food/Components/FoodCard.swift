@@ -18,7 +18,7 @@ struct FoodCard: View {
                 HStack(spacing: 6) {
                     Text(entry.name)
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .foregroundColor(AppColors.textPrimary)
                         .lineLimit(1)
 
                     Spacer(minLength: 4)
@@ -26,20 +26,20 @@ struct FoodCard: View {
                     HStack(spacing: 2) {
                         Text("\(UnitConversion.formatEnergyValue(kcal: entry.calories, preferred: prefsStore.preferredUnits))")
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(AppTheme.accent)
+                            .foregroundColor(AppColors.accent)
                         Text(UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits))
                             .font(.system(size: 9))
-                            .foregroundColor(AppTheme.accent.opacity(0.7))
+                            .foregroundColor(AppColors.accent.opacity(0.7))
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
-                    .background(AppTheme.accent.opacity(0.12))
+                    .background(AppColors.accent.opacity(0.12))
                     .clipShape(Capsule())
                 }
 
                 Text(formatTime(entry.createdAt))
                     .font(.caption)
-                    .foregroundColor(AppTheme.textTertiary)
+                    .foregroundColor(AppColors.textTertiary)
 
                 HStack(spacing: 12) {
                     MacroDot(color: Color(red: 0.22, green: 0.6, blue: 0.99),
@@ -59,9 +59,9 @@ struct FoodCard: View {
                 } label: {
                     Image(systemName: "pencil")
                         .font(.system(size: 11))
-                        .foregroundColor(AppTheme.accent)
+                        .foregroundColor(AppColors.accent)
                         .padding(8)
-                        .background(AppTheme.accent.opacity(0.12))
+                        .background(AppColors.accent.opacity(0.12))
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -71,9 +71,9 @@ struct FoodCard: View {
                 } label: {
                     Image(systemName: "trash.fill")
                         .font(.system(size: 11))
-                        .foregroundColor(AppTheme.error)
+                        .foregroundColor(AppColors.error)
                         .padding(8)
-                        .background(AppTheme.error.opacity(0.12))
+                        .background(AppColors.error.opacity(0.12))
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -81,13 +81,12 @@ struct FoodCard: View {
                 if let grams = entry.grams, grams > 0 {
                     Text(UnitConversion.formatAmount(grams: grams, unit: entry.unit, preferred: prefsStore.preferredUnits))
                         .font(.caption)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundColor(AppColors.textSecondary)
                 }
             }
         }
         .padding(12)
-        .background(AppTheme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .appGlassSurface(cornerRadius: 14)
         .alert("Delete Food", isPresented: $showDeleteAlert) {
             Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {
@@ -115,14 +114,8 @@ struct FoodCard: View {
     }
 
     private var fallbackIcon: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(red: 0.1, green: 0.15, blue: 0.25))
-            Image(systemName: "fork.knife")
-                .font(.system(size: 20))
-                .foregroundColor(Color(red: 0.3, green: 0.6, blue: 1.0).opacity(0.5))
-        }
-        .frame(width: 56, height: 56)
+        FoodImagePlaceholder(cornerRadius: 12, iconSize: 25)
+            .frame(width: 56, height: 56)
     }
 
     private func formatTime(_ value: String) -> String {
@@ -163,7 +156,7 @@ struct MacroDot: View {
                 .foregroundColor(color)
             Text(value)
                 .font(.system(size: 11))
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
         }
     }
 }
@@ -177,15 +170,15 @@ struct MacroBadge: View {
         HStack(spacing: 4) {
             Text(title)
                 .font(.caption.bold())
-                .foregroundColor(AppTheme.accent)
+                .foregroundColor(AppColors.accent)
 
             Text(value)
                 .font(.caption)
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(AppTheme.background)
+        .background(AppColors.background)
         .cornerRadius(8)
     }
 }

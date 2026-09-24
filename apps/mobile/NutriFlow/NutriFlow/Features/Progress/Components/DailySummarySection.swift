@@ -18,8 +18,8 @@ struct DailySummarySection: View {
     private var header: some View {
         HStack {
             Text("Today's Overview")
-                .font(Font.h3)
-                .foregroundColor(AppTheme.textPrimary)
+                .font(.title3.weight(.bold))
+                .foregroundColor(AppColors.textPrimary)
             Spacer()
         }
     }
@@ -62,14 +62,14 @@ struct DailySummarySection: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "chart.bar.xaxis")
-                .font(Font.largeNumber)
-                .foregroundColor(AppTheme.textSecondary)
+                .font(AppTypography.displayNumber)
+                .foregroundColor(AppColors.textSecondary)
             Text("No data for this period")
                 .font(.headline)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
             Text("Start tracking to see statistics")
                 .font(.subheadline)
-                .foregroundColor(AppTheme.textTertiary)
+                .foregroundColor(AppColors.textTertiary )
                 .multilineTextAlignment(.center)
         }
         .padding(.vertical, 40)
@@ -99,7 +99,7 @@ struct DailySummarySectionPreview: View {
             goals: nil
         )
         .padding()
-        .background(AppTheme.background)
-        .preferredColorScheme(.dark)
+        .background(AppColors.background)
+        
     }
 }

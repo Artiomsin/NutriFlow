@@ -9,27 +9,26 @@ import SwiftUI
 struct SettingsRow: View {
     let icon: String
     let title: String
-    var tint: Color = AppTheme.accent
+    var tint: Color = AppColors.accent
     
     var body: some View {
         HStack {
             Image(systemName: icon)
-                .font(.system(size: AppTheme.iconSize))
+                .font(.system(size: AppSpacing.iconSize))
                 .foregroundColor(tint)
                 .frame(width: 30)
             
             Text(title)
                 .font(.subheadline)
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
             
             Spacer()
             
             Image(systemName: "chevron.right")
                 .font(.system(size: 14))
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
         }
         .padding()
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .appGlassSurface(level: .interactive)
     }
 }

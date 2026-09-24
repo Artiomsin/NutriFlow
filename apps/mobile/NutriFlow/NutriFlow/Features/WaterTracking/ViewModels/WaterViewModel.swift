@@ -70,9 +70,7 @@ final class WaterViewModel {
             #endif
             try await service.createWaterEntry(amountMl: ml, date: nil)
             await cacheService?.remove("water_today")
-            await cacheService?.remove("dashboard_today")
             await cacheService?.remove("summary_today")
-            await cacheService?.remove("chart_today")
             await cacheService?.removeByPrefix("chart_summaries")
             await cacheService?.removeByPrefix("analytics_")
             progressRefreshState?.invalidate()
@@ -111,9 +109,7 @@ final class WaterViewModel {
             #endif
             try await service.deleteWaterEntry(id: id, date: nil)
             await cacheService?.remove("water_today")
-            await cacheService?.remove("dashboard_today")
             await cacheService?.remove("summary_today")
-            await cacheService?.remove("chart_today")
             await cacheService?.removeByPrefix("chart_summaries")
             await cacheService?.removeByPrefix("analytics_")
             progressRefreshState?.invalidate()

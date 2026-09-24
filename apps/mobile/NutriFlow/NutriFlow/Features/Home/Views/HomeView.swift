@@ -101,11 +101,11 @@ struct HomeView: View {
                     }
                 }
         }
-        .tint(AppTheme.accent)
+        .tint(AppColors.accent)
         .onChange(of: navPath) { _, newPath in
             tabBarState.isTabBarHidden = !newPath.isEmpty
         }
-        .background(AppTheme.background)
+        .background(AppColors.background)
         .sheet(item: $editingFood) { entry in
             let vm = EditFoodViewModel(entry: entry, foodService: foodService, coordinator: coordinator, analyticsTracker: analyticsTracker)
             EditFoodView(viewModel: vm) {
@@ -137,17 +137,17 @@ struct HomeView: View {
                         Task { await homeViewModel.goalsVM.dismissRecommendation(recommendation) }
                     }
                 )
-                .padding(.horizontal, AppTheme.paddingHorizontal)
+                .padding(.horizontal, AppSpacing.paddingHorizontal)
 
                 if needsHealthConnect {
                     HealthKitConnectCard(isConnecting: isConnectingHealth) {
                         await connectHealthKit()
                     }
-                    .padding(.horizontal, AppTheme.paddingHorizontal)
+                    .padding(.horizontal, AppSpacing.paddingHorizontal)
                 } else {
                     ActivityCard(vm: homeViewModel.activityVM,stepGoal: homeViewModel.userGoals?.dailyStepsGoal, activeCaloriesGoal: homeViewModel.userGoals?.dailyActiveCaloriesGoal
                     )
-                    .padding(.horizontal, AppTheme.paddingHorizontal)
+                    .padding(.horizontal, AppSpacing.paddingHorizontal)
                     LastWorkoutCard(
                         workout: homeViewModel.workoutVM.lastWorkout,
                         healthAccessDenied: homeViewModel.workoutVM.healthAccessDenied,
@@ -165,12 +165,12 @@ struct HomeView: View {
                         weekWorkoutsCount: homeViewModel.workoutVM.weekWorkoutsCount,
                         weekWorkoutMinutes: homeViewModel.workoutVM.weekWorkoutMinutes
                     )
-                    .padding(.horizontal, AppTheme.paddingHorizontal)
+                    .padding(.horizontal, AppSpacing.paddingHorizontal)
                     SleepCard(vm: homeViewModel.sleepVM, onTap:  {
                         tabBarState.isTabBarHidden = true
                         navPath.append(HomeNavRoute.sleepHistory)
                     }, goals: homeViewModel.userGoals)
-                    .padding(.horizontal, AppTheme.paddingHorizontal)
+                    .padding(.horizontal, AppSpacing.paddingHorizontal)
                 }
                 FoodSectionView(
                     todayFoodVM: homeViewModel.todayFoodVM,
@@ -202,7 +202,7 @@ struct HomeView: View {
             }
             .padding(.bottom, 100)
         }
-        .background(AppTheme.background)
+        .background(AppColors.background)
         .minimizeTabBarOnScroll(
             tabBarState: tabBarState,
             isActive: { navPath.isEmpty }
@@ -232,7 +232,7 @@ struct HomeView: View {
             }
         } else {
             ProgressView()
-                .tint(AppTheme.accent)
+                .tint(AppColors.accent)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
@@ -240,9 +240,9 @@ struct HomeView: View {
     private var header: some View {
         VStack(spacing: 6) {
             Text("Home")
-                .font(Font.h1)
-                .foregroundColor(AppTheme.textPrimary)
-                .padding(.top, AppTheme.headerPaddingTop)
+                .font(AppTypography.heading1)
+                .foregroundColor(AppColors.textPrimary)
+                .padding(.top, AppSpacing.headerPaddingTop)
         }
     }
     
@@ -271,7 +271,7 @@ private struct FoodSectionView: View {
             onEditFood: onEditFood,
             onDeleteFood: onDeleteFood
         )
-        .padding(.horizontal, AppTheme.paddingHorizontal)
+        .padding(.horizontal, AppSpacing.paddingHorizontal)
     }
 }
 
@@ -286,7 +286,7 @@ private struct WaterSectionView: View {
             onAddWater: onAddWater,
             onDeleteWater: onDeleteWater
         )
-        .padding(.horizontal, AppTheme.paddingHorizontal)
+        .padding(.horizontal, AppSpacing.paddingHorizontal)
     }
 }
 
@@ -298,7 +298,7 @@ private struct DailySummarySectionView: View {
             state: homeViewModel.dailySummaryState,
             goals: homeViewModel.userGoals
         )
-        .padding(.horizontal, AppTheme.paddingHorizontal)
+        .padding(.horizontal, AppSpacing.paddingHorizontal)
         
     }
 }
@@ -308,8 +308,10 @@ private struct DailySummarySectionView: View {
         homeViewModel: HomeFactory.makePreviewViewModel(),
         foodService: MockFoodService()
     )
-    .background(AppTheme.background)
-    .preferredColorScheme(.dark)
+    .background(AppColors.background)
+    .environment(\.glassEffectsMode, .subtle)
+    
+    
 }
 
 extension HomeFactory {

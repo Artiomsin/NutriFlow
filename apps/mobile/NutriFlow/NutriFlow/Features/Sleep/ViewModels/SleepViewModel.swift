@@ -22,6 +22,8 @@ final class SleepViewModel {
 
     var sleepHeartRatePoints: [SleepHeartRatePoint] = []
 
+    var healthKitUnavailable: Bool = false
+
 
     var needsHealthConnect: Bool {
         switch state {
@@ -45,6 +47,13 @@ final class SleepViewModel {
    
 
     func checkPermission() async {
+        guard coordinator.isAvailable else {
+            healthKitUnavailable = true
+            state = .unavailable
+            return
+        }
+        healthKitUnavailable = false
+
         switch await coordinator.permissionState() {
         case .notDetermined:
             if case .idle = state {
@@ -57,12 +66,19 @@ final class SleepViewModel {
                 state = .loading
             }
             await refresh()
+        case .unknown:
+            break
         }
     }
 
  
 
     func connectTapped() async {
+        guard coordinator.isAvailable else {
+            state = .unavailable
+            return
+        }
+
         state = .loading
 
         let result = await coordinator.connect()
@@ -96,6 +112,14 @@ final class SleepViewModel {
    
 
     func loadHistoryIfNeeded() async {
+        guard coordinator.isAvailable else {
+            healthKitUnavailable = true
+            state = .unavailable
+            history = []
+            return
+        }
+        healthKitUnavailable = false
+
         switch await coordinator.permissionState() {
         case .authorized:
             break
@@ -109,6 +133,9 @@ final class SleepViewModel {
             state = .denied
             history = []
             return
+
+        case .unknown:
+            break
         }
 
         isHistoryLoading = true
@@ -123,6 +150,14 @@ final class SleepViewModel {
     }
 
     func refreshHistory() async {
+        guard coordinator.isAvailable else {
+            healthKitUnavailable = true
+            state = .unavailable
+            history = []
+            return
+        }
+        healthKitUnavailable = false
+
         switch await coordinator.permissionState() {
         case .authorized:
             break
@@ -136,6 +171,9 @@ final class SleepViewModel {
             state = .denied
             history = []
             return
+
+        case .unknown:
+            break
         }
 
         do {

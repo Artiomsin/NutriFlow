@@ -40,7 +40,7 @@ struct AddWaterView: View {
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
-        .background(AppTheme.background.ignoresSafeArea())
+        .background(AppColors.background.ignoresSafeArea())
         .navigationTitle("Add Water")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
@@ -60,38 +60,41 @@ struct AddWaterView: View {
     }
 
     private var glassPreview: some View {
-
         ZStack {
-
             GlassShape()
-                .stroke(Color.white.opacity(0.18), lineWidth: 2)
+                .stroke(AppColors.glassBorder, lineWidth: 2)
                 .background(
                     GlassShape()
                         .fill(
                             LinearGradient(
                                 colors: [
-                                    Color.white.opacity(0.06),
-                                    Color.white.opacity(0.01)
+                                    AppColors.glassSurface.opacity(0.75),
+                                    AppColors.glassSurface.opacity(0.35)
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
                 )
+                .overlay(
+                    GlassShape()
+                        .stroke(
+                            AppColors.glassHighlight.opacity(0.7),
+                            lineWidth: 1
+                        )
+                )
                 .frame(width: 180, height: 270)
 
             ZStack {
-
                 waterLayer
                 waterSurface
                 splashView
-
             }
             .clipShape(GlassShape(inset: 8))
             .frame(width: 180, height: 270)
         }
     }
-
+    
     private var waterLayer: some View {
 
         GeometryReader { geo in
@@ -169,14 +172,14 @@ struct AddWaterView: View {
 
             ForEach(amounts, id: \.self) { amount in
                 Text(UnitConversion.formatAmount(grams: Int(amount), unit: "ml", preferred: prefsStore.preferredUnits))
-                    .foregroundColor(.white)
+                    .foregroundStyle(AppColors.textPrimary)
                     .tag(amount)
             }
         }
         .pickerStyle(.wheel)
         .frame(height: 130)
-        .background(Color.white.opacity(0.08))
-        .cornerRadius(22)
+        .background(AppColors.surfaceSecondary)
+        .cornerRadius(AppRadius.chip)
     }
 
     private var saveButton: some View {
@@ -192,17 +195,18 @@ struct AddWaterView: View {
         } label: {
 
             if case .saving = waterViewModel.state {
-                ProgressView().tint(.black)
+                ProgressView()
+                    .tint(AppColors.accentOnPrimary)
             } else {
                 Text("Add Water")
                     .font(.headline)
-                    .foregroundColor(.black)
+                    .foregroundStyle(AppColors.accentOnPrimary)
             }
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background(AppTheme.accent)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .background(AppColors.accent)
+        .cornerRadius(AppRadius.medium)
     }
 
     private func triggerSplash() {

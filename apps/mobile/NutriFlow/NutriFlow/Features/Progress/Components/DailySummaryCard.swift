@@ -20,11 +20,11 @@ struct DailySummaryCard: View {
 
             Text("Today Summary")
                 .font(.headline)
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
 
             Text("\(UnitConversion.formatEnergyValue(kcal: summary.totalCalories, preferred: prefsStore.preferredUnits)) \(UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits))")
-                .font(Font.title1)
-                .foregroundColor(AppTheme.accent)
+                .font(AppTypography.displayLarge)
+                .foregroundColor(AppColors.accent)
 
             if let goals = goals {
                 GoalProgressRow(
@@ -73,7 +73,7 @@ struct DailySummaryCard: View {
             } else {
                 Text("Water: \(UnitConversion.formatAmount(grams: summary.totalWaterMl, unit: "ml", preferred: prefsStore.preferredUnits))")
                     .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
             }
 
             HStack(spacing: 12) {
@@ -87,7 +87,6 @@ struct DailySummaryCard: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .appGlassSurface(level: .prominent)
     }
 }

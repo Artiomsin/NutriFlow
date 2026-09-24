@@ -11,13 +11,18 @@ struct SettingsView: View {
     let goalsVM: GoalsViewModel
     let coordinator: AppCoordinator?
     var tabBarState: TabBarState = TabBarState()
+    let isActive: Bool
     @State private var navPath: [SettingsNavRoute] = []
+    @State private var hasLoadedSettings = false
+    @Environment(ThemeStore.self)
+    private var themeStore
 
-    init(viewModel: ProfileViewModel, goalsVM: GoalsViewModel, coordinator: AppCoordinator?, tabBarState: TabBarState = TabBarState()) {
+    init(viewModel: ProfileViewModel, goalsVM: GoalsViewModel, coordinator: AppCoordinator?, tabBarState: TabBarState = TabBarState(), isActive: Bool = true) {
         self.viewModel = viewModel
         self.goalsVM = goalsVM
         self.coordinator = coordinator
         self.tabBarState = tabBarState
+        self.isActive = isActive
     }
 
     var body: some View {
@@ -33,8 +38,9 @@ struct SettingsView: View {
                         accountSection
                         goalsSection
                         unitsSection
+                        appearanceSection
                     }
-                    .padding(.horizontal, AppTheme.paddingHorizontal)
+                    .padding(.horizontal, AppSpacing.paddingHorizontal)
                 }
                 .padding(.bottom, 100)
             }
@@ -42,12 +48,14 @@ struct SettingsView: View {
                 tabBarState: tabBarState,
                 isActive: { navPath.isEmpty }
             )
-            .background(AppTheme.background)
+            .background(AppColors.background)
             .refreshable {
                 let task = Task { await viewModel.loadData() }
                 await task.value
             }
-            .task {
+            .task(id: isActive) {
+                guard isActive, !hasLoadedSettings else { return }
+                hasLoadedSettings = true
                 await viewModel.loadData()
             }
             .navigationDestination(for: SettingsNavRoute.self) { route in
@@ -63,7 +71,7 @@ struct SettingsView: View {
                 }
             }
         }
-        .tint(AppTheme.accent)
+        .tint(AppColors.accent)
         .onChange(of: navPath) { _, newPath in
             tabBarState.isTabBarHidden = !newPath.isEmpty
         }
@@ -71,8 +79,8 @@ struct SettingsView: View {
 
     private var header: some View {
         Text("Settings")
-            .font(Font.h1)
-            .foregroundColor(AppTheme.textPrimary)
+            .font(AppTypography.heading1)
+            .foregroundColor(AppColors.textPrimary)
             .frame(maxWidth: .infinity)
     }
 
@@ -82,7 +90,7 @@ struct SettingsView: View {
             HStack {
                 Text("Account")
                     .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(AppTheme.textTertiary)
+                    .foregroundColor(AppColors.textTertiary )
                 Spacer()
             }
             .padding(.leading, 2)
@@ -101,7 +109,7 @@ struct SettingsView: View {
             HStack {
                 Text("Goals")
                     .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(AppTheme.textTertiary)
+                    .foregroundColor(AppColors.textTertiary )
                 Spacer()
             }
             .padding(.leading, 2)
@@ -111,12 +119,98 @@ struct SettingsView: View {
         }
     }
 
+    private var appearanceSection: some View {
+        VStack(spacing: 10) {
+            HStack {
+                Text("Appearance")
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(AppColors.textTertiary)
+
+                Spacer()
+            }
+            .padding(.leading, 2)
+
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 12) {
+                    Image(systemName: "circle.lefthalf.filled")
+                        .font(
+                            .system(
+                                size: AppSpacing.iconSize,
+                                weight: .medium
+                            )
+                        )
+                        .foregroundStyle(AppColors.accent)
+                        .frame(width: 30)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Theme")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(AppColors.textPrimary)
+
+                        Text(themeStore.mode.title)
+                            .font(.caption)
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
+
+                    Spacer()
+                }
+
+                Picker(
+                    "Theme",
+                    selection: Binding(
+                        get: {
+                            themeStore.mode
+                        },
+                        set: {
+                            themeStore.mode = $0
+                        }
+                    )
+                ) {
+                    ForEach(ThemeMode.allCases) { mode in
+                        Text(mode.title)
+                            .tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .tint(AppColors.accent)
+
+                Divider()
+                    .opacity(0.3)
+
+                Toggle(
+                    isOn: Binding(
+                        get: {
+                            themeStore.glassEffectsMode == GlassEffectsMode.subtle
+                        },
+                        set: { isEnabled in
+                            themeStore.glassEffectsMode = isEnabled ? GlassEffectsMode.subtle : GlassEffectsMode.off
+                        }
+                    )
+                ) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Glass Effects")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(AppColors.textPrimary)
+
+                        Text("Use subtle glass on supported interface elements.")
+                            .font(.caption)
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
+                }
+                .tint(AppColors.accent)
+            }
+            .padding(.horizontal, AppSpacing.paddingHorizontal)
+            .padding(.vertical, 14)
+            .appGlassSurface()
+        }
+    }
+    
     private var unitsSection: some View {
         VStack(spacing: 10) {
             HStack {
                 Text("Units")
                     .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(AppTheme.textTertiary)
+                    .foregroundColor(AppColors.textTertiary )
                 Spacer()
             }
             .padding(.leading, 2)
@@ -154,8 +248,7 @@ struct SettingsView: View {
                     label: { $0 == .kcal ? "kcal" : "kJ" }
                 )
             }
-            .background(AppTheme.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium))
+            .appGlassSurface()
         }
     }
 
@@ -169,13 +262,13 @@ struct SettingsView: View {
     ) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: AppTheme.iconSize))
-                .foregroundColor(AppTheme.accent)
+                .font(.system(size: AppSpacing.iconSize))
+                .foregroundColor(AppColors.accent)
                 .frame(width: 30)
 
             Text(title)
                 .font(.system(size: 15))
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
 
             Spacer()
 
@@ -189,28 +282,24 @@ struct SettingsView: View {
                     } label: {
                         Text(label(option))
                             .font(.system(size: 12, weight: active ? .semibold : .regular))
-                            .foregroundColor(active ? AppTheme.primaryButtonText : AppTheme.textSecondary)
+                            .foregroundColor(active ? AppColors.accentOnPrimary : AppColors.textSecondary)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
-                            .background(active ? AppTheme.accent : Color.clear)
+                            .background(active ? AppColors.accent : Color.clear)
                             .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                 }
             }
             .padding(2)
-            .background(AppTheme.fieldBackground)
+            .background(AppColors.surfaceSecondary)
             .clipShape(RoundedRectangle(cornerRadius: 8))
         }
-        .padding(.horizontal, AppTheme.paddingHorizontal)
+        .padding(.horizontal, AppSpacing.paddingHorizontal)
         .padding(.vertical, 12)
     }
 }
 
-extension SettingsView: Equatable {
-    static func == (lhs: SettingsView, rhs: SettingsView) -> Bool {
-        lhs.tabBarState === rhs.tabBarState
-    }
-}
+
 
 #Preview("Settings") {
     let container = AppDependencyContainer()
@@ -226,5 +315,6 @@ extension SettingsView: Equatable {
         goalsVM: GoalsViewModel(coordinator: coordinator, service: MockGoalsService()),
         coordinator: coordinator
     )
-        .preferredColorScheme(.dark)
+    .environment(container.themeStore)
+        
 }

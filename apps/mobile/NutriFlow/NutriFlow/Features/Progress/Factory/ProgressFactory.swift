@@ -3,7 +3,8 @@ enum ProgressFactory {
     static func make(
         coordinator: AppCoordinator,
         container: AppDependency,
-        periodState: PeriodState
+        periodState: PeriodState,
+        progressRefreshState: ProgressRefreshState? = nil
     ) -> (AnalyticsViewModel, ProgressChartViewModel, GoalsViewModel) {
         let cache = container.cacheService
         let analyticsVM = AnalyticsViewModel(
@@ -27,7 +28,8 @@ enum ProgressFactory {
         let goalsVM = GoalsViewModel(
             coordinator: coordinator,
             service: container.goalsService,
-            cacheService: cache
+            cacheService: cache,
+            progressRefreshState: progressRefreshState
         )
         return (analyticsVM, chartVM, goalsVM)
     }

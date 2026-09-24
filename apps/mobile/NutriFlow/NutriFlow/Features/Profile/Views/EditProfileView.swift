@@ -27,7 +27,7 @@ struct EditProfileView: View {
 
         ZStack {
 
-            AppTheme.background
+            AppColors.background
                 .ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
@@ -114,7 +114,7 @@ struct EditProfileView: View {
 
                         Text("Gender")
                             .font(.subheadline)
-                            .foregroundColor(AppTheme.textTertiary)
+                            .foregroundColor(AppColors.textTertiary )
 
                         HStack(spacing: 12) {
 
@@ -187,5 +187,5 @@ struct EditProfileView: View {
             await viewModel.loadData()
         }
     }
-    .preferredColorScheme(.dark)
+   // .preferredColorScheme(.dark)
 }

@@ -87,6 +87,6 @@ struct AuthFormView: View {
                 )
             }
         }
-        .tint(AppTheme.accent)
+        .tint(AppColors.accent)
     }
 }

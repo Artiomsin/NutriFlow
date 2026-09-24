@@ -18,11 +18,11 @@ struct GoogleAuthButton: View {
                     .foregroundColor(.black)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: AppTheme.buttonHeight)
+            .frame(height: AppSpacing.buttonHeight)
             .background(Color.white)
-            .cornerRadius(AppTheme.cornerRadiusMedium)
+            .cornerRadius(AppRadius.medium)
             .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
+                RoundedRectangle(cornerRadius: AppRadius.medium)
                     .stroke(Color.gray.opacity(0.3), lineWidth: 1)
             )
         }

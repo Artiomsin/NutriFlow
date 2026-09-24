@@ -15,6 +15,10 @@
 	</array>
 	<key>GIDClientID</key>
 	<string>97707312659-3iui9bh59j0gg9fqp5hp9evdej3cmebi.apps.googleusercontent.com</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>healthkit</string>
+	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>

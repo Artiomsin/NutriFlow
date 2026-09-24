@@ -118,6 +118,7 @@ final class EditFoodViewModel {
                 fat: UnitConversion.macroGrams(fromDisplay: fat, preferred: prefsStore.preferredUnits),
                 carbs: UnitConversion.macroGrams(fromDisplay: carbs, preferred: prefsStore.preferredUnits),
                 grams: gramsInG,
+                unit: entry.unit,
                 foodId: nil,
                 date: nil,
                 imageUrl: imageUrl,

@@ -35,7 +35,7 @@ struct ScanFoodView: View {
     
     var body: some View {
         ZStack{
-            AppTheme.background
+            AppColors.background
                 .ignoresSafeArea()
             
             content
@@ -66,7 +66,7 @@ struct ScanFoodView: View {
         switch viewModel.state {
         case .idle, .preparing:
             ProgressView()
-                .tint(AppTheme.accent)
+                .tint(AppColors.accent)
             
         case .ready:
             cameraContent
@@ -116,17 +116,17 @@ struct ScanFoodView: View {
     
     private func loadingView(title: String) -> some View {
         ZStack {
-            AppTheme.background
+            AppColors.background
                 .ignoresSafeArea()
 
             VStack(spacing: 14) {
                 ProgressView()
                     .controlSize(.large)
-                    .tint(AppTheme.accent)
+                    .tint(AppColors.accent)
 
                 Text(title)
                     .font(.headline)
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundColor(AppColors.textPrimary)
             }
         }
     }
@@ -135,11 +135,11 @@ struct ScanFoodView: View {
         VStack(spacing: 16) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 56))
-                .foregroundColor(AppTheme.accent)
+                .foregroundColor(AppColors.accent)
             
             Text("Found \(viewModel.result.count) food item(s)")
                 .font(.headline)
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 30)
             
@@ -148,7 +148,7 @@ struct ScanFoodView: View {
                 onFinished(viewModel.result, viewModel.capturedImageData)
             }
             .buttonStyle(.borderedProminent)
-            .tint(AppTheme.accent)
+            .tint(AppColors.accent)
         }
     }
     
@@ -156,16 +156,16 @@ struct ScanFoodView: View {
         VStack(spacing: 16){
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 42))
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
 
             Text("No food recognized")
                 .font(.headline)
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
 
             Text("Try again with better lighting and food clearly visible.")
                 .font(.subheadline)
                 .multilineTextAlignment(.center)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
                 .padding(.horizontal, 30)
 
             Button("Take another photo"){
@@ -175,7 +175,7 @@ struct ScanFoodView: View {
                 }
             }
             .buttonStyle(.borderedProminent)
-            .tint(AppTheme.accent)
+            .tint(AppColors.accent)
         }
     }
 
@@ -183,25 +183,25 @@ struct ScanFoodView: View {
         VStack(spacing: 16){
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 42))
-                .foregroundColor(AppTheme.accent)
+                .foregroundColor(AppColors.accent)
             
             Text(message)
                 .font(.subheadline)
                 .multilineTextAlignment(.center)
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
                 .padding(.horizontal, 30)
             
             Button("Try again"){
                 Task{await viewModel.prepareCamera()}
             }
             .buttonStyle(.borderedProminent)
-            .tint(AppTheme.accent)
+            .tint(AppColors.accent)
 
             Button("Cancel"){
                 dismiss()
             }
             .buttonStyle(.bordered)
-            .foregroundColor(AppTheme.textSecondary)
+            .foregroundColor(AppColors.textSecondary)
         }
     }
     

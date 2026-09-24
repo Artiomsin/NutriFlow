@@ -18,7 +18,7 @@ struct DayDetailSheet: View {
                     switch state {
                     case .idle, .loading:
                         ProgressView()
-                            .tint(.white)
+                            .tint(AppColors.textPrimary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 60)
                     case .error(let error):
@@ -27,20 +27,20 @@ struct DayDetailSheet: View {
                         loadedContent
                     }
                 }
-                .padding(.horizontal, AppTheme.paddingHorizontal)
+                .padding(.horizontal, AppSpacing.paddingHorizontal)
                 .padding(.top, 8)
                 .padding(.bottom, 40)
             }
-            .background(AppTheme.background)
+            .background(AppColors.background)
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text(formattedHeaderDate)
                         .font(.headline)
-                        .foregroundColor(AppTheme.textPrimary)
+                        .foregroundColor(AppColors.textPrimary)
                 }
             }
         }
-        .preferredColorScheme(.dark)
+       // .preferredColorScheme(.dark)
     }
 
     @ViewBuilder
@@ -58,13 +58,13 @@ struct DayDetailSheet: View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.largeTitle)
-                .foregroundColor(AppTheme.error)
+                .foregroundColor(AppColors.error)
             Text("Couldn't load day details")
                 .font(.headline)
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
             Text(error.localizedDescription)
                 .font(.footnote)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .padding(.vertical, 40)
@@ -104,8 +104,7 @@ struct DayDetailSheet: View {
             }
         }
         .padding()
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .appGlassSurface()
     }
 
     private func activitySection(_ activity: ActivityDayPoint, goals: UserGoals?) -> some View {
@@ -134,8 +133,7 @@ struct DayDetailSheet: View {
             }
         }
         .padding()
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .appGlassSurface()
     }
 
     private var workoutSection: some View {
@@ -148,14 +146,13 @@ struct DayDetailSheet: View {
                 ForEach(workouts) { workout in
                     WorkoutDayRow(workout: workout)
                     if workout.id != workouts.last?.id {
-                        Divider().background(AppTheme.textTertiary.opacity(0.15))
+                        Divider().background(AppColors.textTertiary .opacity(0.15))
                     }
                 }
             }
         }
         .padding()
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .appGlassSurface()
     }
 
     private var foodSection: some View {
@@ -168,14 +165,13 @@ struct DayDetailSheet: View {
                 ForEach(food) { entry in
                     FoodRow(entry: entry)
                     if entry.id != food.last?.id {
-                        Divider().background(AppTheme.textTertiary.opacity(0.15))
+                        Divider().background(AppColors.textTertiary .opacity(0.15))
                     }
                 }
             }
         }
         .padding()
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .appGlassSurface()
     }
 
     private var waterSection: some View {
@@ -188,24 +184,23 @@ struct DayDetailSheet: View {
                 ForEach(water) { entry in
                     WaterRow(entry: entry)
                     if entry.id != water.last?.id {
-                        Divider().background(AppTheme.textTertiary.opacity(0.15))
+                        Divider().background(AppColors.textTertiary .opacity(0.15))
                     }
                 }
             }
         }
         .padding()
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .appGlassSurface()
     }
 
     private func sectionLabel(_ text: String, icon: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.caption)
-                .foregroundColor(AppTheme.accent)
+                .foregroundColor(AppColors.accent)
             Text(text)
                 .font(.subheadline.weight(.semibold))
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
         }
     }
 
@@ -215,10 +210,10 @@ struct DayDetailSheet: View {
             VStack(spacing: 6) {
                 Image(systemName: "tray")
                     .font(.title3)
-                    .foregroundColor(AppTheme.textTertiary)
+                    .foregroundColor(AppColors.textTertiary )
                 Text(text)
                     .font(.subheadline)
-                    .foregroundColor(AppTheme.textTertiary)
+                    .foregroundColor(AppColors.textTertiary )
             }
             .padding(.vertical, 20)
             Spacer()
@@ -245,15 +240,14 @@ struct DetailStatCard: View {
                 .foregroundColor(color)
             Text(value)
                 .font(.title3.weight(.bold))
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
             Text(unit)
                 .font(.caption2)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusSmall)
+        .appGlassSurface(cornerRadius: AppRadius.small, level: .inset)
     }
 }
 
@@ -291,16 +285,16 @@ struct GoalBar: View {
                     .foregroundColor(color)
                 Text(title)
                     .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
                 Spacer()
                 Text("\(current)/\(goal) \(unit)")
                     .font(.caption.weight(.medium))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundColor(AppColors.textPrimary)
             }
             HStack(spacing: 8) {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
-                        Capsule().fill(AppTheme.textTertiary.opacity(0.15)).frame(height: 10)
+                        Capsule().fill(AppColors.textTertiary .opacity(0.15)).frame(height: 10)
                         Capsule().fill(color).frame(width: geo.size.width * pct, height: 10)
                     }
                 }
@@ -328,10 +322,10 @@ struct FoodRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.name)
                     .font(.body.weight(.medium))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundColor(AppColors.textPrimary)
                 Text(formatTime(entry.createdAt))
                     .font(.caption)
-                    .foregroundColor(AppTheme.textTertiary)
+                    .foregroundColor(AppColors.textTertiary )
             }
 
             Spacer()
@@ -342,7 +336,7 @@ struct FoodRow: View {
                     .foregroundColor(.orange)
                 Text(UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits))
                     .font(.caption2)
-                    .foregroundColor(AppTheme.textTertiary)
+                    .foregroundColor(AppColors.textTertiary )
             }
         }
         .padding(.vertical, 4)
@@ -362,7 +356,7 @@ struct WaterRow: View {
 
             Text(formatTime(entry.createdAt))
                 .font(.subheadline)
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
 
             Spacer()
 
@@ -387,14 +381,14 @@ struct WorkoutDayRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(workout.workoutType)
                     .font(.body.weight(.medium))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundColor(AppColors.textPrimary)
                 HStack(spacing: 6) {
                     Text(formatTime(WorkoutMapper.isoString(from: workout.startDate)))
                         .font(.caption)
-                        .foregroundColor(AppTheme.textTertiary)
+                        .foregroundColor(AppColors.textTertiary )
                     Text("· \(WorkoutFormatter.formattedDuration(workout.durationSeconds))")
                         .font(.caption)
-                        .foregroundColor(AppTheme.textTertiary)
+                        .foregroundColor(AppColors.textTertiary )
                 }
             }
 
@@ -407,7 +401,7 @@ struct WorkoutDayRow: View {
                         .foregroundColor(.green)
                     Text(UnitConversion.formatEnergyUnit(preferred: PreferencesStore.shared.preferredUnits))
                         .font(.caption2)
-                        .foregroundColor(AppTheme.textTertiary)
+                        .foregroundColor(AppColors.textTertiary )
                 }
             }
         }

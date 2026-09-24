@@ -34,7 +34,7 @@ struct ServingPickerView: View {
                 gramFieldFocused = false
             }
         }
-        .background(AppTheme.background)
+        .background(AppColors.background)
         .navigationTitle("Add Portion")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { viewModel.trackScreenView() }
@@ -44,14 +44,12 @@ struct ServingPickerView: View {
         HStack(spacing: 16) {
             ZStack {
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(AppTheme.cardBackground)
+                    .fill(AppColors.surface)
                     .frame(width: 72, height: 72)
 
                 if let url = viewModel.food.displayImageUrl, let imageURL = URL(string: url) {
                     ZStack {
-                        Image(systemName: "fork.knife")
-                            .font(.title2)
-                            .foregroundColor(AppTheme.textTertiary)
+                        FoodImagePlaceholder(cornerRadius: 14, iconSize: 30)
                         KFImage(imageURL)
                             .resizable()
                             .scaledToFill()
@@ -59,22 +57,21 @@ struct ServingPickerView: View {
                     .frame(width: 72, height: 72)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                 } else {
-                    Image(systemName: "fork.knife")
-                        .font(.title2)
-                        .foregroundColor(AppTheme.textTertiary)
+                    FoodImagePlaceholder(cornerRadius: 14, iconSize: 30)
+                        .frame(width: 72, height: 72)
                 }
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(viewModel.food.name)
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundColor(AppColors.textPrimary)
                     .lineLimit(2)
 
                 if let brand = viewModel.food.brand, !brand.isEmpty, brand != "NOT A BRANDED ITEM" {
                     Text(brand)
                         .font(.subheadline)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundColor(AppColors.textSecondary)
                 }
 
                 SourceBadge(source: viewModel.food.source)
@@ -89,11 +86,11 @@ struct ServingPickerView: View {
             HStack {
                 Text("Per 100g")
                     .font(.caption.weight(.semibold))
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
                 Spacer()
                 Text("For \(UnitConversion.formatAmount(grams: viewModel.grams, unit: viewModel.suggestedUnit ?? "g", preferred: prefsStore.preferredUnits))")
                     .font(.caption.weight(.semibold))
-                    .foregroundColor(AppTheme.accent)
+                    .foregroundColor(AppColors.accent)
             }
 
             HStack(spacing: 8) {
@@ -130,7 +127,7 @@ struct ServingPickerView: View {
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(AppTheme.cardBackground)
+                .fill(AppColors.surface)
         )
     }
 
@@ -138,7 +135,7 @@ struct ServingPickerView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Preset servings")
                 .font(.subheadline.weight(.semibold))
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                 ForEach(viewModel.food.servings ?? []) { serving in
@@ -148,17 +145,17 @@ struct ServingPickerView: View {
                         VStack(spacing: 2) {
                             Text(serving.name)
                                 .font(.caption.weight(.medium))
-                                .foregroundColor(viewModel.selectedServing?.id == serving.id ? .white : AppTheme.textPrimary)
+                                .foregroundColor(viewModel.selectedServing?.id == serving.id ? .white : AppColors.textPrimary)
                                 .lineLimit(1)
                             Text("\(viewModel.gramsToDisplay(serving.grams)) \(viewModel.displayUnit)")
                                 .font(.caption2)
-                                .foregroundColor(viewModel.selectedServing?.id == serving.id ? .white.opacity(0.8) : AppTheme.textTertiary)
+                                .foregroundColor(viewModel.selectedServing?.id == serving.id ? .white.opacity(0.8) : AppColors.textTertiary)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .background(
                             RoundedRectangle(cornerRadius: 10)
-                                .fill(viewModel.selectedServing?.id == serving.id ? AppTheme.accent : AppTheme.cardBackground)
+                                .fill(viewModel.selectedServing?.id == serving.id ? AppColors.accent : AppColors.surface)
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 10)
@@ -176,7 +173,7 @@ struct ServingPickerView: View {
             HStack {
                 Text("Custom amount")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundColor(AppColors.textPrimary)
 
                 Spacer()
 
@@ -185,10 +182,10 @@ struct ServingPickerView: View {
                         viewModel.selectSuggested(sg)
                     }
                     .font(.caption.weight(.medium))
-                    .foregroundColor(AppTheme.accent)
+                    .foregroundColor(AppColors.accent)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .background(AppTheme.accent.opacity(0.12), in: Capsule())
+                    .background(AppColors.accent.opacity(0.12), in: Capsule())
                 }
             }
 
@@ -198,27 +195,27 @@ struct ServingPickerView: View {
                          ? (prefsStore.preferredUnits.volume == .imperial ? "Fluid Ounces" : "Milliliters")
                          : (prefsStore.preferredUnits.weight == .imperial ? "Ounces" : "Grams"))
                         .font(.caption)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundColor(AppColors.textSecondary)
 
                     TextField("", text: $viewModel.gramsText)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .keyboardType(.decimalPad)
                         .focused($gramFieldFocused)
-                        .foregroundColor(AppTheme.textPrimary)
+                        .foregroundColor(AppColors.textPrimary)
                         .padding()
                         .background(
-                            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                                .fill(AppTheme.fieldBackground)
+                            RoundedRectangle(cornerRadius: AppRadius.medium)
+                                .fill(AppColors.surfaceSecondary)
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                                        .stroke(AppTheme.fieldBorder, lineWidth: 1)
+                                    RoundedRectangle(cornerRadius: AppRadius.medium)
+                                        .stroke(AppColors.border, lineWidth: 1)
                                 )
                         )
                 }
                 Text(viewModel.displayUnit)
                     .font(.title3.weight(.medium))
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
             }
         }
     }
@@ -233,7 +230,7 @@ struct ServingPickerView: View {
             HStack(spacing: 8) {
                 if viewModel.isLoading {
                     ProgressView()
-                        .tint(.black)
+                        .tint(AppColors.accentOnPrimary)
                 } else {
                     Image(systemName: "plus.circle.fill")
                         .font(.subheadline)
@@ -245,14 +242,14 @@ struct ServingPickerView: View {
             .padding(.vertical, 16)
             .background(
                 LinearGradient(
-                    gradient: Gradient(colors: [AppTheme.accent, AppTheme.accent.opacity(0.8)]),
+                    gradient: Gradient(colors: [AppColors.accent, AppColors.accent.opacity(0.8)]),
                     startPoint: .leading,
                     endPoint: .trailing
                 ),
                 in: RoundedRectangle(cornerRadius: 16)
             )
-            .foregroundColor(.black)
-            .shadow(color: AppTheme.accent.opacity(0.3), radius: 12, y: 6)
+            .foregroundColor(AppColors.accentOnPrimary)
+            .shadow(color: AppColors.accent.opacity(0.3), radius: 12, y: 6)
         }
         .disabled(viewModel.isLoading || viewModel.grams <= 0)
         .opacity((viewModel.isLoading || viewModel.grams <= 0) ? 0.6 : 1)
@@ -271,7 +268,7 @@ private struct MacroCard: View {
         VStack(spacing: 6) {
             Text(label)
                 .font(.system(size: 9, weight: .medium))
-                .foregroundColor(AppTheme.textTertiary)
+                .foregroundColor(AppColors.textTertiary)
 
             Text(total)
                 .font(.system(size: 18, weight: .bold))
@@ -285,7 +282,7 @@ private struct MacroCard: View {
                 Text(unit)
                     .font(.system(size: 8))
             }
-            .foregroundColor(AppTheme.textTertiary)
+            .foregroundColor(AppColors.textTertiary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
@@ -334,5 +331,5 @@ private struct MacroCard: View {
             onSave: {}
         )
     }
-    .preferredColorScheme(.dark)
+    
 }

@@ -8,6 +8,8 @@ final class ActivityViewModel {
 
     var state: ActivityState = .idle
 
+    var healthKitUnavailable: Bool = false
+
     var needsHealthConnect: Bool {
         switch state {
         case .needsAccess:
@@ -27,6 +29,13 @@ final class ActivityViewModel {
 
 
     func checkPermission() async {
+        guard healthKit.isAvailable else {
+            healthKitUnavailable = true
+            state = .unavailable
+            return
+        }
+        healthKitUnavailable = false
+
         switch await healthKit.permissionState() {
         case .notDetermined:
             state = .needsAccess
@@ -38,11 +47,19 @@ final class ActivityViewModel {
             if case .idle = state {
                 state = .loading
             }
+
+        case .unknown:
+            break
         }
     }
 
     func connectTapped() async {
         print("[HealthKit] connectTapped → requesting auth")
+
+        guard healthKit.isAvailable else {
+            state = .unavailable
+            return
+        }
 
         state = .loading
 
@@ -63,6 +80,9 @@ final class ActivityViewModel {
 
         case .notDetermined:
             state = .needsAccess
+
+        case .unknown:
+            state = .idle
         }
     }
 

@@ -24,16 +24,16 @@ struct ScanResultView: View {
                 if let error = viewModel.errorMessage {
                     Text(error)
                         .font(.caption)
-                        .foregroundColor(AppTheme.error)
+                        .foregroundColor(AppColors.error)
                 }
 
                 addToDiaryButton
             }
-            .padding(.horizontal, AppTheme.paddingHorizontal)
+            .padding(.horizontal, AppSpacing.paddingHorizontal)
             .padding(.top, 12)
             .padding(.bottom, 30)
         }
-        .background(AppTheme.background)
+        .background(AppColors.background)
         .navigationTitle("Scan Result")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { viewModel.trackScreenView() }
@@ -52,20 +52,20 @@ struct ScanResultView: View {
 
             Text("Found \(viewModel.selectedItems.count) food(s)")
                 .font(.headline)
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
 
             HStack(spacing: 16) {
                 Label(viewModel.totalCaloriesText, systemImage: "flame")
                 Label(viewModel.totalGramsText, systemImage: "scalemass")
             }
             .font(.subheadline.weight(.semibold))
-            .foregroundColor(AppTheme.accent)
+            .foregroundColor(AppColors.accent)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(AppTheme.cardBackground)
+                .fill(AppColors.surface)
         )
     }
 
@@ -77,7 +77,7 @@ struct ScanResultView: View {
                 } label: {
                     Image(systemName: item.isSelected ? "checkmark.circle.fill" : "circle")
                         .font(.title2)
-                        .foregroundColor(item.isSelected ? AppTheme.accent : AppTheme.textTertiary)
+                        .foregroundColor(item.isSelected ? AppColors.accent : AppColors.textTertiary)
                 }
                 .buttonStyle(.plain)
 
@@ -87,24 +87,24 @@ struct ScanResultView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "pencil.line")
                             .font(.caption)
-                            .foregroundColor(AppTheme.accent)
+                            .foregroundColor(AppColors.accent)
 
                         TextField("Food name", text: Binding(
                             get: { item.nameText },
                             set: { viewModel.updateName(id: item.id, $0) }
                         ))
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(AppTheme.textPrimary)
-                        .tint(AppTheme.accent)
+                        .foregroundColor(AppColors.textPrimary)
+                        .tint(AppColors.accent)
                     }
                     .padding(.horizontal, 12)
                     .frame(height: 40)
                     .background(
-                        RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall)
-                            .fill(AppTheme.fieldBackground)
+                        RoundedRectangle(cornerRadius: AppRadius.small)
+                            .fill(AppColors.surfaceSecondary)
                             .overlay(
-                                RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall)
-                                    .stroke(AppTheme.fieldBorder, lineWidth: 1)
+                                RoundedRectangle(cornerRadius: AppRadius.small)
+                                    .stroke(AppColors.border, lineWidth: 1)
                             )
                     )
 
@@ -120,7 +120,7 @@ struct ScanResultView: View {
                             Text(item.categoryName ?? "Category")
                         }
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(item.categoryName == nil ? AppTheme.textSecondary : AppTheme.textPrimary)
+                        .foregroundColor(item.categoryName == nil ? AppColors.textSecondary : AppColors.textPrimary)
                     }
                     .onAppear { Task { await viewModel.loadCategories() } }
                 }
@@ -129,7 +129,7 @@ struct ScanResultView: View {
             }
 
             Divider()
-                .overlay(AppTheme.cardBorder)
+                .overlay(AppColors.border)
 
             macroFields(item)
 
@@ -142,11 +142,7 @@ struct ScanResultView: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 18)
-                .fill(AppTheme.cardBackground)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(AppTheme.cardBorder, lineWidth: 1)
+                .fill(AppColors.surface)
         )
         .opacity(item.isSelected ? 1 : 0.55)
     }
@@ -155,7 +151,7 @@ struct ScanResultView: View {
         VStack(alignment: .trailing, spacing: 4) {
             Text("Weight")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(AppTheme.accent)
+                .foregroundColor(AppColors.accent)
 
             HStack(spacing: 4) {
                 TextField("0", text: Binding(
@@ -165,23 +161,23 @@ struct ScanResultView: View {
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.center)
                 .font(.system(size: 16, weight: .bold))
-                .foregroundColor(AppTheme.textPrimary)
-                .tint(AppTheme.accent)
+                .foregroundColor(AppColors.textPrimary)
+                .tint(AppColors.accent)
                 .frame(width: 50)
 
                 Text(UnitConversion.displayUnit(for: item.baseUnit, preferred: viewModel.preferredUnits))
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(AppTheme.accent.opacity(0.85))
+                    .foregroundColor(AppColors.accent.opacity(0.85))
             }
             .padding(.horizontal, 8)
             .frame(height: 36)
             .fixedSize()
             .background(
-                RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall)
-                    .fill(AppTheme.fieldBackground)
+                RoundedRectangle(cornerRadius: AppRadius.small)
+                    .fill(AppColors.surfaceSecondary)
                     .overlay(
-                        RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall)
-                            .stroke(AppTheme.accent.opacity(0.35), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: AppRadius.small)
+                            .stroke(AppColors.accent.opacity(0.35), lineWidth: 1)
                     )
             )
         }
@@ -240,8 +236,8 @@ struct ScanResultView: View {
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.center)
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(AppTheme.textPrimary)
-                    .tint(AppTheme.accent)
+                    .foregroundColor(AppColors.textPrimary)
+                    .tint(AppColors.accent)
 
                 Text(unit)
                     .font(.system(size: 12, weight: .semibold))
@@ -251,10 +247,10 @@ struct ScanResultView: View {
             .frame(height: 36)
             .frame(maxWidth: .infinity)
             .background(
-                RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall)
-                    .fill(AppTheme.fieldBackground)
+                RoundedRectangle(cornerRadius: AppRadius.small)
+                    .fill(AppColors.surfaceSecondary)
                     .overlay(
-                        RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall)
+                        RoundedRectangle(cornerRadius: AppRadius.small)
                             .stroke(color.opacity(0.35), lineWidth: 1)
                     )
             )
@@ -264,12 +260,7 @@ struct ScanResultView: View {
 
     private func itemThumbnail(_ item: EditableScanFood) -> some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(red: 0.1, green: 0.15, blue: 0.25))
-
-            Image(systemName: "fork.knife")
-                .font(.system(size: 16))
-                .foregroundColor(Color(red: 0.3, green: 0.6, blue: 1.0).opacity(0.5))
+            FoodImagePlaceholder(cornerRadius: 12, iconSize: 18)
 
             if let url = item.imageURL {
                 KFImage(url)
@@ -292,7 +283,7 @@ struct ScanResultView: View {
             HStack(spacing: 8) {
                 if viewModel.isLoading {
                     ProgressView()
-                        .tint(.black)
+                        .tint(AppColors.accentOnPrimary)
                 } else {
                     Image(systemName: "plus.circle.fill")
                         .font(.subheadline)
@@ -304,14 +295,14 @@ struct ScanResultView: View {
             .padding(.vertical, 16)
             .background(
                 LinearGradient(
-                    gradient: Gradient(colors: [AppTheme.accent, AppTheme.accent.opacity(0.8)]),
+                    gradient: Gradient(colors: [AppColors.accent, AppColors.accent.opacity(0.8)]),
                     startPoint: .leading,
                     endPoint: .trailing
                 ),
                 in: RoundedRectangle(cornerRadius: 16)
             )
-            .foregroundColor(.black)
-            .shadow(color: AppTheme.accent.opacity(0.3), radius: 12, y: 6)
+            .foregroundColor(AppColors.accentOnPrimary)
+            .shadow(color: AppColors.accent.opacity(0.3), radius: 12, y: 6)
         }
         .disabled(viewModel.isLoading || viewModel.selectedItems.isEmpty)
         .opacity((viewModel.isLoading || viewModel.selectedItems.isEmpty) ? 0.6 : 1)
@@ -367,7 +358,7 @@ struct ScanResultView: View {
             onFinished: {}
         )
     }
-    .preferredColorScheme(.dark)
+    
 }
 
 private enum SamplePhoto {

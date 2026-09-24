@@ -3,7 +3,7 @@ import Foundation
 protocol WorkoutHealthKitServiceProtocol: AnyObject {
     var isAvailable: Bool { get }
     func requestAuthorization() async throws
-    func permissionState() async -> HealthKitPermissionState
+    func permissionState() async -> HealthKitAuthorization
     func fetchWorkouts(
         from startDate: Date,
         to endDate: Date

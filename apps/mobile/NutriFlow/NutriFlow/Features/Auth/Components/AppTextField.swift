@@ -21,7 +21,7 @@ struct AppTextField<Field: Hashable>: View {
 
             Text(title)
                 .font(.caption)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
                 .frame(height: 16, alignment: .leading)
 
             TextField("", text: $text)
@@ -34,7 +34,7 @@ struct AppTextField<Field: Hashable>: View {
                     focus,
                     equals: focusValue
                 )
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
                 .padding(.horizontal, 16)
                 .frame(height: 52)
                 .background(fieldBackground)
@@ -47,15 +47,15 @@ struct AppTextField<Field: Hashable>: View {
 
     private var fieldBackground: some View {
         RoundedRectangle(
-            cornerRadius: AppTheme.cornerRadiusMedium
+            cornerRadius: AppRadius.medium
         )
-        .fill(AppTheme.fieldBackground)
+        .fill(AppColors.surfaceSecondary)
         .overlay(
             RoundedRectangle(
-                cornerRadius: AppTheme.cornerRadiusMedium
+                cornerRadius: AppRadius.medium
             )
             .stroke(
-                AppTheme.fieldBorder,
+                AppColors.border,
                 lineWidth: 1
             )
         )

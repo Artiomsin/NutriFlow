@@ -31,19 +31,19 @@ struct LastWorkoutCard: View {
                 HStack(spacing: 16) {
                     Image(systemName: WorkoutFormatter.icon(for: workout?.workoutType ?? "Workout"))
                         .font(.title2)
-                        .foregroundColor(AppTheme.accent)
+                        .foregroundColor(AppColors.accent)
                         .frame(width: 44, height: 44)
-                        .background(AppTheme.accent.opacity(0.12))
-                        .cornerRadius(AppTheme.cornerRadiusMedium)
+                        .background(AppColors.accent.opacity(0.12))
+                        .cornerRadius(AppRadius.medium)
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(workout?.workoutType ?? "Workouts")
                             .font(.headline)
-                            .foregroundColor(AppTheme.textPrimary)
+                            .foregroundColor(AppColors.textPrimary)
                         if let workout {
                             Text(WorkoutFormatter.formattedDate(workout.startDate))
                                 .font(.caption)
-                                .foregroundColor(AppTheme.textSecondary)
+                                .foregroundColor(AppColors.textSecondary)
                         }
                     }
 
@@ -53,15 +53,15 @@ struct LastWorkoutCard: View {
                         VStack(alignment: .trailing, spacing: 4) {
                             Text(WorkoutFormatter.formattedDuration(workout.durationSeconds))
                                 .font(.footnote)
-                                .foregroundColor(AppTheme.textPrimary)
+                                .foregroundColor(AppColors.textPrimary)
                             HStack(spacing: 10) {
                                 if let kcal = workout.caloriesBurned {
                                     Text("\(Int(kcal)) kcal")
-                                        .foregroundColor(AppTheme.textSecondary)
+                                        .foregroundColor(AppColors.textSecondary)
                                 }
                                 if let distance = workout.distanceMeters, distance > 0 {
                                     Text(String(format: "%.1f km", distance / 1000))
-                                        .foregroundColor(AppTheme.textSecondary)
+                                        .foregroundColor(AppColors.textSecondary)
                                 }
                             }
                             .font(.caption)
@@ -69,7 +69,7 @@ struct LastWorkoutCard: View {
                     } else {
                         Image(systemName: "chevron.right")
                             .font(.caption)
-                            .foregroundColor(AppTheme.textSecondary)
+                            .foregroundColor(AppColors.textSecondary)
                     }
                 }
 
@@ -81,7 +81,7 @@ struct LastWorkoutCard: View {
                         goal: goal,
                         color: .blue,
                         unit: "",
-                        hasGlass: false
+                       
                     )
                 }
                 if let goal = weeklyWorkoutMinutesGoal, goal > 0 {
@@ -92,7 +92,7 @@ struct LastWorkoutCard: View {
                         goal: goal,
                         color: .teal,
                         unit: "min",
-                        hasGlass: false
+        
                     )
                 }
             }
@@ -100,26 +100,24 @@ struct LastWorkoutCard: View {
         .buttonStyle(.plain)
         .padding()
         .frame(maxWidth: .infinity)
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .appGlassSurface(level: .prominent)
     }
 
     private var deniedPrompt: some View {
         HStack {
             Image(systemName: "heart.slash")
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
             Text("Workouts access is off. Enable Apple Health in Settings.")
                 .font(.footnote)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
             Spacer()
             Button("Settings", action: onOpenSettings)
                 .font(.caption)
-                .foregroundColor(AppTheme.accent)
+                .foregroundColor(AppColors.accent)
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background(AppTheme.cardBackground)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .appGlassSurface()
     }
 }
 
@@ -143,6 +141,6 @@ struct LastWorkoutCard: View {
         weekWorkoutMinutes: 95
     )
     .padding()
-    .background(AppTheme.background)
+    .background(AppColors.background)
     .preferredColorScheme(.dark)
 }

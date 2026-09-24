@@ -18,14 +18,20 @@ struct NutriflowApp: App {
     var body: some Scene {
         WindowGroup {
             ZStack {
-                AppTheme.background.ignoresSafeArea()
+                AppColors.background.ignoresSafeArea()
 
                 coordinator.startView()
                     .id(coordinator.route)
                     .transition(.opacity)
                     .animation(.easeInOut(duration: 0.35), value: coordinator.route)
             }
-            .preferredColorScheme(.dark)
+           
+            .environment(container.themeStore)
+            .glassEffectsMode(container.themeStore.glassEffectsMode)
+            .preferredColorScheme(
+                            container.themeStore.mode.colorScheme
+                        )
+            
             .task {
                 container.analyticsTracker.track(.appLaunched)
                 await coordinator.bootstrap()

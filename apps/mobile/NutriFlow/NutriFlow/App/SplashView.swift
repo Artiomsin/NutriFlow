@@ -16,21 +16,21 @@ struct SplashView: View {
 
     var body: some View {
         ZStack {
-            AppTheme.background.ignoresSafeArea()
+            AppColors.background.ignoresSafeArea()
 
             VStack(spacing: 16) {
                 Spacer().frame(height: 230)
 
                 Image(systemName: "leaf.fill")
                     .font(.system(size: 80))
-                    .foregroundColor(AppTheme.accent)
+                    .foregroundColor(AppColors.accent)
                     .rotationEffect(.degrees(rotation))
                     .scaleEffect(scale)
                     .opacity(iconOpacity)
 
                 Text("NutriFlow")
                     .font(.system(size: 36, weight: .bold))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundColor(AppColors.textPrimary)
                     .offset(y: textOffset)
                     .opacity(textOpacity)
 
@@ -54,6 +54,6 @@ struct SplashView: View {
 
 #Preview("Splash") {
     SplashView()
-        .background(AppTheme.background)
-        .preferredColorScheme(.dark)
+        .background(AppColors.background)
+        
 }

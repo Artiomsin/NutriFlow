@@ -9,7 +9,7 @@ final class AuthTokenInterceptor: RequestInterceptor {
     }
 
     func adapt(_ request: inout URLRequest) async throws {
-        if let token = session.getAccessToken() {
+        if let token = try session.getAccessToken() {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
     }

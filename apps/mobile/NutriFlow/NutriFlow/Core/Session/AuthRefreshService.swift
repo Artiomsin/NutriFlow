@@ -33,7 +33,7 @@ actor AuthRefreshService: Sendable {
     }
 
     private func performRefresh() async throws {
-        guard let refresh = session.getRefreshToken() else {
+        guard let refresh = try session.getRefreshToken() else {
             throw AuthError.noSession
         }
 
@@ -45,10 +45,10 @@ actor AuthRefreshService: Sendable {
 
         do {
             let response: AuthTokensResponse = try await client.send(request)
-            session.saveSession(access: response.accessToken,
-                                refresh: response.refreshToken)
+            try session.saveSession(access: response.accessToken,
+                                        refresh: response.refreshToken)
         } catch {
-            session.clear()
+            try session.clear()
             NotificationCenter.default.post(name: .sessionExpired, object: nil)
             throw AuthError.sessionExpired
         }

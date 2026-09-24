@@ -15,11 +15,11 @@ struct HealthKitConnectCard: View {
 
             Text("Подключи HealthKit")
                 .font(.title3.bold())
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
 
             Text("Активность, сон и тренировки появятся здесь после подключения.")
                 .font(.footnote)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 16)
 
@@ -29,18 +29,18 @@ struct HealthKitConnectCard: View {
                 HStack(spacing: 10) {
                     if isConnecting {
                         ProgressView()
-                            .tint(AppTheme.textPrimary)
                     } else {
                         Image(systemName: "heart.text.square.fill")
+
                         Text("Connect HealthKit")
                             .font(.subheadline.bold())
                     }
                 }
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundStyle(AppColors.accentOnPrimary)
                 .frame(maxWidth: .infinity)
-                .frame(height: 50)
-                .background(AppTheme.accent)
-                .clipShape(RoundedRectangle(cornerRadius: 24))
+                .padding(.vertical, 12)
+                .background(AppColors.accent)
+                .clipShape(RoundedRectangle(cornerRadius: AppRadius.medium))
             }
             .disabled(isConnecting)
             .padding(.horizontal, 24)
@@ -49,12 +49,7 @@ struct HealthKitConnectCard: View {
         .padding(.top, 24)
         .padding(.bottom, 16)
         .frame(maxWidth: .infinity)
-        .background(AppTheme.cardBackground)
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                .stroke(AppTheme.cardBorder, lineWidth: 1)
-        )
-        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .appGlassSurface()
     }
 }
 
@@ -75,6 +70,6 @@ private struct FeatureIcon: View {
 #Preview {
     HealthKitConnectCard(isConnecting: false, onConnect: {})
         .padding()
-        .background(AppTheme.background)
-        .preferredColorScheme(.dark)
+        .background(AppColors.background)
+       // .preferredColorScheme(.dark)
 }

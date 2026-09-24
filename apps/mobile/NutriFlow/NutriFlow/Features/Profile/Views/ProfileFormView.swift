@@ -20,7 +20,7 @@ struct ProfileFormView: View {
 
     var body: some View {
         ZStack {
-            AppTheme.background
+            AppColors.background
                 .ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
@@ -28,12 +28,12 @@ struct ProfileFormView: View {
 
                     Text("Create Profile")
                         .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(AppTheme.textPrimary)
-                        .padding(.top, AppTheme.headerPaddingTop)
+                        .foregroundColor(AppColors.textPrimary)
+                        .padding(.top, AppSpacing.headerPaddingTop)
 
                     Text("Tell us about yourself")
                         .font(.subheadline)
-                        .foregroundColor(AppTheme.textTertiary)
+                        .foregroundColor(AppColors.textTertiary )
 
                     VStack(spacing: 16) {
 
@@ -76,7 +76,7 @@ struct ProfileFormView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Gender")
                                 .font(.subheadline)
-                                .foregroundColor(AppTheme.textTertiary)
+                                .foregroundColor(AppColors.textTertiary )
 
                             HStack(spacing: 12) {
                                 ForEach(Gender.allCases, id: \.self) { gender in
@@ -94,7 +94,7 @@ struct ProfileFormView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Goal")
                                 .font(.subheadline)
-                                .foregroundColor(AppTheme.textTertiary)
+                                .foregroundColor(AppColors.textTertiary )
 
                             HStack(spacing: 12) {
                                 ForEach(Goal.allCases, id: \.self) { goal in
@@ -112,7 +112,7 @@ struct ProfileFormView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Activity Level")
                                 .font(.subheadline)
-                                .foregroundColor(AppTheme.textTertiary)
+                                .foregroundColor(AppColors.textTertiary )
 
                             HStack(spacing: 12) {
                                 ForEach(ActivityLevel.allCases, id: \.self) { level in
@@ -127,13 +127,13 @@ struct ProfileFormView: View {
                             }
                         }
                     }
-                    .padding(.horizontal, AppTheme.paddingHorizontal)
+                    .padding(.horizontal, AppSpacing.paddingHorizontal)
 
                     if case .error(let error) = viewModel.state {
                         ErrorMessageView(
                             text: error.localizedDescription
                         )
-                        .padding(.horizontal, AppTheme.paddingHorizontal)
+                        .padding(.horizontal, AppSpacing.paddingHorizontal)
                     }
 
                     PrimaryButton(title: "Save") {
@@ -143,7 +143,7 @@ struct ProfileFormView: View {
                             await viewModel.createProfile()
                         }
                     }
-                    .padding(.horizontal, AppTheme.paddingHorizontal)
+                    .padding(.horizontal, AppSpacing.paddingHorizontal)
 
                     if case .saving = viewModel.state {
                         ProgressView()
@@ -156,7 +156,7 @@ struct ProfileFormView: View {
             }
             .scrollDismissesKeyboard(.interactively)
         }
-        .tint(AppTheme.accent)
+        .tint(AppColors.accent)
         .onTapGesture {
             focusedField = nil
         }
@@ -176,17 +176,17 @@ struct SelectableChip: View {
                 .font(.subheadline)
                 .foregroundColor(
                     isSelected
-                        ? AppTheme.primaryButtonText
-                        : AppTheme.textPrimary
+                        ? AppColors.accentOnPrimary
+                        : AppColors.textPrimary
                 )
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 .background(
                     isSelected
-                        ? AppTheme.accent
-                        : AppTheme.fieldBackground
+                        ? AppColors.accent
+                        : AppColors.surfaceSecondary
                 )
-                .cornerRadius(AppTheme.chipCornerRadius)
+                .cornerRadius(AppRadius.chip)
         }
         .buttonStyle(.plain)
     }
@@ -206,5 +206,5 @@ struct SelectableChip: View {
     NavigationStack {
         ProfileFormView(viewModel: viewModel)
     }
-    .preferredColorScheme(.dark)
+    
 }

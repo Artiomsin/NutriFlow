@@ -1,5 +1,25 @@
 import SwiftUI
 
+enum ActivityGlassPalette {
+    static func cardBase(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .light
+            ? Color(red: 0.933, green: 0.945, blue: 0.961)
+            : Color(red: 0.102, green: 0.118, blue: 0.149)
+    }
+
+    static func goalBase(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .light
+            ? Color(red: 0.898, green: 0.914, blue: 0.937)
+            : Color(red: 0.137, green: 0.157, blue: 0.200)
+    }
+
+    static func border(for colorScheme: ColorScheme, isInset: Bool) -> Color {
+        colorScheme == .light
+            ? Color.black.opacity(isInset ? 0.08 : 0.10)
+            : Color.white.opacity(isInset ? 0.12 : 0.14)
+    }
+}
+
 struct ActivityGoalRow: View {
     let icon: String
     let label: String
@@ -10,7 +30,14 @@ struct ActivityGoalRow: View {
     var displayCurrent: String? = nil
     var displayGoal: String? = nil
     var completionColor: Color? = nil
-    var hasGlass: Bool = true
+    var isEmbedded: Bool = false
+
+    @Environment(\.glassEffectsMode) private var glassEffectsMode
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var isLight: Bool {
+        colorScheme == .light
+    }
 
     private var pct: Double {
         guard goal > 0 else { return 0 }
@@ -18,118 +45,320 @@ struct ActivityGoalRow: View {
     }
 
     private var currentText: String {
-        displayCurrent ?? NumberFormatter.groupingFormatter.string(from: NSNumber(value: current)) ?? "\(current)"
+        displayCurrent
+            ?? NumberFormatter.groupingFormatter.string(
+                from: NSNumber(value: current)
+            )
+            ?? "\(current)"
     }
 
     private var goalText: String {
-        displayGoal ?? NumberFormatter.groupingFormatter.string(from: NSNumber(value: goal)) ?? "\(goal)"
+        displayGoal
+            ?? NumberFormatter.groupingFormatter.string(
+                from: NSNumber(value: goal)
+            )
+            ?? "\(goal)"
+    }
+
+    private var progressColor: Color {
+        pct >= 1.0
+            ? (completionColor ?? color)
+            : color
+    }
+
+    private var iconColor: Color {
+        pct >= 1.0 ? .white : color
     }
 
     var body: some View {
         HStack(spacing: 10) {
-            ZStack(alignment: .bottom) {
-                RoundedRectangle(cornerRadius: 15)
-                    .fill(.thinMaterial)
-
-                let fillHeight = max(70 * pct, 12)
-                let fillRadius = min(15, fillHeight / 2)
-
-                RoundedRectangle(cornerRadius: fillRadius)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                pct >= 1.0
-                                    ? (completionColor ?? color).opacity(0.45)
-                                    : color.opacity(0.45),
-                                pct >= 1.0
-                                    ? (completionColor ?? color).opacity(0.6)
-                                    : color.opacity(0.95),
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .frame(height: fillHeight)
-                    .mask(
-                        LinearGradient(
-                            colors: [.black.opacity(0), .black],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: fillRadius)
-                            .stroke(color.opacity(0.85), lineWidth: 1.2)
-                    )
-                    .shadow(color: color.opacity(0.5), radius: 5)
-
-                Image(systemName: icon)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(.white)
-                    .shadow(color: color, radius: 7)
-                    .padding(.bottom, 7)
-            }
-            .frame(width: 46, height: 70)
-            .clipShape(RoundedRectangle(cornerRadius: 15))
-            .overlay(
-                RoundedRectangle(cornerRadius: 15)
-                    .stroke(.white.opacity(0.18), lineWidth: 1)
-            )
-            .shadow(color: color.opacity(0.35), radius: 11, y: 5)
+            progressColumn
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(label)
                     .font(.caption2)
-                    .foregroundColor(AppTheme.textSecondary)
-                Text("\(currentText) / \(goalText)\(unit.isEmpty ? "" : " \(unit)")")
-                    .font(.caption.weight(.semibold))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundStyle(AppColors.textSecondary)
+
+                Text(
+                    "\(currentText) / \(goalText)" +
+                    (unit.isEmpty ? "" : " \(unit)")
+                )
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppColors.textPrimary)
+
                 Text("\(Int(pct * 100))%")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .font(
+                        .system(
+                            size: 24,
+                            weight: .bold,
+                            design: .rounded
+                        )
+                    )
                     .foregroundStyle(
                         LinearGradient(
                             colors: pct >= 1.0
-                                ? [completionColor ?? color, (completionColor ?? color).opacity(0.6)]
-                                : [color, color.opacity(0.6)],
+                                ? [
+                                    progressColor,
+                                    progressColor.opacity(0.72)
+                                ]
+                                : [
+                                    color,
+                                    color.opacity(0.60)
+                                ],
                             startPoint: .top,
                             endPoint: .bottom
                         )
                     )
             }
+
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background {
-            RoundedRectangle(cornerRadius: 17)
-                .fill(hasGlass ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(AppTheme.cardBackground))
-        }
-        .background {
-            if hasGlass {
-                RoundedRectangle(cornerRadius: 17)
-                    .fill(.thinMaterial)
-                    .shadow(color: .black.opacity(0.3), radius: 16, y: 8)
+            ZStack {
+                RoundedRectangle(
+                    cornerRadius: 17,
+                    style: .continuous
+                )
+                .fill(
+                    glassEffectsMode == .subtle
+                        ? AnyShapeStyle(
+                            ActivityGlassPalette.goalBase(for: colorScheme)
+                                .opacity(colorScheme == .light ? 0.74 : 0.78)
+                        )
+                        : AnyShapeStyle(
+                            LinearGradient(
+                                colors: isLight
+                                    ? [
+                                        AppColors.surfaceSecondary,
+                                        Color.black.opacity(0.025)
+                                    ]
+                                    : [
+                                        Color.white.opacity(0.07),
+                                        Color.white.opacity(0.035)
+                                    ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                )
+
             }
+            .clipShape(
+                RoundedRectangle(
+                    cornerRadius: 17,
+                    style: .continuous
+                )
+            )
         }
         .overlay {
-            if hasGlass {
-                RoundedRectangle(cornerRadius: 17)
-                    .fill(
+            RoundedRectangle(
+                cornerRadius: 17,
+                style: .continuous
+            )
+            .stroke(
+                glassEffectsMode == .subtle
+                    ? ActivityGlassPalette.border(
+                        for: colorScheme,
+                        isInset: true
+                    )
+                    : .clear,
+                lineWidth: 0.8
+            )
+        }
+
+        .shadow(
+            color: glassEffectsMode == .subtle
+                ? Color.black.opacity(
+                    isLight
+                        ? (isEmbedded ? 0.025 : 0.045)
+                        : (isEmbedded ? 0.10 : 0.16)
+                )
+                : Color.black.opacity(isLight ? 0.025 : 0.07),
+            radius: glassEffectsMode == .subtle
+                ? (
+                    isLight
+                        ? (isEmbedded ? 6 : 10)
+                        : (isEmbedded ? 8 : 14)
+                )
+                : 8,
+            x: 0,
+            y: glassEffectsMode == .subtle
+                ? (isEmbedded ? 2 : (isLight ? 3 : 5))
+                : 3
+        )
+    }
+
+    private var progressColumn: some View {
+        ZStack(alignment: .bottom) {
+            RoundedRectangle(
+                cornerRadius: 15,
+                style: .continuous
+            )
+            .fill(
+                Color.black.opacity(isLight ? 0.055 : 0.14)
+            )
+            .overlay {
+                RoundedRectangle(
+                    cornerRadius: 15,
+                    style: .continuous
+                )
+                .strokeBorder(
+                    pct >= 1.0
+                        ? (isLight
+                            ? Color.black.opacity(0.24)
+                            : Color.white.opacity(0.56))
+                        : (isLight
+                            ? AppColors.border.opacity(0.95)
+                            : Color.white.opacity(0.28)),
+                    lineWidth: pct >= 1.0 ? 1.8 : 1.2
+                )
+            }
+
+            let fillHeight = max(70 * pct, 12)
+            let fillRadius = min(15, fillHeight / 2)
+
+            if pct >= 1.0 {
+                ZStack {
+                    RoundedRectangle(
+                        cornerRadius: 15,
+                        style: .continuous
+                    )
+                    .fill(progressColor)
+
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(isLight ? 0.24 : 0.16),
+                            .clear,
+                            Color.black.opacity(isLight ? 0.18 : 0.28)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+
+                    RadialGradient(
+                        colors: [
+                            Color.white.opacity(isLight ? 0.22 : 0.14),
+                            .clear
+                        ],
+                        center: .topLeading,
+                        startRadius: 0,
+                        endRadius: 38
+                    )
+
+                    RadialGradient(
+                        colors: [
+                            Color.black.opacity(isLight ? 0.14 : 0.22),
+                            .clear
+                        ],
+                        center: .bottomTrailing,
+                        startRadius: 0,
+                        endRadius: 48
+                    )
+                }
+                .clipShape(
+                    RoundedRectangle(
+                        cornerRadius: 15,
+                        style: .continuous
+                    )
+                )
+                .overlay {
+                    RoundedRectangle(
+                        cornerRadius: 15,
+                        style: .continuous
+                    )
+                    .strokeBorder(
                         LinearGradient(
-                            colors: [.white.opacity(0.14), .white.opacity(0.02)],
+                            colors: [
+                                Color.white.opacity(isLight ? 0.36 : 0.24),
+                                progressColor.opacity(0.92),
+                                Color.black.opacity(isLight ? 0.22 : 0.34)
+                            ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
-                        )
+                        ),
+                        lineWidth: 1.35
                     )
-                    .blendMode(.plusLighter)
+                }
+                .shadow(
+                    color: progressColor.opacity(0.26),
+                    radius: 7,
+                    y: 3
+                )
+            } else {
+                RoundedRectangle(
+                    cornerRadius: fillRadius,
+                    style: .continuous
+                )
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            color.opacity(0.45),
+                            color.opacity(0.95)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(height: fillHeight)
+                .mask {
+                    LinearGradient(
+                        colors: [
+                            Color.black.opacity(0),
+                            Color.black
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                }
+                .overlay {
+                    RoundedRectangle(
+                        cornerRadius: fillRadius,
+                        style: .continuous
+                    )
+                    .strokeBorder(
+                        color.opacity(0.78),
+                        lineWidth: 1
+                    )
+                }
+                .shadow(
+                    color: color.opacity(0.20),
+                    radius: 5,
+                    y: 3
+                )
             }
+
+            Image(systemName: icon)
+                .font(
+                    .system(
+                        size: 17,
+                        weight: .semibold
+                    )
+                )
+                .foregroundStyle(iconColor)
+                .shadow(
+                    color: isLight
+                        ? Color.white.opacity(0.18)
+                        : color.opacity(0.40),
+                    radius: isLight ? 2 : 6
+                )
+                .padding(.bottom, 7)
         }
-        .overlay {
-            if hasGlass {
-                RoundedRectangle(cornerRadius: 17)
-                    .stroke(.white.opacity(0.18), lineWidth: 1)
-            }
-        }
+        .frame(width: 46, height: 70)
+        .clipShape(
+            RoundedRectangle(
+                cornerRadius: 15,
+                style: .continuous
+            )
+        )
+        .shadow(
+            color: isLight
+                ? Color.black.opacity(0.04)
+                : color.opacity(0.18),
+            radius: isLight ? 6 : 10,
+            y: 4
+        )
     }
 }
 
@@ -143,17 +372,18 @@ private extension NumberFormatter {
     }()
 }
 
-#Preview("Liquid") {
+#Preview("Activity Goal Row — Glass") {
     VStack(spacing: 24) {
         ActivityGoalRow(
             icon: "figure.walk",
             label: "Steps",
-            current: 5000,
+            current: 9000,
             goal: 10000,
             color: .green,
             unit: "steps"
         )
-ActivityGoalRow(
+
+        ActivityGoalRow(
             icon: "flame.fill",
             label: "Active kcal",
             current: 400,
@@ -161,26 +391,18 @@ ActivityGoalRow(
             color: .orange,
             unit: "kcal"
         )
+
         ActivityGoalRow(
             icon: "figure.run",
-            label: "No glass",
+            label: "Running",
             current: 2500,
-            goal: 10000,
-            color: .green,
-            unit: "steps",
-            hasGlass: false
-        )
-        ActivityGoalRow(
-            icon: "figure.walk",
-            label: "Steps (low)",
-            current: 1200,
             goal: 10000,
             color: .green,
             unit: "steps"
         )
     }
-    .padding(.horizontal, AppTheme.paddingHorizontal)
+    .padding(.horizontal, AppSpacing.paddingHorizontal)
     .padding(.vertical, 20)
-    .background(AppTheme.background)
-    .preferredColorScheme(.dark)
+    .background(AppColors.background)
+    .environment(\.glassEffectsMode, .off)
 }

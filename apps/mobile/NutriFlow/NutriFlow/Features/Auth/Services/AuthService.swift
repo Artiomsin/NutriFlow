@@ -18,7 +18,7 @@ final class AuthService: AuthServiceProtocol, Sendable {
         )
 
         let response: AuthTokensResponse = try await client.send(request)
-        sessionService.saveSession(access: response.accessToken, refresh: response.refreshToken)
+        try sessionService.saveSession(access: response.accessToken, refresh: response.refreshToken)
     }
 
     func login(email: String, password: String) async throws {
@@ -29,7 +29,7 @@ final class AuthService: AuthServiceProtocol, Sendable {
         )
 
         let response: AuthTokensResponse = try await client.send(request)
-        sessionService.saveSession(access: response.accessToken, refresh: response.refreshToken)
+        try sessionService.saveSession(access: response.accessToken, refresh: response.refreshToken)
     }
 
     func signInWithGoogle(idToken: String) async throws {
@@ -40,7 +40,7 @@ final class AuthService: AuthServiceProtocol, Sendable {
         )
 
         let response: AuthTokensResponse = try await client.send(request)
-        sessionService.saveSession(access: response.accessToken, refresh: response.refreshToken)
+        try sessionService.saveSession(access: response.accessToken, refresh: response.refreshToken)
     }
     
     func signInWithApple(identityToken: String, firstName: String?, lastName: String?) async throws {
@@ -51,7 +51,7 @@ final class AuthService: AuthServiceProtocol, Sendable {
         )
         
         let response: AuthTokensResponse = try await client.send(request)
-        sessionService.saveSession(access: response.accessToken, refresh: response.refreshToken)
+        try sessionService.saveSession(access: response.accessToken, refresh: response.refreshToken)
     }
 
     func logout() async throws {
@@ -61,7 +61,7 @@ final class AuthService: AuthServiceProtocol, Sendable {
         )
 
         try await client.sendVoid(request)
-        sessionService.clear()
+        try sessionService.clear()
     }
 
     func logoutAll() async throws {
@@ -71,6 +71,6 @@ final class AuthService: AuthServiceProtocol, Sendable {
         )
 
         try await client.sendVoid(request)
-        sessionService.clear()
+        try sessionService.clear()
     }
 }

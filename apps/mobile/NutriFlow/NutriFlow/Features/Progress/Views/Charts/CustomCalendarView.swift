@@ -35,26 +35,25 @@ struct CustomCalendarView: View {
             Button { changeMonth(-1) } label: {
                 Image(systemName: "chevron.left")
                     .font(.body)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
                     .frame(width: 36, height: 36)
-                    .background(AppTheme.cardBackground)
-                    .cornerRadius(8)
+                    .appGlassSurface(cornerRadius: 8, level: .inset)
             }
 
             Spacer()
 
             Text(monthYearString)
                 .font(.headline.weight(.semibold))
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(AppColors.textPrimary)
 
             Spacer()
 
             Button { changeMonth(1) } label: {
                 Image(systemName: "chevron.right")
                     .font(.body)
-                    .foregroundColor(canGoForward ? AppTheme.textSecondary : AppTheme.textSecondary.opacity(0.2))
+                    .foregroundColor(canGoForward ? AppColors.textSecondary : AppColors.textSecondary.opacity(0.2))
                     .frame(width: 36, height: 36)
-                    .background(canGoForward ? AppTheme.cardBackground : Color.clear)
+                    .background(canGoForward ? AppColors.surface : Color.clear)
                     .cornerRadius(8)
             }
             .disabled(!canGoForward)
@@ -71,7 +70,7 @@ struct CustomCalendarView: View {
             ForEach(daySymbols, id: \.self) { symbol in
                 Text(symbol)
                     .font(.caption2.weight(.medium))
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(AppColors.textSecondary)
                     .frame(maxWidth: .infinity)
             }
         }
@@ -185,17 +184,27 @@ struct DayCell: View {
     }
 
     private var foregroundColor: Color {
-        if isSelected { return .black }
-        if !belongsToMonth { return Color.white.opacity(0.3) }
-        return .white
+        if isSelected {
+            return AppColors.accentOnPrimary
+        }
+
+        if !belongsToMonth {
+            return AppColors.textTertiary.opacity(0.5)
+        }
+
+        if isDisabled {
+            return AppColors.textTertiary
+        }
+
+        return AppColors.textPrimary
     }
 
     @ViewBuilder
     private var backgroundView: some View {
         if isSelected {
-            AppTheme.accent
+            AppColors.accent
         } else if isInRange && !isDisabled {
-            AppTheme.accent.opacity(0.15)
+            AppColors.accent.opacity(0.15)
         } else {
             Color.clear
         }
@@ -213,7 +222,7 @@ struct CustomCalendarPreview: View {
 
     var body: some View {
         ZStack {
-            AppTheme.background.ignoresSafeArea()
+            AppColors.background.ignoresSafeArea()
             CustomCalendarView(fromDate: $fromDate, toDate: $toDate)
                 .padding()
         }

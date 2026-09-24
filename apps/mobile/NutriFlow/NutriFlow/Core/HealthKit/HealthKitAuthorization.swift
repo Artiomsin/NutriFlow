@@ -1,10 +1,22 @@
 import Foundation
 import HealthKit
 
-enum HealthKitPermissionState: Equatable, Sendable {
+/// Whether HealthKit itself can be used on this device.
+enum HealthKitAvailability: Equatable, Sendable {
+    case available
+    case unavailable
+}
+
+/// The user's permission for the app to read HealthKit data.
+///
+/// This intentionally holds no data-availability signal: for a read-only
+/// app HealthKit cannot distinguish "granted but no data yet" from "denied",
+/// so absence of data must never be treated as proof of denial.
+enum HealthKitAuthorization: Equatable, Sendable {
     case notDetermined
     case authorized
     case denied
+    case unknown
 }
 
 enum HealthFeature {
@@ -13,9 +25,9 @@ enum HealthFeature {
     case workout
 }
 
-final class HealthKitAuthorization {
+final class HealthKitAccess {
 
-    static let shared = HealthKitAuthorization()
+    static let shared = HealthKitAccess()
 
     private let store: HKHealthStore
 
@@ -52,6 +64,10 @@ final class HealthKitAuthorization {
         HKHealthStore.isHealthDataAvailable()
     }
 
+    var availability: HealthKitAvailability {
+        isAvailable ? .available : .unavailable
+    }
+
     var sharedStore: HKHealthStore {
         store
     }
@@ -70,8 +86,8 @@ final class HealthKitAuthorization {
         )
     }
 
-    func permissionState(for feature: HealthFeature) async -> HealthKitPermissionState {
-        guard isAvailable else { return .denied }
+    func permissionState(for feature: HealthFeature) async -> HealthKitAuthorization {
+        guard isAvailable else { return .unknown }
 
         let type: HKObjectType?
         switch feature {
@@ -120,7 +136,7 @@ final class HealthKitAuthorization {
             return Self.hasObservedData(for: feature) ? .denied : .authorized
 
         default:
-            return .notDetermined
+            return .unknown
         }
     }
 

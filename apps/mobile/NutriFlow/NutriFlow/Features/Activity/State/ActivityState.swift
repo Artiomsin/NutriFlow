@@ -12,6 +12,7 @@ enum ActivityState{
     case idle
     case needsAccess
     case denied
+    case unavailable
     case loading
     case loaded(DailyActivity)
     case error(Error)

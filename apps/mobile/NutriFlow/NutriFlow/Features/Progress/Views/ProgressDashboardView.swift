@@ -11,6 +11,8 @@ struct ProgressDashboardView: View {
     let isActive: Bool
 
     @State private var prefsStore = PreferencesStore.shared
+    @State private var hasLoadedProgress = false
+    @State private var isInitialProgressLoading = false
 
     var body: some View {
         let _ = print("ProgressDashboardView body")
@@ -35,7 +37,7 @@ struct ProgressDashboardView: View {
                 chartsContent
                 Spacer(minLength: 100)
             }
-            .padding(.horizontal, AppTheme.paddingHorizontal)
+            .padding(.horizontal, AppSpacing.paddingHorizontal)
         }
         .minimizeTabBarOnScroll(
             tabBarState: tabBarState
@@ -50,30 +52,20 @@ struct ProgressDashboardView: View {
             }
             await task.value
         }
-        .task {
-            async let analytics: () = analyticsVM.loadAnalytics()
-            async let charts: () = chartVM.loadChartData()
-            async let goals: () = goalsVM.loadGoals()
-            async let weight: () = chartVM.loadWeightSummary()
-            (_, _, _, _) = await (analytics, charts, goals, weight)
-            let revision = progressRefreshState.revision
-            switch analyticsVM.state {
-            case .loaded, .empty:
-                analyticsVM.markRevisionAsCurrent(revision)
-            default:
-                break
-            }
-            if case .loaded = chartVM.chartState {
-                chartVM.markRevisionAsCurrent(revision)
-            }
+        .onAppear {
+            loadInitialIfNeeded()
         }
         .onChange(of: isActive) { _, active in
             guard active else { return }
-            let revision = progressRefreshState.revision
-            Task {
-                async let analytics: () = analyticsVM.refreshIfNeeded(currentRevision: revision)
-                async let charts: () = chartVM.refreshIfNeeded(currentRevision: revision)
-                (_, _) = await (analytics, charts)
+            if hasLoadedProgress {
+                let revision = progressRefreshState.revision
+                Task {
+                    async let analytics: () = analyticsVM.refreshIfNeeded(currentRevision: revision)
+                    async let charts: () = chartVM.refreshIfNeeded(currentRevision: revision)
+                    (_, _) = await (analytics, charts)
+                }
+            } else {
+                loadInitialIfNeeded()
             }
         }
         .sheet(isPresented: $chartVM.showDaySheet) {
@@ -89,15 +81,54 @@ struct ProgressDashboardView: View {
         }
     }
 
+    @MainActor
+    private func loadInitialIfNeeded() {
+        guard isActive, !hasLoadedProgress, !isInitialProgressLoading else {
+            return
+        }
+
+        isInitialProgressLoading = true
+        let revision = progressRefreshState.revision
+
+        Task {
+            defer {
+                isInitialProgressLoading = false
+            }
+
+            async let analytics: () = analyticsVM.loadAnalytics()
+            async let charts: () = chartVM.loadChartData()
+            async let goals: () = goalsVM.loadGoals()
+            async let weight: () = chartVM.loadWeightSummary()
+            (_, _, _, _) = await (analytics, charts, goals, weight)
+
+            var didLoadDashboard = false
+
+            switch analyticsVM.state {
+            case .loaded, .empty:
+                analyticsVM.markRevisionAsCurrent(revision)
+                didLoadDashboard = true
+            default:
+                break
+            }
+
+            if case .loaded = chartVM.chartState {
+                chartVM.markRevisionAsCurrent(revision)
+                didLoadDashboard = true
+            }
+
+            hasLoadedProgress = didLoadDashboard
+        }
+    }
+
     private var header: some View {
         VStack(spacing: 6) {
             Text("Progress")
-                .font(Font.h1)
-                .foregroundColor(AppTheme.textPrimary)
-                .padding(.top, AppTheme.headerPaddingTop)
+                .font(AppTypography.heading1)
+                .foregroundColor(AppColors.textPrimary)
+                .padding(.top, AppSpacing.headerPaddingTop)
             Text("Your nutrition trends")
                 .font(.footnote)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
         }
     }
 
@@ -144,20 +175,31 @@ struct ProgressDashboardView: View {
         case .idle, .loading:
             ProgressView().tint(.white).frame(maxWidth: .infinity).padding(.vertical, 20)
         case .loaded(let data):
-            if !data.isEmpty {
-                VStack(spacing: 20) {
-                    CaloriesChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
-                    WaterChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
-                    NutritionChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
-                    ActivityChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
-                }
-            } else {
-                if case .empty = analyticsVM.state {
+            ZStack {
+                if !data.isEmpty {
+                    VStack(spacing: 20) {
+                        CaloriesChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
+                        WaterChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
+                        NutritionChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
+                        ActivityChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
+                    }
+                } else if case .empty = analyticsVM.state {
                     EmptyView()
                 } else {
                     emptyState
                 }
             }
+            .overlay {
+                if chartVM.isPeriodLoading {
+                    RoundedRectangle(cornerRadius: AppRadius.medium)
+                        .fill(AppColors.background.opacity(0.55))
+                        .overlay {
+                            ProgressView()
+                                .tint(AppColors.accent)
+                        }
+                }
+            }
+            .allowsHitTesting(!chartVM.isPeriodLoading)
         case .error:
             EmptyView()
         }
@@ -221,14 +263,14 @@ private struct RingItem: Identifiable {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "chart.bar.xaxis")
-                .font(Font.largeNumber)
-                .foregroundColor(AppTheme.textSecondary)
+                .font(AppTypography.displayNumber)
+                .foregroundColor(AppColors.textSecondary)
             Text("No data for this period")
                 .font(.headline)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundColor(AppColors.textSecondary)
             Text("Start tracking to see statistics")
                 .font(.subheadline)
-                .foregroundColor(AppTheme.textTertiary)
+                .foregroundColor(AppColors.textTertiary )
                 .multilineTextAlignment(.center)
         }
         .padding(.vertical, 40)
@@ -250,7 +292,7 @@ private struct ProgressPreviewContent: View {
                 progressRefreshState: ProgressRefreshState(),
                 isActive: true
             )
-            .background(AppTheme.background)
+            .background(AppColors.background)
     }
 
     private func makePreviewData() -> (analytics: AnalyticsViewModel, chart: ProgressChartViewModel, goals: GoalsViewModel, period: PeriodState) {

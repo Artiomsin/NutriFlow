@@ -30,11 +30,14 @@ final class AppDependencyContainer: AppDependency {
     let activitySync: ActivitySyncProtocol
     let sleepSync: SleepSyncProtocol
     
+    let themeStore: ThemeStore
     
     init() {
         self.cacheService = CacheService()
         let keychain = KeychainService()
         self.tokenStorage = KeychainTokenStorage(keychain: keychain)
+        
+        self.themeStore = ThemeStore()
         
         let session = AuthSessionService(tokenStorage: tokenStorage)
         self.sessionService = session

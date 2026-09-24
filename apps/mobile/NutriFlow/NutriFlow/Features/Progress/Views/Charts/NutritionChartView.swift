@@ -26,7 +26,7 @@ struct NutritionChartView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "chart.bar.fill").foregroundColor(.green)
-                Text("Macros (Avg)").font(.headline).foregroundColor(AppTheme.textPrimary)
+                Text("Macros (Avg)").font(.headline).foregroundColor(AppColors.textPrimary)
                 Spacer()
             }
             HStack(spacing: 20) {
@@ -43,11 +43,11 @@ struct NutritionChartView: View {
             .frame(height: 180)
             .chartYScale(domain: 0 ... Double(maxMacroValue))
             .chartLegend(position: .bottom) { HStack(spacing: 20) { LegendItem(color: .blue, label: "Protein"); LegendItem(color: .yellow, label: "Fat"); LegendItem(color: .green, label: "Carbs") } }
-            .chartYAxis { AxisMarks(position: .leading) { _ in AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.3)); AxisValueLabel().foregroundStyle(AppTheme.textTertiary) } }
+            .chartYAxis { AxisMarks(position: .leading) { _ in AxisGridLine().foregroundStyle(AppColors.textTertiary .opacity(0.3)); AxisValueLabel().foregroundStyle(AppColors.textTertiary ) } }
             .chartXAxis {
                 AxisMarks { _ in
-                    AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.15))
-                    AxisValueLabel().foregroundStyle(AppTheme.textTertiary)
+                    AxisGridLine().foregroundStyle(AppColors.textTertiary .opacity(0.15))
+                    AxisValueLabel().foregroundStyle(AppColors.textTertiary )
                 }
             }
             .chartXSelection(value: $selection)
@@ -60,7 +60,7 @@ struct NutritionChartView: View {
                 }
             }
         }
-        .padding().background(AppTheme.cardBackground).cornerRadius(AppTheme.cornerRadiusMedium)
+        .padding().appGlassSurface()
     }
 
     private var avgProtein: Int { guard !data.isEmpty else { return 0 }; return Int(data.reduce(0) { $0 + $1.protein } / Double(data.count)) }
@@ -85,8 +85,8 @@ struct MacroSummaryItem: View {
     var body: some View {
         VStack(spacing: 4) {
             Circle().fill(color).frame(width: 12, height: 12)
-            Text(UnitConversion.formatMacro(grams: value, preferred: prefsStore.preferredUnits)).font(.subheadline.bold()).foregroundColor(AppTheme.textPrimary)
-            Text(title).font(.caption2).foregroundColor(AppTheme.textSecondary)
+            Text(UnitConversion.formatMacro(grams: value, preferred: prefsStore.preferredUnits)).font(.subheadline.bold()).foregroundColor(AppColors.textPrimary)
+            Text(title).font(.caption2).foregroundColor(AppColors.textSecondary)
         }
         .frame(maxWidth: .infinity)
     }
@@ -96,7 +96,7 @@ struct LegendItem: View {
     var body: some View {
         HStack(spacing: 4) {
             Circle().fill(color).frame(width: 8, height: 8)
-            Text(label).font(.caption).foregroundColor(AppTheme.textSecondary)
+            Text(label).font(.caption).foregroundColor(AppColors.textSecondary)
         }
     }
 }

@@ -26,9 +26,9 @@ struct WaterChartView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "drop.fill").foregroundColor(.blue)
-                Text("Water Intake").font(.headline).foregroundColor(AppTheme.textPrimary)
+                Text("Water Intake").font(.headline).foregroundColor(AppColors.textPrimary)
                 Spacer()
-                Text(UnitConversion.formatAmount(grams: totalWater, unit: "ml", preferred: prefsStore.preferredUnits)).font(.subheadline).foregroundColor(AppTheme.textSecondary)
+                Text(UnitConversion.formatAmount(grams: totalWater, unit: "ml", preferred: prefsStore.preferredUnits)).font(.subheadline).foregroundColor(AppColors.textSecondary)
             }
             Chart(filteredData) { point in
                 LineMark(x: .value("Date", point.label), y: .value("Water", point.waterMl))
@@ -41,11 +41,11 @@ struct WaterChartView: View {
             }
             .frame(height: 180)
             .chartYScale(domain: 0 ... Double(maxWaterValue))
-            .chartYAxis { AxisMarks(position: .leading) { _ in AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.3)); AxisValueLabel().foregroundStyle(AppTheme.textTertiary) } }
+            .chartYAxis { AxisMarks(position: .leading) { _ in AxisGridLine().foregroundStyle(AppColors.textTertiary .opacity(0.3)); AxisValueLabel().foregroundStyle(AppColors.textTertiary ) } }
             .chartXAxis {
                 AxisMarks { _ in
-                    AxisGridLine().foregroundStyle(AppTheme.textTertiary.opacity(0.15))
-                    AxisValueLabel().foregroundStyle(AppTheme.textTertiary)
+                    AxisGridLine().foregroundStyle(AppColors.textTertiary .opacity(0.15))
+                    AxisValueLabel().foregroundStyle(AppColors.textTertiary )
                 }
             }
             .chartXSelection(value: $selection)
@@ -58,7 +58,7 @@ struct WaterChartView: View {
                 }
             }
         }
-        .padding().background(AppTheme.cardBackground).cornerRadius(AppTheme.cornerRadiusMedium)
+        .padding().appGlassSurface()
     }
 
     private var totalWater: Int { data.reduce(0) { $0 + $1.waterMl } }

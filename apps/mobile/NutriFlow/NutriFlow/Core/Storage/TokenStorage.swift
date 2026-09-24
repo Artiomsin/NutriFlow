@@ -8,13 +8,13 @@
 import Foundation
 
 protocol TokenStorage: Sendable {
-    func getAccessToken() -> String?
-    func getRefreshToken() -> String?
+    func getAccessToken() throws -> String?
+    func getRefreshToken() throws -> String?
 
-    func saveAccessToken(_ token: String)
-    func saveRefreshToken(_ token: String)
+    func saveAccessToken(_ token: String) throws
+    func saveRefreshToken(_ token: String) throws
 
-    func clear()
+    func clear() throws
 }
 
 final class KeychainTokenStorage: TokenStorage, @unchecked Sendable {
@@ -25,24 +25,24 @@ final class KeychainTokenStorage: TokenStorage, @unchecked Sendable {
         self.keychain = keychain
     }
 
-    func getAccessToken() -> String? {
-        try? keychain.read("access_token")
+    func getAccessToken() throws -> String? {
+        try keychain.read("access_token")
     }
 
-    func getRefreshToken() -> String? {
-        try? keychain.read("refresh_token")
+    func getRefreshToken() throws -> String? {
+        try keychain.read("refresh_token")
     }
 
-    func saveAccessToken(_ token: String) {
-        try? keychain.save(token, for: "access_token")
+    func saveAccessToken(_ token: String) throws {
+        try keychain.save(token, for: "access_token")
     }
 
-    func saveRefreshToken(_ token: String) {
-        try? keychain.save(token, for: "refresh_token")
+    func saveRefreshToken(_ token: String) throws {
+        try keychain.save(token, for: "refresh_token")
     }
 
-    func clear() {
-        try? keychain.delete("access_token")
-        try? keychain.delete("refresh_token")
+    func clear() throws {
+        try keychain.delete("access_token")
+        try keychain.delete("refresh_token")
     }
 }
