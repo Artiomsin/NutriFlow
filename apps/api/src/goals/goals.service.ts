@@ -15,6 +15,8 @@ import {
   EMPTY_GOALS_METRICS,
 } from './goals-history';
 
+type DatabaseExecutor = Pick<typeof db, 'select' | 'insert' | 'update'>;
+
 @Injectable()
 export class GoalsService {
   async findByUserId(userId: string) {
@@ -78,8 +80,12 @@ export class GoalsService {
     return goals;
   }
 
-  async calculate(userId: string) {
-    const [profile] = await db
+  async calculate(
+    userId: string,
+    executor: DatabaseExecutor = db,
+    invalidateCache = true,
+  ) {
+    const [profile] = await executor
       .select()
       .from(userProfiles)
       .where(eq(userProfiles.userId, userId))
@@ -146,7 +152,7 @@ export class GoalsService {
       nightlySleepMaxMinutes: sleepGoals.maxMinutes,
     };
 
-    const existing = await this.findByUserIdSafe(userId);
+    const existing = await this.findByUserIdSafe(userId, executor);
 
     if (existing) {
       if (existing.source !== 'initial') {
@@ -191,7 +197,7 @@ export class GoalsService {
           updatedAt: new Date(),
         };
 
-        const [goals] = await db
+        const [goals] = await executor
           .update(userGoals)
           .set(merged)
           .where(eq(userGoals.userId, userId))
@@ -203,14 +209,15 @@ export class GoalsService {
           rowToGoalMetrics(goals),
           goals?.source ?? 'user',
           'profile_recalculation',
+          executor,
         );
 
-        await invalidateAnalyticsCache(userId);
+        if (invalidateCache) await invalidateAnalyticsCache(userId);
 
         return goals;
       }
 
-      const [goals] = await db
+      const [goals] = await executor
         .update(userGoals)
         .set({
           ...calculated,
@@ -226,14 +233,15 @@ export class GoalsService {
         rowToGoalMetrics(goals),
         'initial',
         'profile_recalculation',
+        executor,
       );
 
-      await invalidateAnalyticsCache(userId);
+      if (invalidateCache) await invalidateAnalyticsCache(userId);
 
       return goals;
     }
 
-    const [goals] = await db
+    const [goals] = await executor
       .insert(userGoals)
       .values({
         userId,
@@ -248,9 +256,10 @@ export class GoalsService {
       rowToGoalMetrics(goals),
       'initial',
       'initial_calculation',
+      executor,
     );
 
-    await invalidateAnalyticsCache(userId);
+    if (invalidateCache) await invalidateAnalyticsCache(userId);
 
     return goals;
   }
@@ -341,8 +350,11 @@ export class GoalsService {
     return weight * (perKg[goal] ?? 1.6);
   }
 
-  private async findByUserIdSafe(userId: string) {
-    const [goals] = await db
+  private async findByUserIdSafe(
+    userId: string,
+    executor: Pick<typeof db, 'select'> = db,
+  ) {
+    const [goals] = await executor
       .select()
       .from(userGoals)
       .where(eq(userGoals.userId, userId))

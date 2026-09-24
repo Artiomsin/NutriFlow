@@ -7,8 +7,9 @@ import { db } from '../db/db';
 import { userProfiles } from '../db/schema/userProfiles';
 import { eq } from 'drizzle-orm';
 import { GoalsService } from '../goals/goals.service';
-import { WeightLogsService } from '../weight-logs/weight-logs.service';
-
+import { weightLogs } from '../db/schema/weightLogs';
+import { formatDateInTimeZone } from '../common/time/user-date';
+import { invalidateAnalyticsCache } from '../redis';
 
 import type {
   CreateProfileDto,
@@ -19,38 +20,54 @@ import type {
 export class ProfilesService {
   constructor(
     private goalsService: GoalsService,
-    private weightLogsService: WeightLogsService,
-  ) {} 
+  ) {}
   
   async create(data: CreateProfileDto & { userId: string }) {
-    const [profile] = await db
-      .insert(userProfiles)
-      .values({
-        userId: data.userId,
-        weight: data.weight,
-        height: data.height,
-        age: data.age,
-        gender: data.gender,
-        goal: data.goal,
-        activityLevel: data.activityLevel,
-        preferredUnits: data.preferredUnits ?? { weight: 'metric', volume: 'metric', energy: 'kcal' },
-      })
-      .onConflictDoNothing({ target: userProfiles.userId })
-      .returning();
+    const timeZone = data.timeZone ?? 'UTC';
+    const initialDate = formatDateInTimeZone(new Date(), timeZone);
 
-    if (!profile) {
-      const existing = await this.findByUserIdSafe(data.userId);
-      if (!existing) {
-        throw new Error('Profile creation failed');
+    const result = await db.transaction(async (tx) => {
+      const [profile] = await tx
+        .insert(userProfiles)
+        .values({
+          userId: data.userId,
+          weight: data.weight,
+          height: data.height,
+          age: data.age,
+          gender: data.gender,
+          goal: data.goal,
+          activityLevel: data.activityLevel,
+          timeZone,
+          preferredUnits: data.preferredUnits ?? { weight: 'metric', volume: 'metric', energy: 'kcal' },
+        })
+        .onConflictDoNothing({ target: userProfiles.userId })
+        .returning();
+
+      // POST is idempotent: an existing profile must not create a new initial log
+      // or silently replace its calculated goals.
+      if (!profile) {
+        const [existing] = await tx
+          .select()
+          .from(userProfiles)
+          .where(eq(userProfiles.userId, data.userId))
+          .limit(1);
+        if (!existing) throw new Error('Profile creation failed');
+        return { profile: existing, created: false };
       }
-      await this.logInitialWeight(data.userId, data.weight);
-      await this.goalsService.calculate(data.userId);
-      return existing;
-    }
 
-    await this.logInitialWeight(data.userId, data.weight);
-    await this.goalsService.calculate(data.userId);
-    return profile;
+      await tx.insert(weightLogs).values({
+        userId: data.userId,
+        weightKg: String(data.weight),
+        entryDate: initialDate,
+        source: 'initial',
+      });
+
+      await this.goalsService.calculate(data.userId, tx, false);
+      return { profile, created: true };
+    });
+
+    if (result.created) await invalidateAnalyticsCache(data.userId);
+    return result.profile;
   }
 
   async findByUserId(userId: string) {
@@ -64,32 +81,36 @@ export class ProfilesService {
   }
 
   async updateByUserId(userId: string, data: UpdateProfileDto) {
-    const existing = await this.findByUserIdSafe(userId);
+    const profile = await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(userProfiles)
+        .where(eq(userProfiles.userId, userId))
+        .limit(1);
 
-    if (!existing) {
-      throw new NotFoundException('Profile not found');
-    }
+      if (!existing) throw new NotFoundException('Profile not found');
 
-    const [profile] = await db
-      .update(userProfiles)
-      .set({
-        weight: data.weight ?? existing.weight,
-        height: data.height ?? existing.height,
-        age: data.age ?? existing.age,
-        gender: data.gender ?? existing.gender,
-        goal: data.goal ?? existing.goal,
-        activityLevel: data.activityLevel ?? existing.activityLevel,
-        preferredUnits: data.preferredUnits ?? existing.preferredUnits as any,
-        updatedAt: new Date(),
-      })
-      .where(eq(userProfiles.userId, userId))
-      .returning();
+      const [updated] = await tx
+        .update(userProfiles)
+        .set({
+          weight: existing.weight,
+          height: data.height ?? existing.height,
+          age: data.age ?? existing.age,
+          gender: data.gender ?? existing.gender,
+          goal: data.goal ?? existing.goal,
+          activityLevel: data.activityLevel ?? existing.activityLevel,
+          timeZone: data.timeZone ?? existing.timeZone,
+          preferredUnits: data.preferredUnits ?? existing.preferredUnits as any,
+          updatedAt: new Date(),
+        })
+        .where(eq(userProfiles.userId, userId))
+        .returning();
 
-    if (data.weight !== undefined && data.weight !== existing.weight) {
-      await this.logInitialWeight(userId, data.weight);
-    }
+      await this.goalsService.calculate(userId, tx, false);
+      return updated;
+    });
 
-    await this.goalsService.calculate(userId);
+    await invalidateAnalyticsCache(userId);
     return profile;
   }
 
@@ -107,6 +128,18 @@ export class ProfilesService {
     return { message: 'Profile deleted' };
   }
 
+  async updateTimeZone(userId: string, timeZone: string) {
+    const [profile] = await db
+      .update(userProfiles)
+      .set({ timeZone, updatedAt: new Date() })
+      .where(eq(userProfiles.userId, userId))
+      .returning();
+
+    if (!profile) throw new NotFoundException('Profile not found');
+    await invalidateAnalyticsCache(userId);
+    return profile;
+  }
+
   private async findByUserIdSafe(userId: string) {
     const [profile] = await db
       .select()
@@ -117,22 +150,4 @@ export class ProfilesService {
     return profile;
   }
 
-  private async logInitialWeight(userId: string, weight: number | null | undefined) {
-    if (!weight) return;
-
-    try {
-      await this.weightLogsService.record(userId, { weightKg: weight });
-    } catch (e) {
-      console.error('[WeightLogs] failed to log initial weight:', e);
-    }
-  }
-
-  async findAll(limit = 50, offset = 0) {
-    return db
-      .select()
-      .from(userProfiles)
-      .limit(limit)
-      .offset(offset);
-  }
-  
 }

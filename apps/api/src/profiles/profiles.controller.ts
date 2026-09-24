@@ -5,18 +5,23 @@ import {
   Put,
   Delete,
   Body,
-  Param,
-  Query,
   UseGuards,
   UsePipes,
-  ParseUUIDPipe,
 } from '@nestjs/common';
 
 import { ProfilesService } from './profiles.service';
 
-import { createProfileSchema, updateProfileSchema } from './profiles.schema';
+import {
+  createProfileSchema,
+  updateProfileSchema,
+  updateTimeZoneSchema,
+} from './profiles.schema';
 
-import type { CreateProfileDto, UpdateProfileDto } from './profiles.schema';
+import type {
+  CreateProfileDto,
+  UpdateProfileDto,
+  UpdateTimeZoneDto,
+} from './profiles.schema';
 
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
 import { JwtAuthGuard } from '../auth/jwt.guard';
@@ -46,24 +51,21 @@ export class ProfilesController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get()
-  findAll(
-    @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
-  ) {
-    return this.profilesService.findAll(
-      limit ? Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200) : 50,
-      offset ? Math.max(parseInt(offset, 10) || 0, 0) : 0,
-    );
-  } 
-  
-  @UseGuards(JwtAuthGuard)
   @Put('me')
   updateMe(
     @User() user: AuthPayload,
     @Body(new ZodValidationPipe(updateProfileSchema)) data: UpdateProfileDto,
   ) {
     return this.profilesService.updateByUserId(user.userId, data);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put('me/time-zone')
+  updateTimeZone(
+    @User() user: AuthPayload,
+    @Body(new ZodValidationPipe(updateTimeZoneSchema)) data: UpdateTimeZoneDto,
+  ) {
+    return this.profilesService.updateTimeZone(user.userId, data.timeZone);
   }
 
   @UseGuards(JwtAuthGuard)
