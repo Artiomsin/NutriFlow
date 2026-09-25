@@ -24,11 +24,13 @@ struct AuthView: View {
                     isLogin: isLogin,
                     focusedField: $focusedField
                 )
-                
+                .disabled(viewModel.isLoading)
+
                 PrimaryButton(
                     title: isLogin
                     ? "Sign in"
-                    : "Create account"
+                    : "Create account",
+                    isLoading: viewModel.isLoading
                 ) {
                     dismissKeyboard()
                     
@@ -42,7 +44,7 @@ struct AuthView: View {
                 }
                 
                 if isLogin {
-                    GoogleAuthButton {
+                    GoogleAuthButton(isLoading: viewModel.isLoading) {
                         dismissKeyboard()
                         
                         Task {
@@ -60,23 +62,25 @@ struct AuthView: View {
                                 let tokenData = credential.identityToken,
                                 let identityToken = String(data: tokenData, encoding: .utf8)
                             else {
-                                viewModel.state = .error("Failed to get Apple identity token")
-                                return
-                            }
-                            dismissKeyboard()
-                            Task {
-                                await viewModel.signInWithApple(
-                                    identityToken: identityToken,
-                                    firstName: credential.fullName?.givenName,
-                                    lastName: credential.fullName?.familyName
-                                )
-                            }
-                        case .failure(let error):
-                            viewModel.state = .error(error.localizedDescription)
-                        }
-                    }
+                                 viewModel.handleMissingAppleToken()
+                                 return
+                             }
+                             dismissKeyboard()
+                             Task {
+                                 await viewModel.signInWithApple(
+                                     identityToken: identityToken,
+                                     firstName: credential.fullName?.givenName,
+                                     lastName: credential.fullName?.familyName
+                                 )
+                             }
+                         case .failure(let error):
+                             viewModel.handleAppleAuthorizationError(error)
+                         }
+                     }
+
                     .signInWithAppleButtonStyle(.black)
                     .frame(height: AppSpacing.buttonHeight)
+                    .disabled(viewModel.isLoading)
                     .cornerRadius(AppRadius.medium)
                     .overlay(
                         RoundedRectangle(cornerRadius: AppRadius.medium)
@@ -95,9 +99,19 @@ struct AuthView: View {
                     .font(.footnote)
                     .foregroundColor(AppColors.textSecondary)
                 }
+                .disabled(viewModel.isLoading)
                 
-                if case .error(let message) = viewModel.state {
-                    ErrorMessageView(text: message)
+                if case .error(let appError, let operation) = viewModel.state {
+                    if operation == .apple {
+                        ErrorView(error: appError)
+                    } else {
+                        ErrorView(error: appError) {
+                            dismissKeyboard()
+                            Task {
+                                await viewModel.retry(operation)
+                            }
+                        }
+                    }
                 }
             }
             .contentShape(Rectangle())

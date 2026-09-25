@@ -5,6 +5,15 @@ import GoogleSignIn
 struct GoogleAuthButton: View {
 
     let action: () -> Void
+    let isLoading: Bool
+
+    init(
+        isLoading: Bool = false,
+        action: @escaping () -> Void
+    ) {
+        self.isLoading = isLoading
+        self.action = action
+    }
 
     var body: some View {
         Button(action: action) {
@@ -26,6 +35,7 @@ struct GoogleAuthButton: View {
                     .stroke(Color.gray.opacity(0.3), lineWidth: 1)
             )
         }
+        .disabled(isLoading)
     }
 
     private var googleIcon: Image {

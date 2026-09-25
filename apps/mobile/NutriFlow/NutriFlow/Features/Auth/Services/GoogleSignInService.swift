@@ -2,9 +2,18 @@ import Foundation
 import UIKit
 import GoogleSignIn
 
-enum GoogleSignInError: LocalizedError {
+enum GoogleSignInError: LocalizedError, AppErrorConvertible {
     case noIdToken
     case cancelled
+
+    var appError: AppError {
+        switch self {
+        case .cancelled:
+            return .cancelled
+        case .noIdToken:
+            return .validation(message: "Google sign-in did not return an ID token.")
+        }
+    }
 
     var errorDescription: String? {
         switch self {
