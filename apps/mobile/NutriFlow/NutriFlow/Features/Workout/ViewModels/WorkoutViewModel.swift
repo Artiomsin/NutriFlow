@@ -746,6 +746,7 @@ final class WorkoutViewModel {
                     from: WorkoutMapper.isoString(
                         from: pruneStart
                     ),
+                    to: WorkoutMapper.isoString(from: end),
                     healthKitWorkoutIds: pruneIds
                 )
 

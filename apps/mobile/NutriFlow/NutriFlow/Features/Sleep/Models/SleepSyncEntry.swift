@@ -3,6 +3,7 @@ import Foundation
 struct SleepSyncEntry: Codable, Sendable {
     let startDate: String
     let endDate: String
+    let localDate: String
     let timeInBedSeconds: Double?
     let asleepSeconds: Double?
     let awakeSeconds: Double?

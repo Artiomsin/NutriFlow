@@ -58,10 +58,12 @@ final class WorkoutService: WorkoutServiceProtocol, Sendable {
 
     func deleteMissing(
         from startDate: String,
+        to endDate: String,
         healthKitWorkoutIds: [String]
     ) async throws {
         struct DeleteMissingRequest: Encodable, Sendable {
             let startDate: String
+            let endDate: String
             let healthKitWorkoutIds: [String]
         }
 
@@ -70,6 +72,7 @@ final class WorkoutService: WorkoutServiceProtocol, Sendable {
             method: .DELETE,
             body: DeleteMissingRequest(
                 startDate: startDate,
+                endDate: endDate,
                 healthKitWorkoutIds: healthKitWorkoutIds
             )
         )

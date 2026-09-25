@@ -12,10 +12,19 @@ enum SleepMapper {
         isoFormatter.string(from: date)
     }
 
+    static func localDayString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = .current
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+
     static func toEntry(_ sleep: HealthKitSleep) -> SleepSyncEntry {
         SleepSyncEntry(
             startDate: isoString(from: sleep.startDate),
             endDate: isoString(from: sleep.endDate),
+            localDate: localDayString(from: sleep.endDate),
             timeInBedSeconds: sleep.timeInBedSeconds,
             asleepSeconds: sleep.asleepSeconds,
             awakeSeconds: sleep.awakeSeconds,

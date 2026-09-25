@@ -100,6 +100,11 @@ final class ProfileViewModel {
             lastName = userResult.lastName
             mapProfile(profileResult)
             PreferencesStore.shared.updateFromProfile(profileResult)
+            // This request only runs after the authenticated profile read has
+            // succeeded, so the token interceptor is ready to attach a token.
+            if profileResult.timeZone != TimeZone.current.identifier {
+                try? await profileService.updateTimeZone(TimeZone.current.identifier)
+            }
             try? await cacheService?.set("user", userResult, ttl: 1800)
             try? await cacheService?.set("profile", profileResult, ttl: 1800)
             await cacheService?.remove("profile_empty")
@@ -174,11 +179,21 @@ final class ProfileViewModel {
     func createProfile() async {
         state = .saving(nil)
 
+        guard let weight = canonicalWeight(),
+              let height = canonicalHeight(),
+              let age = Int(age),
+              let gender,
+              let goal,
+              let activityLevel else {
+            state = .error(ProfileFormError.requiredFields)
+            return
+        }
+
         do {
             let profile = try await profileService.createProfile(
-                weight: canonicalWeight(),
-                height: canonicalHeight(),
-                age: Int(age),
+                weight: weight,
+                height: height,
+                age: age,
                 gender: gender,
                 goal: goal,
                 activityLevel: activityLevel,
@@ -203,7 +218,6 @@ final class ProfileViewModel {
 
         do {
             let profile = try await profileService.updateMyProfile(
-                weight: canonicalWeight(),
                 height: canonicalHeight(),
                 age: Int(age),
                 gender: gender,
@@ -227,7 +241,6 @@ final class ProfileViewModel {
         let newPrefs = preferredUnits
         do {
             _ = try await profileService.updateMyProfile(
-                weight: nil,
                 height: nil,
                 age: nil,
                 gender: nil,
@@ -324,5 +337,13 @@ final class ProfileViewModel {
     
     func setPreviewState(_ newState: ProfileState) {
         state = newState
+    }
+}
+
+private enum ProfileFormError: LocalizedError {
+    case requiredFields
+
+    var errorDescription: String? {
+        "Fill in weight, height, age, gender, goal, and activity level."
     }
 }

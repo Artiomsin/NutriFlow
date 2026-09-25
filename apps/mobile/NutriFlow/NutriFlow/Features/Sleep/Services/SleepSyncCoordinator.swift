@@ -335,6 +335,7 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
             // but are missing from HealthKit.
             try await sleepService.deleteMissing(
                 from: SleepMapper.isoString(from: windowStart),
+                to: SleepMapper.isoString(from: windowEnd),
                 startDates: staleStartDates
             )
 

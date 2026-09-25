@@ -10,7 +10,6 @@ struct EditProfileView: View {
         case email
         case firstName
         case lastName
-        case weight
         case height
         case age
     }
@@ -66,18 +65,6 @@ struct EditProfileView: View {
                         submitLabel: .return,
                         focus: $focusedField,
                         focusValue: .lastName,
-                        onSubmit: {
-                            nextField(.weight)
-                        }
-                    )
-
-                    AppTextField(
-                        title: "Weight (\(UnitConversion.bodyWeightUnitLabel(preferred: viewModel.preferredUnits)))",
-                        text: $viewModel.weight,
-                        keyboardType: .decimalPad,
-                        submitLabel: .return,
-                        focus: $focusedField,
-                        focusValue: .weight,
                         onSubmit: {
                             nextField(.height)
                         }
