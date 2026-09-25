@@ -121,7 +121,8 @@ final class ScanFoodViewModel {
            state = .ready
 
        } catch let error as APIError {
-           print("[ScanVM] backend failed: HTTP \(String(describing: error.analyzeStatusCode))")
+            print("[ScanVM] backend failed: HTTP \(String(describing: error.statusCode))")
+
             state = .failed(
                 "Food analysis service is temporarily unavailable. Please try again later."
             )

@@ -28,6 +28,7 @@ final class ProgressChartViewModel {
     var weightWeeklyRateKg: Double?
     var weightPeriodLabel: String = ""
     var weightPoints: [WeightPoint] = []
+    var weightEntries: [WeightLog] = []
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let service: DailySummaryServiceProtocol
     @ObservationIgnored private let foodService: FoodServiceProtocol?
@@ -39,6 +40,8 @@ final class ProgressChartViewModel {
     @ObservationIgnored private let workoutService: WorkoutServiceProtocol?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var loadTaskID = 0
+    @ObservationIgnored private var fallbackProfileWeightKg: Double?
+    @ObservationIgnored private var didLoadFallbackProfileWeight = false
     @ObservationIgnored private let periodState: PeriodState
     @ObservationIgnored private var lastProgressRevision: UInt?
 
@@ -397,21 +400,26 @@ final class ProgressChartViewModel {
 
         do {
             let logs = try await profileService.getWeightLogs(from: range.from, to: range.to)
+            weightEntries = logs
             weights = logs
                 .compactMap { log -> WeightPoint? in
-                    guard let kg = log.weightValue,
-                          let date = Self.dateOnlyFormatter.date(from: String(log.entryDate.prefix(10))) else { return nil }
-                    return WeightPoint(date: date, kg: kg)
+                    guard let date = Self.dateOnlyFormatter.date(from: String(log.entryDate.prefix(10))) else { return nil }
+                    return WeightPoint(date: date, kg: log.weightValue)
                 }
                 .sorted { $0.date < $1.date }
         } catch {
+            weightEntries = []
             weights = []
         }
 
         weightPoints = weights
 
         guard let latest = weights.last else {
-            if let profile = try? await profileService.getMyProfile(), let kg = profile.weight {
+            if !didLoadFallbackProfileWeight {
+                didLoadFallbackProfileWeight = true
+                fallbackProfileWeightKg = (try? await profileService.getMyProfile())?.weight
+            }
+            if let kg = fallbackProfileWeightKg {
                 weightLatestKg = kg
                 weightPoints = [WeightPoint(date: Date(), kg: kg)]
             }
@@ -428,6 +436,32 @@ final class ProgressChartViewModel {
             weightDeltaKg = nil
             weightWeeklyRateKg = nil
         }
+    }
+
+    func recordCurrentWeight(_ weightKg: Double) async throws {
+        guard let profileService else { return }
+        _ = try await profileService.recordWeight(weightKg: weightKg)
+        fallbackProfileWeightKg = weightKg
+        didLoadFallbackProfileWeight = true
+        await cacheService?.remove("profile")
+        await cacheService?.remove("goals")
+        await loadWeightSummary()
+    }
+
+    func deleteWeightEntry(date: String) async throws {
+        guard let profileService else { return }
+        try await profileService.deleteWeightLog(date: date)
+        fallbackProfileWeightKg = nil
+        didLoadFallbackProfileWeight = false
+        await cacheService?.remove("profile")
+        await cacheService?.remove("goals")
+        await loadWeightSummary()
+        await loadWeightHistory()
+    }
+
+    func loadWeightHistory() async {
+        guard let profileService else { return }
+        weightEntries = (try? await profileService.getWeightLogs(from: nil, to: nil)) ?? []
     }
 
     private func periodLabel() -> String {

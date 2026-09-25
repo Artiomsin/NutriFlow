@@ -13,6 +13,14 @@ struct ProgressDashboardView: View {
     @State private var prefsStore = PreferencesStore.shared
     @State private var hasLoadedProgress = false
     @State private var isInitialProgressLoading = false
+    @State private var showWeightEntry = false
+    @State private var weightInput = ""
+    @State private var weightEntryError: String?
+    @State private var isRecordingWeight = false
+    @State private var showWeightHistory = false
+    @State private var pendingWeightDeletion: WeightLog?
+    @State private var isDeletingWeight = false
+    @State private var weightHistoryError: String?
 
     var body: some View {
         let _ = print("ProgressDashboardView body")
@@ -34,6 +42,7 @@ struct ProgressDashboardView: View {
                     }
                 )
                 analyticsContent
+                weightCard
                 chartsContent
                 Spacer(minLength: 100)
             }
@@ -78,6 +87,27 @@ struct ProgressDashboardView: View {
                 activity: chartVM.selectedDateActivity,
                 workouts: chartVM.selectedDateWorkouts
             )
+        }
+        .sheet(isPresented: $showWeightEntry) {
+            recordWeightSheet
+        }
+        .sheet(isPresented: $showWeightHistory) {
+            weightHistorySheet
+        }
+        .confirmationDialog(
+            "Delete this weight record?",
+            isPresented: Binding(
+                get: { pendingWeightDeletion != nil },
+                set: { if !$0 { pendingWeightDeletion = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                deleteSelectedWeight()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("The chart and calculated goals will be updated if this is today’s current record.")
         }
     }
 
@@ -154,18 +184,178 @@ struct ProgressDashboardView: View {
                     daysTracked: analytics.daysTracked,
                     totalDays: analytics.totalDays
                 )
-                WeightCardView(
-                    points: chartVM.weightPoints,
-                    latestKg: chartVM.weightLatestKg,
-                    deltaKg: chartVM.weightDeltaKg,
-                    weeklyRateKg: chartVM.weightWeeklyRateKg,
-                    periodLabel: chartVM.weightPeriodLabel
-                )
             }
         case .empty:
             emptyState
         case .error(let error):
             ErrorMessageView(text: error.localizedDescription)
+        }
+    }
+
+    private var weightCard: some View {
+        WeightCardView(
+            points: chartVM.weightPoints,
+            latestKg: chartVM.weightLatestKg,
+            deltaKg: chartVM.weightDeltaKg,
+            weeklyRateKg: chartVM.weightWeeklyRateKg,
+            periodLabel: chartVM.weightPeriodLabel,
+            onRecordWeight: {
+                weightInput = ""
+                weightEntryError = nil
+                showWeightEntry = true
+            },
+            onManageWeights: {
+                weightHistoryError = nil
+                showWeightHistory = true
+            }
+        )
+    }
+
+    private var recordWeightSheet: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Record weight")
+                    .font(.title2.weight(.semibold))
+                    .foregroundColor(AppColors.textPrimary)
+
+                Text("Your current weight updates today’s point and your calculated goals.")
+                    .font(.footnote)
+                    .foregroundColor(AppColors.textSecondary)
+
+                TextField(
+                    "Weight (\(UnitConversion.bodyWeightUnitLabel(preferred: prefsStore.preferredUnits)))",
+                    text: $weightInput
+                )
+                .keyboardType(.decimalPad)
+                .textFieldStyle(.roundedBorder)
+
+                if let weightEntryError {
+                    Text(weightEntryError)
+                        .font(.footnote)
+                        .foregroundColor(.red)
+                }
+
+                Button(isRecordingWeight ? "Saving…" : "Save") {
+                    recordWeight()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AppColors.accent)
+                .disabled(isRecordingWeight)
+
+                Spacer()
+            }
+            .padding(AppSpacing.paddingHorizontal)
+            .navigationTitle("Weight")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { showWeightEntry = false }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+
+    private func recordWeight() {
+        guard let displayWeight = UnitConversion.parseDecimal(weightInput) else {
+            weightEntryError = "Enter a valid weight."
+            return
+        }
+
+        let weightKg = UnitConversion.bodyWeightToKg(
+            displayWeight,
+            preferred: prefsStore.preferredUnits
+        )
+        guard (20...400).contains(weightKg) else {
+            weightEntryError = "Enter a weight between 20 and 400 kg."
+            return
+        }
+
+        isRecordingWeight = true
+        weightEntryError = nil
+        Task {
+            defer { isRecordingWeight = false }
+            do {
+                try await chartVM.recordCurrentWeight(weightKg)
+                async let analytics: () = analyticsVM.refreshData()
+                async let goals: () = goalsVM.loadGoals()
+                (_, _) = await (analytics, goals)
+                showWeightEntry = false
+            } catch {
+                weightEntryError = error.localizedDescription
+            }
+        }
+    }
+
+    private var weightHistorySheet: some View {
+        NavigationStack {
+            List {
+                if let weightHistoryError {
+                    Text(weightHistoryError)
+                        .font(.footnote)
+                        .foregroundColor(.red)
+                }
+
+                ForEach(chartVM.weightEntries.reversed()) { entry in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(entry.entryDate)
+                                .foregroundColor(AppColors.textPrimary)
+                            Text(entry.source == "initial" ? "Initial weight" : "Manual record")
+                                .font(.footnote)
+                                .foregroundColor(AppColors.textSecondary)
+                        }
+
+                        Spacer()
+
+                        let displayWeight = UnitConversion.bodyWeightToDisplay(
+                            kg: entry.weightKg,
+                            preferred: prefsStore.preferredUnits
+                        )
+                        Text("\(displayWeight.formatted(.number.precision(.fractionLength(0...1)))) \(UnitConversion.bodyWeightUnitLabel(preferred: prefsStore.preferredUnits))")
+                            .foregroundColor(AppColors.textPrimary)
+
+                        if entry.source != "initial" {
+                            Button(role: .destructive) {
+                                pendingWeightDeletion = entry
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .disabled(isDeletingWeight)
+                            .accessibilityLabel("Delete weight record")
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Weight records")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { showWeightHistory = false }
+                }
+            }
+            .task {
+                await chartVM.loadWeightHistory()
+            }
+        }
+    }
+
+    private func deleteSelectedWeight() {
+        guard let entry = pendingWeightDeletion else { return }
+        isDeletingWeight = true
+        Task {
+            defer {
+                isDeletingWeight = false
+                pendingWeightDeletion = nil
+            }
+            do {
+                try await chartVM.deleteWeightEntry(date: entry.entryDate)
+                async let analytics: () = analyticsVM.refreshData()
+                async let goals: () = goalsVM.loadGoals()
+                (_, _) = await (analytics, goals)
+            } catch {
+                weightHistoryError = error.localizedDescription
+            }
         }
     }
 

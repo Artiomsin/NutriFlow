@@ -7,6 +7,8 @@ struct WeightCardView: View {
     let deltaKg: Double?
     let weeklyRateKg: Double?
     let periodLabel: String
+    let onRecordWeight: () -> Void
+    let onManageWeights: () -> Void
 
     @State private var units = PreferencesStore.shared.preferredUnits
 
@@ -48,6 +50,16 @@ struct WeightCardView: View {
                     .font(.headline)
                     .foregroundColor(AppColors.textPrimary)
                 Spacer()
+                Button("Record") {
+                    onRecordWeight()
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundColor(AppColors.accent)
+                Button("Manage") {
+                    onManageWeights()
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundColor(AppColors.textSecondary)
                 Text(periodLabel)
                     .font(.caption)
                     .foregroundColor(AppColors.textSecondary)
@@ -77,7 +89,7 @@ struct WeightCardView: View {
                 }
             } else {
                 Text(points.isEmpty
-                     ? "Enter your weight in Profile — trend will appear here"
+                     ? "Record your weight to start a trend"
                      : "Track your weight for a few days to see the trend")
                     .font(.footnote)
                     .foregroundColor(AppColors.textTertiary )
