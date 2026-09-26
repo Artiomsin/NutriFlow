@@ -18,6 +18,7 @@ struct EditFoodView: View {
     }
 
     @FocusState private var focusedField: Field?
+    @State private var prefsStore = PreferencesStore.shared
 
     var body: some View {
         NavigationStack {
@@ -27,6 +28,10 @@ struct EditFoodView: View {
                     foodSection()
                     macrosSection()
                     servingSection()
+                    if let categoriesError = viewModel.categoriesError {
+                        ErrorView(error: categoriesError) { viewModel.retryCategories() }
+                    }
+
                     if viewModel.source == "user" { categorySection() }
 
                     if viewModel.showNameWarning {
@@ -43,6 +48,10 @@ struct EditFoodView: View {
                         .background(.red.opacity(0.1))
                         .cornerRadius(AppRadius.medium)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+
+                    if let error = viewModel.error {
+                        ErrorView(error: error) { viewModel.retrySave() }
                     }
 
                     saveButton()
@@ -67,8 +76,16 @@ struct EditFoodView: View {
             await viewModel.loadCategories()
         }
             .onChange(of: viewModel.photosItem) { _, item in viewModel.loadImage(item) }
-            .onChange(of: viewModel.grams) { _, newValue in viewModel.recalculateMacros(from: newValue) }
-            .onChange(of: viewModel.name) { _, _ in viewModel.showNameWarning = false }
+            .onChange(of: viewModel.grams) { _, newValue in
+                viewModel.recalculateMacros(from: newValue)
+                viewModel.clearError()
+            }
+            .onChange(of: viewModel.name) { _, _ in
+                viewModel.showNameWarning = false
+                viewModel.clearError()
+            }
+            .onChange(of: viewModel.calories) { _, _ in viewModel.clearError() }
+            .onChange(of: prefsStore.preferredUnits) { old, new in viewModel.convertUnits(from: old, to: new) }
         }
         .tint(AppColors.accent)
     }

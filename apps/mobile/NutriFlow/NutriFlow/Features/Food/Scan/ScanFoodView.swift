@@ -80,8 +80,8 @@ struct ScanFoodView: View {
         case .notFound:
             notFoundView
             
-        case .failed(let message):
-            errorView(message)
+        case .failed(let error):
+            errorView(error)
         }
     }
     
@@ -179,23 +179,31 @@ struct ScanFoodView: View {
         }
     }
 
-    private func errorView(_ message: String) -> some View {
-        VStack(spacing: 16){
+    private func errorView(_ error: AppError) -> some View {
+        let presentation = ErrorPresentation(error: error)
+        return VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 42))
                 .foregroundColor(AppColors.accent)
-            
-            Text(message)
-                .font(.subheadline)
-                .multilineTextAlignment(.center)
-                .foregroundColor(AppColors.textPrimary)
-                .padding(.horizontal, 30)
-            
-            Button("Try again"){
-                Task{await viewModel.prepareCamera()}
+
+            VStack(spacing: 4) {
+                Text(presentation.title)
+                    .font(.headline)
+                    .foregroundColor(AppColors.textPrimary)
+                Text(presentation.message)
+                    .font(.subheadline)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(AppColors.textSecondary)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(AppColors.accent)
+            .padding(.horizontal, 30)
+
+            if presentation.allowsRetry {
+                Button("Try again") {
+                    Task { await viewModel.prepareCamera() }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AppColors.accent)
+            }
 
             Button("Cancel"){
                 dismiss()

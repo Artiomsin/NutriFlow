@@ -333,7 +333,8 @@ final class MockGoalsService: GoalsServiceProtocol {
                 acceptedAt: nil,
                 dismissedAt: nil
             ),
-            personalizationDue: false
+            personalizationDue: false,
+            nextAvailableAt: nil
         )
     }
     func dismissRecommendation(id: String) async throws -> DismissResult {
@@ -418,6 +419,9 @@ final class MockGoalsService: GoalsServiceProtocol {
         try await getGoals()
     }
     func calculateGoals() async throws -> UserGoals {
+        try await getGoals()
+    }
+    func resetGoalsToAutomatic() async throws -> UserGoals {
         try await getGoals()
     }
 }
@@ -523,7 +527,7 @@ final class MockSleepService: SleepServiceProtocol {
         }
         return SleepHistoryResponse(total: nights.count, nights: nights)
     }
-    func deleteMissing(from startDate: String, to endDate: String, startDates: [String]) async throws {}
+    func deleteMissing(from startDate: String, to endDate: String, keptStartDates: [String]) async throws {}
 }
 
 final class MockSleepHealthKit: SleepHealthKitServiceProtocol {
@@ -642,19 +646,19 @@ final class MockHealthKit: ActivityHealthKitServiceProtocol, WorkoutHealthKitSer
     func fetchToday() async -> DailyActivity {
         DailyActivity(date: "", steps: 0, activeCalories: 0, basalCalories: 0, distanceMeters: 0)
     }
-    func fetchWorkouts(from startDate: Date, to endDate: Date) async -> [HealthKitWorkout] { [Self.sampleWorkout] }
-    func fetchLatestWorkout() async -> HealthKitWorkout? { Self.sampleWorkout }
+    func fetchWorkouts(from startDate: Date, to endDate: Date) async throws -> [HealthKitWorkout] { [Self.sampleWorkout] }
+    func fetchLatestWorkout() async throws -> HealthKitWorkout? { Self.sampleWorkout }
     func enableBackgroundDelivery() async throws {}
     func startObserving() {}
     func stopObserving() {}
     func permissionState() async -> HealthKitAuthorization { .authorized }
-    func fetchHeartRateWorkout(for workout: HealthKitWorkout) async -> [HeartRatePoint] {
+    func fetchHeartRateWorkout(for workout: HealthKitWorkout) async throws -> [HeartRatePoint] {
         stride(from: workout.startDate, through: workout.endDate, by: 60).map { date in
             HeartRatePoint(startDate: date, bpm: Double(Int.random(in: 110...150)))
         }
     }
     
-    func fetchWorkoutSeries(kind: WorkoutSeriesKind, workout: HealthKitWorkout) async -> [WorkoutSeriesPoint] {
+    func fetchWorkoutSeries(kind: WorkoutSeriesKind, workout: HealthKitWorkout) async throws -> [WorkoutSeriesPoint] {
         let startValue = kind == .speed ? 2.4 : kind == .cadence ? 84 : 210.0
         return stride(from: workout.startDate, through: workout.endDate, by: 120).enumerated().map { index, date in
             WorkoutSeriesPoint(

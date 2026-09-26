@@ -5,7 +5,7 @@ enum FoodSearchState {
     case idle
     case searching
     case results([CatalogFood])
-    case error(Error)
+    case error(AppError)
 }
 
 @Observable
@@ -13,12 +13,11 @@ enum FoodSearchState {
 final class FoodSearchViewModel {
     var state: FoodSearchState = .idle
     var query: String = ""
-    var isSearching: Bool = false
     var suggestedGrams: Int?
     var suggestedUnit: String?
     var isLoadMore: Bool = false
     var hasMore: Bool = true
-    var loadMoreError: Bool = false
+    var loadMoreError: AppError?
 
     @ObservationIgnored private let service: FoodServiceProtocol
     @ObservationIgnored private var searchTask: Task<Void, Never>?
@@ -52,13 +51,11 @@ final class FoodSearchViewModel {
         guard !trimmed.isEmpty else {
             resetPagination()
             state = .idle
-            isSearching = false
             suggestedGrams = nil
             suggestedUnit = nil
             return
         }
 
-        isSearching = true
         state = .searching
 
         searchTask = Task { [weak self] in
@@ -76,23 +73,21 @@ final class FoodSearchViewModel {
                 offset = response.offset
                 hasMore = response.hasMore
                 state = .results(response.foods)
-                isSearching = false
             } catch {
                 guard !Task.isCancelled else { return }
-                state = .error(error)
-                isSearching = false
+                handle(error)
             }
         }
     }
 
     func loadMore() {
-        guard hasMore, !isSearching, !isLoadMore else { return }
+        guard hasMore, !isLoadMore else { return }
         guard case .results(let current) = state, !current.isEmpty else { return }
         let trimmed = query.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
 
         isLoadMore = true
-        loadMoreError = false
+        loadMoreError = nil
         let nextOffset = offset + pageSize
         print("[Network] FoodSearchVM loadMore: query=\(trimmed) offset=\(nextOffset) limit=\(pageSize)")
         loadMoreTask = Task { @MainActor [weak self] in
@@ -110,7 +105,7 @@ final class FoodSearchViewModel {
                 self.hasMore = response.hasMore
             } catch {
                 guard !Task.isCancelled else { return }
-                self.loadMoreError = true
+                self.loadMoreError = ErrorMapper.map(error)
             }
             self.isLoadMore = false
         }
@@ -131,17 +126,28 @@ final class FoodSearchViewModel {
         offset = 0
         hasMore = true
         isLoadMore = false
-        loadMoreError = false
+        loadMoreError = nil
     }
 
     func reset() {
         query = ""
         state = .idle
-        isSearching = false
         suggestedGrams = nil
         suggestedUnit = nil
         resetPagination()
         searchTask?.cancel()
         loadMoreTask?.cancel()
+    }
+    
+    private func handle(_ error: Error) {
+        let appError = ErrorMapper.map(error)
+
+        state = appError == .cancelled
+            ? .idle
+            : .error(appError)
+    }
+    
+    func retry() {
+        search()
     }
 }

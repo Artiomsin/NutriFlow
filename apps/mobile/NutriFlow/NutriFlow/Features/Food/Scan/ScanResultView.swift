@@ -5,6 +5,7 @@ import UIKit
 struct ScanResultView: View {
 
     @State private var viewModel: ScanResultViewModel
+    @State private var isActive = true
     let onFinished: () -> Void
 
     init(viewModel: ScanResultViewModel, onFinished: @escaping () -> Void) {
@@ -16,15 +17,16 @@ struct ScanResultView: View {
         ScrollView {
             VStack(spacing: 16) {
                 headerSection
+                if let categoriesError = viewModel.categoriesError {
+                    ErrorView(error: categoriesError) { viewModel.retryCategories() }
+                }
 
                 ForEach(viewModel.items) { item in
                     itemRow(item)
                 }
 
-                if let error = viewModel.errorMessage {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundColor(AppColors.error)
+                if let error = viewModel.error {
+                    ErrorView(error: error)
                 }
 
                 addToDiaryButton
@@ -36,7 +38,11 @@ struct ScanResultView: View {
         .background(AppColors.background)
         .navigationTitle("Scan Result")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { viewModel.trackScreenView() }
+        .onAppear {
+            isActive = true
+            viewModel.trackScreenView()
+        }
+        .onDisappear { isActive = false }
     }
 
     private var headerSection: some View {
@@ -277,7 +283,7 @@ struct ScanResultView: View {
         Button {
             Task {
                 guard await viewModel.addToDiary() else { return }
-                onFinished()
+                if isActive { onFinished() }
             }
         } label: {
             HStack(spacing: 8) {

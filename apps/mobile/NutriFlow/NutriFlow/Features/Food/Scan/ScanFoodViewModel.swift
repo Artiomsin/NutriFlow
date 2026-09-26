@@ -14,20 +14,21 @@ import Observation
 final class ScanFoodViewModel {
 
     enum State: Equatable {
-           case idle
-           case preparing
-           case ready
-           case capturing
-           case analyzing
-           case completed
-           case notFound
-           case failed(String)
-       }
+        case idle
+        case preparing
+        case ready
+        case capturing
+        case analyzing
+        case completed
+        case notFound
+        case failed(AppError)
+    }
 
 
     private(set) var state: State = .idle
     private(set) var result: [FoodAnalysisItem] = []
     private(set) var capturedImageData: Data?
+    
 
     private let foodService: FoodServiceProtocol
     let camera: CameraService
@@ -48,40 +49,30 @@ final class ScanFoodViewModel {
     }
     
     func prepareCamera() async {
-            guard state != .preparing else { return }
+        guard state != .preparing else { return }
 
+        state = .preparing
+
+        await camera.prepare()
+
+        switch camera.state {
+        case .ready:
+            camera.start()
+            state = .ready
+
+        case .denied:
+            state = .failed(.permissionDenied)
+
+        case .requestingPermission:
             state = .preparing
 
-            await camera.prepare()
-
-            switch camera.state {
-            case .ready:
-                camera.start()
-                state = .ready
-
-            case .denied:
-                state = .failed(
-                    "Camera access is denied. Allow camera access in Settings."
-                )
-
-            case .failed:
-                state = .failed(
-                    "Unable to configure the camera."
-                )
-
-            case .requestingPermission:
-                state = .preparing
-
-            case .idle:
-                state = .failed(
-                    "Camera is not ready."
-                )
-            }
+        case .failed, .idle:
+            state = .failed(.unknown)
         }
+    }
     
     func startCamera(){
-        guard camera.state == .ready else
-        {
+        guard camera.state == .ready else {
             return
         }
         camera.start()
@@ -91,49 +82,34 @@ final class ScanFoodViewModel {
         camera.stop()
     }
     
-    func scan() async{
-        guard state == .ready else{
+    func scan() async {
+        guard state == .ready else { return }
+
+        guard camera.state == .ready else {
+            state = .failed(.unknown)
             return
         }
-        
-        guard camera.state == .ready else {
-                    state = .failed(
-                        "Camera is not ready."
-                    )
-                    return
-                }
-        
+
         state = .capturing
-        print("[ScanVM] shutter pressed → capturing")
 
-        do{
+        do {
             let image = try await camera.capturePhoto()
-            print("[ScanVM] photo captured OK (\(image.size.width) x \(image.size.height))")
-            
             state = .analyzing
-            print("[ScanVM] sending photo to backend for analysis")
-            
             try await analyze(image)
-        }catch CameraService.CameraError.captureCancelled,
-               CameraService.CameraError.captureTimeout {
-           print("[ScanVM] capture cancelled/timeout → restarting camera")
-           camera.start()
-           state = .ready
-
-       } catch let error as APIError {
-            print("[ScanVM] backend failed: HTTP \(String(describing: error.statusCode))")
-
-            state = .failed(
-                "Food analysis service is temporarily unavailable. Please try again later."
-            )
-
+        } catch CameraService.CameraError.captureCancelled {
+            camera.start()
+            state = .ready
+        } catch CameraService.CameraError.captureTimeout {
+            state = .failed(.timeout)
         } catch {
-            print("[ScanVM] capture FAILED: \(error.localizedDescription)")
-            state = .failed(
-                error.localizedDescription
-            )
+            let mapped = ErrorMapper.map(error)
+            guard mapped != .cancelled else {
+                state = .ready
+                camera.start()
+                return
+            }
+            state = .failed(mapped)
         }
-        
     }
     
     
@@ -165,9 +141,10 @@ final class ScanFoodViewModel {
         }
     
     func reset() {
-            result = []
-            state = .idle
-        }
+        result = []
+        capturedImageData = nil
+        state = .idle
+    }
     
     
     

@@ -7,6 +7,7 @@ struct ServingPickerView: View {
 
     @FocusState private var gramFieldFocused: Bool
     @State private var prefsStore = PreferencesStore.shared
+    @State private var isActive = true
 
     init(viewModel: ServingPickerViewModel, onSave: @escaping () -> Void) {
         _viewModel = State(initialValue: viewModel)
@@ -20,12 +21,10 @@ struct ServingPickerView: View {
                 macroComparison
                 if (viewModel.food.servings?.isEmpty == false) { servingGrid }
                 gramInput
-                saveButton
-                if let error = viewModel.errorMessage {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundColor(.red)
+                if let error = viewModel.error {
+                    ErrorView(error: error) { viewModel.retrySave() }
                 }
+                saveButton
             }
             .padding(20)
             .frame(maxWidth: .infinity)
@@ -37,7 +36,12 @@ struct ServingPickerView: View {
         .background(AppColors.background)
         .navigationTitle("Add Portion")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { viewModel.trackScreenView() }
+        .onAppear {
+            isActive = true
+            viewModel.trackScreenView()
+        }
+        .onDisappear { isActive = false }
+        .onChange(of: prefsStore.preferredUnits) { old, new in viewModel.convertUnits(from: old, to: new) }
     }
 
     private var headerSection: some View {
@@ -103,22 +107,22 @@ struct ServingPickerView: View {
                 )
                 MacroCard(
                     label: "Protein",
-                    per100: UnitConversion.formatMacro(grams: viewModel.food.proteinPer100g ?? 0, preferred: prefsStore.preferredUnits),
-                    total: UnitConversion.formatMacro(grams: viewModel.calculatedProtein, preferred: prefsStore.preferredUnits),
+                    per100: macroText(viewModel.food.proteinPer100g),
+                    total: macroText(viewModel.calculatedProtein),
                     color: Color(red: 0.9, green: 0.3, blue: 0.3),
                     unit: ""
                 )
                 MacroCard(
                     label: "Fat",
-                    per100: UnitConversion.formatMacro(grams: viewModel.food.fatPer100g ?? 0, preferred: prefsStore.preferredUnits),
-                    total: UnitConversion.formatMacro(grams: viewModel.calculatedFat, preferred: prefsStore.preferredUnits),
+                    per100: macroText(viewModel.food.fatPer100g),
+                    total: macroText(viewModel.calculatedFat),
                     color: Color(red: 0.2, green: 0.5, blue: 0.9),
                     unit: ""
                 )
                 MacroCard(
                     label: "Carbs",
-                    per100: UnitConversion.formatMacro(grams: viewModel.food.carbsPer100g ?? 0, preferred: prefsStore.preferredUnits),
-                    total: UnitConversion.formatMacro(grams: viewModel.calculatedCarbs, preferred: prefsStore.preferredUnits),
+                    per100: macroText(viewModel.food.carbsPer100g),
+                    total: macroText(viewModel.calculatedCarbs),
                     color: Color(red: 0.2, green: 0.7, blue: 0.3),
                     unit: ""
                 )
@@ -212,6 +216,7 @@ struct ServingPickerView: View {
                                         .stroke(AppColors.border, lineWidth: 1)
                                 )
                         )
+                        .onChange(of: viewModel.gramsText) { _, _ in viewModel.clearError() }
                 }
                 Text(viewModel.displayUnit)
                     .font(.title3.weight(.medium))
@@ -224,7 +229,7 @@ struct ServingPickerView: View {
         Button {
             Task {
                 guard await viewModel.save() else { return }
-                onSave()
+                if isActive { onSave() }
             }
         } label: {
             HStack(spacing: 8) {
@@ -251,9 +256,16 @@ struct ServingPickerView: View {
             .foregroundColor(AppColors.accentOnPrimary)
             .shadow(color: AppColors.accent.opacity(0.3), radius: 12, y: 6)
         }
-        .disabled(viewModel.isLoading || viewModel.grams <= 0)
-        .opacity((viewModel.isLoading || viewModel.grams <= 0) ? 0.6 : 1)
+        .disabled(viewModel.isLoading || !viewModel.isValid)
+        .opacity((viewModel.isLoading || !viewModel.isValid) ? 0.6 : 1)
         .animation(.easeInOut(duration: 0.2), value: viewModel.grams)
+    }
+
+    /// A missing macro is unknown data, not a zero amount — showing "0 g" here would
+    /// claim the food contains none, while the payload stores nil.
+    private func macroText(_ grams: Int?) -> String {
+        guard let grams else { return "—" }
+        return UnitConversion.formatMacro(grams: grams, preferred: prefsStore.preferredUnits)
     }
 }
 

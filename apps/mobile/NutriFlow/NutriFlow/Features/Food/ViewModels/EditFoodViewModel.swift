@@ -12,6 +12,7 @@ final class EditFoodViewModel {
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
     private let prefsStore = PreferencesStore.shared
+    @ObservationIgnored private var uploadedImageUrl: String?
 
     var name: String
     var calories: String
@@ -24,7 +25,9 @@ final class EditFoodViewModel {
     var selectedImageData: Data?
     var selectedImage: UIImage? { selectedImageData.flatMap { UIImage(data: $0) } }
     var isLoading = false
+    var error: AppError?
     var categories: [FoodCategory] = []
+    var categoriesError: AppError?
     var selectedCategoryName: String?
     var showNameWarning = false
 
@@ -89,22 +92,44 @@ final class EditFoodViewModel {
 
     func loadCategories() async {
         guard categories.isEmpty else { return }
-        categories = (try? await foodService.getCategories()) ?? []
+        categoriesError = nil
+        do {
+            categories = try await foodService.getCategories()
+        } catch {
+            let mapped = ErrorMapper.map(error)
+            categoriesError = mapped == .cancelled ? nil : mapped
+        }
+    }
+
+    func retryCategories() {
+        Task { await loadCategories() }
+    }
+
+    func retrySave() {
+        Task { _ = await save() }
+    }
+
+    func clearError() {
+        error = nil
     }
 
     func save() async -> Bool {
+        guard !isLoading else { return false }
+
         if isCatalogFood && nameNotChanged {
             showNameWarning = true
             return false
         }
 
+        error = nil
         isLoading = true
         defer { isLoading = false }
 
         do {
-            var imageUrl: String?
-            if let data = selectedImageData {
+            var imageUrl: String? = uploadedImageUrl
+            if imageUrl == nil, let data = selectedImageData {
                 imageUrl = try await foodService.uploadImage(data)
+                uploadedImageUrl = imageUrl
             }
 
             let gramsInG = toGrams(grams).map { Int($0.rounded()) }
@@ -126,22 +151,38 @@ final class EditFoodViewModel {
             )
 
             return true
-        } catch let error as APIError {
-            if case .unauthorized = error {
-                 coordinator?.goToAuth()
-            }
-            return false
         } catch {
+            handle(error)
             return false
         }
     }
 
+    private func handle(_ rawError: Error) {
+        let appError = ErrorMapper.map(rawError)
+        if appError == .unauthorized {
+            coordinator?.goToAuth()
+        }
+        guard appError != .cancelled else { return }
+        error = appError
+    }
+
     func loadImage(_ item: PhotosPickerItem?) {
-        guard let item else { return }
+        uploadedImageUrl = nil
+        guard let item else {
+            selectedImageData = nil
+            return
+        }
         Task {
             guard let data = try? await item.loadTransferable(type: Data.self) else { return }
             selectedImageData = ImageCompressor.optimizedJPEGData(data)
         }
+    }
+
+    /// Grams is the source of truth on this screen: calories and macros are derived
+    /// from it in `recalculateMacros`, so converting grams alone keeps them consistent.
+    func convertUnits(from old: PreferredUnits, to new: PreferredUnits) {
+        guard old != new else { return }
+        grams = UnitConversion.convertWeightText(grams, from: old, to: new)
     }
 
     func recalculateMacros(from gramsString: String) {

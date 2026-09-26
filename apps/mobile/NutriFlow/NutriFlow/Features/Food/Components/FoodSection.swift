@@ -11,6 +11,9 @@ struct FoodSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
+            if let bannerError = todayFoodVM.bannerError {
+                ErrorView(error: bannerError) { todayFoodVM.retryBanner() }
+            }
             content
         }
     }
@@ -85,11 +88,8 @@ struct FoodSection: View {
             }
 
         case .error(let error):
-            Text(error.localizedDescription)
-                .font(.subheadline)
-                .foregroundColor(AppColors.textSecondary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 32)
+            ErrorView(error: error, onRetry: { todayFoodVM.retry() })
+                .padding(.vertical, 16)
         }
     }
 

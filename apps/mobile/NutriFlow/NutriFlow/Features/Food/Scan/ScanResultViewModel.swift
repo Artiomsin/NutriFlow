@@ -8,10 +8,10 @@ struct EditableScanFood: Identifiable, Sendable {
         case fat
         case carbs
     }
-
+    
     let id = UUID()
     let source: FoodAnalysisItem
-
+    
     var isSelected = true
     var nameText: String
     var gramsText: String
@@ -20,10 +20,10 @@ struct EditableScanFood: Identifiable, Sendable {
     var proteinText: String
     var fatText: String
     var carbsText: String
-
+    
     init(_ item: FoodAnalysisItem, preferred: PreferredUnits) {
         self.source = item
-
+        
         let grams = item.grams ?? 100
         let baseUnit = item.unit ?? "g"
         let unit = UnitConversion.displayUnit(for: baseUnit, preferred: preferred)
@@ -32,35 +32,35 @@ struct EditableScanFood: Identifiable, Sendable {
             baseUnit: baseUnit,
             preferred: preferred
         )
-
+        
         self.nameText = item.name ?? "Unknown food"
         self.gramsText = UnitConversion.formatDisplayValue(value, displayUnit: unit)
         self.categoryText = item.category ?? ""
-
+        
         let baseCalories = item.bestCalories ?? item.calories ?? 0
         self.caloriesText = "\(UnitConversion.formatEnergyValue(kcal: Int(baseCalories.rounded()), preferred: preferred))"
         self.proteinText = Self.macroText(item.protein, preferred: preferred)
         self.fatText = Self.macroText(item.fat, preferred: preferred)
         self.carbsText = Self.macroText(item.carbs, preferred: preferred)
     }
-
+    
     var name: String {
         let trimmed = nameText.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? (source.name ?? "Unknown food") : trimmed
     }
-
+    
     var categoryName: String? { categoryText.isEmpty ? nil : categoryText }
-
+    
     var imageURL: URL? {
         source.imageUrl.flatMap { URL(string: $0) }
     }
-
+    
     var baseUnit: String { source.unit ?? "g" }
-
-
+    
+    
     var baseGrams: Int { source.grams ?? 100 }
     var baseCalories: Double { source.bestCalories ?? source.calories ?? 0 }
-
+    
     func gramsDouble(preferred: PreferredUnits) -> Double {
         UnitConversion.grams(
             fromText: gramsText,
@@ -69,37 +69,37 @@ struct EditableScanFood: Identifiable, Sendable {
             preferred: preferred
         )
     }
-
+    
     func grams(preferred: PreferredUnits) -> Int {
         Int(gramsDouble(preferred: preferred).rounded())
     }
-
+    
     func ratio(preferred: PreferredUnits) -> Double {
         gramsDouble(preferred: preferred) / Double(baseGrams)
     }
-
+    
     func calories(preferred: PreferredUnits) -> Int {
         guard let value = UnitConversion.parseDecimal(caloriesText) else { return Int(baseCalories.rounded()) }
         return Int(UnitConversion.energyToKcal(value, preferred: preferred).rounded())
     }
-
+    
     func protein(preferred: PreferredUnits) -> Int? {
         UnitConversion.macroGrams(fromDisplay: proteinText, preferred: preferred)
     }
-
+    
     func fat(preferred: PreferredUnits) -> Int? {
         UnitConversion.macroGrams(fromDisplay: fatText, preferred: preferred)
     }
-
+    
     func carbs(preferred: PreferredUnits) -> Int? {
         UnitConversion.macroGrams(fromDisplay: carbsText, preferred: preferred)
     }
-
-
+    
+    
     mutating func recalculateMacros(preferred: PreferredUnits) {
         guard baseGrams > 0 else { return }
         let ratioValue = ratio(preferred: preferred)
-
+        
         caloriesText = "\(UnitConversion.formatEnergyValue(kcal: Int((baseCalories * ratioValue).rounded()), preferred: preferred))"
         if let base = source.protein {
             proteinText = Self.macroText(base * ratioValue, preferred: preferred)
@@ -111,7 +111,7 @@ struct EditableScanFood: Identifiable, Sendable {
             carbsText = Self.macroText(base * ratioValue, preferred: preferred)
         }
     }
-
+    
     private static func macroText(_ grams: Double?, preferred: PreferredUnits) -> String {
         guard let grams else { return "" }
         return UnitConversion.macroDisplay(grams: grams, preferred: preferred)
@@ -121,31 +121,33 @@ struct EditableScanFood: Identifiable, Sendable {
 @Observable
 @MainActor
 final class ScanResultViewModel {
-
+    
     var items: [EditableScanFood]
-
+    
     var isLoading = false
-    var errorMessage: String?
+    var error: AppError?
     var categories: [FoodCategory] = []
-
+    var categoriesError: AppError?
+    @ObservationIgnored private var uploadedImageUrl: String?
+    
     private let prefsStore: PreferencesStore
     private let service: FoodServiceProtocol
     private let todayFoodVM: TodayFoodViewModel
     private let imageData: Data?
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
-
+    
     var preferredUnits: PreferredUnits { prefsStore.preferredUnits }
-
+    
     func trackScreenView() {
         analyticsTracker?.track(.screenView(screen: "scan_result"))
     }
-
+    
     var previewImage: UIImage? {
         guard let imageData else { return nil }
         return UIImage(data: imageData)
     }
-
+    
     init(
         items: [FoodAnalysisItem],
         imageData: Data?,
@@ -163,40 +165,40 @@ final class ScanResultViewModel {
         self.prefsStore = prefsStore
         self.analyticsTracker = analyticsTracker
     }
-
+    
     var selectedItems: [EditableScanFood] {
         items.filter(\.isSelected)
     }
-
+    
     var totalCalories: Double {
         selectedItems.map { Double($0.calories(preferred: preferredUnits)) }.reduce(0, +)
     }
-
+    
     var totalGrams: Int {
         selectedItems.map { $0.grams(preferred: preferredUnits) }.reduce(0, +)
     }
-
+    
     var totalCaloriesText: String {
         UnitConversion.formatEnergy(
             kcal: Int(totalCalories.rounded()),
             preferred: preferredUnits
         )
     }
-
+    
     var totalGramsText: String {
         UnitConversion.formatMacro(grams: totalGrams, preferred: preferredUnits)
     }
-
+    
     func updateName(id: UUID, _ text: String) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         items[index].nameText = text
     }
-
+    
     func updateCaloriesText(id: UUID, _ text: String) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         items[index].caloriesText = text
     }
-
+    
     func updateMacroText(id: UUID, field: EditableScanFood.MacroField, _ text: String) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         switch field {
@@ -208,50 +210,63 @@ final class ScanResultViewModel {
             items[index].carbsText = text
         }
     }
-
+    
     func updateGramsText(id: UUID, _ text: String) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         items[index].gramsText = text
         items[index].recalculateMacros(preferred: preferredUnits)
     }
-
+    
     func toggle(id: UUID) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         items[index].isSelected.toggle()
     }
-
+    
     func setCategory(id: UUID, _ category: String?) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         items[index].categoryText = category ?? ""
     }
-
+    
     func loadCategories() async {
         guard categories.isEmpty else { return }
-        categories = (try? await service.getCategories()) ?? []
+        categoriesError = nil
+        do {
+            categories = try await service.getCategories()
+        } catch {
+            let mapped = ErrorMapper.map(error)
+            categoriesError = mapped == .cancelled ? nil : mapped
+        }
     }
-
+    
+    func retryCategories() {
+        Task { await loadCategories() }
+    }
+    
     func addToDiary() async -> Bool {
+        guard !isLoading else { return false }
         let entries = selectedItems
         guard !entries.isEmpty else { return false }
-
+        
         isLoading = true
-        errorMessage = nil
-
-        do {
-            var imageUrl: String? = nil
-            if let imageData {
-                let optimized = ImageCompressor.optimizedJPEGData(imageData)
-                if let optimized {
-                    do {
-                        imageUrl = try await service.uploadImage(optimized)
-                        print("[ScanVM] uploaded scan photo: \(optimized.count / 1024) KB → \(imageUrl ?? "nil")")
-                    } catch {
-                        print("[ScanVM] photo upload failed, continuing without image: \(error.localizedDescription)")
-                    }
-                }
+        error = nil
+        defer { isLoading = false }
+        
+        var imageUrl = uploadedImageUrl
+        if imageUrl == nil, let imageData,
+           let optimized = ImageCompressor.optimizedJPEGData(imageData) {
+            do {
+                imageUrl = try await service.uploadImage(optimized)
+                uploadedImageUrl = imageUrl
+            } catch {
+                // A missing photo must not block saving the food itself.
+                print("[ScanVM] photo upload failed, continuing without image")
             }
-
-            for item in entries {
+        }
+        
+        var failed: [String] = []
+        var failedIds: [UUID] = []
+        for item in entries {
+            do {
                 try await service.createFoodEntry(
                     name: item.name,
                     calories: item.calories(preferred: preferredUnits),
@@ -265,26 +280,34 @@ final class ScanResultViewModel {
                     imageUrl: imageUrl,
                     date: nil
                 )
+            } catch {
+                let mapped = ErrorMapper.map(error)
+                if mapped == .unauthorized {
+                    self.error = mapped
+                    return false
+                }
+                failed.append(item.name)
+                failedIds.append(item.id)
             }
-
-            await todayFoodVM.reloadAfterMutation()
-            todayFoodVM.notifyDataMutated()
-
-            isLoading = false
-            return true
-
-        } catch let error as APIError {
-            if case .unauthorized = error {
-                coordinator?.goToAuth()
-            }
-            errorMessage = error.localizedDescription
-            isLoading = false
-            return false
-
-        } catch {
-            errorMessage = error.localizedDescription
-            isLoading = false
-            return false
         }
+        
+        await todayFoodVM.reloadAfterMutation()
+        todayFoodVM.notifyDataMutated()
+        
+        if failed.isEmpty {
+            return true
+        }
+        
+        error = .partialSave(
+            succeeded: entries.count - failed.count,
+            total: entries.count,
+            failedNames: failed
+        )
+        // Keep only the items that failed selected, so a retry re-sends those
+        // alone instead of duplicating the ones already in the diary.
+        for index in items.indices where !failedIds.contains(items[index].id) {
+            items[index].isSelected = false
+        }
+        return false
     }
 }
