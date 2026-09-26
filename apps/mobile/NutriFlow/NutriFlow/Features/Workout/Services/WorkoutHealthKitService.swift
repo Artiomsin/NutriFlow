@@ -5,6 +5,7 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
 
     private let store = HealthKitAccess.shared.sharedStore
     private var rawWorkouts: [UUID: HKWorkout] = [:]
+    private let rawWorkoutsLock = NSLock()
 
     private let workoutType = HKObjectType.workoutType()
     private let heartRateType = HKQuantityType(.heartRate)
@@ -31,7 +32,7 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
     func fetchWorkouts(
         from startDate: Date,
         to endDate: Date
-    ) async -> [HealthKitWorkout] {
+    ) async throws -> [HealthKitWorkout] {
 
         guard isAvailable else {
             return []
@@ -48,7 +49,7 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
             ascending: false
         )
 
-        let workouts: [HKWorkout] = await withCheckedContinuation { continuation in
+        let workouts: [HKWorkout] = try await withCheckedThrowingContinuation { continuation in
 
             let query = HKSampleQuery(
                 sampleType: workoutType,
@@ -58,8 +59,9 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
             ) { _, samples, error in
 
                 if let error {
-                    print("[WorkoutHealthKit] workouts query error: \(error)")
-                    continuation.resume(returning: [])
+                    continuation.resume(
+                        throwing: WorkoutHealthKitError.queryFailed(underlying: error)
+                    )
                     return
                 }
 
@@ -70,12 +72,12 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
         }
 
         for workout in workouts {
-            rawWorkouts[workout.uuid] = workout
+            storeRawWorkout(workout)
         }
         return workouts.map { Self.healthKitWorkout(from: $0) }
     }
 
-    func fetchLatestWorkout() async -> HealthKitWorkout? {
+    func fetchLatestWorkout() async throws -> HealthKitWorkout? {
         guard isAvailable else { return nil }
 
         let sortDescriptor = NSSortDescriptor(
@@ -83,41 +85,39 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
             ascending: false
         )
 
-        let fetched: HKWorkout? = await withCheckedContinuation { continuation in
+        let fetched: HKWorkout? = try await withCheckedThrowingContinuation { continuation in
             let query = HKSampleQuery(
                 sampleType: workoutType,
                 predicate: nil,
                 limit: 1,
                 sortDescriptors: [sortDescriptor]
             ) { _, samples, error in
-                guard
-                    error == nil,
-                    let workout = (samples as? [HKWorkout])?.first
-                else {
-                    print("[WorkoutHealthKit] fetchLatestWorkout: error=\(String(describing: error)) samplesCount=\((samples as? [HKWorkout])?.count ?? -1)")
-                    continuation.resume(returning: nil)
+                if let error {
+                    continuation.resume(
+                        throwing: WorkoutHealthKitError.queryFailed(underlying: error)
+                    )
                     return
                 }
-                continuation.resume(returning: workout)
+                continuation.resume(returning: (samples as? [HKWorkout])?.first)
             }
 
             store.execute(query)
         }
 
         guard let workout = fetched else { return nil }
-        rawWorkouts[workout.uuid] = workout
+        storeRawWorkout(workout)
         return Self.healthKitWorkout(from: workout)
     }
 
 
-    func fetchHeartRateWorkout(for workout: HealthKitWorkout) async -> [HeartRatePoint] {
+    func fetchHeartRateWorkout(for workout: HealthKitWorkout) async throws -> [HeartRatePoint] {
         guard isAvailable else { return [] }
 
         let type = HKQuantityType(.heartRate)
         let predicate = samplePredicate(for: workout)
         let unit = HKUnit.count().unitDivided(by: .minute())
 
-        let samples = await fetchSamples(type: type, predicate: predicate)
+        let samples = try await fetchSamples(type: type, predicate: predicate)
         let points = samples.map { sample in
             HeartRatePoint(
                 startDate: sample.startDate,
@@ -130,10 +130,10 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
     func fetchWorkoutSeries(
         kind: WorkoutSeriesKind,
         workout: HealthKitWorkout
-    ) async -> [WorkoutSeriesPoint] {
+    ) async throws -> [WorkoutSeriesPoint] {
         guard isAvailable else { return [] }
 
-        let activityType = rawWorkouts[workout.id]?.workoutActivityType ?? .running
+        let activityType = rawWorkout(id: workout.id)?.workoutActivityType ?? .running
         let identifiers: [HKQuantityTypeIdentifier]
         let unit: HKUnit
         switch kind {
@@ -153,7 +153,7 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
         let predicate = samplePredicate(for: workout)
         var combined: [WorkoutSeriesPoint] = []
         for identifier in identifiers {
-            let samples = await fetchSamples(type: HKQuantityType(identifier), predicate: predicate)
+            let samples = try await fetchSamples(type: HKQuantityType(identifier), predicate: predicate)
             combined.append(contentsOf: samples.map { sample in
                 WorkoutSeriesPoint(
                     date: sample.startDate,
@@ -167,7 +167,7 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
     }
 
     private func samplePredicate(for workout: HealthKitWorkout) -> NSPredicate {
-        if let raw = rawWorkouts[workout.id] {
+        if let raw = rawWorkout(id: workout.id) {
             return HKQuery.predicateForObjects(from: raw)
         }
         return HKQuery.predicateForSamples(
@@ -177,11 +177,23 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
         )
     }
 
+    private func storeRawWorkout(_ workout: HKWorkout) {
+        rawWorkoutsLock.lock()
+        rawWorkouts[workout.uuid] = workout
+        rawWorkoutsLock.unlock()
+    }
+
+    private func rawWorkout(id: UUID) -> HKWorkout? {
+        rawWorkoutsLock.lock()
+        defer { rawWorkoutsLock.unlock() }
+        return rawWorkouts[id]
+    }
+
     private func fetchSamples(
         type: HKQuantityType,
         predicate: NSPredicate
-    ) async -> [HKQuantitySample] {
-        await withCheckedContinuation { continuation in
+    ) async throws -> [HKQuantitySample] {
+        try await withCheckedThrowingContinuation { continuation in
             let query = HKSampleQuery(
                 sampleType: type,
                 predicate: predicate,
@@ -189,7 +201,13 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
                 sortDescriptors: [
                     NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
                 ]
-            ) { _, samples, _ in
+            ) { _, samples, error in
+                if let error {
+                    continuation.resume(
+                        throwing: WorkoutHealthKitError.queryFailed(underlying: error)
+                    )
+                    return
+                }
                 continuation.resume(returning: (samples as? [HKQuantitySample]) ?? [])
             }
             store.execute(query)

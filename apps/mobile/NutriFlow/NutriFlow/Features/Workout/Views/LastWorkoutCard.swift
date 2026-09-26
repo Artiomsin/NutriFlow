@@ -9,9 +9,11 @@ import SwiftUI
 
 struct LastWorkoutCard: View {
     let workout: HealthKitWorkout?
+    let state: LastWorkoutState
     let healthAccessDenied: Bool
     let onOpenSettings: () -> Void
     let onTap: () -> Void
+    let onRetry: () -> Void
     var weeklyWorkoutsGoal: Int? = nil
     var weeklyWorkoutMinutesGoal: Int? = nil
     var weekWorkoutsCount: Int = 0
@@ -20,6 +22,14 @@ struct LastWorkoutCard: View {
     var body: some View {
         if healthAccessDenied {
             deniedPrompt
+        } else if case .error(let error) = state, workout == nil {
+            WorkoutLatestErrorNotice(error: error, onRetry: onRetry)
+        } else if state == .loading, workout == nil {
+            ProgressView()
+                .tint(AppColors.accent)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .appGlassSurface()
         } else {
             workoutContent
         }
@@ -121,6 +131,30 @@ struct LastWorkoutCard: View {
     }
 }
 
+private struct WorkoutLatestErrorNotice: View {
+    let error: AppError
+    let onRetry: () -> Void
+
+    var body: some View {
+        if error == .unknown {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Couldn’t load the latest workout from Apple Health.")
+                    .font(.footnote)
+                    .foregroundColor(AppColors.textSecondary)
+                Button("Try again", action: onRetry)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundColor(AppColors.accent)
+                    .buttonStyle(.plain)
+            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .appGlassSurface()
+        } else {
+            ErrorView(error: error, onRetry: onRetry)
+        }
+    }
+}
+
 #Preview {
     LastWorkoutCard(
         workout: HealthKitWorkout(
@@ -132,9 +166,11 @@ struct LastWorkoutCard: View {
             caloriesBurned: 386,
             distanceMeters: 5200
         ),
+        state: .loaded,
         healthAccessDenied: false,
         onOpenSettings: {},
         onTap: {},
+        onRetry: {},
         weeklyWorkoutsGoal: 5,
         weeklyWorkoutMinutesGoal: 150,
         weekWorkoutsCount: 3,

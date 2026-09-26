@@ -63,6 +63,14 @@ struct ErrorPresentation: Equatable {
             title = "Check your input"
             self.message = message
             allowsRetry = false
+        case .partialSave(let succeeded, let total, let failedNames):
+            title = "Saved \(succeeded) of \(total)"
+            if failedNames.isEmpty {
+                message = "Some items could not be saved."
+            } else {
+                message = "Not saved: \(failedNames.joined(separator: ", "))."
+            }
+            allowsRetry = false
         case .permissionDenied:
             title = "Permission required"
             message = "Allow access in Settings and try again."

@@ -9,7 +9,15 @@ enum WorkoutHistoryState {
     case idle
     case loading
     case loaded([HealthKitWorkout])
-    case error(Error)
+    case error(AppError)
     case needsAccess
     case denied
+}
+
+enum LastWorkoutState: Equatable {
+    case idle
+    case loading
+    case loaded
+    case empty
+    case error(AppError)
 }

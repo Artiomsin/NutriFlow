@@ -8,9 +8,9 @@ final class SleepViewModel {
     private let coordinator: SleepSyncProtocol
     @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
 
-
-
     var state: SleepState = .idle
+    var historyError: AppError?
+    var detailError: AppError?
 
     var history: [HealthKitSleep] = []
 
@@ -22,7 +22,6 @@ final class SleepViewModel {
 
     var sleepHeartRatePoints: [SleepHeartRatePoint] = []
 
-    var healthKitUnavailable: Bool = false
 
 
     var needsHealthConnect: Bool {
@@ -48,11 +47,9 @@ final class SleepViewModel {
 
     func checkPermission() async {
         guard coordinator.isAvailable else {
-            healthKitUnavailable = true
             state = .unavailable
             return
         }
-        healthKitUnavailable = false
 
         switch await coordinator.permissionState() {
         case .notDetermined:
@@ -95,6 +92,17 @@ final class SleepViewModel {
         }
     }
 
+    /// HealthKit unavailability is a device/permission condition, not a request
+    /// failure, so it must not surface through ErrorPresentation as a network error.
+    private func isHealthKitUnavailable(_ error: Error) -> Bool {
+        if case .healthKitUnavailable = error as? SleepHealthKitError { return true }
+        return false
+    }
+
+    func reloadLastNight() async {
+        await refresh()
+    }
+
     private func refresh() async {
         do {
             guard let night = try await coordinator.loadLastNight() else {
@@ -105,7 +113,13 @@ final class SleepViewModel {
             setLastNight(night)
 
         } catch {
-            state = .error(error.localizedDescription)
+            if isHealthKitUnavailable(error) {
+                state = .unavailable
+                return
+            }
+            let mapped = ErrorMapper.map(error)
+            if mapped == .cancelled { return }
+            state = .error(mapped)
         }
     }
 
@@ -113,12 +127,11 @@ final class SleepViewModel {
 
     func loadHistoryIfNeeded() async {
         guard coordinator.isAvailable else {
-            healthKitUnavailable = true
             state = .unavailable
             history = []
+            historyError = nil
             return
         }
-        healthKitUnavailable = false
 
         switch await coordinator.permissionState() {
         case .authorized:
@@ -127,11 +140,13 @@ final class SleepViewModel {
         case .notDetermined:
             state = .needsAccess
             history = []
+            historyError = nil
             return
 
         case .denied:
             state = .denied
             history = []
+            historyError = nil
             return
 
         case .unknown:
@@ -141,22 +156,36 @@ final class SleepViewModel {
         isHistoryLoading = true
         defer { isHistoryLoading = false }
 
+        // Without this the view stays in .idle and spins forever when the
+        // request fails: .idle and .loading both render a bare ProgressView.
+        if history.isEmpty {
+            state = .loading
+        }
+
+        historyError = nil
         do {
             let nights = try await coordinator.loadHistoryIfNeeded()
             setHistory(nights)
         } catch {
-            state = .error(error.localizedDescription)
+            if isHealthKitUnavailable(error) {
+                state = .unavailable
+                history = []
+                return
+            }
+            let mapped = ErrorMapper.map(error)
+            historyError = mapped == .cancelled ? nil : mapped
         }
     }
 
     func refreshHistory() async {
+        // Pull-to-refresh must not blank already loaded history, so state is
+        // left untouched here on purpose: only historyError changes.
         guard coordinator.isAvailable else {
-            healthKitUnavailable = true
             state = .unavailable
             history = []
+            historyError = nil
             return
         }
-        healthKitUnavailable = false
 
         switch await coordinator.permissionState() {
         case .authorized:
@@ -165,22 +194,31 @@ final class SleepViewModel {
         case .notDetermined:
             state = .needsAccess
             history = []
+            historyError = nil
             return
 
         case .denied:
             state = .denied
             history = []
+            historyError = nil
             return
 
         case .unknown:
             break
         }
 
+        historyError = nil
         do {
             let nights = try await coordinator.refreshHistory()
             setHistory(nights)
         } catch {
-            state = .error(error.localizedDescription)
+            if isHealthKitUnavailable(error) {
+                state = .unavailable
+                history = []
+                return
+            }
+            let mapped = ErrorMapper.map(error)
+            historyError = mapped == .cancelled ? nil : mapped
         }
     }
 
@@ -189,6 +227,7 @@ final class SleepViewModel {
     func loadNightDetail(_ night: HealthKitSleep) async {
         selectedNight = night
         timeline = night.segments
+        detailError = nil
 
         do {
             let result = try await coordinator.loadNightDetail(night)
@@ -200,7 +239,10 @@ final class SleepViewModel {
             updateHistory(with: result.sleep)
 
         } catch {
-            state = .error(error.localizedDescription)
+            // A failed detail request must not touch state, otherwise the history
+            // list and the Home card both collapse while history[] is still intact.
+            let mapped = ErrorMapper.map(error)
+            detailError = mapped == .cancelled ? nil : mapped
         }
     }
 
@@ -230,6 +272,7 @@ final class SleepViewModel {
         selectedNight = nil
         timeline = []
         sleepHeartRatePoints = []
+        detailError = nil
     }
 
  

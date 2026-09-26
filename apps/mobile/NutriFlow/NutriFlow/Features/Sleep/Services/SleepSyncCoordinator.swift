@@ -24,6 +24,11 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
     private static let historyCacheTTL: TimeInterval = 3600
     private static let lastNightFreshness: TimeInterval = 15 * 60
 
+    static func resetSessionSyncState() {
+        UserDefaults.standard.removeObject(forKey: lastHistorySyncedKey)
+        UserDefaults.standard.removeObject(forKey: lastNightFetchedKey)
+    }
+
     init(
         healthKitService: SleepHealthKitServiceProtocol,
         sleepService: SleepServiceProtocol,
@@ -285,16 +290,20 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
                 entries: entries
             )
 
+            #if DEBUG
             print(
                 "[SleepSync] synced \(entries.count) nights"
             )
+            #endif
 
             return true
 
         } catch {
+            #if DEBUG
             print(
                 "[SleepSync] backend sync failed: \(error)"
             )
+            #endif
 
             return false
         }
@@ -309,7 +318,7 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
             let response = try await sleepService.getHistory(
                 from: SleepKey.dayKey(windowStart),
                 to: SleepKey.dayKey(windowEnd),
-                limit: 1000,
+                limit: 200,
                 offset: nil
             )
 
@@ -325,9 +334,7 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
                 }
             }
 
-            let staleStartDates = stale.map(\.startDate)
-
-            guard !staleStartDates.isEmpty else {
+            guard !stale.isEmpty else {
                 return
             }
 
@@ -336,17 +343,21 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
             try await sleepService.deleteMissing(
                 from: SleepMapper.isoString(from: windowStart),
                 to: SleepMapper.isoString(from: windowEnd),
-                startDates: staleStartDates
+                keptStartDates: kept.map { SleepMapper.isoString(from: $0.startDate) }
             )
 
+            #if DEBUG
             print(
-                "[SleepSync] reconciled: deleted \(staleStartDates.count) nights missing in HealthKit"
+                "[SleepSync] reconciled: deleted \(stale.count) nights missing in HealthKit"
             )
+            #endif
 
         } catch {
+            #if DEBUG
             print(
                 "[SleepSync] backend reconcile failed: \(error)"
             )
+            #endif
         }
     }
 

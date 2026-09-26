@@ -15,6 +15,7 @@ enum AppError: Error, Equatable, Sendable {
     case invalidResponse
     case decoding
     case validation(message: String)
+    case partialSave(succeeded: Int, total: Int, failedNames: [String])
     case permissionDenied
     case storage
     case cancelled

@@ -33,8 +33,12 @@ struct SleepCard: View {
             emptyPrompt
                 .contentShape(Rectangle())
                 .onTapGesture { onTap() }
-        case .error:
-            settingsPrompt
+        case .error(let error):
+            ErrorView(
+                error: error,
+                onRetry: { Task { await vm.reloadLastNight() } }
+            )
+            .padding(.horizontal, AppSpacing.paddingHorizontal)
         case .loaded(let nights):
             if let lastNight = nights.first {
                 sleepContent(lastNight)

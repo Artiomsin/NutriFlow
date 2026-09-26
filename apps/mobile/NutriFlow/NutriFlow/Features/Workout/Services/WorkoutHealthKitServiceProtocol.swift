@@ -7,11 +7,11 @@ protocol WorkoutHealthKitServiceProtocol: AnyObject {
     func fetchWorkouts(
         from startDate: Date,
         to endDate: Date
-    ) async -> [HealthKitWorkout]
-    func fetchLatestWorkout() async -> HealthKitWorkout?
-    func fetchHeartRateWorkout(for workout: HealthKitWorkout) async -> [HeartRatePoint]
+    ) async throws -> [HealthKitWorkout]
+    func fetchLatestWorkout() async throws -> HealthKitWorkout?
+    func fetchHeartRateWorkout(for workout: HealthKitWorkout) async throws -> [HeartRatePoint]
     func fetchWorkoutSeries(
         kind: WorkoutSeriesKind,
         workout: HealthKitWorkout
-    ) async -> [WorkoutSeriesPoint]
+    ) async throws -> [WorkoutSeriesPoint]
 }

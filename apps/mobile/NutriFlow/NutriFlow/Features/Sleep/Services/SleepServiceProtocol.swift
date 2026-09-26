@@ -11,6 +11,6 @@ protocol SleepServiceProtocol {
     func deleteMissing(
         from startDate: String,
         to endDate: String,
-        startDates: [String]
+        keptStartDates: [String]
     ) async throws
 }
