@@ -55,22 +55,24 @@ final class AuthService: AuthServiceProtocol, Sendable {
     }
 
     func logout() async throws {
+        // Logout is a local security boundary. Even if the server is
+        // unreachable, this device must not retain a reusable session.
+        defer { try? sessionService.clear() }
         let request = APIRequest<NeverBody>(
             path: AuthEndpoints.logout,
             method: .POST
         )
 
         try await client.sendVoid(request)
-        try sessionService.clear()
     }
 
     func logoutAll() async throws {
+        defer { try? sessionService.clear() }
         let request = APIRequest<NeverBody>(
             path: AuthEndpoints.logoutAll,
             method: .POST
         )
 
         try await client.sendVoid(request)
-        try sessionService.clear()
     }
 }

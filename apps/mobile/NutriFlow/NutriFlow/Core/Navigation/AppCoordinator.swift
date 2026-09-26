@@ -16,8 +16,7 @@ final class AppCoordinator {
         ) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
-                self.container.activitySync.stop()
-                await self.container.cacheService.clear()
+                self.clearLocalSessionState()
                 self.route = .auth
             }
         }
@@ -70,6 +69,10 @@ final class AppCoordinator {
         case .main: .main
         }
 
+        if case .auth = route {
+            clearLocalSessionState()
+        }
+
         if case .main = route {
             container.activitySync.start()
         }
@@ -77,7 +80,7 @@ final class AppCoordinator {
 
     func goToAuth() {
         print("[Coordinator] goToAuth")
-        container.activitySync.stop()
+        clearLocalSessionState()
         route = .auth
     }
 
@@ -88,6 +91,13 @@ final class AppCoordinator {
     func goToMain() {
         container.activitySync.start()
         route = .main
+    }
+
+    private func clearLocalSessionState() {
+        container.activitySync.stop()
+        WorkoutViewModel.resetSessionSyncState()
+        SleepSyncCoordinator.resetSessionSyncState()
+        Task { await container.cacheService.clear() }
     }
 
     deinit {

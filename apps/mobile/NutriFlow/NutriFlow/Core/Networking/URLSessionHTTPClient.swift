@@ -90,7 +90,7 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         _ request: APIRequest<Body>,
         retryOn401: Bool
     ) async throws -> (Data, HTTPURLResponse) {
-        let urlRequest = try buildURLRequest(from: request)
+        let urlRequest = try await buildURLRequest(from: request)
         let (data, response) = try await perform(urlRequest)
 
         if retryOn401,
@@ -139,6 +139,8 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
         urlRequest.httpBody = body
 
+        try await adapt(&urlRequest)
+
         let (responseData, response) = try await perform(urlRequest)
 
         if retryOn401,
@@ -172,9 +174,9 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
 
             return (data, httpResponse)
         } catch is CancellationError {
-            throw APIError.cancelled
+            throw Self.mapCancellation()
         } catch let error as URLError where error.code == .cancelled {
-            throw APIError.cancelled
+            throw Self.mapCancellation()
         } catch let error as URLError {
             throw APIError.transport(code: error.code)
         } catch let error as APIError {
@@ -182,6 +184,14 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         } catch {
             throw APIError.unknown
         }
+    }
+
+    // iOS отдаёт URLError.cancelled в двух разных ситуациях: Task был
+    // отменён намеренно (смена экрана, новый запрос) и соединение оборвалось
+    // системой (потеря сети, app switch, смена интерфейса). Отличать их можно
+    // только по Task.isCancelled: при обрыве отмена не запрашивалась.
+    private static func mapCancellation() -> APIError {
+        Task.isCancelled ? .cancelled : .transport(code: .networkConnectionLost)
     }
 
     private func shouldRetryAfter401(path: String) async throws -> Bool {
@@ -253,7 +263,7 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
 
     private func buildURLRequest<Body: Encodable & Sendable>(
         from request: APIRequest<Body>
-    ) throws -> URLRequest {
+    ) async throws -> URLRequest {
         guard var components = URLComponents(string: APIConfig.baseURL + request.path) else {
             throw APIError.invalidURL
         }
@@ -282,6 +292,13 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
             urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
 
+        try await adapt(&urlRequest)
         return urlRequest
+    }
+
+    private func adapt(_ request: inout URLRequest) async throws {
+        for interceptor in interceptors {
+            try await interceptor.adapt(&request)
+        }
     }
 }
