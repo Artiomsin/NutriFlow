@@ -102,6 +102,11 @@ struct MainTabView: View {
                 Task { await homeVM.refreshGoalsIfNeeded() }
             }
         }
+        .onChange(of: progressRefreshState.revision) { _, _ in
+            // Weight, food, water, and goals mutations share this revision.
+            // Keep Home's separate GoalsViewModel current even while Home is hidden.
+            Task { await homeVM.refreshGoalsIfNeeded() }
+        }
         .onAppear {
             trackActiveTab(selectedTab)
         }

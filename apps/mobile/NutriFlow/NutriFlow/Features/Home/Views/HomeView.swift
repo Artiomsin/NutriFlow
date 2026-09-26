@@ -127,6 +127,8 @@ struct HomeView: View {
                     state: homeViewModel.goalsVM.personalizationState,
                     goals: homeViewModel.userGoals,
                     isProcessing: homeViewModel.goalsVM.isProcessingPersonalization,
+                    error: homeViewModel.goalsVM.personalizationError,
+                    onRetry: { homeViewModel.goalsVM.retryPersonalization() },
                     onRequest: {
                         Task { await homeViewModel.goalsVM.requestPersonalization() }
                     },
@@ -145,11 +147,14 @@ struct HomeView: View {
                     }
                     .padding(.horizontal, AppSpacing.paddingHorizontal)
                 } else {
-                    ActivityCard(vm: homeViewModel.activityVM,stepGoal: homeViewModel.userGoals?.dailyStepsGoal, activeCaloriesGoal: homeViewModel.userGoals?.dailyActiveCaloriesGoal
+                    ActivityCard(vm: homeViewModel.activityVM, stepGoal: homeViewModel.userGoals?.dailyStepsGoal, activeCaloriesGoal: homeViewModel.userGoals?.dailyActiveCaloriesGoal, onConnect: {
+                        Task { await homeViewModel.connectHealth() }
+                    }
                     )
                     .padding(.horizontal, AppSpacing.paddingHorizontal)
                     LastWorkoutCard(
                         workout: homeViewModel.workoutVM.lastWorkout,
+                        state: homeViewModel.workoutVM.lastWorkoutState,
                         healthAccessDenied: homeViewModel.workoutVM.healthAccessDenied,
                         onOpenSettings: {
                             homeViewModel.workoutVM.openSettings()
@@ -159,6 +164,9 @@ struct HomeView: View {
                             tabBarState.isTabBarHidden = true
                             navPath.append(HomeNavRoute.workoutHistory)
                             print("[Nav] appended workoutHistory, path=\(navPath)")
+                        },
+                        onRetry: {
+                            Task { await homeViewModel.workoutVM.loadLatest() }
                         },
                         weeklyWorkoutsGoal: homeViewModel.userGoals?.weeklyWorkoutsGoal,
                         weeklyWorkoutMinutesGoal: homeViewModel.userGoals?.weeklyWorkoutMinutesGoal,
@@ -296,7 +304,8 @@ private struct DailySummarySectionView: View {
     var body: some View {
         DailySummarySection(
             state: homeViewModel.dailySummaryState,
-            goals: homeViewModel.userGoals
+            goals: homeViewModel.userGoals,
+            onRetry: { Task { await homeViewModel.loadDashboardSummary() } }
         )
         .padding(.horizontal, AppSpacing.paddingHorizontal)
         
@@ -370,7 +379,8 @@ extension HomeFactory {
                 createdAt: "2026-09-17T08:00:00Z", expiresAt: "2026-09-24T08:00:00Z",
                 acceptedAt: nil, dismissedAt: nil
             ),
-            personalizationDue: false
+            personalizationDue: false,
+            nextAvailableAt: nil
         )
         
         let dailySummaryVM = DailySummaryState.loaded(DailySummary(

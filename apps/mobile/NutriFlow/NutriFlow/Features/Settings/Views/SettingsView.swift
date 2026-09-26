@@ -296,6 +296,14 @@ struct SettingsView: View {
         }
         .padding(.horizontal, AppSpacing.paddingHorizontal)
         .padding(.vertical, 12)
+
+        if let unitsError = viewModel.unitsError {
+            ErrorView(
+                error: unitsError,
+                onRetry: { Task { await viewModel.updatePreferredUnits() } }
+            )
+            .padding(.horizontal, AppSpacing.paddingHorizontal)
+        }
     }
 }
 

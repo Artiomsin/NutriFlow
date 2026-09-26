@@ -1,6 +1,6 @@
 import Foundation
 
-struct UserGoals: Codable, Sendable {
+struct UserGoals: Codable, Sendable, Equatable {
     let id: String?
     let userId: String?
     let dailyCaloriesGoal: Int?
@@ -85,6 +85,7 @@ struct GoalRecommendation: Codable, Sendable {
 struct PersonalizationState: Codable, Sendable {
     let pending: GoalRecommendation?
     let personalizationDue: Bool
+    let nextAvailableAt: String?
 }
 
 struct DismissResult: Codable, Sendable {
@@ -106,13 +107,14 @@ struct GoalHistoryEntry: Codable, Sendable {
 enum PersonalizeResult: Decodable, Sendable {
     case created(GoalRecommendation)
     case pendingExists(GoalRecommendation)
-    case notDue(lastEvaluationAt: String?)
+    case notDue(lastEvaluationAt: String?, nextAvailableAt: String?)
     case insufficientData
 
     private enum CodingKeys: String, CodingKey {
         case status
         case recommendation
         case lastEvaluationAt
+        case nextAvailableAt
     }
 
     private enum StatusValue: String, Decodable {
@@ -135,7 +137,8 @@ enum PersonalizeResult: Decodable, Sendable {
             )
         case .notDue:
             self = .notDue(
-                lastEvaluationAt: try? container.decode(String.self, forKey: .lastEvaluationAt)
+                lastEvaluationAt: try? container.decode(String.self, forKey: .lastEvaluationAt),
+                nextAvailableAt: try? container.decode(String.self, forKey: .nextAvailableAt)
             )
         case .insufficientData:
             self = .insufficientData

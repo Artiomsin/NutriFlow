@@ -15,15 +15,13 @@ struct ProgressDashboardView: View {
     @State private var isInitialProgressLoading = false
     @State private var showWeightEntry = false
     @State private var weightInput = ""
-    @State private var weightEntryError: String?
+    @State private var weightEntryError: AppError?
     @State private var isRecordingWeight = false
     @State private var showWeightHistory = false
     @State private var pendingWeightDeletion: WeightLog?
     @State private var isDeletingWeight = false
-    @State private var weightHistoryError: String?
 
     var body: some View {
-        let _ = print("ProgressDashboardView body")
         ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
                 header
@@ -85,29 +83,23 @@ struct ProgressDashboardView: View {
                 goals: chartVM.selectedDateGoals,
                 state: chartVM.dayDetailState,
                 activity: chartVM.selectedDateActivity,
-                workouts: chartVM.selectedDateWorkouts
+                workouts: chartVM.selectedDateWorkouts,
+                warning: chartVM.dayDetailWarning,
+                onRetry: { Task { await chartVM.loadDayDetail(date: chartVM.selectedDateStr) } }
             )
         }
         .sheet(isPresented: $showWeightEntry) {
-            recordWeightSheet
+            WeightEntrySheet(
+                weightInput: $weightInput,
+                error: $weightEntryError,
+                isSaving: isRecordingWeight,
+                latestWeightKg: chartVM.weightLatestKg,
+                preferredUnits: prefsStore.preferredUnits,
+                onSave: recordWeight
+            )
         }
         .sheet(isPresented: $showWeightHistory) {
             weightHistorySheet
-        }
-        .confirmationDialog(
-            "Delete this weight record?",
-            isPresented: Binding(
-                get: { pendingWeightDeletion != nil },
-                set: { if !$0 { pendingWeightDeletion = nil } }
-            ),
-            titleVisibility: .visible
-        ) {
-            Button("Delete", role: .destructive) {
-                deleteSelectedWeight()
-            }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("The chart and calculated goals will be updated if this is today’s current record.")
         }
     }
 
@@ -188,77 +180,41 @@ struct ProgressDashboardView: View {
         case .empty:
             emptyState
         case .error(let error):
-            ErrorMessageView(text: error.localizedDescription)
+            ErrorView(error: error) {
+                Task { await analyticsVM.refreshData() }
+            }
         }
     }
 
     private var weightCard: some View {
-        WeightCardView(
-            points: chartVM.weightPoints,
-            latestKg: chartVM.weightLatestKg,
-            deltaKg: chartVM.weightDeltaKg,
-            weeklyRateKg: chartVM.weightWeeklyRateKg,
-            periodLabel: chartVM.weightPeriodLabel,
-            onRecordWeight: {
-                weightInput = ""
-                weightEntryError = nil
-                showWeightEntry = true
-            },
-            onManageWeights: {
-                weightHistoryError = nil
-                showWeightHistory = true
-            }
-        )
-    }
-
-    private var recordWeightSheet: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Record weight")
-                    .font(.title2.weight(.semibold))
-                    .foregroundColor(AppColors.textPrimary)
-
-                Text("Your current weight updates today’s point and your calculated goals.")
-                    .font(.footnote)
-                    .foregroundColor(AppColors.textSecondary)
-
-                TextField(
-                    "Weight (\(UnitConversion.bodyWeightUnitLabel(preferred: prefsStore.preferredUnits)))",
-                    text: $weightInput
-                )
-                .keyboardType(.decimalPad)
-                .textFieldStyle(.roundedBorder)
-
-                if let weightEntryError {
-                    Text(weightEntryError)
-                        .font(.footnote)
-                        .foregroundColor(.red)
-                }
-
-                Button(isRecordingWeight ? "Saving…" : "Save") {
-                    recordWeight()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(AppColors.accent)
-                .disabled(isRecordingWeight)
-
-                Spacer()
-            }
-            .padding(AppSpacing.paddingHorizontal)
-            .navigationTitle("Weight")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { showWeightEntry = false }
+        VStack(spacing: 8) {
+            if let weightError = chartVM.weightError {
+                ErrorView(error: weightError) {
+                    Task { await chartVM.loadWeightSummary() }
                 }
             }
+            WeightCardView(
+                points: chartVM.weightPoints,
+                latestKg: chartVM.weightLatestKg,
+                deltaKg: chartVM.weightDeltaKg,
+                weeklyRateKg: chartVM.weightWeeklyRateKg,
+                periodLabel: chartVM.weightPeriodLabel,
+                onRecordWeight: {
+                    weightInput = ""
+                    weightEntryError = nil
+                    showWeightEntry = true
+                },
+                onManageWeights: {
+                    chartVM.weightHistoryError = nil
+                    showWeightHistory = true
+                }
+            )
         }
-        .presentationDetents([.medium])
     }
 
     private func recordWeight() {
         guard let displayWeight = UnitConversion.parseDecimal(weightInput) else {
-            weightEntryError = "Enter a valid weight."
+            weightEntryError = .validation(message: "Enter a valid weight.")
             return
         }
 
@@ -267,7 +223,7 @@ struct ProgressDashboardView: View {
             preferred: prefsStore.preferredUnits
         )
         guard (20...400).contains(weightKg) else {
-            weightEntryError = "Enter a weight between 20 and 400 kg."
+            weightEntryError = .validation(message: "Enter a weight between 20 and 400 kg.")
             return
         }
 
@@ -282,7 +238,7 @@ struct ProgressDashboardView: View {
                 (_, _) = await (analytics, goals)
                 showWeightEntry = false
             } catch {
-                weightEntryError = error.localizedDescription
+                weightEntryError = ErrorMapper.map(error)
             }
         }
     }
@@ -290,19 +246,27 @@ struct ProgressDashboardView: View {
     private var weightHistorySheet: some View {
         NavigationStack {
             List {
-                if let weightHistoryError {
-                    Text(weightHistoryError)
-                        .font(.footnote)
-                        .foregroundColor(.red)
+                if let weightHistoryError = chartVM.weightHistoryError {
+                    ErrorView(error: weightHistoryError) {
+                        Task { await chartVM.loadWeightHistory() }
+                    }
                 }
 
                 ForEach(chartVM.weightEntries.reversed()) { entry in
                     HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(entry.entryDate)
+                        Image(systemName: entry.source == "initial" ? "flag.fill" : "scalemass.fill")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundColor(entry.source == "initial" ? AppColors.textSecondary : AppColors.accent)
+                            .frame(width: 30, height: 30)
+                            .background((entry.source == "initial" ? AppColors.textSecondary : AppColors.accent).opacity(0.12))
+                            .clipShape(Circle())
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(formattedWeightDate(entry.entryDate))
+                                .font(.subheadline.weight(.semibold))
                                 .foregroundColor(AppColors.textPrimary)
                             Text(entry.source == "initial" ? "Initial weight" : "Manual record")
-                                .font(.footnote)
+                                .font(.caption)
                                 .foregroundColor(AppColors.textSecondary)
                         }
 
@@ -313,6 +277,8 @@ struct ProgressDashboardView: View {
                             preferred: prefsStore.preferredUnits
                         )
                         Text("\(displayWeight.formatted(.number.precision(.fractionLength(0...1)))) \(UnitConversion.bodyWeightUnitLabel(preferred: prefsStore.preferredUnits))")
+                            .font(.subheadline.weight(.semibold))
+                            .monospacedDigit()
                             .foregroundColor(AppColors.textPrimary)
 
                         if entry.source != "initial" {
@@ -327,6 +293,8 @@ struct ProgressDashboardView: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(AppColors.background)
             .navigationTitle("Weight records")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -336,6 +304,21 @@ struct ProgressDashboardView: View {
             }
             .task {
                 await chartVM.loadWeightHistory()
+            }
+            .confirmationDialog(
+                "Delete this weight record?",
+                isPresented: Binding(
+                    get: { pendingWeightDeletion != nil },
+                    set: { if !$0 { pendingWeightDeletion = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Delete", role: .destructive) {
+                    deleteSelectedWeight()
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("The chart and automatic goals will be updated if this is today’s current record.")
             }
         }
     }
@@ -354,9 +337,17 @@ struct ProgressDashboardView: View {
                 async let goals: () = goalsVM.loadGoals()
                 (_, _) = await (analytics, goals)
             } catch {
-                weightHistoryError = error.localizedDescription
+                chartVM.weightHistoryError = ErrorMapper.map(error)
             }
         }
+    }
+
+    private func formattedWeightDate(_ value: String) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale.current
+        formatter.dateFormat = "yyyy-MM-dd"
+        guard let date = formatter.date(from: String(value.prefix(10))) else { return value }
+        return date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
     }
 
     @ViewBuilder
@@ -390,8 +381,10 @@ struct ProgressDashboardView: View {
                 }
             }
             .allowsHitTesting(!chartVM.isPeriodLoading)
-        case .error:
-            EmptyView()
+        case .error(let error):
+            ErrorView(error: error) {
+                Task { await chartVM.refreshData() }
+            }
         }
     }
 
@@ -464,6 +457,115 @@ private struct RingItem: Identifiable {
                 .multilineTextAlignment(.center)
         }
         .padding(.vertical, 40)
+    }
+}
+
+private struct WeightEntrySheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var weightInput: String
+    @Binding var error: AppError?
+
+    let isSaving: Bool
+    let latestWeightKg: Double?
+    let preferredUnits: PreferredUnits
+    let onSave: () -> Void
+
+    @FocusState private var isWeightFieldFocused: Bool
+
+    private var unit: String {
+        UnitConversion.bodyWeightUnitLabel(preferred: preferredUnits)
+    }
+
+    private var lastWeightText: String? {
+        guard let latestWeightKg else { return nil }
+        let value = UnitConversion.bodyWeightToDisplay(kg: latestWeightKg, preferred: preferredUnits)
+        return "\(value.formatted(.number.precision(.fractionLength(0...1)))) \(unit)"
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Record weight", systemImage: "scalemass.fill")
+                        .font(.title3.weight(.bold))
+                        .foregroundColor(AppColors.textPrimary)
+                    Text("This updates today’s point. Automatic goals will use the new current weight.")
+                        .font(.footnote)
+                        .foregroundColor(AppColors.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("TODAY’S WEIGHT")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundColor(AppColors.textTertiary)
+
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        TextField("0", text: $weightInput)
+                            .focused($isWeightFieldFocused)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.leading)
+                            .font(.system(size: 44, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundColor(AppColors.textPrimary)
+                            .tint(AppColors.accent)
+
+                        Text(unit)
+                            .font(.title3.weight(.semibold))
+                            .foregroundColor(AppColors.textSecondary)
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 14)
+                    .background(AppColors.surfaceSecondary)
+                    .clipShape(RoundedRectangle(cornerRadius: AppRadius.medium))
+                }
+
+                if let lastWeightText {
+                    Label("Last recorded: \(lastWeightText)", systemImage: "clock.arrow.circlepath")
+                        .font(.footnote)
+                        .foregroundColor(AppColors.textSecondary)
+                }
+
+                if let error {
+                    ErrorView(error: error)
+                }
+
+                Spacer(minLength: 0)
+
+                Button(action: onSave) {
+                    HStack(spacing: 8) {
+                        if isSaving {
+                            ProgressView().tint(AppColors.accentOnPrimary)
+                        } else {
+                            Image(systemName: "checkmark")
+                        }
+                        Text(isSaving ? "Saving…" : "Save today’s weight")
+                    }
+                    .font(.headline)
+                    .foregroundColor(AppColors.accentOnPrimary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(AppColors.accent)
+                    .clipShape(RoundedRectangle(cornerRadius: AppRadius.medium))
+                }
+                .disabled(isSaving || weightInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .opacity(isSaving || weightInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.55 : 1)
+            }
+            .padding(AppSpacing.paddingHorizontal)
+            .background(AppColors.background)
+            .navigationTitle("Weight")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+            .onAppear {
+                isWeightFieldFocused = true
+            }
+        }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
     }
 }
 

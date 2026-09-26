@@ -199,41 +199,101 @@ struct GoalPersonalizationSection: View {
     let state: PersonalizationState?
     let goals: UserGoals?
     let isProcessing: Bool
+    let error: AppError?
+    let onRetry: () -> Void
     let onRequest: () -> Void
     let onAccept: (GoalRecommendation) -> Void
     let onDismiss: (GoalRecommendation) -> Void
 
     var body: some View {
-        if let pending = state?.pending {
-            GoalRecommendationCard(
-                recommendation: pending,
-                currentGoals: goals,
-                isProcessing: isProcessing,
-                onAccept: { onAccept(pending) },
-                onDismiss: { onDismiss(pending) }
-            )
-        } else if state?.personalizationDue == true {
-            Button {
-                onRequest()
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "sparkles")
-                        .foregroundColor(AppColors.accent)
-                    Text("Update my goals to match my stats")
-                        .font(.subheadline)
-                        .foregroundColor(AppColors.textPrimary)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption2)
-                        .foregroundColor(AppColors.textSecondary)
-                }
-                .padding()
-                .frame(maxWidth: .infinity)
-                .appGlassSurface(level: .inset)
+        VStack(spacing: 12) {
+            if let error {
+                ErrorView(error: error, onRetry: onRetry)
             }
-            .disabled(isProcessing)
-            .opacity(isProcessing ? 0.6 : 1)
+            if let pending = state?.pending {
+                GoalRecommendationCard(
+                    recommendation: pending,
+                    currentGoals: goals,
+                    isProcessing: isProcessing,
+                    onAccept: { onAccept(pending) },
+                    onDismiss: { onDismiss(pending) }
+                )
+            } else if state?.personalizationDue == true {
+                Button {
+                    onRequest()
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "sparkles")
+                            .foregroundColor(AppColors.accent)
+                        Text("Update my goals to match my stats")
+                            .font(.subheadline)
+                            .foregroundColor(AppColors.textPrimary)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption2)
+                            .foregroundColor(AppColors.textSecondary)
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .appGlassSurface(level: .inset)
+                }
+                .disabled(isProcessing)
+                .opacity(isProcessing ? 0.6 : 1)
+            } else if let nextAvailableAt = state?.nextAvailableAt {
+                NextGoalReviewCard(nextAvailableAt: nextAvailableAt)
+            }
         }
+    }
+}
+
+private struct NextGoalReviewCard: View {
+    let nextAvailableAt: String
+
+    private var availableDate: Date? {
+        let withFractionalSeconds = ISO8601DateFormatter()
+        withFractionalSeconds.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return withFractionalSeconds.date(from: nextAvailableAt)
+            ?? ISO8601DateFormatter().date(from: nextAvailableAt)
+    }
+
+    private var dateText: String {
+        guard let availableDate else { return "soon" }
+        return availableDate.formatted(.dateTime.day().month(.wide))
+    }
+
+    private var relativeText: String? {
+        guard let availableDate else { return nil }
+        return RelativeDateTimeFormatter().localizedString(
+            for: availableDate,
+            relativeTo: Date()
+        )
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "clock.badge.checkmark")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppColors.accent)
+                .frame(width: 32, height: 32)
+                .background(AppColors.accent.opacity(0.12))
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Next goal review")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppColors.textPrimary)
+                Text("Available (dateText)" + (relativeText.map { " · \($0)" } ?? ""))
+                    .font(.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+                Text("We need a little more recent data before creating another recommendation.")
+                    .font(.caption)
+                    .foregroundStyle(AppColors.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .appGlassSurface()
     }
 }
 
@@ -287,9 +347,11 @@ private extension NumberFormatter {
     )
     return VStack(spacing: 20) {
         GoalPersonalizationSection(
-            state: PersonalizationState(pending: rec, personalizationDue: false),
+            state: PersonalizationState(pending: rec, personalizationDue: false, nextAvailableAt: nil),
             goals: goals,
             isProcessing: false,
+            error: nil,
+            onRetry: {},
             onRequest: {},
             onAccept: { _ in },
             onDismiss: { _ in }
@@ -302,9 +364,11 @@ private extension NumberFormatter {
 
 #Preview("Due, no pending") {
     GoalPersonalizationSection(
-        state: PersonalizationState(pending: nil, personalizationDue: true),
+        state: PersonalizationState(pending: nil, personalizationDue: true, nextAvailableAt: nil),
         goals: nil,
         isProcessing: false,
+        error: nil,
+        onRetry: {},
         onRequest: {},
         onAccept: { _ in },
         onDismiss: { _ in }

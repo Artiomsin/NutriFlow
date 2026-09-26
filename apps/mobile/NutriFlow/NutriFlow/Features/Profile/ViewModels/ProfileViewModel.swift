@@ -19,9 +19,12 @@ final class ProfileViewModel {
     var goal: Goal?
     var activityLevel: ActivityLevel?
     var preferredUnits: PreferredUnits = .default
+    var saveError: AppError?
+    var unitsError: AppError?
 
     private var originalWeightKg: Double?
     private var originalWeightText: String?
+    @ObservationIgnored private var lastSavedUnits: PreferredUnits = .default
 
     @ObservationIgnored private let authService: AuthServiceProtocol
     @ObservationIgnored private let profileService: ProfileServiceProtocol
@@ -40,7 +43,9 @@ final class ProfileViewModel {
         activitySync: ActivitySyncProtocol? = nil,
         analyticsTracker: AnalyticsTracking? = nil
     ) {
+        #if DEBUG
         print("ProfileViewModel init")
+        #endif
         self.coordinator = coordinator
         self.authService = authService
         self.profileService = profileService
@@ -50,7 +55,9 @@ final class ProfileViewModel {
         self.analyticsTracker = analyticsTracker
     }
 
+    #if DEBUG
     deinit { print("ProfileViewModel deinit") }
+    #endif
 
     func trackScreen(_ screen: String) {
         analyticsTracker?.track(.screenView(screen: screen))
@@ -110,11 +117,15 @@ final class ProfileViewModel {
             await cacheService?.remove("profile_empty")
             state = .loaded(profileResult)
 
-        } catch let error as APIError {
-            if case .unauthorized = error {
-                coordinator?.goToAuth()
-            }
-            if case .notFound = error {
+        } catch {
+            let mapped = ErrorMapper.map(error)
+            routeAuth(mapped)
+
+            // A cancelled task is not a failure, so it must not overwrite the state
+            // with an error the terminal switch would render as an empty view.
+            if mapped == .cancelled { return }
+
+            if case .notFound = mapped {
                 try? await cacheService?.set("profile_empty", true, ttl: 1800)
                 clearForm()
                 state = .empty
@@ -132,31 +143,15 @@ final class ProfileViewModel {
                         clearForm()
                         state = .empty
                     } else {
-                        state = .error(error)
+                        state = .error(mapped)
                     }
-                }
-            }
-        } catch {
-            if let cachedUser: User = try? await cacheService?.get("user", ignoreTTL: true),
-               let cachedProfile: UserProfile = try? await cacheService?.get("profile", ignoreTTL: true) {
-                email = cachedUser.email
-                firstName = cachedUser.firstName
-                lastName = cachedUser.lastName
-                mapProfile(cachedProfile)
-                state = .loaded(cachedProfile)
-            } else {
-                let isEmptyFlag: Bool? = try? await cacheService?.get("profile_empty", ignoreTTL: true)
-                if isEmptyFlag == true {
-                    clearForm()
-                    state = .empty
-                } else {
-                    state = .error(error)
                 }
             }
         }
     }
 
-    func updateUser() async {
+    @discardableResult
+    func updateUser() async -> AppError? {
         do {
             let user = try await userService.updateMe(
                 email: email.isEmpty ? nil : email,
@@ -170,9 +165,12 @@ final class ProfileViewModel {
             lastName = user.lastName
             await cacheService?.remove("user")
             await cacheService?.remove("profile")
+            return nil
 
         } catch {
-            state = .error(error)
+            let mapped = ErrorMapper.map(error)
+            routeAuth(mapped)
+            return mapped
         }
     }
 
@@ -185,7 +183,7 @@ final class ProfileViewModel {
               let gender,
               let goal,
               let activityLevel else {
-            state = .error(ProfileFormError.requiredFields)
+            state = .error(.validation(message: "Fill in weight, height, age, gender, goal, and activity level."))
             return
         }
 
@@ -209,13 +207,14 @@ final class ProfileViewModel {
             coordinator?.goToMain()
 
         } catch {
-            state = .error(error)
+            let mapped = ErrorMapper.map(error)
+            routeAuth(mapped)
+            state = .error(mapped)
         }
     }
 
-    func updateProfile() async {
-        state = .saving(nil)
-
+    @discardableResult
+    func updateProfile() async -> AppError? {
         do {
             let profile = try await profileService.updateMyProfile(
                 height: canonicalHeight(),
@@ -231,14 +230,36 @@ final class ProfileViewModel {
             await cacheService?.remove("profile")
             await cacheService?.remove("goals")
             await invalidateAggregateCaches()
- 
+            return nil
+
         } catch {
+            let mapped = ErrorMapper.map(error)
+            routeAuth(mapped)
+            return mapped
+        }
+    }
+
+    /// Saves the user block, then the profile block. Stops at the first failure so a
+    /// half-applied edit never hides behind a dismissed form.
+    func saveAll() async {
+        state = .saving(nil)
+        saveError = nil
+
+        if let error = await updateUser() {
+            saveError = error
+            state = .error(error)
+            return
+        }
+
+        if let error = await updateProfile() {
+            saveError = error
             state = .error(error)
         }
     }
 
     func updatePreferredUnits() async {
         let newPrefs = preferredUnits
+        unitsError = nil
         do {
             _ = try await profileService.updateMyProfile(
                 height: nil,
@@ -248,8 +269,17 @@ final class ProfileViewModel {
                 activityLevel: nil,
                 preferredUnits: newPrefs
             )
+            lastSavedUnits = newPrefs
             await cacheService?.remove("profile")
-        } catch {}
+        } catch {
+            let mapped = ErrorMapper.map(error)
+            routeAuth(mapped)
+            // SettingsView writes PreferencesStore before calling this method, so the
+            // rollback has to cover both places or the toggle snaps back on next launch.
+            preferredUnits = lastSavedUnits
+            PreferencesStore.shared.preferredUnits = lastSavedUnits
+            unitsError = mapped
+        }
     }
 
     func logout() async {
@@ -274,10 +304,18 @@ final class ProfileViewModel {
             try? await cacheService?.set("profile_empty", true, ttl: 1800)
 
         } catch {
-            state = .error(error)
+            let mapped = ErrorMapper.map(error)
+            routeAuth(mapped)
+            state = .error(mapped)
         }
     }
 
+    private func routeAuth(_ appError: AppError) {
+        if appError == .unauthorized {
+            coordinator?.goToAuth()
+        }
+    }
+    
     private func mapProfile(_ profile: UserProfile) {
         let units = profile.preferredUnits ?? .default
         let formattedWeight = profile.weight.map { Self.formatBodyWeight(kg: $0, units: units) } ?? ""
@@ -290,6 +328,7 @@ final class ProfileViewModel {
         goal = profile.goal
         activityLevel = profile.activityLevel
         preferredUnits = profile.preferredUnits ?? .default
+        lastSavedUnits = preferredUnits
     }
 
     /// Display value (kg or lb) typed by the user -> canonical kg sent to the backend.
@@ -337,13 +376,5 @@ final class ProfileViewModel {
     
     func setPreviewState(_ newState: ProfileState) {
         state = newState
-    }
-}
-
-private enum ProfileFormError: LocalizedError {
-    case requiredFields
-
-    var errorDescription: String? {
-        "Fill in weight, height, age, gender, goal, and activity level."
     }
 }

@@ -165,4 +165,24 @@ struct UnitConversion {
         let value = preferred.weight == .imperial ? grams / gramsPerOunce : grams
         return value.formatted(.number.precision(.fractionLength(0...2)))
     }
+
+    /// Re-expresses a user-entered amount when the preferred unit system changes,
+    /// keeping the physical amount identical. Returns the input untouched when the
+    /// relevant dimension did not change, or when the text cannot be parsed — so a
+    /// volume-only switch never rounds a weight field the user is still editing.
+    static func convertWeightText(_ text: String, from old: PreferredUnits, to new: PreferredUnits, baseUnit: String = "g") -> String {
+        let dimensionChanged = isVolumeUnit(baseUnit) ? old.volume != new.volume : old.weight != new.weight
+        guard dimensionChanged, let value = parseDecimal(text) else { return text }
+        let canonical = grams(fromDisplay: value, baseUnit: baseUnit, preferred: old)
+        let display = displayValue(fromGrams: canonical, baseUnit: baseUnit, preferred: new)
+        return formatDisplayValue(display, displayUnit: displayUnit(for: baseUnit, preferred: new))
+    }
+
+    /// Same as `convertWeightText`, for an energy value moving between kcal and kJ.
+    static func convertEnergyText(_ text: String, from old: PreferredUnits, to new: PreferredUnits) -> String {
+        guard old.energy != new.energy, let value = parseDecimal(text) else { return text }
+        let kcal = energyToKcal(value, preferred: old)
+        let display = new.energy == .kj ? kcal * kjPerKcal : kcal
+        return display.formatted(.number.precision(.fractionLength(0...2)))
+    }
 }

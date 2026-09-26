@@ -121,16 +121,25 @@ struct EditProfileView: View {
                         }
                     }
 
+                    if let saveError = viewModel.saveError {
+                        ErrorView(
+                            error: saveError,
+                            onRetry: { Task { await viewModel.saveAll() } }
+                        )
+                    }
+
                     PrimaryButton(title: "Save") {
 
                         dismissKeyboard()
 
                         Task {
-                            await viewModel.updateUser()
-                            await viewModel.updateProfile()
-                            dismiss()
+                            await viewModel.saveAll()
+                            if viewModel.saveError == nil {
+                                dismiss()
+                            }
                         }
                     }
+                    .disabled(viewModel.state.isSaving)
                     .padding(.top, 10)
                 }
                 .padding(20)

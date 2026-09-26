@@ -6,6 +6,9 @@ import Observation
 final class GoalsViewModel {
     var state: GoalsState = .idle
     var personalizationState: PersonalizationState?
+    var personalizationError: AppError?
+    var saveError: AppError?
+    var historyError: AppError?
     var isProcessingPersonalization = false
     
     @ObservationIgnored private let service: GoalsServiceProtocol
@@ -37,22 +40,35 @@ final class GoalsViewModel {
             let goals = try await service.getGoals()
             try? await cacheService?.set("goals", goals, ttl: 1800)
             state = .loaded(goals)
-        } catch let error as APIError {
-            if case .unauthorized = error {
-                coordinator?.goToAuth()
-            }
-            if let cached: UserGoals = try? await cacheService?.get("goals", ignoreTTL: true) {
-                state = .loaded(cached)
-            } else if case .loaded = state {} else {
-                state = .error(error)
-            }
         } catch {
             if let cached: UserGoals = try? await cacheService?.get("goals", ignoreTTL: true) {
                 state = .loaded(cached)
-            } else if case .loaded = state {} else {
-                state = .error(error)
+                return
+            }
+            let mapped = ErrorMapper.map(error)
+            routeAuth(mapped)
+            // A cancelled task is not a failure, so it must not overwrite the state
+            // with an error the terminal switch would render as an empty view.
+            if mapped == .cancelled { return }
+            if case .loaded = state {} else {
+                state = .error(mapped)
             }
         }
+    }
+
+    private func routeAuth(_ appError: AppError) {
+        if appError == .unauthorized {
+            coordinator?.goToAuth()
+        }
+    }
+
+    func retryGoals() {
+        Task { await loadGoals() }
+    }
+
+    func retryPersonalization() {
+        personalizationError = nil
+        Task { await loadPersonalization() }
     }
 
     func fitnessGoalRows(
@@ -122,24 +138,26 @@ final class GoalsViewModel {
         return Int((Double(weeklyGoal) * Double(days) / 7.0).rounded())
     }
     
-    func loadPersonalization() async {
-        if let cached: PersonalizationState = try? await cacheService?.get("goals_personalization") {
+    func loadPersonalization(forceNetwork: Bool = false) async {
+        if !forceNetwork,
+           let cached: PersonalizationState = try? await cacheService?.get("goals_personalization") {
             personalizationState = cached
+            personalizationError = nil
             return
         }
         do {
             let state = try await service.getPersonalizationState()
             try? await cacheService?.set("goals_personalization", state, ttl: 300)
             personalizationState = state
-        } catch let error as APIError {
-            if case .unauthorized = error { coordinator?.goToAuth() }
-            if let cached: PersonalizationState = try? await cacheService?.get("goals_personalization", ignoreTTL: true) {
-                personalizationState = cached
-            }
+            personalizationError = nil
         } catch {
             if let cached: PersonalizationState = try? await cacheService?.get("goals_personalization", ignoreTTL: true) {
                 personalizationState = cached
+                return
             }
+            let mapped = ErrorMapper.map(error)
+            routeAuth(mapped)
+            personalizationError = mapped == .cancelled ? nil : mapped
         }
     }
 
@@ -147,6 +165,7 @@ final class GoalsViewModel {
     func requestPersonalization() async -> PersonalizeResult? {
         guard !isProcessingPersonalization else { return nil }
         isProcessingPersonalization = true
+        personalizationError = nil
         defer { isProcessingPersonalization = false }
 
         do {
@@ -154,20 +173,18 @@ final class GoalsViewModel {
             await cacheService?.remove("goals_personalization")
             switch result {
             case .created(let rec), .pendingExists(let rec):
-                personalizationState = PersonalizationState(pending: rec, personalizationDue: false)
-            case .notDue:
-                personalizationState = PersonalizationState(
-                    pending: personalizationState?.pending,
-                    personalizationDue: false
-                )
+                personalizationState = PersonalizationState(pending: rec, personalizationDue: false, nextAvailableAt: nil)
+            case .notDue(_, let nextAvailableAt):
+                personalizationState = PersonalizationState(pending: nil, personalizationDue: false, nextAvailableAt: nextAvailableAt)
             case .insufficientData:
-                personalizationState = PersonalizationState(pending: nil, personalizationDue: true)
+                personalizationState = PersonalizationState(pending: nil, personalizationDue: true, nextAvailableAt: nil)
             }
+            personalizationError = nil
             return result
-        } catch let error as APIError {
-            if case .unauthorized = error { coordinator?.goToAuth() }
-            return nil
         } catch {
+            let mapped = ErrorMapper.map(error)
+            routeAuth(mapped)
+            personalizationError = mapped == .cancelled ? nil : mapped
             return nil
         }
     }
@@ -176,6 +193,7 @@ final class GoalsViewModel {
     func acceptRecommendation(_ recommendation: GoalRecommendation) async -> Bool {
         guard !isProcessingPersonalization else { return false }
         isProcessingPersonalization = true
+        personalizationError = nil
         defer { isProcessingPersonalization = false }
 
         do {
@@ -188,38 +206,57 @@ final class GoalsViewModel {
                 await cacheService?.remove("goals")
                 await loadGoals()
             }
-            personalizationState = PersonalizationState(pending: nil, personalizationDue: false)
             await cacheService?.remove("goals_personalization")
+            await cacheService?.remove("goals_history")
+            await loadPersonalization(forceNetwork: true)
             await cacheService?.remove("summary_today")
             await cacheService?.removeByPrefix("chart_summaries")
             await cacheService?.removeByPrefix("analytics_")
             progressRefreshState?.invalidate()
             return true
-        } catch let error as APIError {
-            if case .unauthorized = error { coordinator?.goToAuth() }
-            return false
         } catch {
+            let mapped = ErrorMapper.map(error)
+            routeAuth(mapped)
+            if mapped == .notFound {
+                await removeStaleRecommendation()
+                return false
+            }
+            personalizationError = mapped == .cancelled ? nil : mapped
             return false
         }
     }
+
+
     
     @discardableResult
     func dismissRecommendation(_ recommendation: GoalRecommendation) async -> Bool {
         guard !isProcessingPersonalization else { return false }
         isProcessingPersonalization = true
+        personalizationError = nil
         defer { isProcessingPersonalization = false }
 
         do {
             _ = try await service.dismissRecommendation(id: recommendation.id)
-            personalizationState = PersonalizationState(pending: nil, personalizationDue: false)
             await cacheService?.remove("goals_personalization")
+            await loadPersonalization(forceNetwork: true)
             return true
-        } catch let error as APIError {
-            if case .unauthorized = error { coordinator?.goToAuth() }
-            return false
         } catch {
+            let mapped = ErrorMapper.map(error)
+            routeAuth(mapped)
+            if mapped == .notFound {
+                await removeStaleRecommendation()
+                return false
+            }
+            personalizationError = mapped == .cancelled ? nil : mapped
             return false
         }
+    }
+
+    private func removeStaleRecommendation() async {
+        personalizationState = nil
+        personalizationError = nil
+        await cacheService?.remove("goals_personalization")
+        await loadPersonalization(forceNetwork: true)
     }
 
     func loadGoalHistory() async -> [GoalHistoryEntry] {
@@ -230,11 +267,14 @@ final class GoalsViewModel {
             let entries = try await service.getGoalHistory()
             try? await cacheService?.set("goals_history", entries, ttl: 300)
             return entries
-        } catch let error as APIError {
-            if case .unauthorized = error { coordinator?.goToAuth() }
-            return (try? await cacheService?.get("goals_history", ignoreTTL: true)) ?? []
         } catch {
-            return (try? await cacheService?.get("goals_history", ignoreTTL: true)) ?? []
+            if let cached: [GoalHistoryEntry] = try? await cacheService?.get("goals_history", ignoreTTL: true) {
+                return cached
+            }
+            let mapped = ErrorMapper.map(error)
+            routeAuth(mapped)
+            historyError = mapped == .cancelled ? nil : mapped
+            return []
         }
     }
 
@@ -252,6 +292,7 @@ final class GoalsViewModel {
         sleepMinMinutes: Int?,
         sleepMaxMinutes: Int?
     ) async -> Bool {
+        saveError = nil
         do {
             let updated = try await service.updateGoals(
                 calories: calories,
@@ -274,10 +315,32 @@ final class GoalsViewModel {
             await cacheService?.removeByPrefix("analytics_")
             progressRefreshState?.invalidate()
             return true
-        } catch let error as APIError {
-            if case .unauthorized = error { coordinator?.goToAuth() }
-            return false
         } catch {
+            let mapped = ErrorMapper.map(error)
+            routeAuth(mapped)
+            saveError = mapped == .cancelled ? nil : mapped
+            return false
+        }
+    
+    }
+
+    @discardableResult
+    func resetGoalsToAutomatic() async -> Bool {
+        saveError = nil
+        do {
+            let updated = try await service.resetGoalsToAutomatic()
+            state = .loaded(updated)
+            try? await cacheService?.set("goals", updated, ttl: 1800)
+            await cacheService?.remove("goals_history")
+            await cacheService?.remove("summary_today")
+            await cacheService?.removeByPrefix("chart_summaries")
+            await cacheService?.removeByPrefix("analytics_")
+            progressRefreshState?.invalidate()
+            return true
+        } catch {
+            let mapped = ErrorMapper.map(error)
+            routeAuth(mapped)
+            saveError = mapped == .cancelled ? nil : mapped
             return false
         }
     }

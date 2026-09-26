@@ -11,6 +11,6 @@ enum GoalsState {
     case idle
     case loading
     case loaded(UserGoals)
-    case error(Error)
+    case error(AppError)
 
 }

@@ -166,7 +166,8 @@ final class HomeViewModel {
                 dailySummaryState = cached.id == nil ? .empty : .loaded(cached)
             } else {
                 print("[HomeVM] loadDashboardSummary → FAIL, no cache | API \(error)")
-                dailySummaryState = .error(error)
+                let appError: AppError = ErrorMapper.map(error)
+                dailySummaryState = .error(appError)
             }
         } catch {
             if let cached: DailySummary = try? await cacheService?.get("summary_today", ignoreTTL: true) {
@@ -174,7 +175,8 @@ final class HomeViewModel {
                 dailySummaryState = cached.id == nil ? .empty : .loaded(cached)
             } else {
                 print("[HomeVM] loadDashboardSummary → FAIL, no cache | \(error)")
-                dailySummaryState = .error(error)
+                let appError: AppError = ErrorMapper.map(error)
+                dailySummaryState = .error(appError)
             }
         }
     }

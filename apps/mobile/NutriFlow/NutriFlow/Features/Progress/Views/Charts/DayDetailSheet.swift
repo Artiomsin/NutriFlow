@@ -8,6 +8,8 @@ struct DayDetailSheet: View {
     let state: DayDetailState
     let activity: ActivityDayPoint?
     let workouts: [HealthKitWorkout]
+    var warning: AppError? = nil
+    var onRetry: (() -> Void)? = nil
     @State private var prefsStore = PreferencesStore.shared
 
     var body: some View {
@@ -46,6 +48,9 @@ struct DayDetailSheet: View {
     @ViewBuilder
     private var loadedContent: some View {
         VStack(spacing: 20) {
+            if let warning, warning != .cancelled {
+                ErrorView(error: warning, onRetry: onRetry)
+            }
             if let goals { goalSection(goals) }
             if let activity { activitySection(activity, goals: goals) }
             workoutSection
@@ -54,20 +59,9 @@ struct DayDetailSheet: View {
         }
     }
 
-    private func errorView(_ error: Error) -> some View {
-        VStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.largeTitle)
-                .foregroundColor(AppColors.error)
-            Text("Couldn't load day details")
-                .font(.headline)
-                .foregroundColor(AppColors.textPrimary)
-            Text(error.localizedDescription)
-                .font(.footnote)
-                .foregroundColor(AppColors.textSecondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding(.vertical, 40)
+    private func errorView(_ error: AppError) -> some View {
+        ErrorView(error: error, onRetry: onRetry)
+            .padding(.vertical, 40)
     }
 
     private var formattedHeaderDate: String {
