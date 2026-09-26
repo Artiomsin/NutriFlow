@@ -63,11 +63,11 @@ export class SleepService {
     userId: string,
     startDate: string,
     endDate: string,
-    startDates: string[],
+    keptStartDates: string[],
   ) {
     const windowStart = new Date(startDate);
     const windowEnd = new Date(endDate);
-    const kept = startDates.map((d) => new Date(d));
+    const kept = keptStartDates.map((d) => new Date(d));
     const res = await db
       .delete(userSleep)
       .where(
@@ -86,10 +86,10 @@ export class SleepService {
   async getHistory(userId: string, from?: string, to?: string, limit = 200, offset = 0) {
     const conds = [eq(userSleep.userId, userId)];
     if (from) {
-      conds.push(gte(userSleep.startDate, new Date(`${from}T00:00:00.000Z`)));
+      conds.push(gte(userSleep.localDate, from));
     }
     if (to) {
-      conds.push(lte(userSleep.startDate, new Date(`${to}T23:59:59.999Z`)));
+      conds.push(lte(userSleep.localDate, to));
     }
 
     const where = and(...conds);

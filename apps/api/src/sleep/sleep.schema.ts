@@ -28,7 +28,9 @@ export const syncSleepSchema = z.object({
 export const deleteMissingSchema = z.object({
   startDate: z.string().regex(isoRegex),
   endDate: z.string().regex(isoRegex),
-  startDates: z.array(z.string().regex(isoRegex)).min(0).max(500),
+  // These are the nights HealthKit still has in the reconciliation window.
+  // Rows absent from this list are the only rows eligible for deletion.
+  keptStartDates: z.array(z.string().regex(isoRegex)).min(0).max(500),
 }).refine((value) => new Date(value.endDate) >= new Date(value.startDate), {
   message: 'endDate must not be before startDate',
   path: ['endDate'],

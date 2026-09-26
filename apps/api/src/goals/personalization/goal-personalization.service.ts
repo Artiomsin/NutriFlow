@@ -16,7 +16,7 @@ export const RECOMMENDATION_TTL_DAYS = 7;
 export type PersonalizeResult =
   | { status: 'created'; recommendation: unknown }
   | { status: 'pending_exists'; recommendation: unknown }
-  | { status: 'not_due'; lastEvaluationAt: Date }
+  | { status: 'not_due'; lastEvaluationAt: Date; nextAvailableAt: Date }
   | { status: 'insufficient_data' };
 
 @Injectable()
@@ -35,7 +35,11 @@ export class GoalPersonalizationService {
     const now = new Date();
     const dueMs = PERSONALIZATION_INTERVAL_DAYS * 24 * 60 * 60 * 1000;
     if (now.getTime() - lastEvaluationAt.getTime() < dueMs) {
-      return { status: 'not_due', lastEvaluationAt };
+      return {
+        status: 'not_due',
+        lastEvaluationAt,
+        nextAvailableAt: this.nextAvailableAt(lastEvaluationAt),
+      };
     }
 
     const collected = await this.dataCollection.collect(userId);
@@ -79,9 +83,14 @@ export class GoalPersonalizationService {
   async getPersonalizationState(userId: string) {
     await this.expireOverduePending(userId);
     const pending = await this.findPending(userId);
+    const lastEvaluationAt = await this.getLastEvaluationAt(userId);
+    const personalizationDue = this.isDue(lastEvaluationAt);
     return {
       pending: pending ?? null,
-      personalizationDue: this.isDue(await this.getLastEvaluationAt(userId)),
+      personalizationDue,
+      nextAvailableAt: personalizationDue
+        ? null
+        : this.nextAvailableAt(lastEvaluationAt),
     };
   }
 
@@ -227,6 +236,13 @@ export class GoalPersonalizationService {
     const now = new Date();
     const dueMs = PERSONALIZATION_INTERVAL_DAYS * 24 * 60 * 60 * 1000;
     return now.getTime() - lastEvaluationAt.getTime() >= dueMs;
+  }
+
+  private nextAvailableAt(lastEvaluationAt: Date): Date {
+    return new Date(
+      lastEvaluationAt.getTime() +
+        PERSONALIZATION_INTERVAL_DAYS * 24 * 60 * 60 * 1000,
+    );
   }
 
   private async expireOverduePending(userId: string) {

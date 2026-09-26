@@ -47,7 +47,7 @@ export class SleepController {
       user.userId,
       dto.startDate,
       dto.endDate,
-      dto.startDates,
+      dto.keptStartDates,
     );
   }
 }

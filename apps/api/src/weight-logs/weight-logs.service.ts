@@ -39,7 +39,10 @@ export class WeightLogsService {
           target: [weightLogs.userId, weightLogs.entryDate],
           set: {
             weightKg: String(data.weightKg),
-            source: 'manual',
+            // The onboarding point is the immutable baseline for its date.
+            // A same-day correction may change its value, but must not make it
+            // deletable and leave the user without any baseline weight.
+            source: sql`case when ${weightLogs.source} = 'initial' then 'initial' else 'manual' end`,
             updatedAt: new Date(),
           },
         })
@@ -109,6 +112,9 @@ export class WeightLogsService {
 
       if (existing?.source === 'initial') {
         throw new BadRequestException('The initial weight record cannot be deleted');
+      }
+      if (!existing) {
+        throw new NotFoundException('Weight record not found');
       }
 
       await tx
