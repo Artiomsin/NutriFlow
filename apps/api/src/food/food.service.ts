@@ -331,7 +331,7 @@ export class FoodService {
     const isUserFood = originalFood?.source === 'user' && originalFood?.createdBy === userId;
     const needsFork = !!(originalFood && !isUserFood && !data.foodId && data.name);
 
-    const needTransaction = !!(data.name || data.foodId || data.grams !== undefined || data.calories !== undefined || data.protein !== undefined || data.fat !== undefined || data.carbs !== undefined || data.imageUrl || data.date || data.unit !== undefined || needsFork);
+    const needTransaction = !!(data.name || data.foodId || data.grams !== undefined || data.calories !== undefined || data.protein !== undefined || data.fat !== undefined || data.carbs !== undefined || data.imageUrl || data.date || data.unit !== undefined || data.categoryName !== undefined || needsFork);
 
     if (data.foodId) {
       if (!(await this.findVisibleFood(data.foodId, userId))) {
@@ -529,18 +529,26 @@ export class FoodService {
         );
       }
 
-      if (data.categoryName && newFoodId) {
-        const [cat] = await tx
-          .insert(foodCategories)
-          .values({ name: data.categoryName })
-          .onConflictDoNothing({ target: foodCategories.name })
-          .returning();
-        const categoryId = cat?.id
-          ?? (await tx.select().from(foodCategories).where(eq(foodCategories.name, data.categoryName)).limit(1))[0]?.id;
-        if (categoryId) {
-          const [food] = await tx.select().from(foods).where(eq(foods.id, newFoodId)).limit(1);
-          if (food && food.source === 'user' && food.createdBy === userId) {
-            await tx.update(foods).set({ categoryId }).where(eq(foods.id, newFoodId));
+      if (data.categoryName !== undefined && newFoodId) {
+        const [food] = await tx.select().from(foods).where(eq(foods.id, newFoodId)).limit(1);
+
+        // Never alter a shared catalog product. A forked or user-owned food
+        // may either receive a category name or be explicitly uncategorized.
+        if (food && food.source === 'user' && food.createdBy === userId) {
+          if (data.categoryName === null) {
+            await tx.update(foods).set({ categoryId: null }).where(eq(foods.id, newFoodId));
+          } else {
+            const [cat] = await tx
+              .insert(foodCategories)
+              .values({ name: data.categoryName })
+              .onConflictDoNothing({ target: foodCategories.name })
+              .returning();
+            const categoryId = cat?.id
+              ?? (await tx.select().from(foodCategories).where(eq(foodCategories.name, data.categoryName)).limit(1))[0]?.id;
+
+            if (categoryId) {
+              await tx.update(foods).set({ categoryId }).where(eq(foods.id, newFoodId));
+            }
           }
         }
       }

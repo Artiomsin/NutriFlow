@@ -21,14 +21,20 @@ export const createFoodEntrySchema = z.object({
 
   brand: z.string().max(200).optional(),
   imageUrl: z.string().max(500).optional(),
-  categoryName: z.string().max(100).optional(),
+  // In POST, an omitted key and null both mean "no category"; the field is
+  // encoded explicitly so the client never has to stay silent to say so.
+  categoryName: z.string().max(100).nullable().optional(),
   barcode: z.string().max(50).optional(),
   servingGrams: z.number().int().nonnegative().max(10000).optional(),
 
   date: dateString.optional(),
 });
 
-export const updateFoodEntrySchema = createFoodEntrySchema.partial();
+export const updateFoodEntrySchema = createFoodEntrySchema.partial().extend({
+  // In PATCH, omission means "leave unchanged" while null explicitly
+  // detaches a user-owned food from its category.
+  categoryName: z.string().max(100).nullable().optional(),
+});
 
 export type CreateFoodEntryDto = z.infer<typeof createFoodEntrySchema>;
 export type UpdateFoodEntryDto = z.infer<typeof updateFoodEntrySchema>;

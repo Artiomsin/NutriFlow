@@ -192,7 +192,8 @@ private var skeletonCard: some View {
         }
         .padding(12)
     }
-    .appGlassSurface(cornerRadius: 14)
+    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    .appGlassSurface(cornerRadius: 18, level: .interactive)
 }
 
 
@@ -208,7 +209,8 @@ struct FoodCardSearch: View {
                 imageSection
                 infoSection
             }
-            .appGlassSurface(cornerRadius: 14)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .appGlassSurface(cornerRadius: 18, level: .interactive)
         }
         .buttonStyle(.plain)
     }
@@ -438,5 +440,4 @@ struct SourceBadge: View {
     .background(AppColors.background)
     
 }
-
 
