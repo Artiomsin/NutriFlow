@@ -174,7 +174,11 @@ final class EditFoodViewModel {
         }
         Task {
             guard let data = try? await item.loadTransferable(type: Data.self) else { return }
-            selectedImageData = ImageCompressor.optimizedJPEGData(data)
+            let optimizedImageData = await Task.detached(priority: .userInitiated) {
+                ImageCompressor.optimizedJPEGData(data)
+            }.value
+            guard !Task.isCancelled else { return }
+            selectedImageData = optimizedImageData
         }
     }
 

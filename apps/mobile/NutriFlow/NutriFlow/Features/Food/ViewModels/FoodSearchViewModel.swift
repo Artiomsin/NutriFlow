@@ -46,10 +46,10 @@ final class FoodSearchViewModel {
     func search() {
         searchTask?.cancel()
         loadMoreTask?.cancel()
+        resetPagination()
 
         let trimmed = query.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else {
-            resetPagination()
             state = .idle
             suggestedGrams = nil
             suggestedUnit = nil
@@ -92,6 +92,7 @@ final class FoodSearchViewModel {
         print("[Network] FoodSearchVM loadMore: query=\(trimmed) offset=\(nextOffset) limit=\(pageSize)")
         loadMoreTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            defer { self.isLoadMore = false }
             do {
                 let response = try await service.searchFood(query: trimmed, limit: pageSize, offset: nextOffset)
                 guard !Task.isCancelled else { return }
@@ -107,7 +108,6 @@ final class FoodSearchViewModel {
                 guard !Task.isCancelled else { return }
                 self.loadMoreError = ErrorMapper.map(error)
             }
-            self.isLoadMore = false
         }
     }
 

@@ -1,5 +1,4 @@
 import AVFoundation
-import UIKit
 import Observation
 
 @Observable
@@ -24,57 +23,36 @@ final class CameraService: NSObject, @unchecked Sendable {
 
     private let photoOutput: AVCapturePhotoOutput
 
-    private var photoContinuation:
-        CheckedContinuation<UIImage, Error>?
+    @MainActor private var photoContinuation: CheckedContinuation<Data, Error>?
+    @MainActor private var captureTimeoutTask: Task<Void, Never>?
 
+    // Access this flag only from sessionQueue, together with AVCaptureSession.
     private var isConfigured = false
 
     override init() {
-        let session = AVCaptureSession()
-        let photoOutput = AVCapturePhotoOutput()
-
-        self.session = session
-        self.photoOutput = photoOutput
-
+        self.session = AVCaptureSession()
+        self.photoOutput = AVCapturePhotoOutput()
         super.init()
     }
 
-
     func prepare() async {
-        guard !isConfigured else {
-            if state == .idle {
-                setState(.ready)
-            }
-            return
-        }
-
-        print("[Camera] preparing (not configured)")
-
         let status = AVCaptureDevice.authorizationStatus(for: .video)
 
         switch status {
         case .authorized:
-            print("[Camera] permission already granted")
             await configureSession()
 
         case .notDetermined:
             setState(.requestingPermission)
-            print("[Camera] requesting camera permission")
-
-            let granted = await AVCaptureDevice.requestAccess(
-                for: .video
-            )
+            let granted = await AVCaptureDevice.requestAccess(for: .video)
 
             if granted {
-                print("[Camera] permission granted")
                 await configureSession()
             } else {
-                print("[Camera] permission denied")
                 setState(.denied)
             }
 
         case .denied, .restricted:
-            print("[Camera] permission denied (previously)")
             setState(.denied)
 
         @unknown default:
@@ -82,112 +60,67 @@ final class CameraService: NSObject, @unchecked Sendable {
         }
     }
 
-
     func start() {
         sessionQueue.async { [weak self] in
-            guard let self else {
+            guard let self, self.isConfigured, !self.session.isRunning else {
                 return
             }
 
-            guard self.isConfigured else {
-                print("[Camera] start ignored: not configured")
-                return
-            }
-
-            guard !self.session.isRunning else {
-                print("[Camera] start ignored: already running")
-                return
-            }
-
-            print("[Camera] session startRunning")
             self.session.startRunning()
         }
     }
 
     func stop() {
         sessionQueue.async { [weak self] in
-            guard let self else {
+            guard let self, self.session.isRunning else {
                 return
             }
 
-            guard self.session.isRunning else {
-                print("[Camera] stop ignored: not running")
-                return
-            }
-
-            print("[Camera] session stopRunning")
             self.session.stopRunning()
         }
     }
 
-
-    func capturePhoto() async throws -> UIImage {
-        guard isConfigured else {
-            print("[Camera] capturePhoto FAILED: not configured")
-            throw CameraError.notConfigured
-        }
-
-        guard session.isRunning else {
-            print("[Camera] capturePhoto FAILED: session not running")
-            throw CameraError.sessionNotRunning
-        }
-
+    @MainActor
+    func capturePhoto() async throws -> Data {
         try Task.checkCancellation()
 
-        print("[Camera] capturePhoto started")
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                guard photoContinuation == nil else {
+                    continuation.resume(throwing: CameraError.captureInProgress)
+                    return
+                }
 
-        return try await withThrowingTaskGroup(of: UIImage.self) { group in
+                photoContinuation = continuation
+                scheduleCaptureTimeout()
 
-            group.addTask { [self] in
-                try await withTaskCancellationHandler {
+                sessionQueue.async { [weak self] in
+                    guard let self else { return }
 
-                    try await withCheckedThrowingContinuation { continuation in
-                        guard photoContinuation == nil else {
-                            continuation.resume(
-                                throwing: CameraError.captureInProgress
-                            )
-                            return
-                        }
-
-                        photoContinuation = continuation
-
-                        photoOutput.capturePhoto(
-                            with: AVCapturePhotoSettings(),
-                            delegate: self
-                        )
+                    guard self.isConfigured else {
+                        self.finishCaptureOnMain(with: .failure(CameraError.notConfigured))
+                        return
                     }
 
-                } onCancel: { @Sendable in
-                    Task { @MainActor [weak self] in
-                        self?.finishCapture(
-                            result: .failure(CameraError.captureCancelled)
-                        )
+                    guard self.session.isRunning else {
+                        self.finishCaptureOnMain(with: .failure(CameraError.sessionNotRunning))
+                        return
                     }
+
+                    self.photoOutput.capturePhoto(
+                        with: AVCapturePhotoSettings(),
+                        delegate: self
+                    )
                 }
             }
-
-            group.addTask {
-                try await Task.sleep(for: .seconds(15))
-                throw CameraError.captureTimeout
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.finishCapture(result: .failure(CameraError.captureCancelled))
             }
-
-            guard let result = try await group.next() else {
-                group.cancelAll()
-                throw CameraError.captureTimeout
-            }
-
-            group.cancelAll()
-
-            return result
         }
     }
 
-
     private func configureSession() async {
-        guard !isConfigured else {
-            return
-        }
-
         await withCheckedContinuation { continuation in
             sessionQueue.async { [weak self] in
                 guard let self else {
@@ -196,6 +129,7 @@ final class CameraService: NSObject, @unchecked Sendable {
                 }
 
                 guard !self.isConfigured else {
+                    self.setState(.ready)
                     continuation.resume()
                     return
                 }
@@ -205,40 +139,33 @@ final class CameraService: NSObject, @unchecked Sendable {
                     for: .video,
                     position: .back
                 ) else {
-                    self.finishConfiguration(success: false)
+                    self.setState(.failed)
                     continuation.resume()
                     return
                 }
 
                 do {
-                    let input = try AVCaptureDeviceInput(
-                        device: camera
-                    )
+                    let input = try AVCaptureDeviceInput(device: camera)
 
                     guard
                         self.session.canAddInput(input),
                         self.session.canAddOutput(self.photoOutput)
                     else {
-                        self.finishConfiguration(success: false)
+                        self.setState(.failed)
                         continuation.resume()
                         return
                     }
 
                     self.session.beginConfiguration()
-
                     self.session.sessionPreset = .photo
-
                     self.session.addInput(input)
                     self.session.addOutput(self.photoOutput)
-
                     self.session.commitConfiguration()
 
                     self.isConfigured = true
-
-                    self.finishConfiguration(success: true)
-
+                    self.setState(.ready)
                 } catch {
-                    self.finishConfiguration(success: false)
+                    self.setState(.failed)
                 }
 
                 continuation.resume()
@@ -246,17 +173,31 @@ final class CameraService: NSObject, @unchecked Sendable {
         }
     }
 
-    private func finishConfiguration(success: Bool) {
-        setState(success ? .ready : .failed)
-    }
-
-
     private func setState(_ newState: State) {
         Task { @MainActor [weak self] in
             self?.state = newState
         }
     }
 
+    private func finishCaptureOnMain(with result: Result<Data, Error>) {
+        Task { @MainActor [weak self] in
+            self?.finishCapture(result: result)
+        }
+    }
+
+    @MainActor
+    private func scheduleCaptureTimeout() {
+        captureTimeoutTask?.cancel()
+        captureTimeoutTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(15))
+            } catch {
+                return
+            }
+
+            self?.finishCapture(result: .failure(CameraError.captureTimeout))
+        }
+    }
 
     enum CameraError: LocalizedError {
         case notConfigured
@@ -270,26 +211,20 @@ final class CameraService: NSObject, @unchecked Sendable {
             switch self {
             case .notConfigured:
                 "Camera is not configured."
-
             case .captureInProgress:
                 "A photo capture is already in progress."
-
             case .sessionNotRunning:
                 "Camera session is not running."
-
             case .captureTimeout:
                 "Photo capture timed out. Try again."
-
             case .captureCancelled:
                 "Photo capture was cancelled."
-
             case .noImageData:
                 "Unable to read captured photo."
             }
         }
     }
 }
-
 
 extension CameraService: AVCapturePhotoCaptureDelegate {
 
@@ -299,59 +234,34 @@ extension CameraService: AVCapturePhotoCaptureDelegate {
         error: (any Error)?
     ) {
         if let error {
-            print("[Camera] photo delegate error: \(error.localizedDescription)")
-            Task { @MainActor [weak self] in
-                self?.finishCapture(
-                    result: .failure(error)
-                )
-            }
-
+            finishCaptureOnMain(with: .failure(error))
             return
         }
 
-        guard
-            let data = photo.fileDataRepresentation(),
-            let image = UIImage(data: data)
-        else {
-            print("[Camera] photo delegate: no image data")
-            Task { @MainActor [weak self] in
-                self?.finishCapture(
-                    result: .failure(
-                        CameraError.noImageData
-                    )
-                )
-            }
-
+        guard let data = photo.fileDataRepresentation() else {
+            finishCaptureOnMain(with: .failure(CameraError.noImageData))
             return
         }
 
-        print("[Camera] photo delegate: got image (\(data.count / 1024) KB)")
-
-        Task { @MainActor [weak self] in
-            self?.finishCapture(
-                result: .success(image)
-            )
-        }
+        finishCaptureOnMain(with: .success(data))
     }
 }
-
 
 extension CameraService {
 
     @MainActor
-    private func finishCapture(
-        result: Result<UIImage, Error>
-    ) {
+    private func finishCapture(result: Result<Data, Error>) {
         guard let continuation = photoContinuation else {
             return
         }
 
         photoContinuation = nil
+        captureTimeoutTask?.cancel()
+        captureTimeoutTask = nil
 
         switch result {
-        case .success(let image):
-            continuation.resume(returning: image)
-
+        case .success(let data):
+            continuation.resume(returning: data)
         case .failure(let error):
             continuation.resume(throwing: error)
         }

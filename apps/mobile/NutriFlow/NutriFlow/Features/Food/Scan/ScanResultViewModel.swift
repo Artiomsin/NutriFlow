@@ -252,10 +252,9 @@ final class ScanResultViewModel {
         defer { isLoading = false }
         
         var imageUrl = uploadedImageUrl
-        if imageUrl == nil, let imageData,
-           let optimized = ImageCompressor.optimizedJPEGData(imageData) {
+        if imageUrl == nil, let imageData {
             do {
-                imageUrl = try await service.uploadImage(optimized)
+                imageUrl = try await service.uploadImage(imageData)
                 uploadedImageUrl = imageUrl
             } catch {
                 // A missing photo must not block saving the food itself.

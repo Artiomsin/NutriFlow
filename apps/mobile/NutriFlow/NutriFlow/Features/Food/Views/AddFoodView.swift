@@ -264,11 +264,15 @@ struct AddFoodView: View {
         }
         Task {
             guard let data = try? await item.loadTransferable(type: Data.self) else { return }
-            selectedImageData = ImageCompressor.optimizedJPEGData(
-                data,
-                maxDimension: 800,
-                quality: 0.8
-            )
+            let optimizedImageData = await Task.detached(priority: .userInitiated) {
+                ImageCompressor.optimizedJPEGData(
+                    data,
+                    maxDimension: 800,
+                    quality: 0.8
+                )
+            }.value
+            guard !Task.isCancelled else { return }
+            selectedImageData = optimizedImageData
         }
     }
 }

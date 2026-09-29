@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import UIKit
 import Observation
 
 @MainActor
@@ -24,68 +23,58 @@ final class ScanFoodViewModel {
         case failed(AppError)
     }
 
-
     private(set) var state: State = .idle
     private(set) var result: [FoodAnalysisItem] = []
     private(set) var capturedImageData: Data?
-    
 
     private let foodService: FoodServiceProtocol
     let camera: CameraService
     @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
 
-        init(
-            camera: CameraService,
-            foodService: FoodServiceProtocol,
-            analyticsTracker: AnalyticsTracking? = nil
-        ) {
-            self.camera = camera
-            self.foodService = foodService
-            self.analyticsTracker = analyticsTracker
-        }
+    init(
+        camera: CameraService,
+        foodService: FoodServiceProtocol,
+        analyticsTracker: AnalyticsTracking? = nil
+    ) {
+        self.camera = camera
+        self.foodService = foodService
+        self.analyticsTracker = analyticsTracker
+    }
 
     func trackScreenView() {
         analyticsTracker?.track(.screenView(screen: "scan_food"))
     }
-    
+
     func prepareCamera() async {
         guard state != .preparing else { return }
 
         state = .preparing
-
         await camera.prepare()
 
         switch camera.state {
         case .ready:
             camera.start()
             state = .ready
-
         case .denied:
             state = .failed(.permissionDenied)
-
         case .requestingPermission:
             state = .preparing
-
         case .failed, .idle:
             state = .failed(.unknown)
         }
     }
-    
-    func startCamera(){
-        guard camera.state == .ready else {
-            return
-        }
+
+    func startCamera() {
+        guard camera.state == .ready else { return }
         camera.start()
     }
-    
-    func stopCamera(){
+
+    func stopCamera() {
         camera.stop()
     }
-    
-    func scan() async {
-        guard state == .ready else { return }
 
-        guard camera.state == .ready else {
+    func scan() async {
+        guard state == .ready, camera.state == .ready else {
             state = .failed(.unknown)
             return
         }
@@ -93,9 +82,9 @@ final class ScanFoodViewModel {
         state = .capturing
 
         do {
-            let image = try await camera.capturePhoto()
+            let imageData = try await camera.capturePhoto()
             state = .analyzing
-            try await analyze(image)
+            try await analyze(imageData)
         } catch CameraService.CameraError.captureCancelled {
             camera.start()
             state = .ready
@@ -111,52 +100,47 @@ final class ScanFoodViewModel {
             state = .failed(mapped)
         }
     }
-    
-    
-    private func analyze(_ image: UIImage) async throws {
-            guard let raw = image.jpegData(compressionQuality: 0.9),
-                  let data = ImageCompressor.optimizedJPEGData(
-                    raw,
-                    maxDimension: 1024,
-                    quality: 0.85
-                  ) else {
-                print("[ScanVM] JPEG encoding FAILED")
-                throw ScanError.imageEncodingFailed
-            }
-            capturedImageData = data
-            print("[ScanVM] JPEG ready: \(data.count / 1024) KB (1024px, q0.85)")
 
-            let analysis = try await foodService.analyzePhoto(data)
-            print("[ScanVM] backend response OK: \(analysis.count) food(s) found")
+    private func analyze(_ rawImageData: Data) async throws {
+        let imageData = await Task.detached(priority: .userInitiated) {
+            ImageCompressor.optimizedJPEGData(
+                rawImageData,
+                maxDimension: 1024,
+                quality: 0.85
+            )
+        }.value
 
-            guard !analysis.isEmpty else {
-                print("[ScanVM] backend returned empty list → notFound")
-                state = .notFound
-                return
-            }
-
-            result = analysis
-            state = .completed
-            print("[ScanVM] completed, storing result")
+        guard let imageData else {
+            throw ScanError.imageEncodingFailed
         }
-    
+
+        capturedImageData = imageData
+
+        let analysis = try await foodService.analyzePhoto(imageData)
+
+        guard !analysis.isEmpty else {
+            state = .notFound
+            return
+        }
+
+        result = analysis
+        state = .completed
+    }
+
     func reset() {
         result = []
         capturedImageData = nil
         state = .idle
     }
-    
-    
-    
-    
-    enum ScanError:  LocalizedError {
-        case imageEncodingFailed
-        var errorDescription: String? {
-                    switch self {
-                    case .imageEncodingFailed:
-                        return "Unable to prepare the photo."
-                    }
-                }
-    }
 
+    enum ScanError: LocalizedError {
+        case imageEncodingFailed
+
+        var errorDescription: String? {
+            switch self {
+            case .imageEncodingFailed:
+                "Unable to prepare the photo."
+            }
+        }
+    }
 }
