@@ -260,6 +260,7 @@ final class GoalsViewModel {
     }
 
     func loadGoalHistory() async -> [GoalHistoryEntry] {
+        historyError = nil
         if let cached: [GoalHistoryEntry] = try? await cacheService?.get("goals_history") {
             return cached
         }
