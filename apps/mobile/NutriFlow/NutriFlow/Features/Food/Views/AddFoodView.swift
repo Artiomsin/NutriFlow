@@ -4,13 +4,10 @@ import Kingfisher
 
 struct AddFoodView: View {
     let onSave: () -> Void
-    let todayFoodVM: TodayFoodViewModel
     let onSearchCatalog: (() -> Void)?
     let onSelectPopular: ((CatalogFood) -> Void)?
 
     @State private var viewModel: AddFoodViewModel
-    @State private var photosItem: PhotosPickerItem?
-    @State private var selectedImageData: Data?
     @State private var prefsStore = PreferencesStore.shared
 
     private enum Field: Hashable {
@@ -25,9 +22,8 @@ struct AddFoodView: View {
     @FocusState private var focusedField: Field?
     @State private var isActive = true
 
-    init(onSave: @escaping () -> Void, viewModel: AddFoodViewModel, todayFoodVM: TodayFoodViewModel, onSearchCatalog: (() -> Void)? = nil, onSelectPopular: ((CatalogFood) -> Void)? = nil) {
+    init(onSave: @escaping () -> Void, viewModel: AddFoodViewModel, onSearchCatalog: (() -> Void)? = nil, onSelectPopular: ((CatalogFood) -> Void)? = nil) {
         self.onSave = onSave
-        self.todayFoodVM = todayFoodVM
         self.onSearchCatalog = onSearchCatalog
         self.onSelectPopular = onSelectPopular
         _viewModel = State(initialValue: viewModel)
@@ -66,7 +62,7 @@ struct AddFoodView: View {
             await viewModel.loadCategories()
             await viewModel.loadPopular()
         }
-        .onChange(of: photosItem) { _, item in loadImage(item) }
+        .onChange(of: viewModel.photosItem) { _, item in viewModel.loadImage(item) }
         .onChange(of: prefsStore.preferredUnits) { old, new in viewModel.convertUnits(from: old, to: new) }
         .onAppear { isActive = true }
         .onDisappear { isActive = false }
@@ -109,8 +105,9 @@ struct AddFoodView: View {
     }
 
     private var photoPicker: some View {
-        PhotosPicker(selection: $photosItem, matching: .images) {
-            if let data = selectedImageData, let uiImage = UIImage(data: data) {
+        let imageData = viewModel.selectedImageData
+        return PhotosPicker(selection: $viewModel.photosItem, matching: .images) {
+            if let data = imageData, let uiImage = UIImage(data: data) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
@@ -239,9 +236,7 @@ struct AddFoodView: View {
     private func submit() {
         dismissKeyboard()
         Task {
-            guard await viewModel.createEntry(imageData: selectedImageData) else { return }
-            await todayFoodVM.reloadAfterMutation()
-            todayFoodVM.notifyDataMutated()
+            guard await viewModel.createEntry() else { return }
             if isActive { onSave() }
         }
     }
@@ -255,31 +250,11 @@ struct AddFoodView: View {
             focusedField = field
         }
     }
-
-    private func loadImage(_ item: PhotosPickerItem?) {
-        viewModel.invalidateUploadedImage()
-        guard let item else {
-            selectedImageData = nil
-            return
-        }
-        Task {
-            guard let data = try? await item.loadTransferable(type: Data.self) else { return }
-            let optimizedImageData = await Task.detached(priority: .userInitiated) {
-                ImageCompressor.optimizedJPEGData(
-                    data,
-                    maxDimension: 800,
-                    quality: 0.8
-                )
-            }.value
-            guard !Task.isCancelled else { return }
-            selectedImageData = optimizedImageData
-        }
-    }
 }
 
 #Preview {
     NavigationStack {
-        AddFoodView(onSave: {}, viewModel: AddFoodViewModel(service: MockFoodService(), coordinator: nil), todayFoodVM: TodayFoodViewModel(service: MockFoodService(), coordinator: AppCoordinator(container: AppDependencyContainer())))
+        AddFoodView(onSave: {}, viewModel: AddFoodViewModel(service: MockFoodService(), coordinator: nil, todayFoodVM: TodayFoodViewModel(service: MockFoodService(), coordinator: AppCoordinator(container: AppDependencyContainer()))))
     }
     
 }

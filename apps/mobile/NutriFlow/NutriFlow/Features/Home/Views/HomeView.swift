@@ -54,8 +54,8 @@ struct HomeView: View {
                     let _ = print("[Nav] destination -> \(route)")
                     switch route {
                     case .addFood:
-                        let addFoodVM = AddFoodViewModel(service: foodService, coordinator: coordinator, analyticsTracker: analyticsTracker)
-                        AddFoodView(onSave: popToRoot, viewModel: addFoodVM, todayFoodVM: homeViewModel.todayFoodVM, onSearchCatalog: {
+                        let addFoodVM = AddFoodViewModel(service: foodService, coordinator: coordinator, analyticsTracker: analyticsTracker, todayFoodVM: homeViewModel.todayFoodVM)
+                        AddFoodView(onSave: popToRoot, viewModel: addFoodVM, onSearchCatalog: {
                             navPath.append(HomeNavRoute.foodSearch)
                         }, onSelectPopular: { food in
                             navPath.append(HomeNavRoute.servingPicker(food, nil, nil))

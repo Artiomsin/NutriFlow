@@ -1,6 +1,8 @@
 import Foundation
 import Observation
 import UIKit
+import SwiftUI
+import PhotosUI
 
 enum AddFoodState {
     case idle
@@ -24,6 +26,8 @@ final class AddFoodViewModel {
     var categories: [FoodCategory] = []
     var categoriesError: AppError?
     var selectedCategory: FoodCategory?
+    var photosItem: PhotosPickerItem?
+    var selectedImageData: Data?
 
     var popularFoods: [CatalogFood] = []
     var isLoadingPopular = false
@@ -34,6 +38,7 @@ final class AddFoodViewModel {
     @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
     @ObservationIgnored private let prefsStore = PreferencesStore.shared
     @ObservationIgnored private var uploadedImageUrl: String?
+    @ObservationIgnored private let todayFoodVM: TodayFoodViewModel
 
     var gramsLabel: String {
         prefsStore.preferredUnits.weight == .imperial ? "Ounces" : "Grams"
@@ -77,11 +82,12 @@ final class AddFoodViewModel {
         }
     }
 
-    init(service: FoodServiceProtocol, coordinator: AppCoordinator?, analyticsTracker: AnalyticsTracking? = nil) {
+    init(service: FoodServiceProtocol, coordinator: AppCoordinator?, analyticsTracker: AnalyticsTracking? = nil, todayFoodVM: TodayFoodViewModel) {
         print("AddFoodViewModel init")
         self.service = service
         self.coordinator = coordinator
         self.analyticsTracker = analyticsTracker
+        self.todayFoodVM = todayFoodVM
     }
 
     deinit { print("AddFoodViewModel deinit") }
@@ -134,7 +140,7 @@ final class AddFoodViewModel {
     }
 
     @discardableResult
-    func createEntry(imageData: Data? = nil) async -> Bool {
+    func createEntry() async -> Bool {
         guard !isBusy else { return false }
 
         let gramsInt = toGrams(grams) ?? 0
@@ -151,7 +157,7 @@ final class AddFoodViewModel {
         state = .uploading
 
         var imageUrl: String? = uploadedImageUrl
-        if imageUrl == nil, let data = imageData {
+        if imageUrl == nil, let data = selectedImageData {
             do {
                 imageUrl = try await service.uploadImage(data)
                 uploadedImageUrl = imageUrl
@@ -179,6 +185,9 @@ final class AddFoodViewModel {
                 date: nil
             )
 
+            await todayFoodVM.reloadAfterMutation()
+            todayFoodVM.notifyDataMutated()
+
             clearForm()
             state = .idle
             return true
@@ -194,10 +203,24 @@ final class AddFoodViewModel {
         }
     }
 
-    /// Called when the user picks a different photo, so a retry reuses the existing
-    /// upload only while it still matches the image on screen.
-    func invalidateUploadedImage() {
+    func loadImage(_ item: PhotosPickerItem?) {
         uploadedImageUrl = nil
+        guard let item else {
+            selectedImageData = nil
+            return
+        }
+        Task {
+            guard let data = try? await item.loadTransferable(type: Data.self) else { return }
+            let optimizedImageData = await Task.detached(priority: .userInitiated) {
+                ImageCompressor.optimizedJPEGData(
+                    data,
+                    maxDimension: 800,
+                    quality: 0.8
+                )
+            }.value
+            guard !Task.isCancelled else { return }
+            selectedImageData = optimizedImageData
+        }
     }
 
     private func clearForm() {
@@ -209,6 +232,8 @@ final class AddFoodViewModel {
         carbs = ""
         selectedCategory = nil
         uploadedImageUrl = nil
+        photosItem = nil
+        selectedImageData = nil
     }
     
     private func handle(_ error: Error) {
