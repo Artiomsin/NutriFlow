@@ -10,7 +10,7 @@ import UIKit
 
 struct ScanFoodView: View {
     
-    let onFinished: ([FoodAnalysisItem], Data?) -> Void
+    let onFinished: ([ScanAnalysisItem], Data?) -> Void
     
     @State
     private var viewModel: ScanFoodViewModel
@@ -20,7 +20,7 @@ struct ScanFoodView: View {
     @Environment(\.dismiss)
     private var dismiss
     
-    init (service: FoodServiceProtocol, analyticsTracker: AnalyticsTracking? = nil, onFinished: @escaping ([FoodAnalysisItem], Data?)-> Void){
+    init (service: FoodServiceProtocol, analyticsTracker: AnalyticsTracking? = nil, onFinished: @escaping ([ScanAnalysisItem], Data?)-> Void){
         self.onFinished = onFinished
         self.analyticsTracker = analyticsTracker
         _viewModel = State(
@@ -137,7 +137,7 @@ struct ScanFoodView: View {
                 .font(.system(size: 56))
                 .foregroundColor(AppColors.accent)
             
-            Text("Found \(viewModel.result.count) food item(s)")
+            Text("Found \(viewModel.result.count) item(s)")
                 .font(.headline)
                 .foregroundColor(AppColors.textPrimary)
                 .multilineTextAlignment(.center)

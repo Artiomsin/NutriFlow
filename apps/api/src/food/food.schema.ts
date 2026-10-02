@@ -84,7 +84,8 @@ export const searchFoodQuerySchema = z.object({
 
 export type SearchFoodQueryDto = z.infer<typeof searchFoodQuerySchema>;
 
-export const foodAnalysisItemSchema = z.object({
+export const foodAnalysisFoodItemSchema = z.object({
+  kind: z.literal('food'),
   name: z.string().max(255).nullable(),
   category: z.string().max(100).nullish(),
   grams: z.number().int().nonnegative().nullable(),
@@ -92,7 +93,7 @@ export const foodAnalysisItemSchema = z.object({
   protein: z.number().nonnegative().nullable(),
   fat: z.number().nonnegative().nullable(),
   carbs: z.number().nonnegative().nullable(),
-  unit: z.string().max(10).nullish(),
+  unit: z.enum(['g', 'ml']).nullish(),
   imageUrl: z.string().max(500).nullish(),
   confidence: z.number().min(0).max(1).nullable(),
   foodId: z.string().uuid().nullish(),
@@ -101,7 +102,20 @@ export const foodAnalysisItemSchema = z.object({
   catalogCalories: z.number().nonnegative().nullish(),
 });
 
+export const foodAnalysisWaterItemSchema = z.object({
+  kind: z.literal('water'),
+  amountMl: z.number().int().min(50).max(2_000),
+  confidence: z.number().min(0).max(1).nullable(),
+});
+
+export const foodAnalysisItemSchema = z.discriminatedUnion('kind', [
+  foodAnalysisFoodItemSchema,
+  foodAnalysisWaterItemSchema,
+]);
+
 export const foodAnalysisResponseSchema = z.array(foodAnalysisItemSchema);
 
+export type FoodAnalysisFoodItem = z.infer<typeof foodAnalysisFoodItemSchema>;
+export type FoodAnalysisWaterItem = z.infer<typeof foodAnalysisWaterItemSchema>;
 export type FoodAnalysisItem = z.infer<typeof foodAnalysisItemSchema>;
 export type FoodAnalysisResult = z.infer<typeof foodAnalysisResponseSchema>;

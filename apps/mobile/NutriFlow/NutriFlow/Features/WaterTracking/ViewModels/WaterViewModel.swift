@@ -71,6 +71,21 @@ final class WaterViewModel {
             return false
         }
 
+        return await createWater(amountMl: ml, clearsForm: true)
+    }
+
+    /// Saves water recognized by the scanner without changing the add-water form.
+    @discardableResult
+    func createWater(amountMl: Int) async -> Bool {
+        guard amountMl > 0 else {
+            return false
+        }
+
+        return await createWater(amountMl: amountMl, clearsForm: false)
+    }
+
+    private func createWater(amountMl: Int, clearsForm: Bool) async -> Bool {
+
         addError = nil
         let stateBeforeWrite = state
         state = .saving
@@ -79,7 +94,7 @@ final class WaterViewModel {
             #if DEBUG
             print("[Network] WaterVM createWater")
             #endif
-            try await service.createWaterEntry(amountMl: ml, date: nil)
+            try await service.createWaterEntry(amountMl: amountMl, date: nil)
             await cacheService?.remove("water_today")
             await cacheService?.remove("summary_today")
             await cacheService?.removeByPrefix("chart_summaries")
@@ -87,7 +102,9 @@ final class WaterViewModel {
             progressRefreshState?.invalidate()
 
             await refreshAfterWrite()
-            clearForm()
+            if clearsForm {
+                clearForm()
+            }
             return true
         } catch {
             let mapped = ErrorMapper.map(error)

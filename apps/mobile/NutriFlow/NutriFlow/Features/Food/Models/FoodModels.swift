@@ -201,6 +201,38 @@ struct CreateServingRequest: Codable, Sendable {
 }
 
 
+enum ScanAnalysisItem: Decodable, Hashable, Sendable {
+    case food(FoodAnalysisItem)
+    case water(WaterAnalysisItem)
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+    }
+
+    private enum Kind: String, Decodable {
+        case food
+        case water
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        // Treat responses from a server that has not yet been deployed with the
+        // water discriminator as food, so an app update remains backward compatible.
+        switch try container.decodeIfPresent(Kind.self, forKey: .kind) {
+        case .water:
+            self = .water(try WaterAnalysisItem(from: decoder))
+        case .food, .none:
+            self = .food(try FoodAnalysisItem(from: decoder))
+        }
+    }
+}
+
+struct WaterAnalysisItem: Codable, Hashable, Sendable {
+    let amountMl: Int
+    let confidence: Double?
+}
+
 struct FoodAnalysisItem: Codable, Identifiable, Hashable, Sendable {
     let name: String?
     let category: String?

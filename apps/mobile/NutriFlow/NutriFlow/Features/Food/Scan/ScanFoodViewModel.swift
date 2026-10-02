@@ -24,7 +24,7 @@ final class ScanFoodViewModel {
     }
 
     private(set) var state: State = .idle
-    private(set) var result: [FoodAnalysisItem] = []
+    private(set) var result: [ScanAnalysisItem] = []
     private(set) var capturedImageData: Data?
 
     private let foodService: FoodServiceProtocol

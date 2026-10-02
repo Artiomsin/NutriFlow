@@ -6,7 +6,7 @@ enum HomeNavRoute: Hashable {
     case servingPicker(CatalogFood, Int?, String?)
     case addWater
     case scanFood
-    case scanResult([FoodAnalysisItem], Data?)
+    case scanResult([ScanAnalysisItem], Data?)
     case workoutHistory
     case sleepHistory
 }
@@ -87,6 +87,7 @@ struct HomeView: View {
                             imageData: imageData,
                             service: foodService,
                             todayFoodVM: homeViewModel.todayFoodVM,
+                            waterViewModel: homeViewModel.waterVM,
                             coordinator: coordinator,
                             analyticsTracker: analyticsTracker
                         )

@@ -64,5 +64,5 @@ protocol FoodServiceProtocol: Sendable {
 
     // ── Scan ──────────────────────────────────────────────────
 
-    func analyzePhoto(_ data: Data) async throws -> [FoodAnalysisItem]
+    func analyzePhoto(_ data: Data) async throws -> [ScanAnalysisItem]
 }

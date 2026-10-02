@@ -2,6 +2,24 @@ import Foundation
 import Observation
 import SwiftUI
 
+
+
+struct EditableScanWater: Identifiable, Sendable {
+    let id = UUID()
+    var isSelected = true
+    var amountMlText: String
+    let confidence: Double?
+
+    init(_ item: WaterAnalysisItem) {
+        amountMlText = String(item.amountMl)
+        confidence = item.confidence
+    }
+
+    var amountMl: Int? {
+        Int(amountMlText).flatMap { (50...2_000).contains($0) ? $0 : nil }
+    }
+}
+
 struct EditableScanFood: Identifiable, Sendable {
     enum MacroField: Sendable {
         case protein
@@ -118,11 +136,42 @@ struct EditableScanFood: Identifiable, Sendable {
     }
 }
 
+enum EditableScanResultItem: Identifiable, Sendable {
+    case food(EditableScanFood)
+    case water(EditableScanWater)
+
+    var id: UUID {
+        switch self {
+        case .food(let item): item.id
+        case .water(let item): item.id
+        }
+    }
+
+    var isSelected: Bool {
+        get {
+            switch self {
+            case .food(let item): item.isSelected
+            case .water(let item): item.isSelected
+            }
+        }
+        set {
+            switch self {
+            case .food(var item):
+                item.isSelected = newValue
+                self = .food(item)
+            case .water(var item):
+                item.isSelected = newValue
+                self = .water(item)
+            }
+        }
+    }
+}
+
 @Observable
 @MainActor
 final class ScanResultViewModel {
     
-    var items: [EditableScanFood]
+    var items: [EditableScanResultItem]
     
     var isLoading = false
     var error: AppError?
@@ -133,6 +182,7 @@ final class ScanResultViewModel {
     private let prefsStore: PreferencesStore
     private let service: FoodServiceProtocol
     private let todayFoodVM: TodayFoodViewModel
+    private let waterViewModel: WaterViewModel
     private let imageData: Data?
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
@@ -149,33 +199,56 @@ final class ScanResultViewModel {
     }
     
     init(
-        items: [FoodAnalysisItem],
+        items: [ScanAnalysisItem],
         imageData: Data?,
         service: FoodServiceProtocol,
         todayFoodVM: TodayFoodViewModel,
+        waterViewModel: WaterViewModel,
         coordinator: AppCoordinator?,
         prefsStore: PreferencesStore = PreferencesStore.shared,
         analyticsTracker: AnalyticsTracking? = nil
     ) {
-        self.items = items.map { EditableScanFood($0, preferred: prefsStore.preferredUnits) }
+        self.items = items.map { item in
+            switch item {
+            case .food(let food):
+                .food(EditableScanFood(food, preferred: prefsStore.preferredUnits))
+            case .water(let water):
+                .water(EditableScanWater(water))
+            }
+        }
         self.imageData = imageData
         self.service = service
         self.todayFoodVM = todayFoodVM
+        self.waterViewModel = waterViewModel
         self.coordinator = coordinator
         self.prefsStore = prefsStore
         self.analyticsTracker = analyticsTracker
     }
     
-    var selectedItems: [EditableScanFood] {
+    var selectedItems: [EditableScanResultItem] {
         items.filter(\.isSelected)
+    }
+
+    var selectedFoodItems: [EditableScanFood] {
+        selectedItems.compactMap {
+            guard case .food(let item) = $0 else { return nil }
+            return item
+        }
+    }
+
+    var selectedWaterItems: [EditableScanWater] {
+        selectedItems.compactMap {
+            guard case .water(let item) = $0 else { return nil }
+            return item
+        }
     }
     
     var totalCalories: Double {
-        selectedItems.map { Double($0.calories(preferred: preferredUnits)) }.reduce(0, +)
+        selectedFoodItems.map { Double($0.calories(preferred: preferredUnits)) }.reduce(0, +)
     }
     
     var totalGrams: Int {
-        selectedItems.map { $0.grams(preferred: preferredUnits) }.reduce(0, +)
+        selectedFoodItems.map { $0.grams(preferred: preferredUnits) }.reduce(0, +)
     }
     
     var totalCaloriesText: String {
@@ -188,33 +261,45 @@ final class ScanResultViewModel {
     var totalGramsText: String {
         UnitConversion.formatMacro(grams: totalGrams, preferred: preferredUnits)
     }
+
+    var totalWaterMl: Int {
+        selectedWaterItems.compactMap(\.amountMl).reduce(0, +)
+    }
     
     func updateName(id: UUID, _ text: String) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
-        items[index].nameText = text
+        guard case .food(var item) = items[index] else { return }
+        item.nameText = text
+        items[index] = .food(item)
     }
     
     func updateCaloriesText(id: UUID, _ text: String) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
-        items[index].caloriesText = text
+        guard case .food(var item) = items[index] else { return }
+        item.caloriesText = text
+        items[index] = .food(item)
     }
     
     func updateMacroText(id: UUID, field: EditableScanFood.MacroField, _ text: String) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        guard case .food(var item) = items[index] else { return }
         switch field {
         case .protein:
-            items[index].proteinText = text
+            item.proteinText = text
         case .fat:
-            items[index].fatText = text
+            item.fatText = text
         case .carbs:
-            items[index].carbsText = text
+            item.carbsText = text
         }
+        items[index] = .food(item)
     }
     
     func updateGramsText(id: UUID, _ text: String) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
-        items[index].gramsText = text
-        items[index].recalculateMacros(preferred: preferredUnits)
+        guard case .food(var item) = items[index] else { return }
+        item.gramsText = text
+        item.recalculateMacros(preferred: preferredUnits)
+        items[index] = .food(item)
     }
     
     func toggle(id: UUID) {
@@ -224,7 +309,15 @@ final class ScanResultViewModel {
     
     func setCategory(id: UUID, _ category: String?) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
-        items[index].categoryText = category ?? ""
+        guard case .food(var item) = items[index] else { return }
+        item.categoryText = category ?? ""
+        items[index] = .food(item)
+    }
+
+    func updateWaterAmount(id: UUID, _ text: String) {
+        guard let index = items.firstIndex(where: { $0.id == id }), case .water(var item) = items[index] else { return }
+        item.amountMlText = text
+        items[index] = .water(item)
     }
     
     func loadCategories() async {
@@ -244,15 +337,17 @@ final class ScanResultViewModel {
     
     func addToDiary() async -> Bool {
         guard !isLoading else { return false }
-        let entries = selectedItems
-        guard !entries.isEmpty else { return false }
+        let selected = selectedItems
+        guard !selected.isEmpty else { return false }
+        let foods = selectedFoodItems
+        let water = selectedWaterItems
         
         isLoading = true
         error = nil
         defer { isLoading = false }
         
         var imageUrl = uploadedImageUrl
-        if imageUrl == nil, let imageData {
+        if !foods.isEmpty, imageUrl == nil, let imageData {
             do {
                 imageUrl = try await service.uploadImage(imageData)
                 uploadedImageUrl = imageUrl
@@ -264,7 +359,7 @@ final class ScanResultViewModel {
         
         var failed: [String] = []
         var failedIds: [UUID] = []
-        for item in entries {
+        for item in foods {
             do {
                 try await service.createFoodEntry(
                     name: item.name,
@@ -289,17 +384,32 @@ final class ScanResultViewModel {
                 failedIds.append(item.id)
             }
         }
-        
-        await todayFoodVM.reloadAfterMutation()
-        todayFoodVM.notifyDataMutated()
+
+        for item in water {
+            guard let amountMl = item.amountMl else {
+                failed.append("Water")
+                failedIds.append(item.id)
+                continue
+            }
+
+            if !(await waterViewModel.createWater(amountMl: amountMl)) {
+                failed.append("Water (\(amountMl) ml)")
+                failedIds.append(item.id)
+            }
+        }
+
+        if !foods.isEmpty {
+            await todayFoodVM.reloadAfterMutation()
+            todayFoodVM.notifyDataMutated()
+        }
         
         if failed.isEmpty {
             return true
         }
         
         error = .partialSave(
-            succeeded: entries.count - failed.count,
-            total: entries.count,
+            succeeded: selected.count - failed.count,
+            total: selected.count,
             failedNames: failed
         )
         // Keep only the items that failed selected, so a retry re-sends those
