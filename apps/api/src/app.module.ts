@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, RequestMethod } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { LoggerModule } from "nestjs-pino";
 
@@ -26,6 +26,7 @@ import { HealthModule } from './health/health.module';
 
     
     LoggerModule.forRoot({
+      forRoutes: [{ path: "*path", method: RequestMethod.ALL }],
       pinoHttp: {
         transport:
           process.env.NODE_ENV !== "production"
