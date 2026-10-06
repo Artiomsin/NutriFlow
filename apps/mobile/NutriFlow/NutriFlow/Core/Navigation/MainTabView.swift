@@ -52,7 +52,9 @@ struct MainTabView: View {
             userService: container.userService,
             cacheService: container.cacheService,
             activitySync: container.activitySync,
-            analyticsTracker: container.analyticsTracker
+            analyticsTracker: container.analyticsTracker,
+            weightReminderScheduler: container.weightReminderScheduler,
+            waterReminderScheduler: container.waterReminderScheduler
         ))
     }
 
@@ -78,7 +80,15 @@ struct MainTabView: View {
             .opacity(selectedTab == 1 ? 1 : 0)
             .allowsHitTesting(selectedTab == 1)
 
-            SettingsView(viewModel: profileVM, goalsVM: progressGoalsVM, coordinator: coordinator, tabBarState: tabBarState, isActive: selectedTab == 2)
+            SettingsView(
+                viewModel: profileVM,
+                goalsVM: progressGoalsVM,
+                coordinator: coordinator,
+                weightReminderScheduler: container.weightReminderScheduler,
+                waterReminderScheduler: container.waterReminderScheduler,
+                tabBarState: tabBarState,
+                isActive: selectedTab == 2
+            )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .opacity(selectedTab == 2 ? 1 : 0)
                 .allowsHitTesting(selectedTab == 2)
@@ -93,6 +103,7 @@ struct MainTabView: View {
             )
         ) { _ in
             Task { await homeVM.handleBecameActive() }
+            Task { await container.waterReminderScheduler.syncTodayReminder() }
         }
         .onChange(of: selectedTab) { _, newTab in
             tabBarState.isTabBarHidden = false
@@ -106,9 +117,25 @@ struct MainTabView: View {
             // Weight, food, water, and goals mutations share this revision.
             // Keep Home's separate GoalsViewModel current even while Home is hidden.
             Task { await homeVM.refreshGoalsIfNeeded() }
+            Task { await container.waterReminderScheduler.syncTodayReminder() }
+        }
+        .onChange(of: coordinator.pendingNotificationType) { _, _ in
+            openPendingNotificationDestination()
         }
         .onAppear {
             trackActiveTab(selectedTab)
+            openPendingNotificationDestination()
+        }
+    }
+
+    private func openPendingNotificationDestination() {
+        switch coordinator.consumePendingNotification() {
+        case .weightReminder:
+            selectedTab = 1
+        case .waterReminder:
+            selectedTab = 0
+        default:
+            break
         }
     }
 

@@ -1,4 +1,5 @@
 import Foundation
+import UserNotifications
 
 @MainActor
 final class AppDependencyContainer: AppDependency {
@@ -31,6 +32,11 @@ final class AppDependencyContainer: AppDependency {
     let sleepSync: SleepSyncProtocol
     
     let themeStore: ThemeStore
+    let notificationDelegate: NotificationDelegate
+    let notificationManager: NotificationManaging
+    let notificationPreferences: NotificationPreferences
+    let weightReminderScheduler: WeightReminderScheduling
+    let waterReminderScheduler: WaterReminderScheduling
     
     init() {
         self.cacheService = CacheService()
@@ -38,6 +44,14 @@ final class AppDependencyContainer: AppDependency {
         self.tokenStorage = KeychainTokenStorage(keychain: keychain)
         
         self.themeStore = ThemeStore()
+        self.notificationDelegate = NotificationDelegate()
+        self.notificationManager = NotificationManager()
+        self.notificationPreferences = NotificationPreferences()
+        self.weightReminderScheduler = WeightReminderScheduler(
+            notificationManager: notificationManager,
+            preferences: notificationPreferences
+        )
+        UNUserNotificationCenter.current().delegate = notificationDelegate
         
         let session = AuthSessionService(tokenStorage: tokenStorage)
         self.sessionService = session
@@ -63,6 +77,12 @@ final class AppDependencyContainer: AppDependency {
         self.dailySummaryService = DailySummaryService(client: httpClient)
         self.goalsService = GoalsService(client: httpClient)
         self.analyticsService = AnalyticsService(client: httpClient)
+        self.waterReminderScheduler = WaterReminderScheduler(
+            notificationManager: notificationManager,
+            preferences: notificationPreferences,
+            waterTrackingService: waterTrackingService,
+            goalsService: goalsService
+        )
         
         self.activityService = ActivityService(client: httpClient)
         self.workoutService = WorkoutService(client: httpClient)

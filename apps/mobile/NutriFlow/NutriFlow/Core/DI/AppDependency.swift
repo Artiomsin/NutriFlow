@@ -5,6 +5,10 @@ protocol AppDependency {
 
     var httpClient: HTTPClient { get }
     var themeStore: ThemeStore { get }
+    var notificationManager: NotificationManaging { get }
+    var notificationPreferences: NotificationPreferences { get }
+    var weightReminderScheduler: WeightReminderScheduling { get }
+    var waterReminderScheduler: WaterReminderScheduling { get }
     
     var tokenStorage: TokenStorage { get }
 
