@@ -48,20 +48,16 @@ struct WeightCardView: View {
             header
 
             if !points.isEmpty {
-                chart
-
                 summary
+
+                chart
                 if points.count == 1 {
                     Text("Record another day to see your change over time.")
                         .font(.footnote)
                         .foregroundColor(AppColors.textTertiary)
                 }
             } else {
-                Text(points.isEmpty
-                     ? "Record your weight to start a trend"
-                     : "Track your weight for a few days to see the trend")
-                    .font(.footnote)
-                    .foregroundColor(AppColors.textTertiary )
+                emptyState
             }
         }
         .padding(14)
@@ -134,6 +130,26 @@ struct WeightCardView: View {
                 metric(value: "\(rateText) \(targetUnit)", label: "PER WEEK")
             }
         }
+    }
+
+    private var emptyState: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("No weight records for this period")
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(AppColors.textPrimary)
+
+            Text("Record your weight to start tracking your trend.")
+                .font(.footnote)
+                .foregroundColor(AppColors.textSecondary)
+
+            Button(action: onRecordWeight) {
+                Label("Record weight", systemImage: "plus")
+                    .font(.footnote.weight(.semibold))
+            }
+            .foregroundColor(AppColors.accent)
+        }
+        .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
+        .padding(.horizontal, 2)
     }
 
     private func metric(value: String, label: String) -> some View {

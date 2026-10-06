@@ -41,6 +41,7 @@ final class ProgressChartViewModel {
     @ObservationIgnored private let profileService: ProfileServiceProtocol?
     @ObservationIgnored private let workoutService: WorkoutServiceProtocol?
     @ObservationIgnored private let progressRefreshState: ProgressRefreshState?
+    @ObservationIgnored private let weightReminderScheduler: WeightReminderScheduling?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var loadTaskID = 0
     @ObservationIgnored private var fallbackProfileWeightKg: Double?
@@ -79,7 +80,7 @@ final class ProgressChartViewModel {
         return f
     }()
 
-    init(coordinator: AppCoordinator, service: DailySummaryServiceProtocol, periodState: PeriodState, foodService: FoodServiceProtocol? = nil, waterService: WaterTrackingServiceProtocol? = nil, goalsService: GoalsServiceProtocol? = nil, activityService: ActivityServiceProtocol? = nil, cacheService: CacheService? = nil, profileService: ProfileServiceProtocol? = nil, workoutService: WorkoutServiceProtocol? = nil, progressRefreshState: ProgressRefreshState? = nil) {
+    init(coordinator: AppCoordinator, service: DailySummaryServiceProtocol, periodState: PeriodState, foodService: FoodServiceProtocol? = nil, waterService: WaterTrackingServiceProtocol? = nil, goalsService: GoalsServiceProtocol? = nil, activityService: ActivityServiceProtocol? = nil, cacheService: CacheService? = nil, profileService: ProfileServiceProtocol? = nil, workoutService: WorkoutServiceProtocol? = nil, progressRefreshState: ProgressRefreshState? = nil, weightReminderScheduler: WeightReminderScheduling? = nil) {
         print("ProgressChartViewModel init")
         self.coordinator = coordinator
         self.service = service
@@ -92,6 +93,7 @@ final class ProgressChartViewModel {
         self.profileService = profileService
         self.workoutService = workoutService
         self.progressRefreshState = progressRefreshState
+        self.weightReminderScheduler = weightReminderScheduler
     }
 
     deinit {
@@ -188,10 +190,9 @@ final class ProgressChartViewModel {
             waterByHour[hour, default: 0] += entry.amountMl
         }
 
-        let allHours = Set(calByHour.keys).union(Set(waterByHour.keys)).sorted()
         let todayStart = cal.startOfDay(for: Date())
 
-        return allHours.map { hour in
+        return (0..<24).map { hour in
             let date = cal.date(byAdding: .hour, value: hour, to: todayStart) ?? todayStart
             return ChartDataPoint(
                 date: date,
@@ -478,6 +479,7 @@ final class ProgressChartViewModel {
     func recordCurrentWeight(_ weightKg: Double) async throws {
         guard let profileService else { return }
         _ = try await profileService.recordWeight(weightKg: weightKg)
+        await weightReminderScheduler?.rescheduleAfterWeightUpdate()
         fallbackProfileWeightKg = weightKg
         didLoadFallbackProfileWeight = true
         await cacheService?.remove("profile")

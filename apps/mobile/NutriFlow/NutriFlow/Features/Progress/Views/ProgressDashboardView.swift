@@ -357,12 +357,23 @@ struct ProgressDashboardView: View {
             ProgressView().tint(.white).frame(maxWidth: .infinity).padding(.vertical, 20)
         case .loaded(let data):
             ZStack {
-                if !data.isEmpty {
+                if hasChartData(data) {
                     VStack(spacing: 20) {
-                        CaloriesChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
-                        WaterChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
-                        NutritionChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
-                        ActivityChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
+                        if let firstCalories = data.first(where: { $0.calories > 0 }) {
+                            CaloriesChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: initialScrollLabel(in: data, firstDataPoint: firstCalories))
+                        }
+
+                        if let firstWater = data.first(where: { $0.waterMl > 0 }) {
+                            WaterChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: initialScrollLabel(in: data, firstDataPoint: firstWater))
+                        }
+
+                        if let firstMacros = data.first(where: { $0.protein > 0 || $0.fat > 0 || $0.carbs > 0 }) {
+                            NutritionChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: initialScrollLabel(in: data, firstDataPoint: firstMacros))
+                        }
+
+                        if let firstActivity = data.first(where: { $0.calories > 0 || $0.activeCalories > 0 || $0.basalCalories > 0 }) {
+                            ActivityChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: initialScrollLabel(in: data, firstDataPoint: firstActivity))
+                        }
                     }
                 } else if case .empty = analyticsVM.state {
                     EmptyView()
@@ -386,6 +397,22 @@ struct ProgressDashboardView: View {
                 Task { await chartVM.refreshData() }
             }
         }
+    }
+
+    private func hasChartData(_ data: [ChartDataPoint]) -> Bool {
+        data.contains {
+            $0.calories > 0 ||
+            $0.waterMl > 0 ||
+            $0.protein > 0 ||
+            $0.fat > 0 ||
+            $0.carbs > 0 ||
+            $0.activeCalories > 0 ||
+            $0.basalCalories > 0
+        }
+    }
+
+    private func initialScrollLabel(in data: [ChartDataPoint], firstDataPoint: ChartDataPoint) -> String {
+        firstDataPoint.label
     }
 
 private struct RingItem: Identifiable {

@@ -33,6 +33,8 @@ final class ProfileViewModel {
     @ObservationIgnored private let cacheService: CacheService?
     @ObservationIgnored private let activitySync: ActivitySyncProtocol?
     @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
+    @ObservationIgnored private let weightReminderScheduler: WeightReminderScheduling?
+    @ObservationIgnored private let waterReminderScheduler: WaterReminderScheduling?
 
     init(
         coordinator: AppCoordinator,
@@ -41,7 +43,9 @@ final class ProfileViewModel {
         userService: UserServiceProtocol,
         cacheService: CacheService? = nil,
         activitySync: ActivitySyncProtocol? = nil,
-        analyticsTracker: AnalyticsTracking? = nil
+        analyticsTracker: AnalyticsTracking? = nil,
+        weightReminderScheduler: WeightReminderScheduling? = nil,
+        waterReminderScheduler: WaterReminderScheduling? = nil
     ) {
         #if DEBUG
         print("ProfileViewModel init")
@@ -53,6 +57,8 @@ final class ProfileViewModel {
         self.cacheService = cacheService
         self.activitySync = activitySync
         self.analyticsTracker = analyticsTracker
+        self.weightReminderScheduler = weightReminderScheduler
+        self.waterReminderScheduler = waterReminderScheduler
     }
 
     #if DEBUG
@@ -199,6 +205,7 @@ final class ProfileViewModel {
             )
 
             mapProfile(profile)
+            await weightReminderScheduler?.rescheduleAfterWeightUpdate()
             state = .loaded(profile)
             await cacheService?.remove("profile_empty")
             await cacheService?.remove("profile")
@@ -283,6 +290,8 @@ final class ProfileViewModel {
     }
 
     func logout() async {
+        weightReminderScheduler?.cancel()
+        waterReminderScheduler?.cancel()
         activitySync?.stop()
         do {
             try await authService.logout()
@@ -296,6 +305,8 @@ final class ProfileViewModel {
 
         do {
             try await profileService.deleteMyProfile()
+            weightReminderScheduler?.cancel()
+            waterReminderScheduler?.cancel()
             clearForm()
             state = .empty
             await cacheService?.remove("profile")

@@ -24,7 +24,8 @@ enum ProgressFactory {
             cacheService: cache,
             profileService: container.profileService,
             workoutService: container.workoutService,
-            progressRefreshState: progressRefreshState
+            progressRefreshState: progressRefreshState,
+            weightReminderScheduler: container.weightReminderScheduler
         )
         let goalsVM = GoalsViewModel(
             coordinator: coordinator,
