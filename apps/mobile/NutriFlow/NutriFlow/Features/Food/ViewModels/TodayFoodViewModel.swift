@@ -21,13 +21,30 @@ final class TodayFoodViewModel {
     @ObservationIgnored private let progressRefreshState: ProgressRefreshState?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var pendingDeleteId: String?
+    @ObservationIgnored private let goalsService: GoalsServiceProtocol?
+    @ObservationIgnored private let goalsProvider: (() -> UserGoals?)?
+    @ObservationIgnored private let achievementService: AchievementService?
+    @ObservationIgnored private let achievementNotificationService: AchievementNotificationService?
 
-    init(service: FoodServiceProtocol, coordinator: AppCoordinator?, cacheService: CacheService? = nil, progressRefreshState: ProgressRefreshState? = nil) {
+    init(
+        service: FoodServiceProtocol,
+        coordinator: AppCoordinator?,
+        cacheService: CacheService? = nil,
+        progressRefreshState: ProgressRefreshState? = nil,
+        goalsService: GoalsServiceProtocol? = nil,
+        goalsProvider: (() -> UserGoals?)? = nil,
+        achievementService: AchievementService? = nil,
+        achievementNotificationService: AchievementNotificationService? = nil
+    ) {
         print("TodayFoodViewModel init")
         self.service = service
         self.coordinator = coordinator
         self.cacheService = cacheService
         self.progressRefreshState = progressRefreshState
+        self.goalsService = goalsService
+        self.goalsProvider = goalsProvider
+        self.achievementService = achievementService
+        self.achievementNotificationService = achievementNotificationService
     }
 
     deinit { print("TodayFoodViewModel deinit") }
@@ -92,6 +109,7 @@ final class TodayFoodViewModel {
         await cacheService?.removeByPrefix("chart_summaries")
         await cacheService?.removeByPrefix("analytics_")
         await loadToday(forceNetwork: true)
+        await checkNutritionAchievements()
     }
 
     func notifyDataMutated() {
@@ -163,5 +181,37 @@ final class TodayFoodViewModel {
         routeAuth(appError)
         guard appError != .cancelled else { return }
         bannerError = appError
+    }
+
+    private func checkNutritionAchievements() async {
+        guard
+            let achievementService,
+            let achievementNotificationService,
+            let goals = await loadGoalsForAchievements(),
+            let calorieGoal = goals.dailyCaloriesGoal,
+            calorieGoal > 0
+        else { return }
+
+        let entries: [FoodEntry]
+        if case .loaded(let loaded) = state {
+            entries = loaded
+        } else {
+            entries = (try? await service.getTodayFood()) ?? []
+        }
+
+        let consumed = entries.reduce(0) { $0 + $1.calories }
+        let items = achievementService.checkCalories(consumed: consumed, goal: calorieGoal)
+        #if DEBUG
+        print("[AchievementNotification] calories total=\(consumed) goal=\(calorieGoal)")
+        #endif
+        guard !items.isEmpty else { return }
+        await achievementNotificationService.notifyIfNeeded(achievements: items)
+    }
+
+    private func loadGoalsForAchievements() async -> UserGoals? {
+        if let goals = goalsProvider?() {
+            return goals
+        }
+        return try? await goalsService?.getGoals()
     }
 }

@@ -14,8 +14,22 @@ final class WaterViewModel {
     @ObservationIgnored private let cacheService: CacheService?
     @ObservationIgnored private let progressRefreshState: ProgressRefreshState?
     @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
+    @ObservationIgnored private let goalsService: GoalsServiceProtocol?
+    @ObservationIgnored private let goalsProvider: (() -> UserGoals?)?
+    @ObservationIgnored private let achievementService: AchievementService?
+    @ObservationIgnored private let achievementNotificationService: AchievementNotificationService?
 
-    init(coordinator: AppCoordinator, service: WaterTrackingServiceProtocol, cacheService: CacheService? = nil, progressRefreshState: ProgressRefreshState? = nil, analyticsTracker: AnalyticsTracking? = nil) {
+    init(
+        coordinator: AppCoordinator,
+        service: WaterTrackingServiceProtocol,
+        cacheService: CacheService? = nil,
+        progressRefreshState: ProgressRefreshState? = nil,
+        analyticsTracker: AnalyticsTracking? = nil,
+        goalsService: GoalsServiceProtocol? = nil,
+        goalsProvider: (() -> UserGoals?)? = nil,
+        achievementService: AchievementService? = nil,
+        achievementNotificationService: AchievementNotificationService? = nil
+    ) {
         #if DEBUG
         print("WaterViewModel init")
         #endif
@@ -24,6 +38,10 @@ final class WaterViewModel {
         self.cacheService = cacheService
         self.progressRefreshState = progressRefreshState
         self.analyticsTracker = analyticsTracker
+        self.goalsService = goalsService
+        self.goalsProvider = goalsProvider
+        self.achievementService = achievementService
+        self.achievementNotificationService = achievementNotificationService
     }
 
     #if DEBUG
@@ -102,6 +120,7 @@ final class WaterViewModel {
             progressRefreshState?.invalidate()
 
             await refreshAfterWrite()
+            await checkWaterAchievements()
             if clearsForm {
                 clearForm()
             }
@@ -150,6 +169,38 @@ final class WaterViewModel {
         } catch {
             await loadToday()
         }
+    }
+
+    private func checkWaterAchievements() async {
+        guard
+            let achievementService,
+            let achievementNotificationService,
+            let goals = await loadGoalsForAchievements(),
+            let goalMl = goals.dailyWaterGoal,
+            goalMl > 0
+        else { return }
+
+        let entries: [WaterEntry]
+        if case .loaded(let loaded) = state {
+            entries = loaded
+        } else {
+            entries = (try? await service.getTodayWater()) ?? []
+        }
+
+        let totalMl = entries.reduce(0) { $0 + $1.amountMl }
+        let items = achievementService.checkWater(totalMl: totalMl, goalMl: goalMl)
+        #if DEBUG
+        print("[AchievementNotification] water total=\(totalMl) goal=\(goalMl)")
+        #endif
+        guard !items.isEmpty else { return }
+        await achievementNotificationService.notifyIfNeeded(achievements: items)
+    }
+
+    private func loadGoalsForAchievements() async -> UserGoals? {
+        if let goals = goalsProvider?() {
+            return goals
+        }
+        return try? await goalsService?.getGoals()
     }
 
     private func clearForm() {

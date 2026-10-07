@@ -101,6 +101,7 @@ final class MockActivityService: ActivityServiceProtocol {
 final class MockActivitySync: ActivitySyncProtocol {
     var isSessionActive: Bool { false }
     var onActivityUpdate: ((DailyActivity) -> Void)?
+    var goalsProvider: (() -> UserGoals?)?
     func start() {}
     func stop() {}
     func refresh() async {}

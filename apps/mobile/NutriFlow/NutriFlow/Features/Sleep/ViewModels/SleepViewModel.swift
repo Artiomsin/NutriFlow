@@ -7,6 +7,10 @@ final class SleepViewModel {
 
     private let coordinator: SleepSyncProtocol
     @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
+    @ObservationIgnored private let goalsService: GoalsServiceProtocol?
+    @ObservationIgnored private let goalsProvider: (() -> UserGoals?)?
+    @ObservationIgnored private let achievementService: AchievementService?
+    @ObservationIgnored private let achievementNotificationService: AchievementNotificationService?
 
     var state: SleepState = .idle
     var historyError: AppError?
@@ -34,9 +38,20 @@ final class SleepViewModel {
         }
     }
 
-    init(coordinator: SleepSyncProtocol, analyticsTracker: AnalyticsTracking? = nil) {
+    init(
+        coordinator: SleepSyncProtocol,
+        analyticsTracker: AnalyticsTracking? = nil,
+        goalsService: GoalsServiceProtocol? = nil,
+        goalsProvider: (() -> UserGoals?)? = nil,
+        achievementService: AchievementService? = nil,
+        achievementNotificationService: AchievementNotificationService? = nil
+    ) {
         self.coordinator = coordinator
         self.analyticsTracker = analyticsTracker
+        self.goalsService = goalsService
+        self.goalsProvider = goalsProvider
+        self.achievementService = achievementService
+        self.achievementNotificationService = achievementNotificationService
     }
 
     func trackScreenView() {
@@ -111,6 +126,7 @@ final class SleepViewModel {
             }
 
             setLastNight(night)
+            checkSleepAchievements(night: night)
 
         } catch {
             if isHealthKitUnavailable(error) {
@@ -250,6 +266,36 @@ final class SleepViewModel {
 
     private func setLastNight(_ night: HealthKitSleep) {
         state = .loaded([night])
+    }
+
+    private func checkSleepAchievements(night: HealthKitSleep) {
+        guard
+            let achievementService,
+            let achievementNotificationService
+        else { return }
+
+        let minutes = Int(night.asleepSeconds / 60)
+        guard minutes > 0 else { return }
+
+        Task { @MainActor in
+            let goals: UserGoals?
+            if let live = goalsProvider?() {
+                goals = live
+            } else {
+                goals = try? await goalsService?.getGoals()
+            }
+            guard let goals,
+                  let minGoal = goals.nightlySleepMinMinutes
+            else { return }
+
+            let items = achievementService.checkSleep(
+                minutes: minutes,
+                minGoal: minGoal,
+                maxGoal: goals.nightlySleepMaxMinutes ?? 0
+            )
+            guard !items.isEmpty else { return }
+            await achievementNotificationService.notifyIfNeeded(achievements: items)
+        }
     }
 
     private func setHistory(_ nights: [HealthKitSleep]) {

@@ -137,6 +137,11 @@ final class WorkoutViewModel {
     @ObservationIgnored
     private let analyticsTracker: AnalyticsTracking?
     
+    @ObservationIgnored private let goalsService: GoalsServiceProtocol?
+    @ObservationIgnored private let goalsProvider: (() -> UserGoals?)?
+    @ObservationIgnored private let achievementService: AchievementService?
+    @ObservationIgnored private let achievementNotificationService: AchievementNotificationService?
+    
     @ObservationIgnored
     private var total: Int = 0
     
@@ -157,12 +162,20 @@ final class WorkoutViewModel {
         healthKit: WorkoutHealthKitServiceProtocol,
         workoutService: WorkoutServiceProtocol,
         cacheService: CacheService? = nil,
-        analyticsTracker: AnalyticsTracking? = nil
+        analyticsTracker: AnalyticsTracking? = nil,
+        goalsService: GoalsServiceProtocol? = nil,
+        goalsProvider: (() -> UserGoals?)? = nil,
+        achievementService: AchievementService? = nil,
+        achievementNotificationService: AchievementNotificationService? = nil
     ) {
         self.healthKit = healthKit
         self.workoutService = workoutService
         self.cacheService = cacheService
         self.analyticsTracker = analyticsTracker
+        self.goalsService = goalsService
+        self.goalsProvider = goalsProvider
+        self.achievementService = achievementService
+        self.achievementNotificationService = achievementNotificationService
     }
     
     func trackScreenView(_ screen: String) {
@@ -342,6 +355,42 @@ final class WorkoutViewModel {
         )
     }
     
+    func checkWorkoutAchievements() async {
+        guard
+            let achievementService,
+            let achievementNotificationService
+        else { return }
+
+        // weekWorkoutsCount/weekWorkoutMinutes read from history state —
+        // on Home it may still be idle, so load it (cache-first) first.
+        if case .loaded = state {} else {
+            await loadHistory()
+        }
+        guard case .loaded = state else { return }
+
+        let goals: UserGoals?
+        if let live = goalsProvider?() {
+            goals = live
+        } else {
+            goals = try? await goalsService?.getGoals()
+        }
+        guard let goals else { return }
+
+        var items: [Achievement] = []
+        if let goal = goals.weeklyWorkoutsGoal {
+            items += achievementService.checkWorkouts(
+                count: weekWorkoutsCount, goal: goal
+            )
+        }
+        if let goal = goals.weeklyWorkoutMinutesGoal {
+            items += achievementService.checkWorkoutMinutes(
+                minutes: weekWorkoutMinutes, goal: goal
+            )
+        }
+        guard !items.isEmpty else { return }
+        await achievementNotificationService.notifyIfNeeded(achievements: items)
+    }
+    
     private func latestWorkoutFromBackend() async -> Result<HealthKitWorkout?, AppError> {
         
         do {
@@ -402,6 +451,8 @@ final class WorkoutViewModel {
         // If HealthKit is unavailable, loadHistory() will use backend/cache.
         await loadHistory()
         
+        await checkWorkoutAchievements()
+        
         print(
             "[WorkoutVM] onAppear done"
         )
@@ -445,6 +496,8 @@ final class WorkoutViewModel {
         await loadHistory()
         
         await loadLatest()
+        
+        await checkWorkoutAchievements()
         
         print(
             "[WorkoutVM] refresh done"
@@ -842,6 +895,8 @@ final class WorkoutViewModel {
             print(
                 "[WorkoutVM] synced \(entries.count) workouts"
             )
+            
+            await checkWorkoutAchievements()
             
         } catch {
             

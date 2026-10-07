@@ -74,6 +74,7 @@ final class HomeViewModel {
         await activityVM.checkPermission()
         await sleepVM.checkPermission()
         await workoutVM.loadLatest()
+        await workoutVM.checkWorkoutAchievements()
     }
 
     func handleBecameActive() async {
