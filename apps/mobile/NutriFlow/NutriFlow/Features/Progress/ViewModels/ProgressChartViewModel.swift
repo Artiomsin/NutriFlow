@@ -491,6 +491,7 @@ final class ProgressChartViewModel {
     func deleteWeightEntry(date: String) async throws {
         guard let profileService else { return }
         try await profileService.deleteWeightLog(date: date)
+        await weightReminderScheduler?.rescheduleAfterWeightUpdate()
         fallbackProfileWeightKg = nil
         didLoadFallbackProfileWeight = false
         await cacheService?.remove("profile")

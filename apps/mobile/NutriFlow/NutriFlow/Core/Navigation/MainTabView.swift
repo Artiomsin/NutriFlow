@@ -86,6 +86,7 @@ struct MainTabView: View {
                 coordinator: coordinator,
                 weightReminderScheduler: container.weightReminderScheduler,
                 waterReminderScheduler: container.waterReminderScheduler,
+                achievementNotificationService: container.achievementNotificationService,
                 tabBarState: tabBarState,
                 isActive: selectedTab == 2
             )
@@ -134,6 +135,10 @@ struct MainTabView: View {
             selectedTab = 1
         case .waterReminder:
             selectedTab = 0
+        case .achievement:
+            analyticsVM.setPeriod(.today)
+            chartVM.setPeriod(.today)
+            selectedTab = 1
         default:
             break
         }

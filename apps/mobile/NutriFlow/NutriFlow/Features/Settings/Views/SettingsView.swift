@@ -15,18 +15,20 @@ struct SettingsView: View {
     let isActive: Bool
     let weightReminderScheduler: WeightReminderScheduling
     let waterReminderScheduler: WaterReminderScheduling
+    let achievementNotificationService: AchievementNotificationService
     @State private var isNotificationPermissionDenied = false
     @State private var navPath: [SettingsNavRoute] = []
     @State private var hasLoadedSettings = false
     @Environment(ThemeStore.self)
     private var themeStore
 
-    init(viewModel: ProfileViewModel, goalsVM: GoalsViewModel, coordinator: AppCoordinator?, weightReminderScheduler: WeightReminderScheduling, waterReminderScheduler: WaterReminderScheduling, tabBarState: TabBarState = TabBarState(), isActive: Bool = true) {
+    init(viewModel: ProfileViewModel, goalsVM: GoalsViewModel, coordinator: AppCoordinator?, weightReminderScheduler: WeightReminderScheduling, waterReminderScheduler: WaterReminderScheduling, achievementNotificationService: AchievementNotificationService, tabBarState: TabBarState = TabBarState(), isActive: Bool = true) {
         self.viewModel = viewModel
         self.goalsVM = goalsVM
         self.coordinator = coordinator
         self.weightReminderScheduler = weightReminderScheduler
         self.waterReminderScheduler = waterReminderScheduler
+        self.achievementNotificationService = achievementNotificationService
         self.tabBarState = tabBarState
         self.isActive = isActive
     }
@@ -157,6 +159,17 @@ struct SettingsView: View {
             .padding(.vertical, 14)
             .appGlassSurface()
 
+            Toggle("Achievement notifications", isOn: Binding(
+                get: { achievementNotificationService.isAchievementNotificationsEnabled },
+                set: { isEnabled in
+                    Task { await setAchievementNotificationsEnabled(isEnabled) }
+                }
+            ))
+            .tint(AppColors.accent)
+            .padding(.horizontal, AppSpacing.paddingHorizontal)
+            .padding(.vertical, 14)
+            .appGlassSurface()
+
             VStack(spacing: 0) {
                 Toggle("Water reminder", isOn: Binding(
                     get: { waterReminderScheduler.isWaterReminderEnabled },
@@ -179,6 +192,18 @@ struct SettingsView: View {
             .padding(.horizontal, AppSpacing.paddingHorizontal)
             .padding(.vertical, 14)
             .appGlassSurface()
+
+            #if DEBUG
+            Button(role: .destructive) {
+                achievementNotificationService.resetTestState()
+            } label: {
+                Label("Reset achievement test state", systemImage: "arrow.counterclockwise")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, AppSpacing.paddingHorizontal)
+            .padding(.vertical, 14)
+            .appGlassSurface()
+            #endif
         }
     }
 
@@ -214,6 +239,13 @@ struct SettingsView: View {
 
     private func setWaterRemindersEnabled(_ isEnabled: Bool) async {
         guard await waterReminderScheduler.setWaterRemindersEnabled(isEnabled) else {
+            isNotificationPermissionDenied = true
+            return
+        }
+    }
+
+    private func setAchievementNotificationsEnabled(_ isEnabled: Bool) async {
+        guard await achievementNotificationService.setAchievementNotificationsEnabled(isEnabled) else {
             isNotificationPermissionDenied = true
             return
         }
@@ -423,7 +455,8 @@ struct SettingsView: View {
         goalsVM: GoalsViewModel(coordinator: coordinator, service: MockGoalsService()),
         coordinator: coordinator,
         weightReminderScheduler: container.weightReminderScheduler,
-        waterReminderScheduler: container.waterReminderScheduler
+        waterReminderScheduler: container.waterReminderScheduler,
+        achievementNotificationService: container.achievementNotificationService
     )
     .environment(container.themeStore)
         
