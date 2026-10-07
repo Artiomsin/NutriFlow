@@ -74,7 +74,7 @@ struct HomeView: View {
                     case .addWater:
                         AddWaterView(
                             waterViewModel: homeViewModel.waterVM,
-                            onSave: { Task { await homeViewModel.loadDashboardSummary() } }
+                            onSave: { Task { await homeViewModel.loadDashboardSummary(forceRefresh: true) } }
                         )
                     case .scanFood:
                         ScanFoodView(service: foodService, analyticsTracker: analyticsTracker) { items, imageData in
@@ -112,7 +112,7 @@ struct HomeView: View {
             EditFoodView(viewModel: vm) {
                 await homeViewModel.todayFoodVM.reloadAfterMutation()
                 homeViewModel.todayFoodVM.notifyDataMutated()
-                await homeViewModel.loadDashboardSummary()
+                await homeViewModel.loadDashboardSummary(forceRefresh: true)
             }
         }
     }
@@ -259,7 +259,7 @@ struct HomeView: View {
         navPath.removeAll()
         tabBarState.isTabBarHidden = false
         tabBarState.isTabBarMinimized = false
-        Task { await homeViewModel.loadDashboardSummary() }
+        Task { await homeViewModel.loadDashboardSummary(forceRefresh: true) }
     }
 }
 
