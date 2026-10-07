@@ -8,7 +8,5 @@
 enum AppNotificationType: String, Sendable{
     case weightReminder = "weight_reminder"
     case waterReminder = "water_reminder"
-    case workoutReminder = "workout_reminder"
-    case sleepReminder = "sleep_reminder"
     case achievement = "achievement"
 }

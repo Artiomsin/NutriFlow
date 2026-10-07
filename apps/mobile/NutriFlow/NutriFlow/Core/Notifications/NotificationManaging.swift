@@ -5,7 +5,7 @@ protocol NotificationManaging: AnyObject {
     func authorizationStatus() async -> UNAuthorizationStatus
     func requestAuthorizationIfNeeded() async -> Bool
     func hasPendingRequest(identifier: String) async -> Bool
-    func schedule(_ notification: AppNotification) async
+    func schedule(_ notification: AppNotification) async -> Bool
     func cancelPending(identifiers: [String])
     func cancel(identifiers: [String])
 }

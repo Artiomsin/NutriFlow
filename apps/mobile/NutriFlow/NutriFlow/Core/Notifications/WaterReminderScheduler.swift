@@ -93,7 +93,7 @@ final class WaterReminderScheduler: WaterReminderScheduling {
                 return
             }
 
-            await notificationManager.schedule(.waterReminder(at: reminderDate))
+            _ = await notificationManager.schedule(.waterReminder(at: reminderDate))
         } catch {
             #if DEBUG
             print("[Notifications] Failed to synchronize water reminder: \(error)")

@@ -12,7 +12,7 @@ protocol WeightReminderScheduling: AnyObject {
 
 @MainActor
 final class WeightReminderScheduler: WeightReminderScheduling {
-    private let reminderInterval: TimeInterval = 60
+    private let reminderInterval: TimeInterval = 3 * 24 * 60 * 60
     private let notificationManager: NotificationManaging
     private let preferences: NotificationPreferences
 
@@ -66,6 +66,6 @@ final class WeightReminderScheduler: WeightReminderScheduling {
     }
 
     private func scheduleWeightReminder() async {
-        await notificationManager.schedule(.weightReminder(after: reminderInterval))
+        _ = await notificationManager.schedule(.weightReminder(after: reminderInterval))
     }
 }

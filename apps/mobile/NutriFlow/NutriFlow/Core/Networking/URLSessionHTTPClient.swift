@@ -186,10 +186,10 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         }
     }
 
-    // iOS отдаёт URLError.cancelled в двух разных ситуациях: Task был
-    // отменён намеренно (смена экрана, новый запрос) и соединение оборвалось
-    // системой (потеря сети, app switch, смена интерфейса). Отличать их можно
-    // только по Task.isCancelled: при обрыве отмена не запрашивалась.
+    // iOS returns URLError.cancelled in two different cases: the Task was
+    // cancelled intentionally (screen change, new request) or the connection
+    // dropped (network loss, app switch, UI change). They can only be told
+    // apart via Task.isCancelled: a system drop was never requested.
     private static func mapCancellation() -> APIError {
         Task.isCancelled ? .cancelled : .transport(code: .networkConnectionLost)
     }

@@ -34,8 +34,21 @@ final class NotificationManager: NotificationManaging {
         return requests.contains { $0.identifier == identifier }
     }
 
-    func schedule(_ notification: AppNotification) async {
-        guard await requestAuthorizationIfNeeded() else { return }
+    func schedule(_ notification: AppNotification) async -> Bool {
+        switch await authorizationStatus() {
+        case .authorized, .provisional, .ephemeral:
+            break
+        case .notDetermined, .denied:
+            #if DEBUG
+            print("[Notification] skipped type=\(notification.type.rawValue) reason=permission")
+            #endif
+            return false
+        @unknown default:
+            #if DEBUG
+            print("[Notification] skipped type=\(notification.type.rawValue) reason=unknown_permission")
+            #endif
+            return false
+        }
 
         center.removePendingNotificationRequests(withIdentifiers: [notification.identifier])
 
@@ -44,9 +57,12 @@ final class NotificationManager: NotificationManaging {
         content.body = notification.body
         content.sound = .default
         content.userInfo = [AppNotification.userInfoTypeKey: notification.type.rawValue]
+        content.threadIdentifier = notification.threadIdentifier
 
-        let trigger: UNNotificationTrigger
+        let trigger: UNNotificationTrigger?
         switch notification.trigger {
+        case .immediate:
+            trigger = nil
         case let .timeInterval(interval, repeats):
             trigger = UNTimeIntervalNotificationTrigger(
                 timeInterval: interval,
@@ -67,10 +83,15 @@ final class NotificationManager: NotificationManaging {
 
         do {
             try await center.add(request)
+            #if DEBUG
+            print("[Notification] scheduled type=\(notification.type.rawValue)")
+            #endif
+            return true
         } catch {
             #if DEBUG
             print("[Notifications] Failed to schedule \(notification.identifier): \(error)")
             #endif
+            return false
         }
     }
 

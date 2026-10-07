@@ -36,4 +36,7 @@ protocol AppDependency {
     var activitySync: ActivitySyncProtocol { get }
     var sleepSync: SleepSyncProtocol { get }
 
+    var achievementService: AchievementService { get }
+    var achievementNotificationService: AchievementNotificationService { get }
+
 }

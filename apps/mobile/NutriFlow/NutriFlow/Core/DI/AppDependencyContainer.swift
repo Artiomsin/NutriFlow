@@ -30,7 +30,10 @@ final class AppDependencyContainer: AppDependency {
     let sleepHealthKitService: SleepHealthKitServiceProtocol
     let activitySync: ActivitySyncProtocol
     let sleepSync: SleepSyncProtocol
-    
+
+    let achievementService: AchievementService
+    let achievementNotificationService: AchievementNotificationService
+
     let themeStore: ThemeStore
     let notificationDelegate: NotificationDelegate
     let notificationManager: NotificationManaging
@@ -77,31 +80,41 @@ final class AppDependencyContainer: AppDependency {
         self.dailySummaryService = DailySummaryService(client: httpClient)
         self.goalsService = GoalsService(client: httpClient)
         self.analyticsService = AnalyticsService(client: httpClient)
+
+        self.achievementService = AchievementService()
+        self.achievementNotificationService = AchievementNotificationService(
+            notificationManager: notificationManager,
+            preferences: notificationPreferences
+        )
+
         self.waterReminderScheduler = WaterReminderScheduler(
             notificationManager: notificationManager,
             preferences: notificationPreferences,
             waterTrackingService: waterTrackingService,
             goalsService: goalsService
         )
-        
+
         self.activityService = ActivityService(client: httpClient)
         self.workoutService = WorkoutService(client: httpClient)
         self.sleepService = SleepService(client: httpClient)
-        
+
         self.sessionBootstrapService = SessionBootstrapService(
             profileService: profile,
             sessionService: session
         )
-        
+
         self.googleSignInService = GoogleSignInService()
-        
+
         self.activityHealthKitService = ActivityHealthKitService()
         self.workoutHealthKitService = WorkoutHealthKitService()
         self.sleepHealthKitService = SleepHealthKitService()
-        
+
         self.activitySync = ActivitySyncCoordinator(
             healthKitService: activityHealthKitService,
-            activityService: activityService
+            activityService: activityService,
+            goalsService: goalsService,
+            achievementService: achievementService,
+            achievementNotificationService: achievementNotificationService
         )
         
         self.sleepSync = SleepSyncCoordinator(

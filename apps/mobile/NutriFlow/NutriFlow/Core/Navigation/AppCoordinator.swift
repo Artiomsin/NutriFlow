@@ -111,6 +111,8 @@ final class AppCoordinator {
     private func clearLocalSessionState() {
         container.weightReminderScheduler.cancel()
         container.waterReminderScheduler.cancel()
+        container.achievementNotificationService.clearSessionState()
+        container.notificationPreferences.reset()
         container.activitySync.stop()
         WorkoutViewModel.resetSessionSyncState()
         SleepSyncCoordinator.resetSessionSyncState()
