@@ -13,7 +13,7 @@ actor CacheService {
     func get<T: Codable & Sendable>(
         _ key: String,
         ignoreTTL: Bool = false,
-        retainExpired: Bool = false
+        retainExpired: Bool = true
     ) throws -> T? {
         let file = dir.appendingPathComponent("\(key).json")
         guard let data = try? Data(contentsOf: file) else {
