@@ -8,7 +8,6 @@ import { generateRecommendation } from './recommendation';
 import { DataCollectionService } from './data-collection.service';
 import { recordGoalHistory } from '../goals-history';
 import { eq, and, lt, desc } from 'drizzle-orm';
-import { invalidateAnalyticsCache } from '../../redis';
 
 export const PERSONALIZATION_INTERVAL_DAYS = 14;
 export const RECOMMENDATION_TTL_DAYS = 7;
@@ -153,8 +152,6 @@ export class GoalPersonalizationService {
       .update(goalRecommendations)
       .set({ status: 'accepted', acceptedAt: new Date() })
       .where(eq(goalRecommendations.id, recommendationId));
-
-    await invalidateAnalyticsCache(userId);
 
     return next;
   }

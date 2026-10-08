@@ -2,7 +2,6 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { db } from '../db/db';
 import { waterEntries } from '../db/schema/waterEntries';
 import { eq, and, sql } from 'drizzle-orm';
-import { invalidateAnalyticsCache } from '../redis';
 import { DailySummaryService } from '../daily-summary/daily-summary.service';
 import { currentUserDate } from '../common/time/user-date';
 import type { CreateWaterEntryDto } from './water-tracking.schema';
@@ -32,8 +31,6 @@ export class WaterTrackingService {
 
       return created;
     });
-
-    await invalidateAnalyticsCache(userId);
 
     return entry;
   }
@@ -92,8 +89,6 @@ export class WaterTrackingService {
 
       return { message: 'Deleted' };
     });
-
-    await invalidateAnalyticsCache(userId);
 
     return result;
   }

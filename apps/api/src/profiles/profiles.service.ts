@@ -9,7 +9,6 @@ import { eq } from 'drizzle-orm';
 import { GoalsService } from '../goals/goals.service';
 import { weightLogs } from '../db/schema/weightLogs';
 import { formatDateInTimeZone } from '../common/time/user-date';
-import { invalidateAnalyticsCache } from '../redis';
 
 import type {
   CreateProfileDto,
@@ -62,11 +61,10 @@ export class ProfilesService {
         source: 'initial',
       });
 
-      await this.goalsService.calculate(data.userId, tx, false);
+      await this.goalsService.calculate(data.userId, tx);
       return { profile, created: true };
     });
 
-    if (result.created) await invalidateAnalyticsCache(data.userId);
     return result.profile;
   }
 
@@ -106,11 +104,10 @@ export class ProfilesService {
         .where(eq(userProfiles.userId, userId))
         .returning();
 
-      await this.goalsService.calculate(userId, tx, false);
+      await this.goalsService.calculate(userId, tx);
       return updated;
     });
 
-    await invalidateAnalyticsCache(userId);
     return profile;
   }
 
@@ -136,7 +133,6 @@ export class ProfilesService {
       .returning();
 
     if (!profile) throw new NotFoundException('Profile not found');
-    await invalidateAnalyticsCache(userId);
     return profile;
   }
 

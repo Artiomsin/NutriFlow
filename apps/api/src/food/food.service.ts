@@ -5,7 +5,6 @@ import { foods } from '../db/schema/foods';
 import { foodServings } from '../db/schema/foodServings';
 import { userFoodStats } from '../db/schema/userFoodStats';
 import { eq, and, sql, desc, or, inArray, type SQL } from 'drizzle-orm';
-import { cacheGet, cacheSet, cacheDelByPrefix, invalidateAnalyticsCache } from '../redis';
 import { DailySummaryService } from '../daily-summary/daily-summary.service';
 import { foodCategories } from '../db/schema/foodCategories';
 import { env } from '../config/env';
@@ -199,9 +198,6 @@ export class FoodService {
       return entry;
     });
 
-    await invalidateAnalyticsCache(userId);
-    await cacheDelByPrefix(`search:q:${userId}:`);
-
     return result;
   }
 
@@ -282,8 +278,6 @@ export class FoodService {
 
       return { message: 'Deleted' };
     });
-    await invalidateAnalyticsCache(userId);
-
     return result;
   }
 
@@ -554,9 +548,6 @@ export class FoodService {
       }
     });
 
-    await invalidateAnalyticsCache(userId);
-    await cacheDelByPrefix(`search:q:${userId}:`);
-
     const [updated] = await db
       .select()
       .from(foodEntries)
@@ -670,15 +661,8 @@ export class FoodService {
       .replace(/\s+/g, ' ')
       .trim());
 
-    // Personal cache of the full list (pagination is sliced from it)
-    const cacheKey = `search:q:${userId ?? 'anon'}:${cleanQuery}`;
-    const cached = await cacheGet<OFProduct[]>(cacheKey);
     const required = offset + limit + FoodService.PRELOAD_PAGE_SIZE;
-    const full: OFProduct[] = cached ?? await this.buildSearchResults(cleanQuery, userId, required);
-
-    if (!cached) {
-      await cacheSet(cacheKey, full);
-    }
+    const full = await this.buildSearchResults(cleanQuery, userId, required);
 
     const total = full.length;
     const hasMore = offset + limit < total;
@@ -990,7 +974,6 @@ export class FoodService {
       return { ...food, servings };
     });
 
-    await cacheDelByPrefix(`search:q:${userId}:`);
     return result;
   }
 
@@ -1011,8 +994,6 @@ export class FoodService {
           lastUsedAt: sql`NOW()`,
         },
       });
-
-    await cacheDelByPrefix(`search:q:${userId}:`);
 
     return { ok: true };
   }

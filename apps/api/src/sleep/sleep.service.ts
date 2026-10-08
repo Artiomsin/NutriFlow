@@ -3,7 +3,6 @@ import { db } from '../db/db';
 import { userSleep } from '../db/schema/userSleep';
 import { and, eq, gte, lte, desc, count, notInArray } from 'drizzle-orm';
 import type { SyncSleepDto } from './sleep.schema';
-import { invalidateAnalyticsCache } from '../redis';
 
 @Injectable()
 export class SleepService {
@@ -55,7 +54,6 @@ export class SleepService {
         synced += 1;
       }
     });
-    await invalidateAnalyticsCache(userId);
     return { synced };
   }
 
@@ -79,7 +77,6 @@ export class SleepService {
         ),
       )
       .returning({ id: userSleep.id });
-    await invalidateAnalyticsCache(userId);
     return { deleted: res.length };
   }
 

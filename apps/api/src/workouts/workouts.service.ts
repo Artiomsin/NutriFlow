@@ -3,7 +3,6 @@ import { db } from '../db/db';
 import { userWorkouts } from '../db/schema/userWorkouts';
 import { and, eq, gte, lte, desc, count, notInArray } from 'drizzle-orm';
 import type { SyncWorkoutsDto } from './workouts.schema';
-import { invalidateAnalyticsCache } from '../redis';
 
 @Injectable()
 export class WorkoutsService {
@@ -67,7 +66,6 @@ export class WorkoutsService {
         synced += 1;
       }
     });
-    await invalidateAnalyticsCache(userId);
     return { synced };
   }
 
@@ -90,7 +88,6 @@ export class WorkoutsService {
         ),
       )
       .returning({ id: userWorkouts.id });
-    await invalidateAnalyticsCache(userId);
     return { deleted: res.length };
   }
 

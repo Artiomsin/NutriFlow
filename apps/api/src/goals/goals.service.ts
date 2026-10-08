@@ -10,7 +10,6 @@ import { userProfiles } from '../db/schema/userProfiles';
 import { and, desc, eq } from 'drizzle-orm';
 import type { UpdateGoalsDto } from './goals.schema';
 import type { GoalMetrics } from './personalization/types';
-import { invalidateAnalyticsCache } from '../redis';
 import {
   recordGoalHistory,
   rowToGoalMetrics,
@@ -56,8 +55,6 @@ export class GoalsService {
         'user',
         'user_edit',
       );
-      await invalidateAnalyticsCache(userId);
-
       return goals;
     }
 
@@ -77,15 +74,12 @@ export class GoalsService {
       'user',
       'user_edit',
     );
-    await invalidateAnalyticsCache(userId);
-
     return goals;
   }
 
   async calculate(
     userId: string,
     executor: DatabaseExecutor = db,
-    invalidateCache = true,
     forceAutomatic = false,
   ) {
     const [profile] = await executor
@@ -231,8 +225,6 @@ export class GoalsService {
           executor,
         );
 
-        if (invalidateCache) await invalidateAnalyticsCache(userId);
-
         return goals;
       }
 
@@ -280,8 +272,6 @@ export class GoalsService {
           executor,
         );
 
-        if (invalidateCache) await invalidateAnalyticsCache(userId);
-
         return goals;
       }
 
@@ -306,8 +296,6 @@ export class GoalsService {
         executor,
       );
 
-      if (invalidateCache) await invalidateAnalyticsCache(userId);
-
       return goals;
     }
 
@@ -329,13 +317,11 @@ export class GoalsService {
       executor,
     );
 
-    if (invalidateCache) await invalidateAnalyticsCache(userId);
-
     return goals;
   }
 
   async resetToAutomatic(userId: string) {
-    return this.calculate(userId, db, true, true);
+    return this.calculate(userId, db, true);
   }
 
   /**
