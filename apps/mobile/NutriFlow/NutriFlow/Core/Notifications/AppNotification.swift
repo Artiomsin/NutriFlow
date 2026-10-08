@@ -42,7 +42,7 @@ struct AppNotification: Sendable {
             identifier: weightReminderIdentifier,
             type: .weightReminder,
             title: "NutriFlow",
-            body: "Изменился ли ваш вес? Обновите его, чтобы отслеживать прогресс.",
+            body: "Has your weight changed? Update it to keep tracking your progress.",
             trigger: .timeInterval(
                 interval,
                 repeats: true
@@ -61,7 +61,7 @@ struct AppNotification: Sendable {
             identifier: waterReminderIdentifier,
             type: .waterReminder,
             title: "NutriFlow",
-            body: "Не забудьте пополнить дневной запас воды.",
+            body: "Don't forget to top up your daily water intake.",
             trigger: .calendar(components, repeats: false),
             threadIdentifier: AppNotificationGroup.reminders.threadIdentifier
         )
@@ -85,7 +85,7 @@ struct AppNotification: Sendable {
             let items = sorted
                 .map { "• \($0.title)" }
                 .joined(separator: "\n")
-            body = "Сегодня выполнено \(count) целей:\n\(items)"
+            body = "You reached \(count) goals today:\n\(items)"
         }
 
         return AppNotification(

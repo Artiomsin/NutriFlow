@@ -13,8 +13,8 @@ struct AchievementService: Sendable {
         return [
             Achievement(
                 id: dailyID("water"),
-                title: "Дневная норма воды выполнена",
-                body: "Вы выпили \(totalMl) мл из \(goalMl) мл. Отличная работа!"
+                title: "Daily water goal reached",
+                body: "You drank \(totalMl) ml of \(goalMl) ml. Great job!"
             )
         ]
     }
@@ -24,8 +24,8 @@ struct AchievementService: Sendable {
         return [
             Achievement(
                 id: dailyID("steps"),
-                title: "Цель по шагам выполнена",
-                body: "\(steps) шагов из \(goal). Так держать!"
+                title: "Daily step goal reached",
+                body: "\(steps) of \(goal) steps. Keep it up!"
             )
         ]
     }
@@ -35,8 +35,8 @@ struct AchievementService: Sendable {
         return [
             Achievement(
                 id: dailyID("active_calories"),
-                title: "Норма активных калорий достигнута",
-                body: "\(kcal) ккал из \(goal). Отличная активность!"
+                title: "Active calorie goal reached",
+                body: "\(kcal) of \(goal) kcal. Great activity!"
             )
         ]
     }
@@ -47,8 +47,8 @@ struct AchievementService: Sendable {
         return [
             Achievement(
                 id: dailyID("nutrition"),
-                title: "Цель по питанию выполнена",
-                body: "\(consumed) ккал при дневной цели \(goal) ккал."
+                title: "Nutrition goal reached",
+                body: "\(consumed) kcal with a daily goal of \(goal) kcal."
             )
         ]
     }
@@ -64,8 +64,8 @@ struct AchievementService: Sendable {
         guard goal > 0, count >= goal else { return [] }
         return [Achievement(
             id: weeklyID("workouts"),
-            title: "Недельная норма тренировок выполнена",
-            body: "\(count) из \(goal) тренировок. Супер!"
+            title: "Weekly workout goal reached",
+            body: "\(count) of \(goal) workouts. Awesome!"
         )]
     }
 
@@ -73,8 +73,8 @@ struct AchievementService: Sendable {
         guard goal > 0, minutes >= goal else { return [] }
         return [Achievement(
             id: weeklyID("workout_minutes"),
-            title: "Норма минут тренировок выполнена",
-            body: "\(minutes) мин из \(goal) мин за неделю."
+            title: "Weekly workout minutes goal reached",
+            body: "\(minutes) of \(goal) min this week."
         )]
     }
 
@@ -82,8 +82,8 @@ struct AchievementService: Sendable {
         guard minGoal > 0, minutes >= minGoal else { return [] }
         return [Achievement(
             id: dailyID("sleep"),
-            title: "Норма сна выполнена",
-            body: "\(minutes / 60) ч \(minutes % 60) мин сна."
+            title: "Sleep goal reached",
+            body: "\(minutes / 60) h \(minutes % 60) min of sleep."
         )]
         
     }
