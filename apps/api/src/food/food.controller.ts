@@ -12,7 +12,6 @@ import {
   UploadedFile,
   BadRequestException,
   ParseUUIDPipe,
-  Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 
@@ -23,7 +22,6 @@ import type { AuthPayload } from '../auth/types/auth.types';
 import { FoodService } from './food.service';
 import { UploadService } from '../upload/upload.service';
 import { FoodAnalysisService } from './food-analysis.service';
-import { FoodRateLimitService } from './food-rate-limit.service';
 
 import {
   createFoodEntrySchema,
@@ -53,7 +51,6 @@ export class FoodController {
     private readonly foodService: FoodService,
     private readonly foodAnalysisService: FoodAnalysisService,
     private readonly uploadService: UploadService,
-    private readonly foodRateLimitService: FoodRateLimitService,
   ) {}
 
   // ── Upload ───────────────────────────────────────────────────
@@ -77,10 +74,7 @@ export class FoodController {
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
   async upload(
     @UploadedFile() file: { buffer: Buffer; mimetype: string; originalname: string; size: number } | undefined,
-    @User() user: AuthPayload,
-    @Req() request: { ip?: string; socket?: { remoteAddress?: string } },
   ) {
-    await this.foodRateLimitService.checkUpload(this.clientIp(request), user.userId);
     const f = this.assertImage(file);
 
     const url = await this.uploadService.upload(f.buffer, f.mimetype);
@@ -91,10 +85,7 @@ export class FoodController {
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
   async analyze(
     @UploadedFile() file: { buffer: Buffer; mimetype: string; originalname: string; size: number } | undefined,
-    @User() user: AuthPayload,
-    @Req() request: { ip?: string; socket?: { remoteAddress?: string } },
   ) {
-    await this.foodRateLimitService.checkAnalyze(this.clientIp(request), user.userId);
     const f = this.assertImage(file);
     return this.foodAnalysisService.analyzePhoto(f);
   }
@@ -176,9 +167,8 @@ export class FoodController {
   search(
     @User() user: AuthPayload,
     @Query(new ZodValidationPipe(searchFoodQuerySchema)) query: SearchFoodQueryDto,
-    @Req() request: { ip?: string; socket?: { remoteAddress?: string } },
   ) {
-    return this.searchFood(query, user.userId, request);
+    return this.foodService.search(query, user.userId);
   }
 
   @Get('foods/popular')
@@ -212,16 +202,4 @@ export class FoodController {
     return this.foodService.createFood(user.userId, data);
   }
 
-  private async searchFood(
-    query: SearchFoodQueryDto,
-    userId: string,
-    request: { ip?: string; socket?: { remoteAddress?: string } },
-  ) {
-    await this.foodRateLimitService.checkSearch(this.clientIp(request), userId);
-    return this.foodService.search(query, userId);
-  }
-
-  private clientIp(request: { ip?: string; socket?: { remoteAddress?: string } }): string {
-    return request.ip ?? request.socket?.remoteAddress ?? 'unknown';
-  }
 }
