@@ -1,17 +1,19 @@
-import { identity } from 'rxjs';
 import { z } from 'zod';
+
+const passwordSchema = z.string().min(6).max(128);
+const nameSchema = z.string().trim().min(1).max(50);
 
 
 export const registerSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-  firstName: z.string(),
-  lastName: z.string(),
+  email: z.string().email().max(120),
+  password: passwordSchema,
+  firstName: nameSchema,
+  lastName: nameSchema,
 });
 
 export const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
+  email: z.string().email().max(120),
+  password: passwordSchema,
 });
 
 export const refreshSchema = z.object({
@@ -19,14 +21,14 @@ export const refreshSchema = z.object({
 });
 
 export const googleLoginSchema = z.object({
-  idToken: z.string(),
+  idToken: z.string().min(1).max(10_000),
 });
 
 export const appleLoginSchema = z.object({
   identityToken: z.string().min(1),
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
-  nonce: z.string().min(1).optional(),
+  firstName: nameSchema.optional(),
+  lastName: nameSchema.optional(),
+  nonce: z.string().min(1).max(512).optional(),
 });
 
 

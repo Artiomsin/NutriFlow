@@ -1,9 +1,11 @@
 import { z } from 'zod';
-
-const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+import { calendarDateSchema } from '../common/validation/date.schema';
 
 export const rangeQuerySchema = z.object({
-  from: z.string().regex(dateRegex, 'from must be a valid date (YYYY-MM-DD)'),
-  to: z.string().regex(dateRegex, 'to must be a valid date (YYYY-MM-DD)'),
+  from: calendarDateSchema,
+  to: calendarDateSchema,
+}).refine((value) => value.from <= value.to, {
+  message: 'from must not be after to',
+  path: ['to'],
 });
 export type RangeQueryDto = z.infer<typeof rangeQuerySchema>;

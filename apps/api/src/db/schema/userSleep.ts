@@ -6,8 +6,10 @@ import {
   integer,
   date,
   uniqueIndex,
+  check,
 } from 'drizzle-orm/pg-core';
 import { users } from './users';
+import { sql } from 'drizzle-orm';
 
 const app = pgSchema('app');
 
@@ -57,6 +59,25 @@ export const userSleep = app.table(
     userDateUnique: uniqueIndex('user_sleep_user_start_key').on(
       table.userId,
       table.startDate,
+    ),
+    validTiming: check(
+      'user_sleep_valid_timing',
+      sql`${table.endDate} > ${table.startDate}`,
+    ),
+    metricRanges: check(
+      'user_sleep_metric_ranges',
+      sql`(${table.timeInBedSeconds} IS NULL OR (${table.timeInBedSeconds} >= 0 AND ${table.timeInBedSeconds} <= 86400))
+        AND (${table.asleepSeconds} IS NULL OR (${table.asleepSeconds} >= 0 AND ${table.asleepSeconds} <= 86400))
+        AND (${table.awakeSeconds} IS NULL OR (${table.awakeSeconds} >= 0 AND ${table.awakeSeconds} <= 86400))
+        AND (${table.coreSeconds} IS NULL OR (${table.coreSeconds} >= 0 AND ${table.coreSeconds} <= 86400))
+        AND (${table.deepSeconds} IS NULL OR (${table.deepSeconds} >= 0 AND ${table.deepSeconds} <= 86400))
+        AND (${table.remSeconds} IS NULL OR (${table.remSeconds} >= 0 AND ${table.remSeconds} <= 86400))
+        AND (${table.unspecifiedSeconds} IS NULL OR (${table.unspecifiedSeconds} >= 0 AND ${table.unspecifiedSeconds} <= 86400))
+        AND (${table.awakenings} IS NULL OR ${table.awakenings} >= 0)
+        AND (${table.onsetLatencySeconds} IS NULL OR ${table.onsetLatencySeconds} >= 0)
+        AND (${table.efficiency} IS NULL OR (${table.efficiency} >= 0 AND ${table.efficiency} <= 100))
+        AND (${table.segmentCount} IS NULL OR ${table.segmentCount} >= 0)
+        AND (${table.heartRateAvg} IS NULL OR (${table.heartRateAvg} >= 0 AND ${table.heartRateAvg} <= 300))`,
     ),
   }),
 );

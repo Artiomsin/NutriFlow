@@ -10,8 +10,10 @@ import {
   uniqueIndex,
   index,
   date,
+  check,
 } from 'drizzle-orm/pg-core';
 import { users } from './users';
+import { sql } from 'drizzle-orm';
 
 const app = pgSchema('app');
 
@@ -65,6 +67,20 @@ export const userWorkouts = app.table(
     userStartIndex: index('user_workouts_user_start_idx').on(
       table.userId,
       table.startDate,
+    ),
+    validTiming: check(
+      'user_workouts_valid_timing',
+      sql`${table.endDate} > ${table.startDate} AND ${table.durationSeconds} >= 0
+        AND ${table.durationSeconds} <= 86400`,
+    ),
+    nonNegativeMetrics: check(
+      'user_workouts_non_negative_metrics',
+      sql`(${table.caloriesBurned} IS NULL OR ${table.caloriesBurned} >= 0)
+        AND (${table.distanceMeters} IS NULL OR ${table.distanceMeters} >= 0)
+        AND (${table.heartRateAvg} IS NULL OR (${table.heartRateAvg} >= 0 AND ${table.heartRateAvg} <= 300))
+        AND (${table.heartRateMax} IS NULL OR (${table.heartRateMax} >= 0 AND ${table.heartRateMax} <= 300))
+        AND (${table.heartRateMin} IS NULL OR (${table.heartRateMin} >= 0 AND ${table.heartRateMin} <= 300))
+        AND (${table.steps} IS NULL OR ${table.steps} >= 0)`,
     ),
   }),
 );

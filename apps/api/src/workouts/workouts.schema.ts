@@ -1,15 +1,16 @@
 import { z } from 'zod';
-
-const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-const isoRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+import {
+  calendarDateSchema,
+  isoDateTimeSchema,
+} from '../common/validation/date.schema';
 
 export const syncWorkoutSchema = z.object({
   healthKitWorkoutId: z.string().min(1).max(64),
   type: z.string().min(1).max(50),
-  startDate: z.string().regex(isoRegex),
-  endDate: z.string().regex(isoRegex),
-  localDate: z.string().regex(dateRegex),
-  durationSeconds: z.number().min(0),
+  startDate: isoDateTimeSchema,
+  endDate: isoDateTimeSchema,
+  localDate: calendarDateSchema,
+  durationSeconds: z.number().min(0).max(86_400),
   caloriesBurned: z.number().min(0).optional(),
   distanceMeters: z.number().min(0).optional(),
   heartRateAvg: z.number().min(0).max(300).nullable().optional(),
@@ -25,6 +26,9 @@ export const syncWorkoutSchema = z.object({
   steps: z.number().int().min(0).nullable().optional(),
   indoor: z.boolean().nullable().optional(),
   details: z.record(z.string(), z.unknown()).optional(),
+}).refine((value) => new Date(value.endDate) > new Date(value.startDate), {
+  message: 'endDate must be after startDate',
+  path: ['endDate'],
 });
 
 export const syncWorkoutsSchema = z.object({
@@ -32,8 +36,8 @@ export const syncWorkoutsSchema = z.object({
 });
 
 export const deleteMissingSchema = z.object({
-  startDate: z.string().regex(isoRegex),
-  endDate: z.string().regex(isoRegex),
+  startDate: isoDateTimeSchema,
+  endDate: isoDateTimeSchema,
   healthKitWorkoutIds: z.array(z.string().min(1).max(64)).min(0).max(500),
 }).refine((value) => new Date(value.endDate) >= new Date(value.startDate), {
   message: 'endDate must not be before startDate',
@@ -41,10 +45,13 @@ export const deleteMissingSchema = z.object({
 });
 
 export const historyQuerySchema = z.object({
-  from: z.string().regex(dateRegex).optional(),
-  to: z.string().regex(dateRegex).optional(),
+  from: calendarDateSchema.optional(),
+  to: calendarDateSchema.optional(),
   limit: z.coerce.number().int().min(1).max(200).default(200),
   offset: z.coerce.number().int().min(0).default(0),
+}).refine((value) => !value.from || !value.to || value.from <= value.to, {
+  message: 'from must not be after to',
+  path: ['to'],
 });
 
 export type SyncWorkoutDto = z.infer<typeof syncWorkoutSchema>;

@@ -5,7 +5,9 @@ import {
   timestamp,
   date,
   index,
+  check,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { users } from './users';
 
 const app = pgSchema('app');
@@ -31,6 +33,10 @@ export const waterEntries = app.table(
     userDateIdx: index('idx_water_entries_user_date').on(
       table.userId,
       table.entryDate,
+    ),
+    amountRange: check(
+      'water_entries_amount_range',
+      sql`${table.amountMl} >= 1 AND ${table.amountMl} <= 3000`,
     ),
   }),
 );

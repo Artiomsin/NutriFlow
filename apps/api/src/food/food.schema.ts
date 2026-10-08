@@ -1,8 +1,7 @@
 import { z } from 'zod';
+import { calendarDateSchema } from '../common/validation/date.schema';
 
-export const dateString = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD');
+export const dateString = calendarDateSchema;
 
 // ── Food Entry (daily diary) ──────────────────────────────────────
 
@@ -58,10 +57,10 @@ export type CreateFoodCategoryDto = z.infer<typeof createFoodCategorySchema>;
 export const createFoodSchema = z.object({
   name: z.string().min(1).max(255),
   categoryId: z.string().uuid().optional(),
-  caloriesPer100g: z.number().nonnegative(),
-  proteinPer100g: z.number().nonnegative().optional(),
-  fatPer100g: z.number().nonnegative().optional(),
-  carbsPer100g: z.number().nonnegative().optional(),
+  caloriesPer100g: z.number().finite().min(0).max(1000),
+  proteinPer100g: z.number().finite().min(0).max(100).optional(),
+  fatPer100g: z.number().finite().min(0).max(100).optional(),
+  carbsPer100g: z.number().finite().min(0).max(100).optional(),
   barcode: z.string().max(50).optional(),
   imageUrl: z.string().max(500).optional(),
   servings: z

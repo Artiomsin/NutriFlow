@@ -7,8 +7,10 @@ import {
   timestamp,
   index,
   uniqueIndex,
+  check,
 } from 'drizzle-orm/pg-core';
 import { users } from './users';
+import { sql } from 'drizzle-orm';
 
 const app = pgSchema('app');
 
@@ -44,6 +46,14 @@ export const weightLogs = app.table(
     userDateIdx: index('idx_weight_logs_user_date').on(
       table.userId,
       table.entryDate,
+    ),
+    weightRange: check(
+      'weight_logs_weight_range',
+      sql`${table.weightKg} >= 20 AND ${table.weightKg} <= 400`,
+    ),
+    sourceValues: check(
+      'weight_logs_source_values',
+      sql`${table.source} IN ('initial', 'manual')`,
     ),
   }),
 );

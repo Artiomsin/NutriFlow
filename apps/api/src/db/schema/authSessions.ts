@@ -5,7 +5,9 @@ import {
   uniqueIndex,
   uuid,
   varchar,
+  check,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { users } from './users';
 
 const app = pgSchema('app');
@@ -44,6 +46,10 @@ export const authSessions = app.table(
       table.sessionId,
     ),
     userIdIdx: index('idx_auth_sessions_user_id').on(table.userId),
+    validExpiry: check(
+      'auth_sessions_valid_expiry',
+      sql`${table.expiresAt} > ${table.createdAt}`,
+    ),
   }),
 );
 

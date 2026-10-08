@@ -44,7 +44,7 @@ export class FoodService {
 
   private visibilityClause(userId: string) {
     return or(
-      sql`${foods.source} IN ('usda', 'off', 'system')`,
+      sql`${foods.source} IN ('usda', 'system')`,
       and(eq(foods.source, 'user'), eq(foods.createdBy, userId)),
     );
   }
@@ -560,10 +560,10 @@ export class FoodService {
   async getAll(limit = 50, offset = 0, userId?: string) {
     const whereClause = userId
       ? or(
-          sql`${foods.source} IN ('usda', 'off', 'system')`,
+          sql`${foods.source} IN ('usda', 'system')`,
           and(eq(foods.source, 'user'), eq(foods.createdBy, userId)),
         )
-      : sql`${foods.source} IN ('usda', 'off', 'system')`;
+      : sql`${foods.source} IN ('usda', 'system')`;
 
     const rows = await db
       .select({
@@ -676,10 +676,10 @@ export class FoodService {
     const term = `%${cleanQuery}%`;
     const visibilityClause = userId
       ? or(
-          sql`${foods.source} IN ('usda', 'off', 'system')`,
+          sql`${foods.source} IN ('usda', 'system')`,
           and(eq(foods.source, 'user'), eq(foods.createdBy, userId)),
         )
-      : sql`${foods.source} IN ('usda', 'off', 'system')`;
+      : sql`${foods.source} IN ('usda', 'system')`;
 
     const localRows = await db
       .select({
@@ -912,6 +912,9 @@ export class FoodService {
       .select()
       .from(foods)
       .where(and(eq(foods.barcode, barcode), this.visibilityClause(userId)))
+      .orderBy(
+        sql`CASE WHEN ${foods.source} = 'user' AND ${foods.createdBy} = ${userId} THEN 0 ELSE 1 END`,
+      )
       .limit(1);
 
     if (!food) return null;
@@ -1050,7 +1053,6 @@ export class FoodService {
 
         // Source priority: my own products always float to the top
         if (isMine(item)) score += 100;
-        else if (item.source === 'off') score += 6;
         else if (item.source === 'system') score += 5;
         else if (item.source === 'usda_sr') score += 4;
         else if (item.source === 'usda') score += 3;

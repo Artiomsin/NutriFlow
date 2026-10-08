@@ -6,7 +6,9 @@ import {
   timestamp,
   date,
   index,
+  check,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { users } from './users';
 import { foods } from './foods';
 
@@ -50,6 +52,14 @@ export const foodEntries = app.table(
     userDateIdx: index('idx_food_entries_user_date').on(
       table.userId,
       table.entryDate,
+    ),
+    valueRanges: check(
+      'food_entries_value_ranges',
+      sql`(${table.grams} IS NULL OR (${table.grams} >= 0 AND ${table.grams} <= 10000))
+        AND ${table.calories} >= 0 AND ${table.calories} <= 5000
+        AND ${table.protein} >= 0 AND ${table.protein} <= 1000
+        AND ${table.fat} >= 0 AND ${table.fat} <= 1000
+        AND ${table.carbs} >= 0 AND ${table.carbs} <= 1000`,
     ),
   }),
 );
