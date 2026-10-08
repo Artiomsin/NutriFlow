@@ -4,11 +4,11 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 
 import type { AuthPayload } from './types/auth.types';
 import { env } from '../config/env';
-import { sessionAlive } from '../session-store';
+import { AuthService } from './auth.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
-  constructor() {
+  constructor(private readonly authService: AuthService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       secretOrKey: env.JWT_ACCESS_SECRET,
@@ -16,7 +16,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   }
 
   async validate(payload: AuthPayload): Promise<AuthPayload> {
-    const alive = await sessionAlive(payload.userId, payload.sessionId);
+    const alive = await this.authService.isSessionAlive(
+      payload.userId,
+      payload.sessionId,
+    );
 
     if (!alive) {
       throw new UnauthorizedException('Session expired');

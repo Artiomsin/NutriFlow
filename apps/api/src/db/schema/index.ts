@@ -1,4 +1,5 @@
 export * from './users';
+export * from './authSessions';
 export * from './userProfiles';
 export * from './waterEntries';
 export * from './dailySummary';
