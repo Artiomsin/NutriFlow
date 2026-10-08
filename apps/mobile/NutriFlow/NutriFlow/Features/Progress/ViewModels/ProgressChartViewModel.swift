@@ -2,7 +2,7 @@ import Foundation
 import Observation
 
 struct WeightPoint: Identifiable {
-    let id = UUID()
+    let id: String
     let date: Date
     let kg: Double
 }
@@ -28,6 +28,9 @@ final class ProgressChartViewModel {
     var weightWeeklyRateKg: Double?
     var weightPeriodLabel: String = ""
     var weightPoints: [WeightPoint] = []
+    var weightEntries: [WeightLog] = []
+    var weightError: AppError?
+    var weightHistoryError: AppError?
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let service: DailySummaryServiceProtocol
     @ObservationIgnored private let foodService: FoodServiceProtocol?
@@ -37,8 +40,12 @@ final class ProgressChartViewModel {
     @ObservationIgnored private let cacheService: CacheService?
     @ObservationIgnored private let profileService: ProfileServiceProtocol?
     @ObservationIgnored private let workoutService: WorkoutServiceProtocol?
+    @ObservationIgnored private let progressRefreshState: ProgressRefreshState?
+    @ObservationIgnored private let weightReminderScheduler: WeightReminderScheduling?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var loadTaskID = 0
+    @ObservationIgnored private var fallbackProfileWeightKg: Double?
+    @ObservationIgnored private var didLoadFallbackProfileWeight = false
     @ObservationIgnored private let periodState: PeriodState
     @ObservationIgnored private var lastProgressRevision: UInt?
 
@@ -50,6 +57,7 @@ final class ProgressChartViewModel {
     var selectedDateGoals: UserGoals?
     var selectedDateActivity: ActivityDayPoint?
     var selectedDateWorkouts: [HealthKitWorkout] = []
+    var dayDetailWarning: AppError?
 
     var canTapBars: Bool {
         periodState.type != .today && aggregationLevel() == .day
@@ -72,7 +80,7 @@ final class ProgressChartViewModel {
         return f
     }()
 
-    init(coordinator: AppCoordinator, service: DailySummaryServiceProtocol, periodState: PeriodState, foodService: FoodServiceProtocol? = nil, waterService: WaterTrackingServiceProtocol? = nil, goalsService: GoalsServiceProtocol? = nil, activityService: ActivityServiceProtocol? = nil, cacheService: CacheService? = nil, profileService: ProfileServiceProtocol? = nil, workoutService: WorkoutServiceProtocol? = nil) {
+    init(coordinator: AppCoordinator, service: DailySummaryServiceProtocol, periodState: PeriodState, foodService: FoodServiceProtocol? = nil, waterService: WaterTrackingServiceProtocol? = nil, goalsService: GoalsServiceProtocol? = nil, activityService: ActivityServiceProtocol? = nil, cacheService: CacheService? = nil, profileService: ProfileServiceProtocol? = nil, workoutService: WorkoutServiceProtocol? = nil, progressRefreshState: ProgressRefreshState? = nil, weightReminderScheduler: WeightReminderScheduling? = nil) {
         print("ProgressChartViewModel init")
         self.coordinator = coordinator
         self.service = service
@@ -84,6 +92,8 @@ final class ProgressChartViewModel {
         self.cacheService = cacheService
         self.profileService = profileService
         self.workoutService = workoutService
+        self.progressRefreshState = progressRefreshState
+        self.weightReminderScheduler = weightReminderScheduler
     }
 
     deinit {
@@ -98,49 +108,55 @@ final class ProgressChartViewModel {
         selectedDateGoals = nil
         selectedDateActivity = nil
         selectedDateWorkouts = []
+        dayDetailWarning = nil
         dayDetailState = .loading
 
         do {
             async let food = foodService?.getFoodByDate(date: date) ?? []
             async let water = waterService?.getWaterByDate(date: date) ?? []
             async let goals = goalsService?.getGoals()
-            async let activity = loadActivityDay(date)
-            async let workouts = loadWorkoutsDay(date)
+            async let activityResult = loadActivityDay(date)
+            async let workoutsResult = loadWorkoutsDay(date)
 
-            let (f, w, g, a, wo) = try await (food, water, goals, activity, workouts)
+            let (f, w, g, activity, workouts) = try await (food, water, goals, activityResult, workoutsResult)
             try Task.checkCancellation()
 
             selectedDateFood = f
             selectedDateWater = w
             selectedDateGoals = g
-            selectedDateActivity = a
-            selectedDateWorkouts = wo
+            selectedDateActivity = activity.value
+            selectedDateWorkouts = workouts.value
+            dayDetailWarning = activity.error ?? workouts.error
             dayDetailState = .loaded
             showDaySheet = true
         } catch is CancellationError {
             return
         } catch {
-            dayDetailState = .error(error)
+            dayDetailState = .error(ErrorMapper.map(error))
             showDaySheet = true
         }
     }
 
-    private func loadWorkoutsDay(_ date: String) async -> [HealthKitWorkout] {
-        guard let workoutService else { return [] }
+    private func loadWorkoutsDay(_ date: String) async -> (value: [HealthKitWorkout], error: AppError?) {
+        guard let workoutService else { return ([], nil) }
         do {
             let response = try await workoutService.getHistory(from: date, to: date, limit: nil, offset: nil)
-            return response.workouts.compactMap { WorkoutMapper.toWorkout($0) }
+            return (response.workouts.compactMap { WorkoutMapper.toWorkout($0) }, nil)
+        } catch is CancellationError {
+            return ([], .cancelled)
         } catch {
-            return []
+            return ([], ErrorMapper.map(error))
         }
     }
 
-    private func loadActivityDay(_ date: String) async -> ActivityDayPoint? {
-        guard let activityService else { return nil }
+    private func loadActivityDay(_ date: String) async -> (value: ActivityDayPoint?, error: AppError?) {
+        guard let activityService else { return (nil, nil) }
         do {
-            return try await activityService.getRange(from: date, to: date).first
+            return (try await activityService.getRange(from: date, to: date).first, nil)
+        } catch is CancellationError {
+            return (nil, .cancelled)
         } catch {
-            return nil
+            return (nil, ErrorMapper.map(error))
         }
     }
 
@@ -174,10 +190,9 @@ final class ProgressChartViewModel {
             waterByHour[hour, default: 0] += entry.amountMl
         }
 
-        let allHours = Set(calByHour.keys).union(Set(waterByHour.keys)).sorted()
         let todayStart = cal.startOfDay(for: Date())
 
-        return allHours.map { hour in
+        return (0..<24).map { hour in
             let date = cal.date(byAdding: .hour, value: hour, to: todayStart) ?? todayStart
             return ChartDataPoint(
                 date: date,
@@ -393,27 +408,58 @@ final class ProgressChartViewModel {
         let range = currentRange()
         weightPeriodLabel = periodLabel()
 
-        var weights: [WeightPoint] = []
+        var weights = weightPoints
 
         do {
             let logs = try await profileService.getWeightLogs(from: range.from, to: range.to)
+            weightError = nil
+            weightEntries = logs
             weights = logs
                 .compactMap { log -> WeightPoint? in
-                    guard let kg = log.weightValue,
-                          let date = Self.dateOnlyFormatter.date(from: String(log.entryDate.prefix(10))) else { return nil }
-                    return WeightPoint(date: date, kg: kg)
+                    guard let date = Self.dateOnlyFormatter.date(from: String(log.entryDate.prefix(10))) else { return nil }
+                    return WeightPoint(
+                        id: String(log.entryDate.prefix(10)),
+                        date: date,
+                        kg: log.weightValue
+                    )
                 }
                 .sorted { $0.date < $1.date }
         } catch {
-            weights = []
+            let appError = ErrorMapper.map(error)
+            if appError != .cancelled {
+                weightError = appError
+            }
         }
 
         weightPoints = weights
 
         guard let latest = weights.last else {
-            if let profile = try? await profileService.getMyProfile(), let kg = profile.weight {
+            weightLatestKg = nil
+            weightDeltaKg = nil
+            weightWeeklyRateKg = nil
+            if !didLoadFallbackProfileWeight {
+                didLoadFallbackProfileWeight = true
+                do {
+                    let profile = try await profileService.getMyProfile()
+                    fallbackProfileWeightKg = profile.weight
+                } catch {
+                    let appError = ErrorMapper.map(error)
+                    if appError != .cancelled {
+                        weightError = appError
+                    }
+                }
+            }
+            // The profile stores the current weight only. It is useful as a
+            // first point for Today, but must never be drawn in a past range.
+            if periodState.type == .today, let kg = fallbackProfileWeightKg {
                 weightLatestKg = kg
-                weightPoints = [WeightPoint(date: Date(), kg: kg)]
+                weightPoints = [
+                    WeightPoint(
+                        id: Self.dateOnlyFormatter.string(from: Date()),
+                        date: Date(),
+                        kg: kg
+                    )
+                ]
             }
             return
         }
@@ -427,6 +473,44 @@ final class ProgressChartViewModel {
         } else {
             weightDeltaKg = nil
             weightWeeklyRateKg = nil
+        }
+    }
+
+    func recordCurrentWeight(_ weightKg: Double) async throws {
+        guard let profileService else { return }
+        _ = try await profileService.recordWeight(weightKg: weightKg)
+        await weightReminderScheduler?.rescheduleAfterWeightUpdate()
+        fallbackProfileWeightKg = weightKg
+        didLoadFallbackProfileWeight = true
+        await cacheService?.remove("profile")
+        await cacheService?.remove("goals")
+        await loadWeightSummary()
+        progressRefreshState?.invalidate()
+    }
+
+    func deleteWeightEntry(date: String) async throws {
+        guard let profileService else { return }
+        try await profileService.deleteWeightLog(date: date)
+        await weightReminderScheduler?.rescheduleAfterWeightUpdate()
+        fallbackProfileWeightKg = nil
+        didLoadFallbackProfileWeight = false
+        await cacheService?.remove("profile")
+        await cacheService?.remove("goals")
+        await loadWeightSummary()
+        await loadWeightHistory()
+        progressRefreshState?.invalidate()
+    }
+
+    func loadWeightHistory() async {
+        guard let profileService else { return }
+        do {
+            weightEntries = try await profileService.getWeightLogs(from: nil, to: nil)
+            weightHistoryError = nil
+        } catch {
+            let appError = ErrorMapper.map(error)
+            if appError != .cancelled {
+                weightHistoryError = appError
+            }
         }
     }
 
@@ -581,13 +665,13 @@ final class ProgressChartViewModel {
             guard currentID == loadTaskID else { return }
             if keptExisting { return }
             if await applyCachedSummaries(key: summariesKey, currentID: currentID) { return }
-            chartState = .error(error)
+            chartState = .error(ErrorMapper.map(error))
         } catch {
             if error is CancellationError { return }
             guard currentID == loadTaskID else { return }
             if keptExisting { return }
             if await applyCachedSummaries(key: summariesKey, currentID: currentID) { return }
-            chartState = .error(error)
+            chartState = .error(ErrorMapper.map(error))
         }
     }
 

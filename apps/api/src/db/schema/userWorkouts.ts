@@ -9,6 +9,7 @@ import {
   integer,
   uniqueIndex,
   index,
+  date,
 } from 'drizzle-orm/pg-core';
 import { users } from './users';
 
@@ -27,6 +28,7 @@ export const userWorkouts = app.table(
     type: varchar('type', { length: 50 }).notNull(),
     startDate: timestamp('start_date', { withTimezone: true }).notNull(),
     endDate: timestamp('end_date', { withTimezone: true }).notNull(),
+    localDate: date('local_date').notNull(),
     durationSeconds: numeric('duration_seconds', {
       precision: 10,
       scale: 3,

@@ -26,6 +26,8 @@ final class HomeViewModel {
     @ObservationIgnored private let activitySync: ActivitySyncProtocol
     @ObservationIgnored private let progressRefreshState: ProgressRefreshState?
     @ObservationIgnored private var lastGoalsRevision: UInt?
+    @ObservationIgnored private var dashboardSummaryTask: Task<Void, Never>?
+    @ObservationIgnored private var dashboardSummaryGeneration = 0
 
     
     @ObservationIgnored private var lastForegroundRefreshAt: Date?
@@ -74,6 +76,7 @@ final class HomeViewModel {
         await activityVM.checkPermission()
         await sleepVM.checkPermission()
         await workoutVM.loadLatest()
+        await workoutVM.checkWorkoutAchievements()
     }
 
     func handleBecameActive() async {
@@ -111,11 +114,11 @@ final class HomeViewModel {
         
 
         await withDiscardingTaskGroup { [self] group in
-            group.addTask { await self.loadDashboardSummary() }
+            group.addTask { await self.loadDashboardSummary(forceRefresh: true) }
             group.addTask { await self.goalsVM.loadGoals() }
             group.addTask { await self.goalsVM.loadPersonalization() }
-            group.addTask { await self.todayFoodVM.loadToday() }
-            group.addTask { await self.waterVM.loadToday() }
+            group.addTask { await self.todayFoodVM.loadToday(forceNetwork: true) }
+            group.addTask { await self.waterVM.loadToday(forceRefresh: true) }
             
         }
     }
@@ -143,57 +146,101 @@ final class HomeViewModel {
         lastGoalsRevision = revision
     }
 
-    func loadDashboardSummary() async {
-        if let cached: DailySummary = try? await cacheService?.get("summary_today") {
-            print("[HomeVM] loadDashboardSummary → cache HIT")
-            dailySummaryState = cached.id == nil ? .empty : .loaded(cached)
+    func loadDashboardSummary(forceRefresh: Bool = false) async {
+        if !forceRefresh, let dashboardSummaryTask {
+            await dashboardSummaryTask.value
             return
         }
 
-        if case .loaded = dailySummaryState {} else { dailySummaryState = .loading }
+        if forceRefresh {
+            await cacheService?.remove("summary_today")
+        }
+
+        dashboardSummaryGeneration &+= 1
+        let generation = dashboardSummaryGeneration
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.performLoadDashboardSummary(generation: generation)
+        }
+        dashboardSummaryTask = task
+        await task.value
+        if generation == dashboardSummaryGeneration {
+            dashboardSummaryTask = nil
+        }
+    }
+
+    private func performLoadDashboardSummary(generation: Int) async {
+        if let cached: DailySummary = try? await cacheService?.get(
+            "summary_today",
+            retainExpired: true
+        ) {
+            print("[HomeVM] loadDashboardSummary → cache HIT")
+            applyDashboardSummary(cached, generation: generation)
+            return
+        }
+
+        if isCurrentDashboardSummaryGeneration(generation),
+           case .loaded = dailySummaryState {
+        } else if isCurrentDashboardSummaryGeneration(generation) {
+            dailySummaryState = .loading
+        }
         do {
             print("[Network] HomeVM loadDashboardSummary")
             let result = try await dailySummaryService.getTodayDailySummary()
+            guard isCurrentDashboardSummaryGeneration(generation) else { return }
             try? await cacheService?.set("summary_today", result, ttl: 300)
             print("[HomeVM] loadDashboardSummary → network OK")
-            dailySummaryState = result.id == nil ? .empty : .loaded(result)
+            applyDashboardSummary(result, generation: generation)
         } catch let error as APIError {
+            guard isCurrentDashboardSummaryGeneration(generation) else { return }
             if case .unauthorized = error {
                 coordinator?.goToAuth()
             }
             if let cached: DailySummary = try? await cacheService?.get("summary_today", ignoreTTL: true) {
                 print("[HomeVM] loadDashboardSummary → fallback to stale cache")
-                dailySummaryState = cached.id == nil ? .empty : .loaded(cached)
+                applyDashboardSummary(cached, generation: generation)
             } else {
                 print("[HomeVM] loadDashboardSummary → FAIL, no cache | API \(error)")
-                dailySummaryState = .error(error)
+                let appError: AppError = ErrorMapper.map(error)
+                dailySummaryState = .error(appError)
             }
         } catch {
+            guard isCurrentDashboardSummaryGeneration(generation) else { return }
             if let cached: DailySummary = try? await cacheService?.get("summary_today", ignoreTTL: true) {
                 print("[HomeVM] loadDashboardSummary → fallback to stale cache")
-                dailySummaryState = cached.id == nil ? .empty : .loaded(cached)
+                applyDashboardSummary(cached, generation: generation)
             } else {
                 print("[HomeVM] loadDashboardSummary → FAIL, no cache | \(error)")
-                dailySummaryState = .error(error)
+                let appError: AppError = ErrorMapper.map(error)
+                dailySummaryState = .error(appError)
             }
         }
+    }
+
+    private func isCurrentDashboardSummaryGeneration(_ generation: Int) -> Bool {
+        generation == dashboardSummaryGeneration
+    }
+
+    private func applyDashboardSummary(_ summary: DailySummary, generation: Int) {
+        guard isCurrentDashboardSummaryGeneration(generation) else { return }
+        dailySummaryState = summary.id == nil ? .empty : .loaded(summary)
     }
 
     func deleteFood(id: String) async {
         let success = await todayFoodVM.deleteFood(id: id)
         guard success else { return }
-        await loadDashboardSummary()
+        await loadDashboardSummary(forceRefresh: true)
     }
 
     func addWater() async {
         let success = await waterVM.createWater()
         guard success else { return }
-        await loadDashboardSummary()
+        await loadDashboardSummary(forceRefresh: true)
     }
 
     func deleteWater(id: String) async {
         let success = await waterVM.deleteWater(id: id)
         guard success else { return }
-        await loadDashboardSummary()
+        await loadDashboardSummary(forceRefresh: true)
     }
 }

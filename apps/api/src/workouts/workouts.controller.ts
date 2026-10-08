@@ -43,6 +43,11 @@ export class WorkoutsController {
     @User() user: AuthPayload,
     @Body(new ZodValidationPipe(deleteMissingSchema)) dto: DeleteMissingDto,
   ) {
-    return this.workoutsService.deleteMissing(user.userId, dto.startDate, dto.healthKitWorkoutIds);
+    return this.workoutsService.deleteMissing(
+      user.userId,
+      dto.startDate,
+      dto.endDate,
+      dto.healthKitWorkoutIds,
+    );
   }
 }

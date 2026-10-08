@@ -19,9 +19,12 @@ final class ProfileViewModel {
     var goal: Goal?
     var activityLevel: ActivityLevel?
     var preferredUnits: PreferredUnits = .default
+    var saveError: AppError?
+    var unitsError: AppError?
 
     private var originalWeightKg: Double?
     private var originalWeightText: String?
+    @ObservationIgnored private var lastSavedUnits: PreferredUnits = .default
 
     @ObservationIgnored private let authService: AuthServiceProtocol
     @ObservationIgnored private let profileService: ProfileServiceProtocol
@@ -30,6 +33,10 @@ final class ProfileViewModel {
     @ObservationIgnored private let cacheService: CacheService?
     @ObservationIgnored private let activitySync: ActivitySyncProtocol?
     @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
+    @ObservationIgnored private let weightReminderScheduler: WeightReminderScheduling?
+    @ObservationIgnored private let waterReminderScheduler: WaterReminderScheduling?
+    @ObservationIgnored private var profileLoadTask: Task<Void, Never>?
+    @ObservationIgnored private var profileLoadGeneration = 0
 
     init(
         coordinator: AppCoordinator,
@@ -38,9 +45,13 @@ final class ProfileViewModel {
         userService: UserServiceProtocol,
         cacheService: CacheService? = nil,
         activitySync: ActivitySyncProtocol? = nil,
-        analyticsTracker: AnalyticsTracking? = nil
+        analyticsTracker: AnalyticsTracking? = nil,
+        weightReminderScheduler: WeightReminderScheduling? = nil,
+        waterReminderScheduler: WaterReminderScheduling? = nil
     ) {
+        #if DEBUG
         print("ProfileViewModel init")
+        #endif
         self.coordinator = coordinator
         self.authService = authService
         self.profileService = profileService
@@ -48,9 +59,13 @@ final class ProfileViewModel {
         self.cacheService = cacheService
         self.activitySync = activitySync
         self.analyticsTracker = analyticsTracker
+        self.weightReminderScheduler = weightReminderScheduler
+        self.waterReminderScheduler = waterReminderScheduler
     }
 
+    #if DEBUG
     deinit { print("ProfileViewModel deinit") }
+    #endif
 
     func trackScreen(_ screen: String) {
         analyticsTracker?.track(.screenView(screen: screen))
@@ -63,9 +78,31 @@ final class ProfileViewModel {
         await cacheService?.remove("goals_personalization")
     }
 
-    func loadData() async {
-        if let cachedUser: User = try? await cacheService?.get("user"),
+    func loadData(forceRefresh: Bool = false) async {
+        if !forceRefresh, let profileLoadTask {
+            await profileLoadTask.value
+            return
+        }
+        if forceRefresh {
+            await cacheService?.remove("user")
+            await cacheService?.remove("profile")
+        }
+        profileLoadGeneration &+= 1
+        let generation = profileLoadGeneration
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.performLoadData(forceRefresh: forceRefresh, generation: generation)
+        }
+        profileLoadTask = task
+        await task.value
+        if generation == profileLoadGeneration { profileLoadTask = nil }
+    }
+
+    private func performLoadData(forceRefresh: Bool, generation: Int) async {
+        if !forceRefresh,
+           let cachedUser: User = try? await cacheService?.get("user"),
            let cachedProfile: UserProfile = try? await cacheService?.get("profile") {
+            guard generation == profileLoadGeneration else { return }
             email = cachedUser.email
             firstName = cachedUser.firstName
             lastName = cachedUser.lastName
@@ -75,6 +112,7 @@ final class ProfileViewModel {
         }
         let profileEmpty: Bool? = try? await cacheService?.get("profile_empty")
         if profileEmpty == true {
+            guard generation == profileLoadGeneration else { return }
             clearForm()
             state = .empty
             return
@@ -94,22 +132,33 @@ final class ProfileViewModel {
 
             let (userResult, profileResult) = try await (user, profile)
             try Task.checkCancellation()
+            guard generation == profileLoadGeneration else { return }
 
             email = userResult.email
             firstName = userResult.firstName
             lastName = userResult.lastName
             mapProfile(profileResult)
             PreferencesStore.shared.updateFromProfile(profileResult)
+            // This request only runs after the authenticated profile read has
+            // succeeded, so the token interceptor is ready to attach a token.
+            if profileResult.timeZone != TimeZone.current.identifier {
+                try? await profileService.updateTimeZone(TimeZone.current.identifier)
+            }
             try? await cacheService?.set("user", userResult, ttl: 1800)
             try? await cacheService?.set("profile", profileResult, ttl: 1800)
             await cacheService?.remove("profile_empty")
             state = .loaded(profileResult)
 
-        } catch let error as APIError {
-            if case .unauthorized = error {
-                coordinator?.goToAuth()
-            }
-            if case .notFound = error {
+        } catch {
+            guard generation == profileLoadGeneration else { return }
+            let mapped = ErrorMapper.map(error)
+            routeAuth(mapped)
+
+            // A cancelled task is not a failure, so it must not overwrite the state
+            // with an error the terminal switch would render as an empty view.
+            if mapped == .cancelled { return }
+
+            if case .notFound = mapped {
                 try? await cacheService?.set("profile_empty", true, ttl: 1800)
                 clearForm()
                 state = .empty
@@ -127,31 +176,15 @@ final class ProfileViewModel {
                         clearForm()
                         state = .empty
                     } else {
-                        state = .error(error)
+                        state = .error(mapped)
                     }
-                }
-            }
-        } catch {
-            if let cachedUser: User = try? await cacheService?.get("user", ignoreTTL: true),
-               let cachedProfile: UserProfile = try? await cacheService?.get("profile", ignoreTTL: true) {
-                email = cachedUser.email
-                firstName = cachedUser.firstName
-                lastName = cachedUser.lastName
-                mapProfile(cachedProfile)
-                state = .loaded(cachedProfile)
-            } else {
-                let isEmptyFlag: Bool? = try? await cacheService?.get("profile_empty", ignoreTTL: true)
-                if isEmptyFlag == true {
-                    clearForm()
-                    state = .empty
-                } else {
-                    state = .error(error)
                 }
             }
         }
     }
 
-    func updateUser() async {
+    @discardableResult
+    func updateUser() async -> AppError? {
         do {
             let user = try await userService.updateMe(
                 email: email.isEmpty ? nil : email,
@@ -165,20 +198,33 @@ final class ProfileViewModel {
             lastName = user.lastName
             await cacheService?.remove("user")
             await cacheService?.remove("profile")
+            return nil
 
         } catch {
-            state = .error(error)
+            let mapped = ErrorMapper.map(error)
+            routeAuth(mapped)
+            return mapped
         }
     }
 
     func createProfile() async {
         state = .saving(nil)
 
+        guard let weight = canonicalWeight(),
+              let height = canonicalHeight(),
+              let age = Int(age),
+              let gender,
+              let goal,
+              let activityLevel else {
+            state = .error(.validation(message: "Fill in weight, height, age, gender, goal, and activity level."))
+            return
+        }
+
         do {
             let profile = try await profileService.createProfile(
-                weight: canonicalWeight(),
-                height: canonicalHeight(),
-                age: Int(age),
+                weight: weight,
+                height: height,
+                age: age,
                 gender: gender,
                 goal: goal,
                 activityLevel: activityLevel,
@@ -186,6 +232,7 @@ final class ProfileViewModel {
             )
 
             mapProfile(profile)
+            await weightReminderScheduler?.rescheduleAfterWeightUpdate()
             state = .loaded(profile)
             await cacheService?.remove("profile_empty")
             await cacheService?.remove("profile")
@@ -194,16 +241,16 @@ final class ProfileViewModel {
             coordinator?.goToMain()
 
         } catch {
-            state = .error(error)
+            let mapped = ErrorMapper.map(error)
+            routeAuth(mapped)
+            state = .error(mapped)
         }
     }
 
-    func updateProfile() async {
-        state = .saving(nil)
-
+    @discardableResult
+    func updateProfile() async -> AppError? {
         do {
             let profile = try await profileService.updateMyProfile(
-                weight: canonicalWeight(),
                 height: canonicalHeight(),
                 age: Int(age),
                 gender: gender,
@@ -217,17 +264,38 @@ final class ProfileViewModel {
             await cacheService?.remove("profile")
             await cacheService?.remove("goals")
             await invalidateAggregateCaches()
- 
+            return nil
+
         } catch {
+            let mapped = ErrorMapper.map(error)
+            routeAuth(mapped)
+            return mapped
+        }
+    }
+
+    /// Saves the user block, then the profile block. Stops at the first failure so a
+    /// half-applied edit never hides behind a dismissed form.
+    func saveAll() async {
+        state = .saving(nil)
+        saveError = nil
+
+        if let error = await updateUser() {
+            saveError = error
+            state = .error(error)
+            return
+        }
+
+        if let error = await updateProfile() {
+            saveError = error
             state = .error(error)
         }
     }
 
     func updatePreferredUnits() async {
         let newPrefs = preferredUnits
+        unitsError = nil
         do {
             _ = try await profileService.updateMyProfile(
-                weight: nil,
                 height: nil,
                 age: nil,
                 gender: nil,
@@ -235,11 +303,22 @@ final class ProfileViewModel {
                 activityLevel: nil,
                 preferredUnits: newPrefs
             )
+            lastSavedUnits = newPrefs
             await cacheService?.remove("profile")
-        } catch {}
+        } catch {
+            let mapped = ErrorMapper.map(error)
+            routeAuth(mapped)
+            // SettingsView writes PreferencesStore before calling this method, so the
+            // rollback has to cover both places or the toggle snaps back on next launch.
+            preferredUnits = lastSavedUnits
+            PreferencesStore.shared.preferredUnits = lastSavedUnits
+            unitsError = mapped
+        }
     }
 
     func logout() async {
+        weightReminderScheduler?.cancel()
+        waterReminderScheduler?.cancel()
         activitySync?.stop()
         do {
             try await authService.logout()
@@ -253,6 +332,8 @@ final class ProfileViewModel {
 
         do {
             try await profileService.deleteMyProfile()
+            weightReminderScheduler?.cancel()
+            waterReminderScheduler?.cancel()
             clearForm()
             state = .empty
             await cacheService?.remove("profile")
@@ -261,10 +342,18 @@ final class ProfileViewModel {
             try? await cacheService?.set("profile_empty", true, ttl: 1800)
 
         } catch {
-            state = .error(error)
+            let mapped = ErrorMapper.map(error)
+            routeAuth(mapped)
+            state = .error(mapped)
         }
     }
 
+    private func routeAuth(_ appError: AppError) {
+        if appError == .unauthorized {
+            coordinator?.goToAuth()
+        }
+    }
+    
     private func mapProfile(_ profile: UserProfile) {
         let units = profile.preferredUnits ?? .default
         let formattedWeight = profile.weight.map { Self.formatBodyWeight(kg: $0, units: units) } ?? ""
@@ -277,6 +366,7 @@ final class ProfileViewModel {
         goal = profile.goal
         activityLevel = profile.activityLevel
         preferredUnits = profile.preferredUnits ?? .default
+        lastSavedUnits = preferredUnits
     }
 
     /// Display value (kg or lb) typed by the user -> canonical kg sent to the backend.

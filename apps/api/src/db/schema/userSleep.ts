@@ -4,6 +4,7 @@ import {
   timestamp,
   numeric,
   integer,
+  date,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { users } from './users';
@@ -20,6 +21,7 @@ export const userSleep = app.table(
 
     startDate: timestamp('start_date', { withTimezone: true }).notNull(),
     endDate: timestamp('end_date', { withTimezone: true }).notNull(),
+    localDate: date('local_date').notNull(),
 
     timeInBedSeconds: numeric('time_in_bed_seconds', {
       precision: 12,

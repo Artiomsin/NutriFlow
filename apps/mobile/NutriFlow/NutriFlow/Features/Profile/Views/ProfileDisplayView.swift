@@ -90,8 +90,21 @@ struct ProfileDisplayView: View {
                                 .foregroundColor(AppColors.textSecondary)
                                 .multilineTextAlignment(.center)
                         }
+                    } else if case .saving = viewModel.state {
+                        ProgressView()
+                            .tint(.white)
                     } else if case .error(let error) = viewModel.state {
-                        ErrorMessageView(text: error.localizedDescription)
+                        // ErrorView renders EmptyView for .cancelled, and this branch is the
+                        // only thing on screen, so fall back to the spinner instead of a blank view.
+                        if error == .cancelled {
+                            ProgressView()
+                                .tint(.white)
+                        } else {
+                            ErrorView(
+                                error: error,
+                                onRetry: { Task { await viewModel.loadData() } }
+                            )
+                        }
                     }
                 }
                 .padding(.horizontal, AppSpacing.paddingHorizontal)

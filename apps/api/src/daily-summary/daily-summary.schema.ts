@@ -1,12 +1,14 @@
 import { z } from 'zod';
 
+const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD');
+
 export const dateQuerySchema = z.object({
-  date: z.string().optional(),
+  date: dateString.optional(),
 });
 
 export const rangeQuerySchema = z.object({
-  from: z.string().min(1),
-  to: z.string().min(1),
+  from: dateString,
+  to: dateString,
 });
 
 export type DateQueryDto = z.infer<typeof dateQuerySchema>;

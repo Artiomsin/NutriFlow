@@ -10,11 +10,9 @@ struct SleepHistoryView: View {
         ScrollView(showsIndicators: false) {
             switch vm.state {
             case .idle:
-                ProgressView().tint(AppColors.accent)
-                    .frame(maxWidth: .infinity, minHeight: 300)
+                idleOrError
             case .loading:
-                ProgressView().tint(AppColors.accent)
-                    .frame(maxWidth: .infinity, minHeight: 300)
+                idleOrError
             case .needsAccess:
                 Text("Connect Apple Health to see sleep history")
                     .foregroundColor(AppColors.textSecondary)
@@ -31,12 +29,13 @@ struct SleepHistoryView: View {
                     .foregroundColor(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity, minHeight: 300)
-            case .error(let message):
-                Text("Failed to load sleep: \(message)")
-                    .font(.caption)
-                    .foregroundColor(AppColors.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity, minHeight: 300)
+            case .error(let error):
+                ErrorView(
+                    error: error,
+                    onRetry: { Task { await vm.refreshHistory() } }
+                )
+                .padding(.horizontal, AppSpacing.paddingHorizontal)
+                .frame(maxWidth: .infinity, minHeight: 300)
             case .loaded, .empty:
                 if vm.isHistoryLoading && vm.history.isEmpty {
                     ProgressView().tint(AppColors.accent)
@@ -72,8 +71,32 @@ struct SleepHistoryView: View {
         }
     }
 
+    /// .idle and .loading both used to render a bare ProgressView, so a failed
+    /// first history load left the screen spinning forever with the error
+    /// invisible. The error has to win over the spinner here.
+    @ViewBuilder
+    private var idleOrError: some View {
+        if let historyError = vm.historyError, !vm.isHistoryLoading {
+            ErrorView(
+                error: historyError,
+                onRetry: { Task { await vm.refreshHistory() } }
+            )
+            .padding(.horizontal, AppSpacing.paddingHorizontal)
+            .frame(maxWidth: .infinity, minHeight: 300)
+        } else {
+            ProgressView().tint(AppColors.accent)
+                .frame(maxWidth: .infinity, minHeight: 300)
+        }
+    }
+
     private func historyContent(_ nights: [HealthKitSleep]) -> some View {
         VStack(spacing: 16) {
+            if let historyError = vm.historyError {
+                ErrorView(
+                    error: historyError,
+                    onRetry: { Task { await vm.refreshHistory() } }
+                )
+            }
             trendChart(nights)
             VStack(alignment: .leading, spacing: 10) {
                 Text("Nights")
@@ -154,6 +177,12 @@ private struct NightDetailView: View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 16) {
                 metricsCard
+                if let detailError = vm.detailError {
+                    ErrorView(
+                        error: detailError,
+                        onRetry: { Task { await vm.loadNightDetail(night) } }
+                    )
+                }
                 if !vm.timeline.isEmpty {
                     timelineChart
                 }

@@ -10,9 +10,10 @@ struct NutriflowApp: App {
     @State private var hasRecordedActive = false
 
     init() {
-        self.coordinator = AppCoordinator(container: container)
+        let coordinator = AppCoordinator(container: container)
+        self.coordinator = coordinator
 
-        print("NutriflowApp создан")
+        print("NutriflowApp created")
     }
 
     var body: some Scene {
@@ -35,6 +36,11 @@ struct NutriflowApp: App {
             .task {
                 container.analyticsTracker.track(.appLaunched)
                 await coordinator.bootstrap()
+                coordinator.restorePendingNotification()
+
+                guard coordinator.route == .main else { return }
+                await container.weightReminderScheduler.ensureScheduledIfEnabled()
+                await container.waterReminderScheduler.ensureScheduledIfEnabled()
             }
             .onChange(of: scenePhase) { _, phase in
                 switch phase {
@@ -43,6 +49,11 @@ struct NutriflowApp: App {
                         container.analyticsTracker.track(.appForeground)
                     } else {
                         hasRecordedActive = true
+                    }
+
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 500_000_000)
+                        coordinator.restorePendingNotification()
                     }
                 case .background:
                     container.analyticsTracker.track(.appBackground)

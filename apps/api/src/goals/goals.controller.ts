@@ -39,6 +39,11 @@ export class GoalsController {
     return this.goalsService.calculate(user.userId);
   }
 
+  @Post('reset-to-automatic')
+  resetToAutomatic(@User() user: AuthPayload) {
+    return this.goalsService.resetToAutomatic(user.userId);
+  }
+
   @Post('personalize')
   personalize(@User() user: AuthPayload) {
     return this.personalizationService.personalize(user.userId);

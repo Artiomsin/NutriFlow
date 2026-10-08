@@ -87,11 +87,12 @@ struct FoodSearchView: View {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.title2)
                     .foregroundColor(.red.opacity(0.7))
-                Text(error.localizedDescription)
+                Text(ErrorPresentation(error: error).message)
                     .font(.subheadline)
                     .foregroundColor(.red)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
+                ErrorView(error: error) { foodSearchVM.retry() }
                 Spacer()
             }
             
@@ -125,7 +126,7 @@ struct FoodSearchView: View {
                     .padding(14)
                     .animation(.easeInOut(duration: 0.3), value: foods.count)
 
-                    if foodSearchVM.loadMoreError {
+                    if foodSearchVM.loadMoreError != nil {
                         Button {
                             foodSearchVM.loadMore()
                         } label: {
@@ -191,7 +192,8 @@ private var skeletonCard: some View {
         }
         .padding(12)
     }
-    .appGlassSurface(cornerRadius: 14)
+    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    .appGlassSurface(cornerRadius: 18, level: .interactive)
 }
 
 
@@ -207,7 +209,8 @@ struct FoodCardSearch: View {
                 imageSection
                 infoSection
             }
-            .appGlassSurface(cornerRadius: 14)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .appGlassSurface(cornerRadius: 18, level: .interactive)
         }
         .buttonStyle(.plain)
     }
@@ -437,5 +440,4 @@ struct SourceBadge: View {
     .background(AppColors.background)
     
 }
-
 

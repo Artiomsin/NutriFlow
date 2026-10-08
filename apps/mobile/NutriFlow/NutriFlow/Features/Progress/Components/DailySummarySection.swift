@@ -4,6 +4,7 @@ struct DailySummarySection: View {
 
     let state: DailySummaryState
     let goals: UserGoals?
+    var onRetry: (() -> Void)? = nil
 
     var body: some View {
 
@@ -55,7 +56,7 @@ struct DailySummarySection: View {
             }
 
         case .error(let error):
-            ErrorMessageView(text: error.localizedDescription)
+            ErrorView(error: error, onRetry: onRetry)
         }
     }
 

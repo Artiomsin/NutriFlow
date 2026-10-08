@@ -10,6 +10,7 @@ protocol SleepServiceProtocol {
     ) async throws -> SleepHistoryResponse
     func deleteMissing(
         from startDate: String,
-        startDates: [String]
+        to endDate: String,
+        keptStartDates: [String]
     ) async throws
 }

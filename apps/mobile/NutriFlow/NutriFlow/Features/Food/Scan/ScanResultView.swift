@@ -5,6 +5,7 @@ import UIKit
 struct ScanResultView: View {
 
     @State private var viewModel: ScanResultViewModel
+    @State private var isActive = true
     let onFinished: () -> Void
 
     init(viewModel: ScanResultViewModel, onFinished: @escaping () -> Void) {
@@ -16,15 +17,22 @@ struct ScanResultView: View {
         ScrollView {
             VStack(spacing: 16) {
                 headerSection
-
-                ForEach(viewModel.items) { item in
-                    itemRow(item)
+                if let categoriesError = viewModel.categoriesError {
+                    ErrorView(error: categoriesError) { viewModel.retryCategories() }
                 }
 
-                if let error = viewModel.errorMessage {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundColor(AppColors.error)
+                ForEach(viewModel.items) { item in
+                    switch item {
+                    case .food(let food):
+                        itemRow(food)
+
+                    case .water(let water):
+                        waterRow(water)
+                    }
+                }
+
+                if let error = viewModel.error {
+                    ErrorView(error: error)
                 }
 
                 addToDiaryButton
@@ -36,7 +44,11 @@ struct ScanResultView: View {
         .background(AppColors.background)
         .navigationTitle("Scan Result")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { viewModel.trackScreenView() }
+        .onAppear {
+            isActive = true
+            viewModel.trackScreenView()
+        }
+        .onDisappear { isActive = false }
     }
 
     private var headerSection: some View {
@@ -50,13 +62,16 @@ struct ScanResultView: View {
                     .padding(.bottom, 8)
             }
 
-            Text("Found \(viewModel.selectedItems.count) food(s)")
+            Text("Found \(viewModel.selectedItems.count) item(s)")
                 .font(.headline)
                 .foregroundColor(AppColors.textPrimary)
 
             HStack(spacing: 16) {
                 Label(viewModel.totalCaloriesText, systemImage: "flame")
                 Label(viewModel.totalGramsText, systemImage: "scalemass")
+                if viewModel.totalWaterMl > 0 {
+                    Label("\(viewModel.totalWaterMl) ml", systemImage: "drop.fill")
+                }
             }
             .font(.subheadline.weight(.semibold))
             .foregroundColor(AppColors.accent)
@@ -144,6 +159,60 @@ struct ScanResultView: View {
             RoundedRectangle(cornerRadius: 18)
                 .fill(AppColors.surface)
         )
+        .opacity(item.isSelected ? 1 : 0.55)
+    }
+
+    private func waterRow(_ item: EditableScanWater) -> some View {
+        HStack(spacing: 14) {
+            Button {
+                viewModel.toggle(id: item.id)
+            } label: {
+                Image(systemName: item.isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.title2)
+                    .foregroundColor(item.isSelected ? AppColors.accent : AppColors.textTertiary)
+            }
+            .buttonStyle(.plain)
+
+            Image(systemName: "drop.fill")
+                .font(.title2)
+                .foregroundColor(.blue)
+                .frame(width: 50, height: 50)
+                .background(AppColors.surfaceSecondary, in: RoundedRectangle(cornerRadius: 12))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Water")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(AppColors.textPrimary)
+                Text("Will be added to Water Tracking")
+                    .font(.footnote)
+                    .foregroundColor(AppColors.textSecondary)
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("Amount")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(AppColors.accent)
+                HStack(spacing: 4) {
+                    TextField("0", text: Binding(
+                        get: { item.amountMlText },
+                        set: { viewModel.updateWaterAmount(id: item.id, $0) }
+                    ))
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.center)
+                    .frame(width: 52)
+
+                    Text("ml")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .padding(.horizontal, 8)
+                .frame(height: 36)
+                .background(AppColors.surfaceSecondary, in: RoundedRectangle(cornerRadius: AppRadius.small))
+            }
+        }
+        .padding(16)
+        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18))
         .opacity(item.isSelected ? 1 : 0.55)
     }
 
@@ -277,7 +346,7 @@ struct ScanResultView: View {
         Button {
             Task {
                 guard await viewModel.addToDiary() else { return }
-                onFinished()
+                if isActive { onFinished() }
             }
         } label: {
             HStack(spacing: 8) {
@@ -314,7 +383,7 @@ struct ScanResultView: View {
         ScanResultView(
             viewModel: ScanResultViewModel(
                 items: [
-                    FoodAnalysisItem(
+                    .food(FoodAnalysisItem(
                         name: "Chicken breast",
                         category: "Meat",
                         grams: 150,
@@ -329,8 +398,8 @@ struct ScanResultView: View {
                         source: "ai",
                         aiCalories: 165,
                         catalogCalories: nil
-                    ),
-                    FoodAnalysisItem(
+                    )),
+                    .food(FoodAnalysisItem(
                         name: "Rice",
                         category: "Grains",
                         grams: 100,
@@ -345,13 +414,18 @@ struct ScanResultView: View {
                         source: "ai",
                         aiCalories: 130,
                         catalogCalories: nil
-                    )
+                    )),
+                    .water(WaterAnalysisItem(amountMl: 250, confidence: 0.95))
                 ],
                 imageData: SamplePhoto.data,
                 service: MockFoodService(),
                 todayFoodVM: TodayFoodViewModel(
                     service: MockFoodService(),
                     coordinator: AppCoordinator(container: AppDependencyContainer())
+                ),
+                waterViewModel: WaterViewModel(
+                    coordinator: AppCoordinator(container: AppDependencyContainer()),
+                    service: MockWaterService()
                 ),
                 coordinator: nil
             ),

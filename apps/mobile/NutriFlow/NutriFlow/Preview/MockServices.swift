@@ -65,7 +65,7 @@ final class MockFoodService: FoodServiceProtocol {
     }
     func getCategories() async throws -> [FoodCategory] { [] }
     func uploadImage(_ data: Data) async throws -> String { "https://example.com/mock.jpg" }
-    func analyzePhoto(_ data: Data) async throws -> [FoodAnalysisItem] { [] }
+    func analyzePhoto(_ data: Data) async throws -> [ScanAnalysisItem] { [] }
 }
 
 final class MockActivityService: ActivityServiceProtocol {
@@ -101,6 +101,7 @@ final class MockActivityService: ActivityServiceProtocol {
 final class MockActivitySync: ActivitySyncProtocol {
     var isSessionActive: Bool { false }
     var onActivityUpdate: ((DailyActivity) -> Void)?
+    var goalsProvider: (() -> UserGoals?)?
     func start() {}
     func stop() {}
     func refresh() async {}
@@ -169,14 +170,15 @@ final class MockDailySummaryService: DailySummaryServiceProtocol {
 }
 
 final class MockProfileService: ProfileServiceProtocol {
+    func updateTimeZone(_ timeZone: String) async throws {}
     func getMyProfile() async throws -> UserProfile {
-        UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: 82, height: 183, age: 24, gender: .male, goal: .gain, activityLevel: .high, preferredUnits: nil, createdAt: nil, updatedAt: nil)
+        UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: 82, height: 183, age: 24, gender: .male, goal: .gain, activityLevel: .high, preferredUnits: nil, timeZone: TimeZone.current.identifier, createdAt: nil, updatedAt: nil)
     }
-    func createProfile(weight: Double?, height: Int?, age: Int?, gender: Gender?, goal: Goal?, activityLevel: ActivityLevel?, preferredUnits: PreferredUnits? = nil) async throws -> UserProfile {
-        UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: weight, height: height, age: age, gender: gender, goal: goal, activityLevel: activityLevel, preferredUnits: preferredUnits, createdAt: nil, updatedAt: nil)
+    func createProfile(weight: Double, height: Int, age: Int, gender: Gender, goal: Goal, activityLevel: ActivityLevel, preferredUnits: PreferredUnits? = nil) async throws -> UserProfile {
+        UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: weight, height: height, age: age, gender: gender, goal: goal, activityLevel: activityLevel, preferredUnits: preferredUnits, timeZone: TimeZone.current.identifier, createdAt: nil, updatedAt: nil)
     }
-    func updateMyProfile(weight: Double?, height: Int?, age: Int?, gender: Gender?, goal: Goal?, activityLevel: ActivityLevel?, preferredUnits: PreferredUnits? = nil) async throws -> UserProfile {
-        UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: weight, height: height, age: age, gender: gender, goal: goal, activityLevel: activityLevel, preferredUnits: preferredUnits, createdAt: nil, updatedAt: nil)
+    func updateMyProfile(height: Int?, age: Int?, gender: Gender?, goal: Goal?, activityLevel: ActivityLevel?, preferredUnits: PreferredUnits? = nil) async throws -> UserProfile {
+        UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: 82, height: height, age: age, gender: gender, goal: goal, activityLevel: activityLevel, preferredUnits: preferredUnits, timeZone: TimeZone.current.identifier, createdAt: nil, updatedAt: nil)
     }
     func deleteMyProfile() async throws { }
     func getWeightLogs(from: String?, to: String?) async throws -> [WeightLog] {
@@ -188,19 +190,19 @@ final class MockProfileService: ProfileServiceProtocol {
             guard let date = Calendar.current.date(byAdding: .day, value: index - (weights.count - 1), to: Date())else { return nil }
             return WeightLog(
                 id: "mock-wl-\(index)",
-                weightKg: String(format: "%.1f", kg),
+                weightKg: kg,
                 entryDate: formatter.string(from: date),
                 source: "manual"
             )
 }
     }
+    func recordWeight(weightKg: Double) async throws -> WeightLog {
+        WeightLog(id: UUID().uuidString, weightKg: weightKg, entryDate: ISO8601DateFormatter().string(from: Date()), source: "manual")
+    }
+    func deleteWeightLog(date: String) async throws { }
 }
 
 final class MockUserService: UserServiceProtocol {
-    func createUser(email: String, password: String, firstName: String?, lastName: String?) async throws -> User {
-        User(id: "1", email: email, firstName: firstName ?? "", lastName: lastName ?? "")
-    }
-    func getUsers() async throws -> [User] { [] }
     func getMe() async throws -> User {
         User(id: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer")
     }
@@ -332,7 +334,8 @@ final class MockGoalsService: GoalsServiceProtocol {
                 acceptedAt: nil,
                 dismissedAt: nil
             ),
-            personalizationDue: false
+            personalizationDue: false,
+            nextAvailableAt: nil
         )
     }
     func dismissRecommendation(id: String) async throws -> DismissResult {
@@ -419,6 +422,9 @@ final class MockGoalsService: GoalsServiceProtocol {
     func calculateGoals() async throws -> UserGoals {
         try await getGoals()
     }
+    func resetGoalsToAutomatic() async throws -> UserGoals {
+        try await getGoals()
+    }
 }
 
 final class MockWorkoutService: WorkoutServiceProtocol {
@@ -455,6 +461,7 @@ final class MockWorkoutService: WorkoutServiceProtocol {
                 type: template.type,
                 startDate: WorkoutMapper.isoString(from: start),
                 endDate: WorkoutMapper.isoString(from: start.addingTimeInterval(Double(template.minutes) * 60)),
+                localDate: WorkoutMapper.localDayString(from: start),
                 durationSeconds: Double(template.minutes) * 60,
                 caloriesBurned: template.kcal,
                 distanceMeters: template.meters,
@@ -475,7 +482,7 @@ final class MockWorkoutService: WorkoutServiceProtocol {
         }
         return WorkoutHistoryResponse(total: workouts.count, workouts: workouts)
     }
-    func deleteMissing(from startDate: String, healthKitWorkoutIds: [String]) async throws {}
+    func deleteMissing(from startDate: String, to endDate: String, healthKitWorkoutIds: [String]) async throws {}
 }
 
 final class MockSleepService: SleepServiceProtocol {
@@ -502,6 +509,7 @@ final class MockSleepService: SleepServiceProtocol {
             nights.append(SleepSyncEntry(
                 startDate: SleepMapper.isoString(from: sleepStart),
                 endDate: SleepMapper.isoString(from: sleepStart.addingTimeInterval(inRange ? 8 * 3600 : 5 * 3600)),
+                localDate: SleepMapper.localDayString(from: day),
                 timeInBedSeconds: inRange ? 8 * 3600 : 5 * 3600,
                 asleepSeconds: inRange ? 7 * 3600 : 3 * 3600,
                 awakeSeconds: inRange ? 1 * 3600 : 2 * 3600,
@@ -520,7 +528,7 @@ final class MockSleepService: SleepServiceProtocol {
         }
         return SleepHistoryResponse(total: nights.count, nights: nights)
     }
-    func deleteMissing(from startDate: String, startDates: [String]) async throws {}
+    func deleteMissing(from startDate: String, to endDate: String, keptStartDates: [String]) async throws {}
 }
 
 final class MockSleepHealthKit: SleepHealthKitServiceProtocol {
@@ -639,19 +647,19 @@ final class MockHealthKit: ActivityHealthKitServiceProtocol, WorkoutHealthKitSer
     func fetchToday() async -> DailyActivity {
         DailyActivity(date: "", steps: 0, activeCalories: 0, basalCalories: 0, distanceMeters: 0)
     }
-    func fetchWorkouts(from startDate: Date, to endDate: Date) async -> [HealthKitWorkout] { [Self.sampleWorkout] }
-    func fetchLatestWorkout() async -> HealthKitWorkout? { Self.sampleWorkout }
+    func fetchWorkouts(from startDate: Date, to endDate: Date) async throws -> [HealthKitWorkout] { [Self.sampleWorkout] }
+    func fetchLatestWorkout() async throws -> HealthKitWorkout? { Self.sampleWorkout }
     func enableBackgroundDelivery() async throws {}
     func startObserving() {}
     func stopObserving() {}
     func permissionState() async -> HealthKitAuthorization { .authorized }
-    func fetchHeartRateWorkout(for workout: HealthKitWorkout) async -> [HeartRatePoint] {
+    func fetchHeartRateWorkout(for workout: HealthKitWorkout) async throws -> [HeartRatePoint] {
         stride(from: workout.startDate, through: workout.endDate, by: 60).map { date in
             HeartRatePoint(startDate: date, bpm: Double(Int.random(in: 110...150)))
         }
     }
     
-    func fetchWorkoutSeries(kind: WorkoutSeriesKind, workout: HealthKitWorkout) async -> [WorkoutSeriesPoint] {
+    func fetchWorkoutSeries(kind: WorkoutSeriesKind, workout: HealthKitWorkout) async throws -> [WorkoutSeriesPoint] {
         let startValue = kind == .speed ? 2.4 : kind == .cadence ? 84 : 210.0
         return stride(from: workout.startDate, through: workout.endDate, by: 120).enumerated().map { index, date in
             WorkoutSeriesPoint(

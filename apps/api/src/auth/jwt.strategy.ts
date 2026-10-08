@@ -2,9 +2,9 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
-import  type { AuthPayload } from './types/auth.types';
+import type { AuthPayload } from './types/auth.types';
 import { env } from '../config/env';
-import { cacheGet } from '../redis';
+import { sessionAlive } from '../session-store';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
@@ -16,11 +16,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   }
 
   async validate(payload: AuthPayload): Promise<AuthPayload> {
-    
-    const key = `refresh:${payload.userId}:${payload.sessionId}`;
-    const exists = await cacheGet<string>(key);
+    const alive = await sessionAlive(payload.userId, payload.sessionId);
 
-    if (!exists) {
+    if (!alive) {
       throw new UnauthorizedException('Session expired');
     }
 

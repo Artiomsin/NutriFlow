@@ -13,8 +13,16 @@ import {
 
 import { WaterTrackingService } from './water-tracking.service';
 
-import { createWaterEntrySchema } from './water-tracking.schema';
-import type { CreateWaterEntryDto } from './water-tracking.schema';
+import {
+  createWaterEntrySchema,
+  optionalDateQuerySchema,
+  requiredDateQuerySchema,
+} from './water-tracking.schema';
+import type {
+  CreateWaterEntryDto,
+  OptionalDateQueryDto,
+  RequiredDateQueryDto,
+} from './water-tracking.schema';
 
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
 import { JwtAuthGuard } from '../auth/jwt.guard';
@@ -37,14 +45,20 @@ export class WaterTrackingController {
 
   @UseGuards(JwtAuthGuard)
   @Get('today')
-  findToday(@User() user: AuthPayload, @Query('date') date?: string) {
-    return this.waterService.getToday(user.userId, date);
+  findToday(
+    @User() user: AuthPayload,
+    @Query(new ZodValidationPipe(optionalDateQuerySchema)) query: OptionalDateQueryDto,
+  ) {
+    return this.waterService.getToday(user.userId, query.date);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  getByDate(@User() user: AuthPayload, @Query('date') date: string) {
-    return this.waterService.getByDate(user.userId, date);
+  getByDate(
+    @User() user: AuthPayload,
+    @Query(new ZodValidationPipe(requiredDateQuerySchema)) query: RequiredDateQueryDto,
+  ) {
+    return this.waterService.getByDate(user.userId, query.date);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -5,6 +5,9 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
 
     private let healthKitService: ActivityHealthKitServiceProtocol
     private let activityService: ActivityServiceProtocol
+    private let goalsService: GoalsServiceProtocol?
+    private let achievementService: AchievementService?
+    private let achievementNotificationService: AchievementNotificationService?
 
     private var isActive = false
     private var coalesceTask: Task<Void, Never>?
@@ -19,12 +22,20 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
         }
     }
 
+    var goalsProvider: (() -> UserGoals?)?
+
     init(
         healthKitService: ActivityHealthKitServiceProtocol,
-        activityService: ActivityServiceProtocol
+        activityService: ActivityServiceProtocol,
+        goalsService: GoalsServiceProtocol? = nil,
+        achievementService: AchievementService? = nil,
+        achievementNotificationService: AchievementNotificationService? = nil
     ) {
         self.healthKitService = healthKitService
         self.activityService = activityService
+        self.goalsService = goalsService
+        self.achievementService = achievementService
+        self.achievementNotificationService = achievementNotificationService
     }
 
     var isSessionActive: Bool {
@@ -258,6 +269,39 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
     private func notifyActivityUpdate(_ activity: DailyActivity) {
         latestActivity = activity
         emit(activity)
+        checkActivityAchievements(activity)
+    }
+
+    private func checkActivityAchievements(_ activity: DailyActivity) {
+        guard
+            let achievementService,
+            let achievementNotificationService,
+            let goalsService
+        else { return }
+
+        Task { @MainActor in
+            let goals: UserGoals?
+            if let goalsProvider, let live = goalsProvider() {
+                goals = live
+            } else {
+                goals = try? await goalsService.getGoals()
+            }
+            guard let goals else { return }
+
+            var items: [Achievement] = []
+            if let stepGoal = goals.dailyStepsGoal {
+                items += achievementService.checkSteps(activity.steps, goal: stepGoal)
+            }
+            if let activeGoal = goals.dailyActiveCaloriesGoal {
+                items += achievementService.checkActiveCalories(
+                    activity.activeCalories,
+                    goal: activeGoal
+                )
+            }
+
+            guard !items.isEmpty else { return }
+            await achievementNotificationService.notifyIfNeeded(achievements: items)
+        }
     }
 
     private func emit(_ activity: DailyActivity) {

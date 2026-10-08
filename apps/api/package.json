@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "start": "bun run src/main.ts",
-    "dev": "bun --watch src/main.ts"
+    "dev": "bun --watch src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "migrate": "drizzle-kit migrate"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

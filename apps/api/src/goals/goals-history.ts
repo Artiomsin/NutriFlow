@@ -4,6 +4,8 @@ import type { GoalTypeValue } from '../db/schema/goalHistory';
 import type { GoalSource } from '../db/schema/userGoals';
 import type { GoalMetrics } from './personalization/types';
 
+type DatabaseExecutor = Pick<typeof db, 'insert'>;
+
 const GOAL_METRICS: Record<keyof GoalMetrics, GoalTypeValue> = {
   dailyCaloriesGoal: 'nutrition',
   dailyProteinGoal: 'nutrition',
@@ -63,6 +65,7 @@ export async function recordGoalHistory(
   next: GoalMetrics,
   source: GoalSource,
   reason: string,
+  executor: DatabaseExecutor = db,
 ) {
   const rows = METRIC_KEYS.filter((key) => previous[key] !== next[key]).map(
     (key) => ({
@@ -77,5 +80,5 @@ export async function recordGoalHistory(
   );
 
   if (rows.length === 0) return;
-  await db.insert(goalHistory).values(rows);
+  await executor.insert(goalHistory).values(rows);
 }

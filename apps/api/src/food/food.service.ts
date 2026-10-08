@@ -4,12 +4,16 @@ import { foodEntries } from '../db/schema/foodEntries';
 import { foods } from '../db/schema/foods';
 import { foodServings } from '../db/schema/foodServings';
 import { userFoodStats } from '../db/schema/userFoodStats';
-import { eq, and, sql, desc, or, inArray } from 'drizzle-orm';
+import { eq, and, sql, desc, or, inArray, type SQL } from 'drizzle-orm';
 import { cacheGet, cacheSet, cacheDelByPrefix, invalidateAnalyticsCache } from '../redis';
 import { DailySummaryService } from '../daily-summary/daily-summary.service';
 import { foodCategories } from '../db/schema/foodCategories';
 import { env } from '../config/env';
 import type { CreateFoodEntryDto, UpdateFoodEntryDto, CreateFoodDto, CreateFoodCategoryDto, SearchFoodQueryDto } from './food.schema';
+import { currentUserDate } from '../common/time/user-date';
+
+type Db = typeof db;
+type Transaction = Parameters<Parameters<Db['transaction']>[0]>[0];
 
 interface OFProduct {
   id: string;
@@ -39,15 +43,40 @@ export class FoodService {
   private readonly NORMALIZE_CACHE_MAX = 500;
   private static readonly PRELOAD_PAGE_SIZE = 20;  constructor(private readonly dailySummaryService: DailySummaryService) {}
 
+  private visibilityClause(userId: string) {
+    return or(
+      sql`${foods.source} IN ('usda', 'off', 'system')`,
+      and(eq(foods.source, 'user'), eq(foods.createdBy, userId)),
+    );
+  }
+
+  private async findVisibleFood(
+    id: string,
+    userId: string,
+    executor: Db | Transaction = db,
+  ) {
+    const [food] = await executor
+      .select()
+      .from(foods)
+      .where(and(eq(foods.id, id), this.visibilityClause(userId)))
+      .limit(1);
+    return food;
+  }
+
   async create(userId: string, data: CreateFoodEntryDto) {
+    const entryDate = data.date ?? await currentUserDate(userId);
     const result = await db.transaction(async (tx) => {
       let foodId = data.foodId;
+
+      if (foodId && !(await this.findVisibleFood(foodId, userId, tx))) {
+        throw new NotFoundException('Food not found');
+      }
 
       if (!foodId && data.name) {
         const [existing] = await tx
           .select()
           .from(foods)
-          .where(eq(foods.name, data.name))
+          .where(and(eq(foods.name, data.name), this.visibilityClause(userId)))
           .limit(1);
 
         if (existing) {
@@ -75,7 +104,7 @@ export class FoodService {
           }
 
           const ratio = data.grams && data.grams > 0 ? 100 / data.grams : 1;
-          const source = data.brand ? 'usda' : 'user';
+          const source = 'user';
 
           const per100g = (v: number) =>
             Math.min(1000, Math.max(0, Math.round(v * ratio)));
@@ -121,15 +150,25 @@ export class FoodService {
           fat: data.fat ?? 0,
           carbs: data.carbs ?? 0,
           imageUrl: data.imageUrl,
-          entryDate: data.date,
+          entryDate,
         })
         .returning();
 
+      // The catalog must not change based on someone else's choice: an
+      // image can only be saved onto the user's own product.
       if (foodId && data.imageUrl) {
-        await tx
-          .update(foods)
-          .set({ imageUrl: data.imageUrl })
-          .where(eq(foods.id, foodId));
+        const [food] = await tx
+          .select({ source: foods.source, createdBy: foods.createdBy })
+          .from(foods)
+          .where(eq(foods.id, foodId))
+          .limit(1);
+
+        if (food && food.source === 'user' && food.createdBy === userId) {
+          await tx
+            .update(foods)
+            .set({ imageUrl: data.imageUrl })
+            .where(eq(foods.id, foodId));
+        }
       }
 
       if (foodId) {
@@ -145,16 +184,21 @@ export class FoodService {
           });
       }
 
+      await this.dailySummaryService.adjust(
+        userId,
+        {
+          calories: data.calories,
+          protein: data.protein ?? 0,
+          fat: data.fat ?? 0,
+          carbs: data.carbs ?? 0,
+          date: entryDate,
+        },
+        tx,
+      );
+
       return entry;
     });
 
-    await this.dailySummaryService.adjust(userId, {
-      calories: data.calories,
-      protein: data.protein ?? 0,
-      fat: data.fat ?? 0,
-      carbs: data.carbs ?? 0,
-      date: data.date,
-    });
     await invalidateAnalyticsCache(userId);
     await cacheDelByPrefix(`search:q:${userId}:`);
 
@@ -162,7 +206,8 @@ export class FoodService {
   }
 
   async getToday(userId: string, dateStr?: string) {
-    const dateClause = dateStr ? sql`${dateStr}::date` : sql`CURRENT_DATE`;
+    const date = dateStr ?? await currentUserDate(userId);
+    const dateClause = sql`${date}::date`;
     return db
       .select({
         id: foodEntries.id,
@@ -205,33 +250,41 @@ export class FoodService {
   }
 
   async delete(userId: string, id: string, date?: string) {
-    const [deleted] = await db
-      .delete(foodEntries)
-      .where(
-        and(
-          eq(foodEntries.id, id),
-          eq(foodEntries.userId, userId),
-        ),
-      )
-      .returning();
+    const result = await db.transaction(async (tx) => {
+      const [deleted] = await tx
+        .delete(foodEntries)
+        .where(
+          and(
+            eq(foodEntries.id, id),
+            eq(foodEntries.userId, userId),
+          ),
+        )
+        .returning();
 
-    if (!deleted) {
-      throw new NotFoundException('Food entry not found');
-    }
+      if (!deleted) {
+        throw new NotFoundException('Food entry not found');
+      }
 
-    const deletedDate = date ?? deleted.entryDate ?? (deleted.createdAt instanceof Date
-      ? deleted.createdAt.toISOString().split('T')[0]
-      : undefined);
-    await this.dailySummaryService.adjust(userId, {
-      calories: -deleted.calories,
-      protein: -(deleted.protein ?? 0),
-      fat: -(deleted.fat ?? 0),
-      carbs: -(deleted.carbs ?? 0),
-      date: deletedDate,
+      const deletedDate = deleted.entryDate ?? date ?? (deleted.createdAt instanceof Date
+        ? deleted.createdAt.toISOString().split('T')[0]
+        : undefined);
+      await this.dailySummaryService.adjust(
+        userId,
+        {
+          calories: -deleted.calories,
+          protein: -(deleted.protein ?? 0),
+          fat: -(deleted.fat ?? 0),
+          carbs: -(deleted.carbs ?? 0),
+          date: deletedDate,
+        },
+        tx,
+      );
+
+      return { message: 'Deleted' };
     });
     await invalidateAnalyticsCache(userId);
 
-    return { message: 'Deleted' };
+    return result;
   }
 
   async update(userId: string, id: string, data: UpdateFoodEntryDto) {
@@ -252,9 +305,25 @@ export class FoodService {
     let newProtein = existing.protein ?? 0;
     let newFat = existing.fat ?? 0;
     let newCarbs = existing.carbs ?? 0;
-    let newEntryDate = data.date ?? existing.entryDate;
+    let newEntryDate: string | SQL<unknown> = data.date ?? existing.entryDate ?? sql`CURRENT_DATE`;
     let newImageUrl = data.imageUrl ?? existing.imageUrl;
     let newUnit = data.unit ?? existing.unit;
+
+    // A manual/AI entry without a catalog product has nutrients defined
+    // for a specific portion. When grams change we scale them proportionally.
+    if (
+      !existing.foodId &&
+      data.grams !== undefined &&
+      data.calories === undefined &&
+      existing.grams &&
+      existing.grams > 0
+    ) {
+      const ratio = data.grams / existing.grams;
+      newCalories = Math.round(existing.calories * ratio);
+      newProtein = Math.round((existing.protein ?? 0) * ratio);
+      newFat = Math.round((existing.fat ?? 0) * ratio);
+      newCarbs = Math.round((existing.carbs ?? 0) * ratio);
+    }
 
     const [originalFood] = existing.foodId && !data.foodId
       ? await db.select().from(foods).where(eq(foods.id, existing.foodId)).limit(1)
@@ -262,14 +331,17 @@ export class FoodService {
     const isUserFood = originalFood?.source === 'user' && originalFood?.createdBy === userId;
     const needsFork = !!(originalFood && !isUserFood && !data.foodId && data.name);
 
-    const needTransaction = !!(data.name || data.foodId || data.grams !== undefined || data.calories !== undefined || data.protein !== undefined || data.fat !== undefined || data.carbs !== undefined || data.imageUrl || data.date || data.unit !== undefined || needsFork);
+    const needTransaction = !!(data.name || data.foodId || data.grams !== undefined || data.calories !== undefined || data.protein !== undefined || data.fat !== undefined || data.carbs !== undefined || data.imageUrl || data.date || data.unit !== undefined || data.categoryName !== undefined || needsFork);
 
     if (data.foodId) {
+      if (!(await this.findVisibleFood(data.foodId, userId))) {
+        throw new NotFoundException('Food not found');
+      }
       newFoodId = data.foodId;
     }
 
-    if (needTransaction) {
-      await db.transaction(async (tx) => {
+    await db.transaction(async (tx) => {
+      if (needTransaction) {
         if (data.name && !data.foodId) {
           const [matched] = await tx
             .select()
@@ -355,7 +427,7 @@ export class FoodService {
           }
         }
 
-        const [updated] = await tx
+        await tx
           .update(foodEntries)
           .set({
             name: newName,
@@ -367,92 +439,120 @@ export class FoodService {
             fat: newFat,
             carbs: newCarbs,
             imageUrl: newImageUrl,
-            entryDate: newEntryDate,
+            entryDate: newEntryDate as any,
             updatedAt: new Date(),
           })
-          .where(and(eq(foodEntries.id, id), eq(foodEntries.userId, userId)))
-          .returning();
-      });
-    } else {
-      await db
-        .update(foodEntries)
-        .set({
-          imageUrl: newImageUrl,
-          entryDate: newEntryDate,
-          updatedAt: new Date(),
-        })
-        .where(and(eq(foodEntries.id, id), eq(foodEntries.userId, userId)));
-    }
-
-    if (newFoodId !== existing.foodId && existing.foodId && newFoodId) {
-      await db
-        .insert(userFoodStats)
-        .values({ userId, foodId: existing.foodId, frequency: 1 })
-        .onConflictDoUpdate({
-          target: [userFoodStats.userId, userFoodStats.foodId],
-          set: {
-            frequency: sql`GREATEST(${userFoodStats.frequency} - 1, 0)`,
-          },
-        });
-
-      await db
-        .insert(userFoodStats)
-        .values({ userId, foodId: newFoodId, frequency: 1 })
-        .onConflictDoUpdate({
-          target: [userFoodStats.userId, userFoodStats.foodId],
-          set: {
-            frequency: sql`${userFoodStats.frequency} + 1`,
-          },
-        });
-    }
-
-    const calDelta = newCalories - existing.calories;
-    const protDelta = newProtein - (existing.protein ?? 0);
-    const fatDelta = newFat - (existing.fat ?? 0);
-    const carbsDelta = newCarbs - (existing.carbs ?? 0);
-
-    if (existing.entryDate !== newEntryDate) {
-      if (existing.calories) {
-        await this.dailySummaryService.adjust(userId, {
-          calories: -existing.calories,
-          protein: -(existing.protein ?? 0),
-          fat: -(existing.fat ?? 0),
-          carbs: -(existing.carbs ?? 0),
-          date: existing.entryDate ?? undefined,
-        });
+          .where(and(eq(foodEntries.id, id), eq(foodEntries.userId, userId)));
+      } else {
+        await tx
+          .update(foodEntries)
+          .set({
+            imageUrl: newImageUrl,
+            entryDate: newEntryDate as any,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(foodEntries.id, id), eq(foodEntries.userId, userId)));
       }
-      await this.dailySummaryService.adjust(userId, {
-        calories: newCalories,
-        protein: newProtein,
-        fat: newFat,
-        carbs: newCarbs,
-        date: newEntryDate ?? undefined,
-      });
-    } else if (calDelta || protDelta || fatDelta || carbsDelta) {
-      await this.dailySummaryService.adjust(userId, {
-        calories: calDelta,
-        protein: protDelta,
-        fat: fatDelta,
-        carbs: carbsDelta,
-        date: newEntryDate ?? undefined,
-      });
-    }
 
-    if (data.categoryName && newFoodId) {
-      const [cat] = await db
-        .insert(foodCategories)
-        .values({ name: data.categoryName })
-        .onConflictDoNothing({ target: foodCategories.name })
-        .returning();
-      const categoryId = cat?.id
-        ?? (await db.select().from(foodCategories).where(eq(foodCategories.name, data.categoryName)).limit(1))[0]?.id;
-      if (categoryId) {
-        const [food] = await db.select().from(foods).where(eq(foods.id, newFoodId)).limit(1);
+      if (newFoodId !== existing.foodId && existing.foodId && newFoodId) {
+        await tx
+          .insert(userFoodStats)
+          .values({ userId, foodId: existing.foodId, frequency: 1 })
+          .onConflictDoUpdate({
+            target: [userFoodStats.userId, userFoodStats.foodId],
+            set: {
+              frequency: sql`GREATEST(${userFoodStats.frequency} - 1, 0)`,
+            },
+          });
+
+        await tx
+          .insert(userFoodStats)
+          .values({ userId, foodId: newFoodId, frequency: 1 })
+          .onConflictDoUpdate({
+            target: [userFoodStats.userId, userFoodStats.foodId],
+            set: {
+              frequency: sql`${userFoodStats.frequency} + 1`,
+            },
+          });
+      }
+
+      const calDelta = newCalories - existing.calories;
+      const protDelta = newProtein - (existing.protein ?? 0);
+      const fatDelta = newFat - (existing.fat ?? 0);
+      const carbsDelta = newCarbs - (existing.carbs ?? 0);
+
+      if (existing.entryDate !== newEntryDate) {
+        if (
+          existing.calories ||
+          existing.protein ||
+          existing.fat ||
+          existing.carbs
+        ) {
+          await this.dailySummaryService.adjust(
+            userId,
+            {
+              calories: -existing.calories,
+              protein: -(existing.protein ?? 0),
+              fat: -(existing.fat ?? 0),
+              carbs: -(existing.carbs ?? 0),
+              date: existing.entryDate ?? undefined,
+            },
+            tx,
+          );
+        }
+        await this.dailySummaryService.adjust(
+          userId,
+          {
+            calories: newCalories,
+            protein: newProtein,
+            fat: newFat,
+            carbs: newCarbs,
+            date: typeof newEntryDate === 'string'
+              ? newEntryDate
+              : undefined,
+          },
+          tx,
+        );
+      } else if (calDelta || protDelta || fatDelta || carbsDelta) {
+        await this.dailySummaryService.adjust(
+          userId,
+          {
+            calories: calDelta,
+            protein: protDelta,
+            fat: fatDelta,
+            carbs: carbsDelta,
+            date: typeof newEntryDate === 'string'
+              ? newEntryDate
+              : undefined,
+          },
+          tx,
+        );
+      }
+
+      if (data.categoryName !== undefined && newFoodId) {
+        const [food] = await tx.select().from(foods).where(eq(foods.id, newFoodId)).limit(1);
+
+        // Never alter a shared catalog product. A forked or user-owned food
+        // may either receive a category name or be explicitly uncategorized.
         if (food && food.source === 'user' && food.createdBy === userId) {
-          await db.update(foods).set({ categoryId }).where(eq(foods.id, newFoodId));
+          if (data.categoryName === null) {
+            await tx.update(foods).set({ categoryId: null }).where(eq(foods.id, newFoodId));
+          } else {
+            const [cat] = await tx
+              .insert(foodCategories)
+              .values({ name: data.categoryName })
+              .onConflictDoNothing({ target: foodCategories.name })
+              .returning();
+            const categoryId = cat?.id
+              ?? (await tx.select().from(foodCategories).where(eq(foodCategories.name, data.categoryName)).limit(1))[0]?.id;
+
+            if (categoryId) {
+              await tx.update(foods).set({ categoryId }).where(eq(foods.id, newFoodId));
+            }
+          }
         }
       }
-    }
+    });
 
     await invalidateAnalyticsCache(userId);
     await cacheDelByPrefix(`search:q:${userId}:`);
@@ -520,8 +620,17 @@ export class FoodService {
     const [category] = await db
       .insert(foodCategories)
       .values({ name: data.name, icon: data.icon })
+      .onConflictDoNothing({ target: foodCategories.name })
       .returning();
-    return category;
+
+    if (category) return category;
+
+    const [existing] = await db
+      .select()
+      .from(foodCategories)
+      .where(eq(foodCategories.name, data.name))
+      .limit(1);
+    return existing;
   }
 
   // ── Food Catalog ──────────────────────────────────────────────
@@ -529,7 +638,7 @@ export class FoodService {
   async search(query: SearchFoodQueryDto, userId?: string) {
     const { q, limit, offset } = query;
 
-    // Вытащить вес из строки (подсказка для клиента)
+    // Extract weight from the string (hint for the client)
     const weightMatch = q.match(/(\d+([.,]\d+)?)\s*(g|kg|ml|l|oz|lb)\b/i);
     let suggestedGrams: number | null = null;
     let suggestedUnit: string | null = null;
@@ -554,14 +663,14 @@ export class FoodService {
       }
     }
 
-    // Чистый запрос (вес убираем из поиска)
+    // Clean query (weight is stripped from the search)
     const cleanQuery = (q.toLowerCase().trim()
       .replace(/\b\d+([.,]\d+)?\s?(г|g|kg|ml|l|oz|lb)\b/gi, '')
       .replace(/[^\p{L}\p{N}\s]/gu, ' ')
       .replace(/\s+/g, ' ')
       .trim());
 
-    // Персональный кэш полного списка (пагинация режется из него)
+    // Personal cache of the full list (pagination is sliced from it)
     const cacheKey = `search:q:${userId ?? 'anon'}:${cleanQuery}`;
     const cached = await cacheGet<OFProduct[]>(cacheKey);
     const required = offset + limit + FoodService.PRELOAD_PAGE_SIZE;
@@ -578,7 +687,7 @@ export class FoodService {
     return { foods, suggestedGrams, suggestedUnit, total, offset, limit, hasMore };
   }
 
-  /** Полный ранжированный список; USDA дозапрашиваем, если локальных мало */
+  /** Full ranked list; fetches more from USDA when local results are few */
   private async buildSearchResults(cleanQuery: string, userId?: string, required = 40): Promise<OFProduct[]> {
     const term = `%${cleanQuery}%`;
     const visibilityClause = userId
@@ -615,7 +724,7 @@ export class FoodService {
           .where(inArray(foodServings.foodId, localIds))
       : [];
 
-    // Частота использования данным юзером — для ранжирования
+    // How often this user picks each item — used for ranking
     const freqMap = new Map<string, number>();
     if (userId && localIds.length) {
       const stats = await db
@@ -656,7 +765,7 @@ export class FoodService {
       };
     });
 
-    // Ранжируем БД-результаты
+    // Rank the DB results
     const localRanked = this.rank(local, cleanQuery, userId);
     const enoughLocal = localRanked.length >= required;
 
@@ -664,7 +773,7 @@ export class FoodService {
       return localRanked;
     }
 
-    // Параллельный внешний поиск (USDA SR Legacy + Branded)
+    // Parallel external search (USDA SR Legacy + Branded)
     const [srLegacyRes, brandedRes] = await Promise.allSettled([
       this.searchUSDA(cleanQuery, 25, 'SR Legacy'),
       this.searchUSDA(cleanQuery, 25, 'Branded'),
@@ -675,7 +784,7 @@ export class FoodService {
 
     const allUsda = [...srItems, ...brandedItems];
 
-    // Дедуп (локальные впереди внешних)
+    // Dedup (locals go before external results)
     const merged = [...localRanked, ...allUsda];
     const deduped = this.deduplicate(merged);
 
@@ -735,7 +844,7 @@ export class FoodService {
     await prev;
     await new Promise((r) => setTimeout(r, 250));
     try {
-      return await fetch(url);
+      return await fetch(url, { signal: AbortSignal.timeout(10_000) });
     } finally {
       done!();
     }
@@ -814,11 +923,11 @@ export class FoodService {
     return results.map((r) => r.food);
   }
 
-  async getByBarcode(barcode: string) {
+  async getByBarcode(barcode: string, userId: string) {
     const [food] = await db
       .select()
       .from(foods)
-      .where(eq(foods.barcode, barcode))
+      .where(and(eq(foods.barcode, barcode), this.visibilityClause(userId)))
       .limit(1);
 
     if (!food) return null;
@@ -831,8 +940,8 @@ export class FoodService {
     return { ...food, servings };
   }
 
-  async getById(id: string) {
-    const [food] = await db.select().from(foods).where(eq(foods.id, id)).limit(1);
+  async getById(id: string, userId: string) {
+    const food = await this.findVisibleFood(id, userId);
     if (!food) throw new NotFoundException('Food not found');
 
     const servings = await db
@@ -844,9 +953,10 @@ export class FoodService {
   }
 
   async createFood(userId: string, data: CreateFoodDto) {
-    const [food] = await db
-      .insert(foods)
-      .values({
+    const result = await db.transaction(async (tx) => {
+      const [food] = await tx
+        .insert(foods)
+        .values({
         name: data.name,
         categoryId: data.categoryId,
         caloriesPer100g: Math.round(data.caloriesPer100g),
@@ -858,36 +968,36 @@ export class FoodService {
         source: 'user',
         createdBy: userId,
       })
-      .returning();
+        .returning();
 
-    if (!food) throw new Error('Failed to create food');
+      if (!food) throw new Error('Failed to create food');
 
-    if (data.servings?.length) {
-      await db.insert(foodServings).values(
-        data.servings.map((s) => ({
-          foodId: food.id,
-          name: s.name,
-          grams: s.grams,
-        })),
-      );
-    }
+      if (data.servings?.length) {
+        await tx.insert(foodServings).values(
+          data.servings.map((s) => ({
+            foodId: food.id,
+            name: s.name,
+            grams: s.grams,
+          })),
+        );
+      }
 
-    const servings = await db
-      .select()
-      .from(foodServings)
-      .where(eq(foodServings.foodId, food.id));
+      const servings = await tx
+        .select()
+        .from(foodServings)
+        .where(eq(foodServings.foodId, food.id));
 
-    return { ...food, servings };
+      return { ...food, servings };
+    });
+
+    await cacheDelByPrefix(`search:q:${userId}:`);
+    return result;
   }
 
-  /** Фиксирует выбор/добавление продукта пользователем, чтобы
-   *  чаще выбираемые всплывали выше (используется в поиске и популярных). */
+  /** Records a user's product pick/add so frequently chosen items
+   *  float higher (used in search and popular lists). */
   async trackSelection(userId: string, foodId: string) {
-    const [food] = await db
-      .select({ id: foods.id })
-      .from(foods)
-      .where(eq(foods.id, foodId))
-      .limit(1);
+    const food = await this.findVisibleFood(foodId, userId);
 
     if (!food) throw new NotFoundException('Food not found');
 
@@ -902,10 +1012,12 @@ export class FoodService {
         },
       });
 
+    await cacheDelByPrefix(`search:q:${userId}:`);
+
     return { ok: true };
   }
 
-  // ── Dedup (3 уровня) ─────────────────────────────────────────
+  // ── Dedup (3 levels) ─────────────────────────────────────────
 
   private deduplicate(items: OFProduct[]): OFProduct[] {
     const seenBarcodes = new Set<string>();
@@ -955,19 +1067,19 @@ export class FoodService {
         const nameLower = item.name.toLowerCase();
         let score = 0;
 
-        // Приоритет источника: свои продукты всегда вверху
+        // Source priority: my own products always float to the top
         if (isMine(item)) score += 100;
         else if (item.source === 'off') score += 6;
         else if (item.source === 'system') score += 5;
         else if (item.source === 'usda_sr') score += 4;
         else if (item.source === 'usda') score += 3;
 
-        // Часто выбираемое данным юзером — всплывает выше
+        // Frequently picked by this user — floats higher
         if (userId && (item.frequency ?? 0) > 0) {
           score += Math.min(item.frequency ?? 0, 20) / 2;
         }
 
-        // Совпадение с запросом
+        // Match against the query
         if (nameLower === qLower) score += 50;
         else if (nameLower.startsWith(qLower)) score += 30;
         else if (nameLower.includes(qLower)) score += 10;
@@ -978,7 +1090,7 @@ export class FoodService {
           }
         }
 
-        // Качество карточки
+        // Card quality
         if (item.imageUrl) score += 3;
         if (item.brand) score += 2;
         if (item.servings?.length) score += 2;
@@ -988,7 +1100,7 @@ export class FoodService {
       .sort((a, b) => {
         const diff = (b.score ?? 0) - (a.score ?? 0);
         if (diff !== 0) return diff;
-        // стабильность: при равном score — по алфавиту, потом по имени
+        // Stability: on equal score — alphabetical, then by name
         return a.name.localeCompare(b.name);
       });
   }

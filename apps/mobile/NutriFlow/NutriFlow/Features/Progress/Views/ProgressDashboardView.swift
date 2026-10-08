@@ -13,9 +13,15 @@ struct ProgressDashboardView: View {
     @State private var prefsStore = PreferencesStore.shared
     @State private var hasLoadedProgress = false
     @State private var isInitialProgressLoading = false
+    @State private var showWeightEntry = false
+    @State private var weightInput = ""
+    @State private var weightEntryError: AppError?
+    @State private var isRecordingWeight = false
+    @State private var showWeightHistory = false
+    @State private var pendingWeightDeletion: WeightLog?
+    @State private var isDeletingWeight = false
 
     var body: some View {
-        let _ = print("ProgressDashboardView body")
         ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
                 header
@@ -34,6 +40,7 @@ struct ProgressDashboardView: View {
                     }
                 )
                 analyticsContent
+                weightCard
                 chartsContent
                 Spacer(minLength: 100)
             }
@@ -76,8 +83,23 @@ struct ProgressDashboardView: View {
                 goals: chartVM.selectedDateGoals,
                 state: chartVM.dayDetailState,
                 activity: chartVM.selectedDateActivity,
-                workouts: chartVM.selectedDateWorkouts
+                workouts: chartVM.selectedDateWorkouts,
+                warning: chartVM.dayDetailWarning,
+                onRetry: { Task { await chartVM.loadDayDetail(date: chartVM.selectedDateStr) } }
             )
+        }
+        .sheet(isPresented: $showWeightEntry) {
+            WeightEntrySheet(
+                weightInput: $weightInput,
+                error: $weightEntryError,
+                isSaving: isRecordingWeight,
+                latestWeightKg: chartVM.weightLatestKg,
+                preferredUnits: prefsStore.preferredUnits,
+                onSave: recordWeight
+            )
+        }
+        .sheet(isPresented: $showWeightHistory) {
+            weightHistorySheet
         }
     }
 
@@ -154,19 +176,178 @@ struct ProgressDashboardView: View {
                     daysTracked: analytics.daysTracked,
                     totalDays: analytics.totalDays
                 )
-                WeightCardView(
-                    points: chartVM.weightPoints,
-                    latestKg: chartVM.weightLatestKg,
-                    deltaKg: chartVM.weightDeltaKg,
-                    weeklyRateKg: chartVM.weightWeeklyRateKg,
-                    periodLabel: chartVM.weightPeriodLabel
-                )
             }
         case .empty:
             emptyState
         case .error(let error):
-            ErrorMessageView(text: error.localizedDescription)
+            ErrorView(error: error) {
+                Task { await analyticsVM.refreshData() }
+            }
         }
+    }
+
+    private var weightCard: some View {
+        VStack(spacing: 8) {
+            if let weightError = chartVM.weightError {
+                ErrorView(error: weightError) {
+                    Task { await chartVM.loadWeightSummary() }
+                }
+            }
+            WeightCardView(
+                points: chartVM.weightPoints,
+                latestKg: chartVM.weightLatestKg,
+                deltaKg: chartVM.weightDeltaKg,
+                weeklyRateKg: chartVM.weightWeeklyRateKg,
+                periodLabel: chartVM.weightPeriodLabel,
+                onRecordWeight: {
+                    weightInput = ""
+                    weightEntryError = nil
+                    showWeightEntry = true
+                },
+                onManageWeights: {
+                    chartVM.weightHistoryError = nil
+                    showWeightHistory = true
+                }
+            )
+        }
+    }
+
+    private func recordWeight() {
+        guard let displayWeight = UnitConversion.parseDecimal(weightInput) else {
+            weightEntryError = .validation(message: "Enter a valid weight.")
+            return
+        }
+
+        let weightKg = UnitConversion.bodyWeightToKg(
+            displayWeight,
+            preferred: prefsStore.preferredUnits
+        )
+        guard (20...400).contains(weightKg) else {
+            weightEntryError = .validation(message: "Enter a weight between 20 and 400 kg.")
+            return
+        }
+
+        isRecordingWeight = true
+        weightEntryError = nil
+        Task {
+            defer { isRecordingWeight = false }
+            do {
+                try await chartVM.recordCurrentWeight(weightKg)
+                async let analytics: () = analyticsVM.refreshData()
+                async let goals: () = goalsVM.loadGoals()
+                (_, _) = await (analytics, goals)
+                showWeightEntry = false
+            } catch {
+                weightEntryError = ErrorMapper.map(error)
+            }
+        }
+    }
+
+    private var weightHistorySheet: some View {
+        NavigationStack {
+            List {
+                if let weightHistoryError = chartVM.weightHistoryError {
+                    ErrorView(error: weightHistoryError) {
+                        Task { await chartVM.loadWeightHistory() }
+                    }
+                }
+
+                ForEach(chartVM.weightEntries.reversed()) { entry in
+                    HStack {
+                        Image(systemName: entry.source == "initial" ? "flag.fill" : "scalemass.fill")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundColor(entry.source == "initial" ? AppColors.textSecondary : AppColors.accent)
+                            .frame(width: 30, height: 30)
+                            .background((entry.source == "initial" ? AppColors.textSecondary : AppColors.accent).opacity(0.12))
+                            .clipShape(Circle())
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(formattedWeightDate(entry.entryDate))
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundColor(AppColors.textPrimary)
+                            Text(entry.source == "initial" ? "Initial weight" : "Manual record")
+                                .font(.caption)
+                                .foregroundColor(AppColors.textSecondary)
+                        }
+
+                        Spacer()
+
+                        let displayWeight = UnitConversion.bodyWeightToDisplay(
+                            kg: entry.weightKg,
+                            preferred: prefsStore.preferredUnits
+                        )
+                        Text("\(displayWeight.formatted(.number.precision(.fractionLength(0...1)))) \(UnitConversion.bodyWeightUnitLabel(preferred: prefsStore.preferredUnits))")
+                            .font(.subheadline.weight(.semibold))
+                            .monospacedDigit()
+                            .foregroundColor(AppColors.textPrimary)
+
+                        if entry.source != "initial" {
+                            Button(role: .destructive) {
+                                pendingWeightDeletion = entry
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .disabled(isDeletingWeight)
+                            .accessibilityLabel("Delete weight record")
+                        }
+                    }
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(AppColors.background)
+            .navigationTitle("Weight records")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { showWeightHistory = false }
+                }
+            }
+            .task {
+                await chartVM.loadWeightHistory()
+            }
+            .confirmationDialog(
+                "Delete this weight record?",
+                isPresented: Binding(
+                    get: { pendingWeightDeletion != nil },
+                    set: { if !$0 { pendingWeightDeletion = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Delete", role: .destructive) {
+                    deleteSelectedWeight()
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("The chart and automatic goals will be updated if this is today’s current record.")
+            }
+        }
+    }
+
+    private func deleteSelectedWeight() {
+        guard let entry = pendingWeightDeletion else { return }
+        isDeletingWeight = true
+        Task {
+            defer {
+                isDeletingWeight = false
+                pendingWeightDeletion = nil
+            }
+            do {
+                try await chartVM.deleteWeightEntry(date: entry.entryDate)
+                async let analytics: () = analyticsVM.refreshData()
+                async let goals: () = goalsVM.loadGoals()
+                (_, _) = await (analytics, goals)
+            } catch {
+                chartVM.weightHistoryError = ErrorMapper.map(error)
+            }
+        }
+    }
+
+    private func formattedWeightDate(_ value: String) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale.current
+        formatter.dateFormat = "yyyy-MM-dd"
+        guard let date = formatter.date(from: String(value.prefix(10))) else { return value }
+        return date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
     }
 
     @ViewBuilder
@@ -176,12 +357,23 @@ struct ProgressDashboardView: View {
             ProgressView().tint(.white).frame(maxWidth: .infinity).padding(.vertical, 20)
         case .loaded(let data):
             ZStack {
-                if !data.isEmpty {
+                if hasChartData(data) {
                     VStack(spacing: 20) {
-                        CaloriesChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
-                        WaterChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
-                        NutritionChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
-                        ActivityChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: data.first?.label ?? "")
+                        if let firstCalories = data.first(where: { $0.calories > 0 }) {
+                            CaloriesChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: initialScrollLabel(in: data, firstDataPoint: firstCalories))
+                        }
+
+                        if let firstWater = data.first(where: { $0.waterMl > 0 }) {
+                            WaterChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: initialScrollLabel(in: data, firstDataPoint: firstWater))
+                        }
+
+                        if let firstMacros = data.first(where: { $0.protein > 0 || $0.fat > 0 || $0.carbs > 0 }) {
+                            NutritionChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: initialScrollLabel(in: data, firstDataPoint: firstMacros))
+                        }
+
+                        if let firstActivity = data.first(where: { $0.calories > 0 || $0.activeCalories > 0 || $0.basalCalories > 0 }) {
+                            ActivityChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: initialScrollLabel(in: data, firstDataPoint: firstActivity))
+                        }
                     }
                 } else if case .empty = analyticsVM.state {
                     EmptyView()
@@ -200,9 +392,27 @@ struct ProgressDashboardView: View {
                 }
             }
             .allowsHitTesting(!chartVM.isPeriodLoading)
-        case .error:
-            EmptyView()
+        case .error(let error):
+            ErrorView(error: error) {
+                Task { await chartVM.refreshData() }
+            }
         }
+    }
+
+    private func hasChartData(_ data: [ChartDataPoint]) -> Bool {
+        data.contains {
+            $0.calories > 0 ||
+            $0.waterMl > 0 ||
+            $0.protein > 0 ||
+            $0.fat > 0 ||
+            $0.carbs > 0 ||
+            $0.activeCalories > 0 ||
+            $0.basalCalories > 0
+        }
+    }
+
+    private func initialScrollLabel(in data: [ChartDataPoint], firstDataPoint: ChartDataPoint) -> String {
+        firstDataPoint.label
     }
 
 private struct RingItem: Identifiable {
@@ -274,6 +484,115 @@ private struct RingItem: Identifiable {
                 .multilineTextAlignment(.center)
         }
         .padding(.vertical, 40)
+    }
+}
+
+private struct WeightEntrySheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var weightInput: String
+    @Binding var error: AppError?
+
+    let isSaving: Bool
+    let latestWeightKg: Double?
+    let preferredUnits: PreferredUnits
+    let onSave: () -> Void
+
+    @FocusState private var isWeightFieldFocused: Bool
+
+    private var unit: String {
+        UnitConversion.bodyWeightUnitLabel(preferred: preferredUnits)
+    }
+
+    private var lastWeightText: String? {
+        guard let latestWeightKg else { return nil }
+        let value = UnitConversion.bodyWeightToDisplay(kg: latestWeightKg, preferred: preferredUnits)
+        return "\(value.formatted(.number.precision(.fractionLength(0...1)))) \(unit)"
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Record weight", systemImage: "scalemass.fill")
+                        .font(.title3.weight(.bold))
+                        .foregroundColor(AppColors.textPrimary)
+                    Text("This updates today’s point. Automatic goals will use the new current weight.")
+                        .font(.footnote)
+                        .foregroundColor(AppColors.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("TODAY’S WEIGHT")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundColor(AppColors.textTertiary)
+
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        TextField("0", text: $weightInput)
+                            .focused($isWeightFieldFocused)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.leading)
+                            .font(.system(size: 44, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundColor(AppColors.textPrimary)
+                            .tint(AppColors.accent)
+
+                        Text(unit)
+                            .font(.title3.weight(.semibold))
+                            .foregroundColor(AppColors.textSecondary)
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 14)
+                    .background(AppColors.surfaceSecondary)
+                    .clipShape(RoundedRectangle(cornerRadius: AppRadius.medium))
+                }
+
+                if let lastWeightText {
+                    Label("Last recorded: \(lastWeightText)", systemImage: "clock.arrow.circlepath")
+                        .font(.footnote)
+                        .foregroundColor(AppColors.textSecondary)
+                }
+
+                if let error {
+                    ErrorView(error: error)
+                }
+
+                Spacer(minLength: 0)
+
+                Button(action: onSave) {
+                    HStack(spacing: 8) {
+                        if isSaving {
+                            ProgressView().tint(AppColors.accentOnPrimary)
+                        } else {
+                            Image(systemName: "checkmark")
+                        }
+                        Text(isSaving ? "Saving…" : "Save today’s weight")
+                    }
+                    .font(.headline)
+                    .foregroundColor(AppColors.accentOnPrimary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(AppColors.accent)
+                    .clipShape(RoundedRectangle(cornerRadius: AppRadius.medium))
+                }
+                .disabled(isSaving || weightInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .opacity(isSaving || weightInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.55 : 1)
+            }
+            .padding(AppSpacing.paddingHorizontal)
+            .background(AppColors.background)
+            .navigationTitle("Weight")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+            .onAppear {
+                isWeightFieldFocused = true
+            }
+        }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
     }
 }
 

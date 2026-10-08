@@ -6,7 +6,7 @@ enum HomeNavRoute: Hashable {
     case servingPicker(CatalogFood, Int?, String?)
     case addWater
     case scanFood
-    case scanResult([FoodAnalysisItem], Data?)
+    case scanResult([ScanAnalysisItem], Data?)
     case workoutHistory
     case sleepHistory
 }
@@ -54,8 +54,8 @@ struct HomeView: View {
                     let _ = print("[Nav] destination -> \(route)")
                     switch route {
                     case .addFood:
-                        let addFoodVM = AddFoodViewModel(service: foodService, coordinator: coordinator, analyticsTracker: analyticsTracker)
-                        AddFoodView(onSave: popToRoot, viewModel: addFoodVM, todayFoodVM: homeViewModel.todayFoodVM, onSearchCatalog: {
+                        let addFoodVM = AddFoodViewModel(service: foodService, coordinator: coordinator, analyticsTracker: analyticsTracker, todayFoodVM: homeViewModel.todayFoodVM)
+                        AddFoodView(onSave: popToRoot, viewModel: addFoodVM, onSearchCatalog: {
                             navPath.append(HomeNavRoute.foodSearch)
                         }, onSelectPopular: { food in
                             navPath.append(HomeNavRoute.servingPicker(food, nil, nil))
@@ -74,7 +74,7 @@ struct HomeView: View {
                     case .addWater:
                         AddWaterView(
                             waterViewModel: homeViewModel.waterVM,
-                            onSave: { Task { await homeViewModel.loadDashboardSummary() } }
+                            onSave: { Task { await homeViewModel.loadDashboardSummary(forceRefresh: true) } }
                         )
                     case .scanFood:
                         ScanFoodView(service: foodService, analyticsTracker: analyticsTracker) { items, imageData in
@@ -87,6 +87,7 @@ struct HomeView: View {
                             imageData: imageData,
                             service: foodService,
                             todayFoodVM: homeViewModel.todayFoodVM,
+                            waterViewModel: homeViewModel.waterVM,
                             coordinator: coordinator,
                             analyticsTracker: analyticsTracker
                         )
@@ -111,7 +112,7 @@ struct HomeView: View {
             EditFoodView(viewModel: vm) {
                 await homeViewModel.todayFoodVM.reloadAfterMutation()
                 homeViewModel.todayFoodVM.notifyDataMutated()
-                await homeViewModel.loadDashboardSummary()
+                await homeViewModel.loadDashboardSummary(forceRefresh: true)
             }
         }
     }
@@ -127,6 +128,8 @@ struct HomeView: View {
                     state: homeViewModel.goalsVM.personalizationState,
                     goals: homeViewModel.userGoals,
                     isProcessing: homeViewModel.goalsVM.isProcessingPersonalization,
+                    error: homeViewModel.goalsVM.personalizationError,
+                    onRetry: { homeViewModel.goalsVM.retryPersonalization() },
                     onRequest: {
                         Task { await homeViewModel.goalsVM.requestPersonalization() }
                     },
@@ -145,11 +148,14 @@ struct HomeView: View {
                     }
                     .padding(.horizontal, AppSpacing.paddingHorizontal)
                 } else {
-                    ActivityCard(vm: homeViewModel.activityVM,stepGoal: homeViewModel.userGoals?.dailyStepsGoal, activeCaloriesGoal: homeViewModel.userGoals?.dailyActiveCaloriesGoal
+                    ActivityCard(vm: homeViewModel.activityVM, stepGoal: homeViewModel.userGoals?.dailyStepsGoal, activeCaloriesGoal: homeViewModel.userGoals?.dailyActiveCaloriesGoal, onConnect: {
+                        Task { await homeViewModel.connectHealth() }
+                    }
                     )
                     .padding(.horizontal, AppSpacing.paddingHorizontal)
                     LastWorkoutCard(
                         workout: homeViewModel.workoutVM.lastWorkout,
+                        state: homeViewModel.workoutVM.lastWorkoutState,
                         healthAccessDenied: homeViewModel.workoutVM.healthAccessDenied,
                         onOpenSettings: {
                             homeViewModel.workoutVM.openSettings()
@@ -159,6 +165,9 @@ struct HomeView: View {
                             tabBarState.isTabBarHidden = true
                             navPath.append(HomeNavRoute.workoutHistory)
                             print("[Nav] appended workoutHistory, path=\(navPath)")
+                        },
+                        onRetry: {
+                            Task { await homeViewModel.workoutVM.loadLatest() }
                         },
                         weeklyWorkoutsGoal: homeViewModel.userGoals?.weeklyWorkoutsGoal,
                         weeklyWorkoutMinutesGoal: homeViewModel.userGoals?.weeklyWorkoutMinutesGoal,
@@ -250,7 +259,7 @@ struct HomeView: View {
         navPath.removeAll()
         tabBarState.isTabBarHidden = false
         tabBarState.isTabBarMinimized = false
-        Task { await homeViewModel.loadDashboardSummary() }
+        Task { await homeViewModel.loadDashboardSummary(forceRefresh: true) }
     }
 }
 
@@ -296,7 +305,8 @@ private struct DailySummarySectionView: View {
     var body: some View {
         DailySummarySection(
             state: homeViewModel.dailySummaryState,
-            goals: homeViewModel.userGoals
+            goals: homeViewModel.userGoals,
+            onRetry: { Task { await homeViewModel.loadDashboardSummary() } }
         )
         .padding(.horizontal, AppSpacing.paddingHorizontal)
         
@@ -370,7 +380,8 @@ extension HomeFactory {
                 createdAt: "2026-09-17T08:00:00Z", expiresAt: "2026-09-24T08:00:00Z",
                 acceptedAt: nil, dismissedAt: nil
             ),
-            personalizationDue: false
+            personalizationDue: false,
+            nextAvailableAt: nil
         )
         
         let dailySummaryVM = DailySummaryState.loaded(DailySummary(

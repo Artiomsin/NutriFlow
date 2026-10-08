@@ -114,6 +114,7 @@ struct WorkoutSyncEntry: Codable, Sendable {
     let type: String
     let startDate: String
     let endDate: String
+    let localDate: String
     let durationSeconds: Double
     let caloriesBurned: Double?
     let distanceMeters: Double?
@@ -180,12 +181,21 @@ enum WorkoutMapper {
         return formatter
     }
 
+    static func localDayString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = .current
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+
     static func toEntry(_ workout: HealthKitWorkout) -> WorkoutSyncEntry {
            WorkoutSyncEntry(
                healthKitWorkoutId: workout.id.uuidString,
                type: workout.workoutType,
                startDate: isoFormatter.string(from: workout.startDate),
                endDate: isoFormatter.string(from: workout.endDate),
+               localDate: localDayString(from: workout.startDate),
                durationSeconds: workout.durationSeconds,
                caloriesBurned: workout.caloriesBurned,
                distanceMeters: workout.distanceMeters,

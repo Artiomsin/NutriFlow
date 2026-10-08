@@ -4,6 +4,7 @@ import sharp from 'sharp';
 import { env } from '../config/env';
 import {
   foodAnalysisItemSchema,
+  type FoodAnalysisFoodItem,
   type FoodAnalysisItem,
   type FoodAnalysisResult,
 } from './food.schema';
@@ -28,7 +29,7 @@ export class FoodAnalysisService {
     size: number;
   }): Promise<FoodAnalysisResult> {
     if (!this.gemini) {
-      this.logger.warn('GEMINI_API_KEY не задан');
+      this.logger.warn('GEMINI_API_KEY is not set');
       throw new ServiceUnavailableException(
         'Food analysis service is not configured',
       );
@@ -54,7 +55,7 @@ export class FoodAnalysisService {
         parsed.push(result.data);
       } else {
         this.logger.warn(
-          'Пункт ответа gemini не прошёл Zod: ' +
+          'Gemini response item failed Zod validation: ' +
             JSON.stringify(result.error.flatten()),
         );
       }
@@ -64,7 +65,23 @@ export class FoodAnalysisService {
       return [];
     }
 
-    return this.matcher.matchItems(parsed);
+    const foodItems = parsed.filter(
+      (item): item is FoodAnalysisFoodItem => item.kind === 'food',
+    );
+    const matchedFoodItems = await this.matcher.matchItems(foodItems);
+
+    // Food matching changes food values only. Reinsert those values into the
+    // validated array so water stays in the same visual order as the photo.
+    let foodIndex = 0;
+    return parsed.map((item) => {
+      if (item.kind === 'water') {
+        return item;
+      }
+
+      const matched = matchedFoodItems[foodIndex];
+      foodIndex += 1;
+      return matched ?? item;
+    });
   }
 
   private async analyzeWithGemini(
@@ -127,7 +144,14 @@ export class FoodAnalysisService {
       'Gemini raw response: ' + (response.text ?? 'null').slice(0, 1000),
     );
 
-    return JSON.parse(response.text ?? '[]');
+    try {
+      return JSON.parse(response.text ?? '[]');
+    } catch {
+      this.logger.error('Gemini returned invalid JSON');
+      throw new BadGatewayException(
+        'Food analysis service returned an invalid response. Please try again later.',
+      );
+    }
   }
 
   private extractStatus(e: unknown): number | null {
@@ -158,15 +182,21 @@ export class FoodAnalysisService {
 
   private prompt() {
     return [
-      'Analyze the food in this photo. There may be one or more dishes.',
-      'Split the plate into separate dishes. For each, estimate the portion size in grams.',
-      'Return ONLY valid JSON (no markdown): an ARRAY of objects, each:',
-      '{ "name": string, "category": string, "grams": number, "calories": number, "protein": number,',
-      '  "fat": number, "carbs": number, "unit": "g" | "ml", "confidence": number 0-1 }',
-      '"category" is a short food category in English like "Grains", "Meat", "Vegetables", "Dairy", "Breakfast", "Snacks".',
-      'If there is only one dish, return an array with a single object.',
-      'Nutrients are for the ESTIMATED PORTION, not per 100g.',
-      'If unsure, still give your best estimate. Do not omit fields.',
+      'Analyze visible food and plain drinking water in this photo.',
+      'There may be one or more food dishes and containers of water.',
+      'Return ONLY valid JSON with no markdown: an ARRAY of objects.',
+      'Every object must include a "kind" field.',
+      'For food return:',
+      '{ "kind": "food", "name": string, "category": string, "grams": number,',
+      '  "calories": number, "protein": number, "fat": number, "carbs": number,',
+      '  "unit": "g" | "ml", "confidence": number }',
+      'For plain drinking water return:',
+      '{ "kind": "water", "amountMl": number, "confidence": number }',
+      'Use kind "water" ONLY for plain still or sparkling water.',
+      'Do NOT classify tea, coffee, juice, milk, alcohol, soup, smoothies,',
+      'cocktails, or flavored drinks as water.',
+      'Use kind "food" for food and calorie-containing drinks.',
+      'Nutrients are for the estimated portion, not per 100g.',
     ].join(' ');
   }
 
@@ -208,16 +238,29 @@ export class FoodAnalysisService {
   }
 
   private round(raw: Record<string, unknown>): Record<string, unknown> {
+    const confidence = Number(raw.confidence);
+    const roundedConfidence = Number.isFinite(confidence) ? confidence : null;
+
+    if (raw.kind === 'water') {
+      const amountMl = Number(raw.amountMl);
+
+      return {
+        kind: 'water',
+        amountMl: Number.isFinite(amountMl) ? Math.round(amountMl) : null,
+        confidence: roundedConfidence,
+      };
+    }
+
     const rounded: Record<string, unknown> = {
       ...raw,
+      kind: 'food',
       unit: raw.unit === 'ml' ? 'ml' : 'g',
+      confidence: roundedConfidence,
     };
     for (const k of ['grams', 'calories', 'protein', 'fat', 'carbs']) {
       const v = Number(raw[k]);
       rounded[k] = Number.isFinite(v) ? Math.round(v) : null;
     }
-    const conf = Number(raw.confidence);
-    rounded.confidence = Number.isFinite(conf) ? conf : null;
     return rounded;
   }
 }

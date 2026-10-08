@@ -19,5 +19,10 @@ export const rangeQuerySchema = z.object({
   to: z.string().regex(dateRegex),
 });
 
+export const optionalDateQuerySchema = z.object({
+  date: z.string().regex(dateRegex).optional(),
+});
+
 export type SyncActivityDto = z.infer<typeof syncActivitySchema>;
 export type RangeQueryDto = z.infer<typeof rangeQuerySchema>;
+export type OptionalDateQueryDto = z.infer<typeof optionalDateQuerySchema>;

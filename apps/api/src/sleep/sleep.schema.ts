@@ -6,6 +6,7 @@ const isoRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2}
 export const syncSleepEntrySchema = z.object({
   startDate: z.string().regex(isoRegex),
   endDate: z.string().regex(isoRegex),
+  localDate: z.string().regex(dateRegex),
   timeInBedSeconds: z.number().min(0).nullable().optional(),
   asleepSeconds: z.number().min(0).nullable().optional(),
   awakeSeconds: z.number().min(0).nullable().optional(),
@@ -26,7 +27,13 @@ export const syncSleepSchema = z.object({
 
 export const deleteMissingSchema = z.object({
   startDate: z.string().regex(isoRegex),
-  startDates: z.array(z.string().regex(isoRegex)).min(0).max(500),
+  endDate: z.string().regex(isoRegex),
+  // These are the nights HealthKit still has in the reconciliation window.
+  // Rows absent from this list are the only rows eligible for deletion.
+  keptStartDates: z.array(z.string().regex(isoRegex)).min(0).max(500),
+}).refine((value) => new Date(value.endDate) >= new Date(value.startDate), {
+  message: 'endDate must not be before startDate',
+  path: ['endDate'],
 });
 
 export const historyQuerySchema = z.object({

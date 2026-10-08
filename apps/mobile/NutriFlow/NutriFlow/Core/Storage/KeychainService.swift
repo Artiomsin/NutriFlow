@@ -1,9 +1,13 @@
 import Foundation
 import Security
 
-enum KeychainError: Error {
+enum KeychainError: Error, AppErrorConvertible {
     case unexpectedStatus(OSStatus)
     case invalidStoredValue
+
+    var appError: AppError {
+        .storage
+    }
 }
 
 final class KeychainService: @unchecked Sendable {

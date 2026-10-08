@@ -3,6 +3,7 @@ import { db } from '../db/db';
 import { userWorkouts } from '../db/schema/userWorkouts';
 import { and, eq, gte, lte, desc, count, notInArray } from 'drizzle-orm';
 import type { SyncWorkoutsDto } from './workouts.schema';
+import { invalidateAnalyticsCache } from '../redis';
 
 @Injectable()
 export class WorkoutsService {
@@ -17,6 +18,7 @@ export class WorkoutsService {
           type: w.type,
           startDate: new Date(w.startDate),
           endDate: new Date(w.endDate),
+          localDate: w.localDate,
           durationSeconds: String(w.durationSeconds),
           caloriesBurned: w.caloriesBurned != null ? String(w.caloriesBurned) : null,
           distanceMeters: w.distanceMeters != null ? String(w.distanceMeters) : null,
@@ -43,6 +45,7 @@ export class WorkoutsService {
               type: w.type,
               startDate: new Date(w.startDate),
               endDate: new Date(w.endDate),
+              localDate: w.localDate,
               durationSeconds: String(w.durationSeconds),
               caloriesBurned: w.caloriesBurned != null ? String(w.caloriesBurned) : null,
               distanceMeters: w.distanceMeters != null ? String(w.distanceMeters) : null,
@@ -64,22 +67,30 @@ export class WorkoutsService {
         synced += 1;
       }
     });
+    await invalidateAnalyticsCache(userId);
     return { synced };
   }
 
-  async deleteMissing(userId: string, startDate: string, healthKitWorkoutIds: string[]) {
+  async deleteMissing(
+    userId: string,
+    startDate: string,
+    endDate: string,
+    healthKitWorkoutIds: string[],
+  ) {
     const res = await db
       .delete(userWorkouts)
       .where(
         and(
           eq(userWorkouts.userId, userId),
           gte(userWorkouts.startDate, new Date(startDate)),
+          lte(userWorkouts.startDate, new Date(endDate)),
           healthKitWorkoutIds.length > 0
             ? notInArray(userWorkouts.healthKitWorkoutId, healthKitWorkoutIds)
             : undefined,
         ),
       )
       .returning({ id: userWorkouts.id });
+    await invalidateAnalyticsCache(userId);
     return { deleted: res.length };
   }
 
@@ -115,6 +126,7 @@ export class WorkoutsService {
         type: r.type,
         startDate: r.startDate.toISOString(),
         endDate: r.endDate.toISOString(),
+        localDate: r.localDate,
         durationSeconds: Number(r.durationSeconds ?? 0),
         caloriesBurned: r.caloriesBurned != null ? Number(r.caloriesBurned) : null,
         distanceMeters: r.distanceMeters != null ? Number(r.distanceMeters) : null,

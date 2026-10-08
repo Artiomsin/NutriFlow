@@ -12,6 +12,10 @@ struct WorkoutDetailView: View {
     let workout: HealthKitWorkout
     let heartRatePoints: [HeartRatePoint]
     var series: [WorkoutSeries] = []
+    var heartRateError: AppError? = nil
+    var seriesError: AppError? = nil
+    var onRetryHeartRate: (() -> Void)? = nil
+    var onRetrySeries: (() -> Void)? = nil
 
     private var isCardio: Bool {
         WorkoutFormatter.icon(for: workout.workoutType) != "dumbbell.fill"
@@ -235,9 +239,17 @@ struct WorkoutDetailView: View {
                 Text("Heart Rate")
                     .font(.headline)
                     .foregroundColor(AppColors.textPrimary)
-                Text("No heart rate data for this workout.")
-                    .font(.footnote)
-                    .foregroundColor(AppColors.textSecondary)
+                if let heartRateError {
+                    WorkoutDataErrorNotice(
+                        error: heartRateError,
+                        dataName: "heart-rate data",
+                        onRetry: onRetryHeartRate
+                    )
+                } else {
+                    Text("No heart rate data for this workout.")
+                        .font(.footnote)
+                        .foregroundColor(AppColors.textSecondary)
+                }
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -332,13 +344,20 @@ struct WorkoutDetailView: View {
     private var chartsCard: some View {
         let available = series.filter { !$0.points.isEmpty }
 
-        if !available.isEmpty {
+        if !available.isEmpty || seriesError != nil {
             VStack(alignment: .leading, spacing: 16) {
                 Label("Charts", systemImage: "chart.xyaxis.line")
                     .font(.subheadline.weight(.semibold))
                     .foregroundColor(AppColors.textSecondary)
                 ForEach(available, id: \.kind) { item in
                     seriesChart(item)
+                }
+                if let seriesError {
+                    WorkoutDataErrorNotice(
+                        error: seriesError,
+                        dataName: "workout chart data",
+                        onRetry: onRetrySeries
+                    )
                 }
             }
             .padding()
@@ -378,6 +397,30 @@ struct WorkoutDetailView: View {
         switch kind {
         case .speed: return value * 3.6
         case .cadence, .power: return value
+        }
+    }
+}
+
+private struct WorkoutDataErrorNotice: View {
+    let error: AppError
+    let dataName: String
+    let onRetry: (() -> Void)?
+
+    var body: some View {
+        if error == .unknown {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Couldn’t load \(dataName) from Apple Health.")
+                    .font(.footnote)
+                    .foregroundColor(AppColors.textSecondary)
+                if let onRetry {
+                    Button("Try again", action: onRetry)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundColor(AppColors.accent)
+                        .buttonStyle(.plain)
+                }
+            }
+        } else {
+            ErrorView(error: error, onRetry: onRetry)
         }
     }
 }

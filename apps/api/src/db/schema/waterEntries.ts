@@ -21,7 +21,7 @@ export const waterEntries = app.table(
 
     amountMl: integer('amount_ml').notNull(),
 
-    entryDate: date('entry_date'),
+    entryDate: date('entry_date').notNull(),
 
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()

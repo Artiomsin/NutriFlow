@@ -7,39 +7,39 @@ struct OnboardingView: View {
     private let pages: [OnboardingPageData] = [
         OnboardingPageData(
             icon: "fork.knife",
-            title: "Отслеживай питание",
-            subtitle: "Контролируй КБЖУ с AI",
-            description: "Просто сфотографируй еду — нейросеть определит калории, белки, жиры и углеводы автоматически.",
+            title: "Track your nutrition",
+            subtitle: "AI-powered macros",
+            description: "Just snap a photo of your food — the AI will detect calories, protein, fat, and carbs automatically.",
             statValue: "98%",
-            statLabel: "точность",
-            feature: "База из 2M+ продуктов"
+            statLabel: "accuracy",
+            feature: "Database of 2M+ foods"
         ),
         OnboardingPageData(
             icon: "drop",
-            title: "Умный гидратор",
-            subtitle: "Пей воду осознанно",
-            description: "Персональная норма воды с учётом твоего веса, активности и погоды. Напоминания каждый час.",
+            title: "Smart hydrator",
+            subtitle: "Drink water mindfully",
+            description: "A personal water goal based on your weight, activity, and weather. Hourly reminders.",
             statValue: "2.5L",
-            statLabel: "средняя норма",
-            feature: "Синхронизация с HealthKit"
+            statLabel: "average goal",
+            feature: "HealthKit sync"
         ),
         OnboardingPageData(
             icon: "chart.line.uptrend.xyaxis",
-            title: "Глубокая аналитика",
-            subtitle: "Видишь свой прогресс",
-            description: "Красивые графики веса, процента жира и мышечной массы. Прогноз на 30 дней вперёд.",
+            title: "Deep analytics",
+            subtitle: "See your progress",
+            description: "Beautiful charts for weight, body fat, and muscle mass. 30-day forecasts.",
             statValue: "24/7",
-            statLabel: "мониторинг",
-            feature: "Экспорт в PDF"
+            statLabel: "monitoring",
+            feature: "PDF export"
         ),
         OnboardingPageData(
             icon: "crown",
-            title: "Достижения",
-            subtitle: "Мотивация каждый день",
-            description: "Зарабатывай бейджи, соревнуйся с друзьями и получай персональные челленджи.",
+            title: "Achievements",
+            subtitle: "Daily motivation",
+            description: "Earn badges, compete with friends, and get personal challenges.",
             statValue: "150+",
-            statLabel: "достижений",
-            feature: "Еженедельные турниры"
+            statLabel: "achievements",
+            feature: "Weekly tournaments"
         )
     ]
     
@@ -74,7 +74,7 @@ struct OnboardingView: View {
                     }
                 } label: {
                     HStack(spacing: 12) {
-                        Text(currentPage < pages.count - 1 ? "Далее" : "Начать")
+                        Text(currentPage < pages.count - 1 ? "Next" : "Get Started")
                             .font(.system(size: 17, weight: .semibold, design: .rounded))
 
                         Image(systemName: currentPage < pages.count - 1 ? "arrow.right" : "checkmark")
@@ -200,7 +200,7 @@ struct OnboardingPageData {
     let feature: String
 }
 
-#Preview("Тёмный онбординг") {
+#Preview("Dark onboarding") {
     OnboardingView(onComplete: {})
        // .preferredColorScheme(.dark)
 }

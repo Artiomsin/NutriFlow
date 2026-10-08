@@ -11,7 +11,8 @@ import { eq, or } from 'drizzle-orm';
 
 import type { AuthPayload } from './types/auth.types';
 import { env } from '../config/env';
-import { cacheGet, cacheSet, cacheDel, scanKeys, redis } from '../redis';
+import { cacheGet, cacheSet, cacheDel, cacheDelByPrefix, scanKeys } from '../redis';
+import { invalidateLocalSession, invalidateAllSessions } from '../session-store';
 
 @Injectable()
 export class AuthService {
@@ -38,15 +39,23 @@ export class AuthService {
 
     const hash = await bcrypt.hash(data.password, 10);
   
-    const user = await db
-      .insert(users)
-      .values({
-        email: data.email,
-        passwordHash: hash,
-        firstName: data.firstName,
-        lastName: data.lastName,
-      })
-      .returning();
+    let user: Array<typeof users.$inferSelect>;
+    try {
+      user = await db
+        .insert(users)
+        .values({
+          email: data.email,
+          passwordHash: hash,
+          firstName: data.firstName,
+          lastName: data.lastName,
+        })
+        .returning();
+    } catch (error) {
+      if (this.isUniqueViolation(error)) {
+        throw new ConflictException('Email already registered');
+      }
+      throw error;
+    }
   
     const createdUser = user[0];
   
@@ -95,8 +104,8 @@ export class AuthService {
 
     const payload = ticket.getPayload();
 
-    if (!payload?.email) {
-      throw new UnauthorizedException('Google email not available');
+    if (!payload?.email || payload.email_verified !== true) {
+      throw new UnauthorizedException('Google account email is not verified');
     }
 
     const googleId = payload.sub;
@@ -141,12 +150,16 @@ export class AuthService {
     identityToken: string;
     firstName?: string;
     lastName?: string;
+    nonce?: string;
   }) {
     let payload: { sub: string; email?: string | null };
     try {
           payload = await appleSignin.verifyIdToken(data.identityToken, {
             audience: env.APPLE_CLIENT_ID,
             ignoreExpiration: false,
+            // The nonce is verified against the one signed into the
+            // identityToken on the client — prevents auth replay.
+            ...(data.nonce ? { nonce: data.nonce } : {}),
           });
         } catch {
           throw new UnauthorizedException('Invalid Apple identity token');
@@ -212,10 +225,15 @@ export class AuthService {
       if (!storedHash) throw new UnauthorizedException();
 
       if (storedHash === hash) {
-        // Ротация: выдаём новую пару, фиксируем пред. токен и выдаваемую пару.
+        // Rotation: issue a new pair, remember the previous token and the
+        // issued pair only for a short window accepting a parallel refresh.
         const tokens = this.generateTokens(payload.userId, payload.sessionId);
+        // The previous refresh hash is kept until the end of the session
+        // life: it lets us tell a replay of an old token after the grace
+        // window apart from an unknown token.
         await cacheSet(this.getPrevKey(key), storedHash, this.refreshTtl);
-        await cacheSet(this.getPairKey(key), tokens, this.refreshTtl);
+        await cacheSet(this.getUsedKey(key, storedHash), true, this.refreshTtl);
+        await cacheSet(this.getPairKey(key), tokens, this.reuseGraceTtl);
         await this.saveRefresh(
           payload.userId,
           payload.sessionId,
@@ -224,13 +242,28 @@ export class AuthService {
         return tokens;
       }
 
-      // Токен уже был ротирован (гонка параллельных refresh): отдаём ту же пару.
+      // The token has already been rotated.
       const prevHash = await cacheGet<string>(this.getPrevKey(key));
       if (prevHash === hash) {
         const pair = await cacheGet<{ accessToken: string; refreshToken: string }>(
           this.getPairKey(key),
         );
+        // A repeat of the old token within the short grace window is a
+        // legit race of parallel refreshes: return the same pair.
         if (pair) return pair;
+
+        // A repeat after the grace window expires is a token compromise
+        // (replay of a rotated refresh). Revoke the whole session.
+        await this.revokeSession(payload.userId, payload.sessionId);
+        throw new UnauthorizedException('refresh token reuse detected');
+      }
+
+      // Any token from an earlier rotation means compromise: hashes of
+      // used refresh tokens live until the end of the session TTL.
+      const wasUsed = await cacheGet<boolean>(this.getUsedKey(key, hash));
+      if (wasUsed) {
+        await this.revokeSession(payload.userId, payload.sessionId);
+        throw new UnauthorizedException('refresh token reuse detected');
       }
 
       throw new UnauthorizedException();
@@ -240,10 +273,7 @@ export class AuthService {
   }
 
   async logout(userId: string, sessionId: string) {
-    const key = this.getKey(userId, sessionId);
-    await cacheDel(key);
-    await cacheDel(this.getPrevKey(key));
-    await cacheDel(this.getPairKey(key));
+    await this.revokeSession(userId, sessionId);
     return { message: 'Logged out' };
   }
 
@@ -252,7 +282,17 @@ export class AuthService {
     for (const key of keys) {
       await cacheDel(key);
     }
+    invalidateAllSessions(userId);
     return { message: 'Logged out from all devices' };
+  }
+
+  private async revokeSession(userId: string, sessionId: string) {
+    const key = this.getKey(userId, sessionId);
+    await cacheDel(key);
+    await cacheDel(this.getPrevKey(key));
+    await cacheDel(this.getPairKey(key));
+    await cacheDelByPrefix(`${key}:used:`);
+    invalidateLocalSession(userId, sessionId);
   }
 
   private async saveRefresh(
@@ -269,6 +309,13 @@ export class AuthService {
 
   private hashRefreshToken(refreshToken: string) {
     return createHash('sha256').update(refreshToken).digest('hex');
+  }
+
+  private isUniqueViolation(error: unknown): boolean {
+    return typeof error === 'object'
+      && error !== null
+      && 'code' in error
+      && (error as { code?: unknown }).code === '23505';
   }
 
   private generateTokens(userId: string, sessionId: string) {
@@ -299,5 +346,14 @@ export class AuthService {
     return `${key}:pair`;
   }
 
+  private getUsedKey(key: string, hash: string) {
+    return `${key}:used:${hash}`;
+  }
+
   private refreshTtl = 604800;
+
+  // Window accepting a parallel refresh: an old refresh token may be
+  // replayed within it (race/duplicate request); after that a repeat is
+  // treated as a replay and revokes the whole session.
+  private reuseGraceTtl = 120;
 }

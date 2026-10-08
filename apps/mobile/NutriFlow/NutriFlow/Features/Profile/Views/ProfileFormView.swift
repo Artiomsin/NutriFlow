@@ -130,10 +130,8 @@ struct ProfileFormView: View {
                     .padding(.horizontal, AppSpacing.paddingHorizontal)
 
                     if case .error(let error) = viewModel.state {
-                        ErrorMessageView(
-                            text: error.localizedDescription
-                        )
-                        .padding(.horizontal, AppSpacing.paddingHorizontal)
+                        ErrorView(error: error, onRetry: nil)
+                            .padding(.horizontal, AppSpacing.paddingHorizontal)
                     }
 
                     PrimaryButton(title: "Save") {
@@ -143,6 +141,7 @@ struct ProfileFormView: View {
                             await viewModel.createProfile()
                         }
                     }
+                    .disabled(viewModel.state.isSaving)
                     .padding(.horizontal, AppSpacing.paddingHorizontal)
 
                     if case .saving = viewModel.state {

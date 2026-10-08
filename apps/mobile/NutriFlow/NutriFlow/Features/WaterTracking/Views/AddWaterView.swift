@@ -34,6 +34,13 @@ struct AddWaterView: View {
 
             amountPicker
 
+            if let addError = waterViewModel.addError {
+                ErrorView(
+                    error: addError,
+                    onRetry: { Task { await waterViewModel.createWater() } }
+                )
+            }
+
             Spacer()
 
             saveButton
@@ -185,14 +192,17 @@ struct AddWaterView: View {
     private var saveButton: some View {
 
         Button {
+                Task {
+                    let success = await waterViewModel.createWater()
 
-            Task {
-                await waterViewModel.createWater()
-                onSave()
-                dismiss()
-            }
+                    guard success else {
+                        return
+                    }
 
-        } label: {
+                    onSave()
+                    dismiss()
+                }
+            }label: {
 
             if case .saving = waterViewModel.state {
                 ProgressView()
@@ -207,6 +217,12 @@ struct AddWaterView: View {
         .padding()
         .background(AppColors.accent)
         .cornerRadius(AppRadius.medium)
+        .disabled({
+                if case .saving = waterViewModel.state {
+                    return true
+                }
+                return false
+            }())
     }
 
     private func triggerSplash() {

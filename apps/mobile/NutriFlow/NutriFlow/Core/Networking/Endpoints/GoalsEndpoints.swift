@@ -12,7 +12,8 @@ enum GoalsEndpoints {
     static let getGoals = "/goals"
     static let updateGoals = "/goals"
     static let calculateGoals = "/goals/calculate"
-    static let personalize = "/goal/personalize"
+    static let resetToAutomatic = "/goals/reset-to-automatic"
+    static let personalize = "/goals/personalize"
     static let personalizationState = "/goals/personalization"
     static let goalHistory = "/goals/history"
 

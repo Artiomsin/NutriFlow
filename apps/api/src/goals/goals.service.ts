@@ -5,15 +5,19 @@ import {
 } from '@nestjs/common';
 import { db } from '../db/db';
 import { userGoals } from '../db/schema/userGoals';
+import { goalRecommendations } from '../db/schema/goalRecommendations';
 import { userProfiles } from '../db/schema/userProfiles';
-import { eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import type { UpdateGoalsDto } from './goals.schema';
+import type { GoalMetrics } from './personalization/types';
 import { invalidateAnalyticsCache } from '../redis';
 import {
   recordGoalHistory,
   rowToGoalMetrics,
   EMPTY_GOALS_METRICS,
 } from './goals-history';
+
+type DatabaseExecutor = Pick<typeof db, 'select' | 'insert' | 'update'>;
 
 @Injectable()
 export class GoalsService {
@@ -78,8 +82,13 @@ export class GoalsService {
     return goals;
   }
 
-  async calculate(userId: string) {
-    const [profile] = await db
+  async calculate(
+    userId: string,
+    executor: DatabaseExecutor = db,
+    invalidateCache = true,
+    forceAutomatic = false,
+  ) {
+    const [profile] = await executor
       .select()
       .from(userProfiles)
       .where(eq(userProfiles.userId, userId))
@@ -146,10 +155,10 @@ export class GoalsService {
       nightlySleepMaxMinutes: sleepGoals.maxMinutes,
     };
 
-    const existing = await this.findByUserIdSafe(userId);
+    const existing = await this.findByUserIdSafe(userId, executor);
 
     if (existing) {
-      if (existing.source !== 'initial') {
+      if (existing.source === 'user' && !forceAutomatic) {
         const merged = {
           dailyCaloriesGoal:
             existing.dailyCaloriesGoal ?? calculated.dailyCaloriesGoal,
@@ -184,14 +193,30 @@ export class GoalsService {
             existing.nightlySleepMaxMinutes ??
             calculated.nightlySleepMaxMinutes,
 
-          source:
-            existing.source === 'personalized'
-              ? ('personalized' as const)
-              : ('user' as const),
+          source: 'user' as const,
           updatedAt: new Date(),
         };
 
-        const [goals] = await db
+        const goalValuesChanged =
+          existing.dailyCaloriesGoal !== merged.dailyCaloriesGoal ||
+          existing.dailyProteinGoal !== merged.dailyProteinGoal ||
+          existing.dailyFatGoal !== merged.dailyFatGoal ||
+          existing.dailyCarbsGoal !== merged.dailyCarbsGoal ||
+          existing.dailyWaterGoal !== merged.dailyWaterGoal ||
+          existing.dailyStepsGoal !== merged.dailyStepsGoal ||
+          existing.dailyActiveCaloriesGoal !== merged.dailyActiveCaloriesGoal ||
+          existing.weeklyWorkoutsGoal !== merged.weeklyWorkoutsGoal ||
+          existing.weeklyWorkoutMinutesGoal !== merged.weeklyWorkoutMinutesGoal ||
+          existing.nightlySleepMinMinutes !== merged.nightlySleepMinMinutes ||
+          existing.nightlySleepMaxMinutes !== merged.nightlySleepMaxMinutes;
+
+        // Manual goals are an explicit user choice. Do not replace them from
+        // a profile or weight update, and do not write no-op history rows.
+        if (!goalValuesChanged) {
+          return existing;
+        }
+
+        const [goals] = await executor
           .update(userGoals)
           .set(merged)
           .where(eq(userGoals.userId, userId))
@@ -203,14 +228,64 @@ export class GoalsService {
           rowToGoalMetrics(goals),
           goals?.source ?? 'user',
           'profile_recalculation',
+          executor,
         );
 
-        await invalidateAnalyticsCache(userId);
+        if (invalidateCache) await invalidateAnalyticsCache(userId);
 
         return goals;
       }
 
-      const [goals] = await db
+      if (existing.source === 'personalized' && !forceAutomatic) {
+        const personalized = await this.applyLatestRecommendationAdjustment(
+          userId,
+          calculated,
+          executor,
+        );
+        const merged = {
+          ...personalized,
+          source: 'personalized' as const,
+          updatedAt: new Date(),
+        };
+
+        const goalValuesChanged =
+          existing.dailyCaloriesGoal !== merged.dailyCaloriesGoal ||
+          existing.dailyProteinGoal !== merged.dailyProteinGoal ||
+          existing.dailyFatGoal !== merged.dailyFatGoal ||
+          existing.dailyCarbsGoal !== merged.dailyCarbsGoal ||
+          existing.dailyWaterGoal !== merged.dailyWaterGoal ||
+          existing.dailyStepsGoal !== merged.dailyStepsGoal ||
+          existing.dailyActiveCaloriesGoal !== merged.dailyActiveCaloriesGoal ||
+          existing.weeklyWorkoutsGoal !== merged.weeklyWorkoutsGoal ||
+          existing.weeklyWorkoutMinutesGoal !== merged.weeklyWorkoutMinutesGoal ||
+          existing.nightlySleepMinMinutes !== merged.nightlySleepMinMinutes ||
+          existing.nightlySleepMaxMinutes !== merged.nightlySleepMaxMinutes;
+
+        if (!goalValuesChanged) {
+          return existing;
+        }
+
+        const [goals] = await executor
+          .update(userGoals)
+          .set(merged)
+          .where(eq(userGoals.userId, userId))
+          .returning();
+
+        await recordGoalHistory(
+          userId,
+          rowToGoalMetrics(existing),
+          rowToGoalMetrics(goals),
+          'personalized',
+          'personalized_profile_recalculation',
+          executor,
+        );
+
+        if (invalidateCache) await invalidateAnalyticsCache(userId);
+
+        return goals;
+      }
+
+      const [goals] = await executor
         .update(userGoals)
         .set({
           ...calculated,
@@ -225,15 +300,18 @@ export class GoalsService {
         rowToGoalMetrics(existing),
         rowToGoalMetrics(goals),
         'initial',
-        'profile_recalculation',
+        forceAutomatic
+          ? 'manual_reset_to_automatic'
+          : 'profile_recalculation',
+        executor,
       );
 
-      await invalidateAnalyticsCache(userId);
+      if (invalidateCache) await invalidateAnalyticsCache(userId);
 
       return goals;
     }
 
-    const [goals] = await db
+    const [goals] = await executor
       .insert(userGoals)
       .values({
         userId,
@@ -248,11 +326,61 @@ export class GoalsService {
       rowToGoalMetrics(goals),
       'initial',
       'initial_calculation',
+      executor,
     );
 
-    await invalidateAnalyticsCache(userId);
+    if (invalidateCache) await invalidateAnalyticsCache(userId);
 
     return goals;
+  }
+
+  async resetToAutomatic(userId: string) {
+    return this.calculate(userId, db, true, true);
+  }
+
+  /**
+   * A recommendation is a delta from the goals it evaluated. Keeping that
+   * delta lets a personalized plan follow later profile/weight changes
+   * without silently discarding the recommendation itself.
+   */
+  private async applyLatestRecommendationAdjustment(
+    userId: string,
+    calculated: GoalMetrics,
+    executor: DatabaseExecutor,
+  ): Promise<GoalMetrics> {
+    const [recommendation] = await executor
+      .select({
+        previousGoals: goalRecommendations.previousGoals,
+        recommendedGoals: goalRecommendations.recommendedGoals,
+      })
+      .from(goalRecommendations)
+      .where(
+        and(
+          eq(goalRecommendations.userId, userId),
+          eq(goalRecommendations.status, 'accepted'),
+        ),
+      )
+      .orderBy(
+        desc(goalRecommendations.acceptedAt),
+        desc(goalRecommendations.createdAt),
+      )
+      .limit(1);
+
+    if (!recommendation) return calculated;
+
+    const adjusted = {} as GoalMetrics;
+    for (const key of Object.keys(calculated) as (keyof GoalMetrics)[]) {
+      const baseline = calculated[key];
+      const previous = recommendation.previousGoals[key];
+      const recommended = recommendation.recommendedGoals[key];
+
+      adjusted[key] =
+        baseline == null || previous == null || recommended == null
+          ? baseline
+          : Math.max(0, Math.round(baseline + (recommended - previous)));
+    }
+
+    return adjusted;
   }
 
   private calculateActivityGoals(activityLevel: string) {
@@ -341,8 +469,11 @@ export class GoalsService {
     return weight * (perKg[goal] ?? 1.6);
   }
 
-  private async findByUserIdSafe(userId: string) {
-    const [goals] = await db
+  private async findByUserIdSafe(
+    userId: string,
+    executor: Pick<typeof db, 'select'> = db,
+  ) {
+    const [goals] = await executor
       .select()
       .from(userGoals)
       .where(eq(userGoals.userId, userId))

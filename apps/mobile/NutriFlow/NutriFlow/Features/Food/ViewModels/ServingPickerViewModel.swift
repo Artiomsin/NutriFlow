@@ -14,7 +14,7 @@ final class ServingPickerViewModel {
     }
     var selectedServing: FoodServing?
     var isLoading = false
-    var errorMessage: String?
+    var error: AppError?
 
     private var pinnedGrams: Int?
 
@@ -31,8 +31,17 @@ final class ServingPickerViewModel {
         self.suggestedUnit = suggestedUnit
         self.coordinator = coordinator
         self.analyticsTracker = analyticsTracker
-        self.gramsText = Self.gramsToDisplay(suggestedGrams, suggestedUnit: suggestedUnit)
+
+        if let suggestedGrams, suggestedGrams > 0 {
+            self.gramsText = Self.gramsToDisplay(suggestedGrams, suggestedUnit: suggestedUnit)
+        } else if let serving = food.servings?.first(where: { $0.grams > 0 }) {
+            self.gramsText = Self.gramsToDisplay(serving.grams, suggestedUnit: suggestedUnit)
+        } else {
+            self.gramsText = Self.gramsToDisplay(Self.defaultGrams, suggestedUnit: suggestedUnit)
+        }
     }
+
+    private static let defaultGrams = 100
 
     func trackScreenView() {
         analyticsTracker?.track(.screenView(screen: "serving_picker"))
@@ -77,10 +86,17 @@ final class ServingPickerViewModel {
 
     var ratio: Double { Double(grams) / 100.0 }
 
+    var isValid: Bool {
+        if let pinned = pinnedGrams { return pinned > 0 }
+        if let serving = selectedServing { return serving.grams > 0 }
+        guard let value = UnitConversion.parseDecimal(gramsText) else { return false }
+        return value > 0
+    }
+
     var calculatedCalories: Int { Int(Double(food.caloriesPer100g) * ratio) }
-    var calculatedProtein: Int { food.proteinPer100g.map { Int(Double($0) * ratio) } ?? 0 }
-    var calculatedFat: Int { food.fatPer100g.map { Int(Double($0) * ratio) } ?? 0 }
-    var calculatedCarbs: Int { food.carbsPer100g.map { Int(Double($0) * ratio) } ?? 0 }
+    var calculatedProtein: Int? { food.proteinPer100g.map { Int(Double($0) * ratio) } }
+    var calculatedFat: Int? { food.fatPer100g.map { Int(Double($0) * ratio) } }
+    var calculatedCarbs: Int? { food.carbsPer100g.map { Int(Double($0) * ratio) } }
 
     func gramsToDisplay(_ g: Int) -> String {
         let value = UnitConversion.displayValue(fromGrams: Double(g), baseUnit: baseUnit, preferred: prefsStore.preferredUnits)
@@ -88,13 +104,19 @@ final class ServingPickerViewModel {
     }
 
     func save() async -> Bool {
+        guard !isLoading else { return false }
+        guard isValid else {
+            error = .validation(message: "Enter an amount greater than 0.")
+            return false
+        }
+
         isLoading = true
-        errorMessage = nil
+        error = nil
 
         let cal = calculatedCalories
-        let prot = food.proteinPer100g.map { Int(Double($0) * ratio) }
-        let ft = food.fatPer100g.map { Int(Double($0) * ratio) }
-        let crb = food.carbsPer100g.map { Int(Double($0) * ratio) }
+        let prot = calculatedProtein
+        let ft = calculatedFat
+        let crb = calculatedCarbs
 
         do {
             try await service.createFoodEntry(
@@ -113,18 +135,37 @@ final class ServingPickerViewModel {
 
             await todayFoodVM.reloadAfterMutation()
             todayFoodVM.notifyDataMutated()
-            return true
-        } catch let error as APIError {
-            if case .unauthorized = error {
-              coordinator?.goToAuth()
-            }
-            errorMessage = error.localizedDescription
             isLoading = false
-            return false
+            return true
         } catch {
-            errorMessage = error.localizedDescription
+            handle(error)
             isLoading = false
             return false
         }
+    }
+
+    /// `gramsText` holds a display value while the canonical amount is derived from
+    /// it on read, so a unit change mid-edit would silently reinterpret the amount.
+    /// Calories and macros here are derived from `ratio`, so they follow along.
+    func convertUnits(from old: PreferredUnits, to new: PreferredUnits) {
+        guard old != new else { return }
+        gramsText = UnitConversion.convertWeightText(gramsText, from: old, to: new, baseUnit: baseUnit)
+    }
+
+    func clearError() {
+        error = nil
+    }
+
+    func retrySave() {
+        Task { _ = await save() }
+    }
+
+    private func handle(_ rawError: Error) {
+        let appError = ErrorMapper.map(rawError)
+        if appError == .unauthorized {
+            coordinator?.goToAuth()
+        }
+        guard appError != .cancelled else { return }
+        error = appError
     }
 }

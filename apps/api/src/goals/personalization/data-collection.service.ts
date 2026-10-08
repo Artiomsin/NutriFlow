@@ -56,9 +56,6 @@ export class DataCollectionService {
     const periodStart = toDateStr(start);
     const periodEnd = toDateStr(now);
 
-    const startTimestamp = start;
-    const endTimestamp = new Date(now.getTime() + 24 * 60 * 60 * 1000 - 1);
-
     const [weightRows, activityRows, summaryRows, workoutRows, sleepRows] =
       await Promise.all([
         db
@@ -97,8 +94,8 @@ export class DataCollectionService {
           .where(
             and(
               eq(userWorkouts.userId, userId),
-              gte(userWorkouts.startDate, startTimestamp),
-              lte(userWorkouts.startDate, endTimestamp),
+              gte(userWorkouts.localDate, periodStart),
+              lte(userWorkouts.localDate, periodEnd),
             ),
           ),
         db
@@ -107,14 +104,14 @@ export class DataCollectionService {
           .where(
             and(
               eq(userSleep.userId, userId),
-              gte(userSleep.startDate, startTimestamp),
-              lte(userSleep.startDate, endTimestamp),
+              gte(userSleep.localDate, periodStart),
+              lte(userSleep.localDate, periodEnd),
             ),
           ),
       ]);
 
     const sleepData: SleepData[] = sleepRows.map((row) => ({
-      date: toDateStr(new Date(row.startDate)),
+      date: row.localDate,
       asleepMinutes:
         row.asleepSeconds !== null
           ? Math.round(Number(row.asleepSeconds) / 60)
@@ -122,7 +119,7 @@ export class DataCollectionService {
     }));
 
     const workoutData: WorkoutData[] = workoutRows.map((row) => ({
-      date: toDateStr(new Date(row.startDate)),
+      date: row.localDate,
       durationMinutes: Math.max(
         1,
         Math.round(Number(row.durationSeconds) / 60),

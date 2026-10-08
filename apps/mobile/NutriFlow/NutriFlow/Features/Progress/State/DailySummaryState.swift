@@ -12,19 +12,19 @@ enum DailySummaryState {
     case loading
     case loaded(DailySummary)
     case empty
-    case error(Error)
+    case error(AppError)
 }
 
 enum ChartState {
     case idle
     case loading
     case loaded([ChartDataPoint])
-    case error(Error)
+    case error(AppError)
 }
 
 enum DayDetailState {
     case idle
     case loading
     case loaded
-    case error(Error)
+    case error(AppError)
 }

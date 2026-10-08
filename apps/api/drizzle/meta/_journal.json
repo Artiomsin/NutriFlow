@@ -176,6 +176,20 @@
       "when": 1789507315088,
       "tag": "0024_low_master_chief",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1790263148556,
+      "tag": "0025_entry-date-not-null",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790284348193,
+      "tag": "0026_profile-local-dates",
+      "breakpoints": true
     }
   ]
 }

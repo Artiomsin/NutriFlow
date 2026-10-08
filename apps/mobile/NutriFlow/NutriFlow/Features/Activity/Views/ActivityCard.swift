@@ -8,9 +8,9 @@ struct ActivityCard: View {
     
     var stepGoal: Int?
     var activeCaloriesGoal: Int?
+    var onConnect: (() -> Void)? = nil
     
     var body: some View {
-        let _ = print("[ActivityCard] rendering state")
         switch vm.state {
         case .idle:
             EmptyView()
@@ -31,8 +31,8 @@ struct ActivityCard: View {
             .appGlassSurface()
         case .loaded(let activity):
             activityContent(activity)
-        case .error:
-            loadingPlaceholder("Couldn't load activity")
+        case .error(let error):
+            ErrorView(error: error, onRetry: connectHealth)
         }
     }
     
@@ -49,7 +49,7 @@ struct ActivityCard: View {
                 .foregroundColor(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
             Button {
-                Task { await vm.connectTapped() }
+                connectHealth()
             } label: {
                     Text("Connect Health")
                         .font(.headline)
@@ -114,6 +114,14 @@ struct ActivityCard: View {
         .frame(maxWidth: .infinity)
         .appGlassSurface()
     }
+
+    private func connectHealth() {
+        if let onConnect {
+            onConnect()
+        } else {
+            vm.retryConnection()
+        }
+    }
     
     private func activityContent(_ activity: DailyActivity) -> some View {
         VStack(spacing: 14){
@@ -160,14 +168,6 @@ struct ActivityCard: View {
         .appGlassSurface(level: .prominent)
     }
     
-    private func loadingPlaceholder(_ text: String) -> some View {
-        Text(text)
-            .font(.footnote)
-            .foregroundColor(AppColors.textSecondary)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .appGlassSurface()
-    }
 }
 
 private struct ActivityMetric: View {

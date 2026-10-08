@@ -5,6 +5,11 @@ enum ProfileState {
     case loaded(UserProfile)
     case empty
     case saving(UserProfile?)
-    case error(Error)
+    case error(AppError)
+
+    var isSaving: Bool {
+        if case .saving = self { return true }
+        return false
+    }
 }
 

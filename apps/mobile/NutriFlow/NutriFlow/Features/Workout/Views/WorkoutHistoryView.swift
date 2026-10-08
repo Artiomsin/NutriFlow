@@ -23,8 +23,11 @@ struct WorkoutHistoryView: View {
                 ProgressView()
                     .tint(AppColors.accent)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-            case .error:
-                errorView
+            case .error(let error):
+                ErrorView(
+                    error: error,
+                    onRetry: { Task { await vm.refresh() } }
+                )
             case .loaded(let workouts):
                 if workouts.isEmpty {
                     emptyView
@@ -50,14 +53,11 @@ struct WorkoutHistoryView: View {
             await task.value
         }
         .navigationDestination(item: $vm.selectedWorkout) { workout in
-            WorkoutDetailView(
-                workout: workout,
-                heartRatePoints: vm.heartRatePoints,
-                series: vm.currentSeries()
-            )
+            WorkoutDetailDestination(workout: workout, vm: vm)
             .task {
-                await vm.loadHeartRate(for: workout)
-                await vm.loadSeries(for: workout)
+                async let heartRate: Void = vm.loadHeartRate(for: workout)
+                async let series: Void = vm.loadSeries(for: workout)
+                _ = await (heartRate, series)
                 vm.trackScreenView("workout_detail")
                 print(
                     "[WorkoutDetail] passed in: " +
@@ -69,26 +69,10 @@ struct WorkoutHistoryView: View {
         .onChange(of: vm.selectedWorkout) { _, newValue in
             if newValue != nil {
                 vm.heartRatePoints = []
+                vm.heartRateError = nil
                 vm.clearSeries()
             }
         }
-    }
-
-    private var errorView: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "wrench.and.screwdriver")
-                .font(AppTypography.displayNumber)
-                .foregroundColor(AppColors.textSecondary)
-            Text("Couldn't load workouts")
-                .font(.headline)
-                .foregroundColor(AppColors.textPrimary)
-            Button("Try Again") {
-                Task { await vm.refresh() }
-            }
-            .font(.headline)
-            .foregroundColor(AppColors.accent)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var needsAccessView: some View {
@@ -106,7 +90,7 @@ struct WorkoutHistoryView: View {
                 Button {
                     Task { await vm.connectTapped() }
                 } label: {
-                    Text("Connect Health")
+                    Text(vm.isConnecting ? "Connecting…" : "Connect Health")
                         .font(.headline)
                         .foregroundColor(AppColors.accentOnPrimary)
                         .frame(maxWidth: .infinity)
@@ -114,6 +98,7 @@ struct WorkoutHistoryView: View {
                         .background(AppColors.accent)
                         .cornerRadius(AppRadius.medium)
                 }
+                .disabled(vm.isConnecting)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding()
@@ -211,18 +196,12 @@ struct WorkoutHistoryView: View {
                     }
                 }
 
-                if vm.loadMoreError {
-                    Button {
-                        vm.loadMore()
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "arrow.clockwise")
-                            Text("Failed to load. Retry")
-                        }
-                        .font(.subheadline)
-                        .foregroundColor(AppColors.accent)
-                        .padding(.vertical, 16)
-                    }
+                if let loadMoreError = vm.loadMoreError {
+                    ErrorView(
+                        error: loadMoreError,
+                        onRetry: { vm.loadMore() }
+                    )
+                    .padding(.vertical, 8)
                 } else if vm.hasMore || vm.isLoadMore {
                     ProgressView()
                         .tint(AppColors.accent)
@@ -239,6 +218,25 @@ struct WorkoutHistoryView: View {
                 vm.loadMore()
             }
         }
+    }
+}
+
+/// The destination reads the observable model itself. This keeps an already
+/// pushed detail screen reactive when its HealthKit samples arrive later.
+private struct WorkoutDetailDestination: View {
+    let workout: HealthKitWorkout
+    @Bindable var vm: WorkoutViewModel
+
+    var body: some View {
+        WorkoutDetailView(
+            workout: workout,
+            heartRatePoints: vm.heartRatePoints,
+            series: vm.currentSeries(),
+            heartRateError: vm.heartRateError,
+            seriesError: vm.seriesError,
+            onRetryHeartRate: { Task { await vm.loadHeartRate(for: workout) } },
+            onRetrySeries: { Task { await vm.loadSeries(for: workout) } }
+        )
     }
 }
 

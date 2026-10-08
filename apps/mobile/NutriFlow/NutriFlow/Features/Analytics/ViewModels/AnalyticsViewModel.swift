@@ -129,7 +129,7 @@ final class AnalyticsViewModel {
                 if isEmpty == true {
                     state = .empty
                 } else {
-                    state = .error(error)
+                    state = .error(ErrorMapper.map(error))
                 }
             }
         } catch {
@@ -144,7 +144,7 @@ final class AnalyticsViewModel {
                 if isEmpty == true {
                     state = .empty
                 } else {
-                    state = .error(error)
+                    state = .error(ErrorMapper.map(error))
                 }
             }
         }

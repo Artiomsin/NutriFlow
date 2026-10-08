@@ -5,6 +5,10 @@ protocol AppDependency {
 
     var httpClient: HTTPClient { get }
     var themeStore: ThemeStore { get }
+    var notificationManager: NotificationManaging { get }
+    var notificationPreferences: NotificationPreferences { get }
+    var weightReminderScheduler: WeightReminderScheduling { get }
+    var waterReminderScheduler: WaterReminderScheduling { get }
     
     var tokenStorage: TokenStorage { get }
 
@@ -31,5 +35,8 @@ protocol AppDependency {
     var sleepService: SleepServiceProtocol { get }
     var activitySync: ActivitySyncProtocol { get }
     var sleepSync: SleepSyncProtocol { get }
+
+    var achievementService: AchievementService { get }
+    var achievementNotificationService: AchievementNotificationService { get }
 
 }

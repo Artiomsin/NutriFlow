@@ -67,7 +67,8 @@ final class ActivityViewModel {
             try await healthKit.requestAuthorization()
         } catch {
             print("[HealthKit] connectTapped error: \(error)")
-            state = .error(error)
+            let appError = ErrorMapper.map(error)
+            state = appError == .cancelled ? .needsAccess : .error(appError)
             return
         }
 
@@ -96,7 +97,13 @@ final class ActivityViewModel {
     }
 
     func setError(_ error: Error) {
-        state = .error(error)
+        let appError = ErrorMapper.map(error)
+        guard appError != .cancelled else { return }
+        state = .error(appError)
+    }
+
+    func retryConnection() {
+        Task { await connectTapped() }
     }
 
 

@@ -10,7 +10,11 @@ actor CacheService {
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
     }
 
-    func get<T: Codable & Sendable>(_ key: String, ignoreTTL: Bool = false) throws -> T? {
+    func get<T: Codable & Sendable>(
+        _ key: String,
+        ignoreTTL: Bool = false,
+        retainExpired: Bool = true
+    ) throws -> T? {
         let file = dir.appendingPathComponent("\(key).json")
         guard let data = try? Data(contentsOf: file) else {
             #if DEBUG
@@ -23,7 +27,9 @@ actor CacheService {
             #if DEBUG
             print("[Cache] EXPIRED \(key) (\(Int(meta.expiry.timeIntervalSinceNow * -1))s ago)")
             #endif
-            try? fm.removeItem(at: file)
+            if !retainExpired {
+                try? fm.removeItem(at: file)
+            }
             return nil
         }
         #if DEBUG

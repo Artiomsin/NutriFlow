@@ -5,5 +5,5 @@ enum AnalyticsState {
     case loading
     case loaded(AnalyticsResponse)
     case empty
-    case error(Error)
+    case error(AppError)
 }

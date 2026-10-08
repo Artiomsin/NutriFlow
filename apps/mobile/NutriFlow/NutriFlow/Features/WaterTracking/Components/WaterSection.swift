@@ -76,8 +76,11 @@ struct WaterSection: View {
                 .tint(.white)
 
         case .error(let error):
-
-            ErrorMessageView(text: error.localizedDescription)
+            ErrorView(error: error) {
+                Task {
+                    await waterViewModel.loadToday()
+                }
+            }
         }
     }
 

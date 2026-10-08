@@ -16,7 +16,9 @@ enum ProfileFormFactory {
             profileService: container.profileService,
             userService: container.userService,
             activitySync: container.activitySync,
-            analyticsTracker: container.analyticsTracker
+            analyticsTracker: container.analyticsTracker,
+            weightReminderScheduler: container.weightReminderScheduler,
+            waterReminderScheduler: container.waterReminderScheduler
         )
         ProfileFormView(viewModel: viewModel)
     }

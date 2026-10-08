@@ -5,6 +5,7 @@ import Observation
 @MainActor
 final class AppCoordinator {
     var route: AppRoute = .splash
+    var pendingNotificationType: AppNotificationType?
     private let container: AppDependency
 
     init(container: AppDependency) {
@@ -16,8 +17,7 @@ final class AppCoordinator {
         ) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
-                self.container.activitySync.stop()
-                await self.container.cacheService.clear()
+                self.clearLocalSessionState()
                 self.route = .auth
             }
         }
@@ -70,6 +70,10 @@ final class AppCoordinator {
         case .main: .main
         }
 
+        if case .auth = route {
+            clearLocalSessionState()
+        }
+
         if case .main = route {
             container.activitySync.start()
         }
@@ -77,7 +81,7 @@ final class AppCoordinator {
 
     func goToAuth() {
         print("[Coordinator] goToAuth")
-        container.activitySync.stop()
+        clearLocalSessionState()
         route = .auth
     }
 
@@ -90,9 +94,34 @@ final class AppCoordinator {
         route = .main
     }
 
+    func handleNotification(_ type: AppNotificationType) {
+        pendingNotificationType = type
+    }
+
+    func restorePendingNotification() {
+        guard let type = NotificationDelegate.consumePendingNotificationType() else { return }
+        handleNotification(type)
+    }
+
+    func consumePendingNotification() -> AppNotificationType? {
+        defer { pendingNotificationType = nil }
+        return pendingNotificationType
+    }
+
+    private func clearLocalSessionState() {
+        container.weightReminderScheduler.cancel()
+        container.waterReminderScheduler.cancel()
+        container.achievementNotificationService.clearSessionState()
+        container.notificationPreferences.reset()
+        container.activitySync.stop()
+        WorkoutViewModel.resetSessionSyncState()
+        SleepSyncCoordinator.resetSessionSyncState()
+        Task { await container.cacheService.clear() }
+    }
+
     deinit {
             #if DEBUG
-            print("AppCoordinator УНИЧТОЖЕН!")
+            print("AppCoordinator deinit!")
             #endif
         }
 }

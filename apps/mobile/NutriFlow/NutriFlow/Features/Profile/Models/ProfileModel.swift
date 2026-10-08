@@ -63,6 +63,7 @@ struct UserProfile: Codable, Identifiable, Sendable {
     let goal: Goal?
     let activityLevel: ActivityLevel?
     let preferredUnits: PreferredUnits?
+    let timeZone: String?
     let createdAt: String?
     let updatedAt: String?
 }
@@ -95,31 +96,25 @@ enum ActivityLevel: String, Codable, CaseIterable, Sendable {
     }
 }
 
-struct CreateProfileRequest: Codable, Sendable {
-    let weight: Double?
+struct CreateProfileRequest: Encodable, Sendable {
+    let weight: Double
+    let height: Int
+    let age: Int
+    let gender: Gender
+    let goal: Goal
+    let activityLevel: ActivityLevel
+    let preferredUnits: PreferredUnits?
+    let timeZone: String = TimeZone.current.identifier
+}
+
+struct UpdateProfileRequest: Encodable, Sendable {
     let height: Int?
     let age: Int?
     let gender: Gender?
     let goal: Goal?
     let activityLevel: ActivityLevel?
     let preferredUnits: PreferredUnits?
-}
-
-struct UpdateProfileRequest: Codable, Sendable {
-    let weight: Double?
-    let height: Int?
-    let age: Int?
-    let gender: Gender?
-    let goal: Goal?
-    let activityLevel: ActivityLevel?
-    let preferredUnits: PreferredUnits?
-}
-
-struct CreateUserRequest: Codable, Sendable {
-    let email: String
-    let password: String
-    let firstName: String?
-    let lastName: String?
+    let timeZone: String = TimeZone.current.identifier
 }
 
 struct UpdateUserRequest: Codable, Sendable {

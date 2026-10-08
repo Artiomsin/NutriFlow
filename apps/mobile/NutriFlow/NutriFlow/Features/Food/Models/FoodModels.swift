@@ -32,6 +32,27 @@ struct CreateFoodRequest: Codable, Sendable {
     let categoryName: String?
     let imageUrl: String?
     let date: String?
+
+    enum CodingKeys: String, CodingKey {
+        case name, calories, protein, fat, carbs, foodId, grams, unit, imageUrl, date, categoryName
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(name, forKey: .name)
+        try container.encodeIfPresent(calories, forKey: .calories)
+        try container.encodeIfPresent(protein, forKey: .protein)
+        try container.encodeIfPresent(fat, forKey: .fat)
+        try container.encodeIfPresent(carbs, forKey: .carbs)
+        try container.encodeIfPresent(grams, forKey: .grams)
+        try container.encodeIfPresent(unit, forKey: .unit)
+        try container.encodeIfPresent(foodId, forKey: .foodId)
+        try container.encodeIfPresent(date, forKey: .date)
+        try container.encodeIfPresent(imageUrl, forKey: .imageUrl)
+        // Matches UpdateFoodEntryRequest: an explicit null states "no category"
+        // instead of leaving the field out of the payload.
+        try container.encode(categoryName, forKey: .categoryName)
+    }
 }
 
 struct UpdateFoodEntryRequest: Codable, Sendable {
@@ -63,7 +84,9 @@ struct UpdateFoodEntryRequest: Codable, Sendable {
         try container.encodeIfPresent(foodId, forKey: .foodId)
         try container.encodeIfPresent(date, forKey: .date)
         try container.encodeIfPresent(imageUrl, forKey: .imageUrl)
-        try container.encodeIfPresent(categoryName, forKey: .categoryName)
+        // PATCH uses an omitted key for "leave unchanged". This field is
+        // intentionally encoded as null when the user selects "None".
+        try container.encode(categoryName, forKey: .categoryName)
     }
 }
 
@@ -177,6 +200,38 @@ struct CreateServingRequest: Codable, Sendable {
     let grams: Int
 }
 
+
+enum ScanAnalysisItem: Decodable, Hashable, Sendable {
+    case food(FoodAnalysisItem)
+    case water(WaterAnalysisItem)
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+    }
+
+    private enum Kind: String, Decodable {
+        case food
+        case water
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        // Treat responses from a server that has not yet been deployed with the
+        // water discriminator as food, so an app update remains backward compatible.
+        switch try container.decodeIfPresent(Kind.self, forKey: .kind) {
+        case .water:
+            self = .water(try WaterAnalysisItem(from: decoder))
+        case .food, .none:
+            self = .food(try FoodAnalysisItem(from: decoder))
+        }
+    }
+}
+
+struct WaterAnalysisItem: Codable, Hashable, Sendable {
+    let amountMl: Int
+    let confidence: Double?
+}
 
 struct FoodAnalysisItem: Codable, Identifiable, Hashable, Sendable {
     let name: String?

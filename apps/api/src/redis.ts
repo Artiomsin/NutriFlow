@@ -1,7 +1,14 @@
 import Redis from 'ioredis';
 
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
-const redis = new Redis(REDIS_URL);
+const redis = new Redis(REDIS_URL, { lazyConnect: true });
+
+// ioredis emits an `error` event for connection failures. Registering a
+// listener keeps a temporary Redis outage from becoming an unhandled event;
+// the cache helpers below already degrade gracefully for those operations.
+redis.on('error', (error) => {
+  console.error('[Redis] connection error:', error.message);
+});
 
 export async function cacheGet<T>(key: string): Promise<T | null> {
   try {
@@ -10,6 +17,18 @@ export async function cacheGet<T>(key: string): Promise<T | null> {
   } catch (e) {
     console.error('[Redis] cacheGet error:', e);
     return null;
+  }
+}
+
+export async function cacheGetSafe<T>(
+  key: string,
+): Promise<{ status: 'ok'; value: T | null } | { status: 'error' }> {
+  try {
+    const val = await redis.get(key);
+    return { status: 'ok', value: val ? JSON.parse(val) as T : null };
+  } catch (e) {
+    console.error('[Redis] cacheGetSafe error:', e);
+    return { status: 'error' };
   }
 }
 

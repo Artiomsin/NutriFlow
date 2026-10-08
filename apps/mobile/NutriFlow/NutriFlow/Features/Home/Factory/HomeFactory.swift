@@ -6,9 +6,44 @@ enum HomeFactory {
         progressRefreshState: ProgressRefreshState
     ) -> HomeViewModel {
         let cache = container.cacheService
-        let todayFoodVM = TodayFoodViewModel(service: container.foodService, coordinator: coordinator, cacheService: cache, progressRefreshState: progressRefreshState)
-        let waterVM = WaterViewModel(coordinator: coordinator, service: container.waterTrackingService, cacheService: cache, progressRefreshState: progressRefreshState, analyticsTracker: container.analyticsTracker)
-        let goalsVM = GoalsViewModel(coordinator: coordinator, service: container.goalsService, cacheService: cache, progressRefreshState: progressRefreshState)
+
+        let goalsVM = GoalsViewModel(
+            coordinator: coordinator,
+            service: container.goalsService,
+            cacheService: cache,
+            progressRefreshState: progressRefreshState
+        )
+
+        let goalsProvider: () -> UserGoals? = {
+            if case .loaded(let goals) = goalsVM.state {
+                return goals
+            }
+            return nil
+        }
+
+        container.activitySync.goalsProvider = goalsProvider
+
+        let todayFoodVM = TodayFoodViewModel(
+            service: container.foodService,
+            coordinator: coordinator,
+            cacheService: cache,
+            progressRefreshState: progressRefreshState,
+            goalsService: container.goalsService,
+            goalsProvider: goalsProvider,
+            achievementService: container.achievementService,
+            achievementNotificationService: container.achievementNotificationService
+        )
+        let waterVM = WaterViewModel(
+            coordinator: coordinator,
+            service: container.waterTrackingService,
+            cacheService: cache,
+            progressRefreshState: progressRefreshState,
+            analyticsTracker: container.analyticsTracker,
+            goalsService: container.goalsService,
+            goalsProvider: goalsProvider,
+            achievementService: container.achievementService,
+            achievementNotificationService: container.achievementNotificationService
+        )
         let activityVM = ActivityViewModel(
             healthKit: container.activityHealthKitService
         )
@@ -16,11 +51,19 @@ enum HomeFactory {
             healthKit: container.workoutHealthKitService,
             workoutService: container.workoutService,
             cacheService: cache,
-            analyticsTracker: container.analyticsTracker
+            analyticsTracker: container.analyticsTracker,
+            goalsService: container.goalsService,
+            goalsProvider: goalsProvider,
+            achievementService: container.achievementService,
+            achievementNotificationService: container.achievementNotificationService
         )
         let sleepVM = SleepViewModel(
             coordinator: container.sleepSync,
-            analyticsTracker: container.analyticsTracker
+            analyticsTracker: container.analyticsTracker,
+            goalsService: container.goalsService,
+            goalsProvider: goalsProvider,
+            achievementService: container.achievementService,
+            achievementNotificationService: container.achievementNotificationService
         )
         
         return HomeViewModel(

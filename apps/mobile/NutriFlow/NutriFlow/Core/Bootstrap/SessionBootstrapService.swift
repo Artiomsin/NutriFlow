@@ -29,9 +29,14 @@ final class SessionBootstrapService: Sendable {
             return .main
         } catch APIError.notFound {
             return .profileForm
-        } catch {
+        } catch APIError.unauthorized, APIError.forbidden {
             try sessionService.clear()
             return .auth
+        } catch {
+            // A transport or server failure does not prove that credentials
+            // are invalid. Preserve the session and let the main screen use
+            // its cached data or show a retryable error.
+            return .main
         }
     }
 }

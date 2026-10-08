@@ -44,6 +44,14 @@ final class GoalsService: GoalsServiceProtocol, Sendable {
         )
         return try await client.send(request)
     }
+
+    func resetGoalsToAutomatic() async throws -> UserGoals {
+        let request = APIRequest<NeverBody>(
+            path: GoalsEndpoints.resetToAutomatic,
+            method: .POST
+        )
+        return try await client.send(request)
+    }
     
     func personalizeGoals() async throws -> PersonalizeResult {
         let request = APIRequest<NeverBody>(

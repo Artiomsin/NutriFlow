@@ -51,14 +51,16 @@ final class SleepService: SleepServiceProtocol, Sendable {
 
     func deleteMissing(
         from startDate: String,
-        startDates: [String]
+        to endDate: String,
+        keptStartDates: [String]
     ) async throws {
         let request = APIRequest(
             path: SleepEndpoints.deleteMissing,
             method: .DELETE,
             body: DeleteMissingRequest(
                 startDate: startDate,
-                startDates: startDates
+                endDate: endDate,
+                keptStartDates: keptStartDates
             )
         )
         try await client.sendVoid(request)
@@ -71,5 +73,6 @@ private struct SleepSyncRequest: Encodable, Sendable {
 
 private struct DeleteMissingRequest: Encodable, Sendable {
     let startDate: String
-    let startDates: [String]
+    let endDate: String
+    let keptStartDates: [String]
 }

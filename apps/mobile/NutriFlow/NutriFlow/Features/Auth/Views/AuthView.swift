@@ -19,86 +19,7 @@ struct AuthView: View {
                 
                 AuthHeaderView(isLogin: isLogin)
                 
-                AuthFormView(
-                    viewModel: viewModel,
-                    isLogin: isLogin,
-                    focusedField: $focusedField
-                )
-                
-                PrimaryButton(
-                    title: isLogin
-                    ? "Sign in"
-                    : "Create account"
-                ) {
-                    dismissKeyboard()
-                    
-                    Task {
-                        if isLogin {
-                            await viewModel.login()
-                        } else {
-                            await viewModel.register()
-                        }
-                    }
-                }
-                
-                if isLogin {
-                    GoogleAuthButton {
-                        dismissKeyboard()
-                        
-                        Task {
-                            await viewModel.signInWithGoogle()
-                        }
-                    }
-                    
-                    SignInWithAppleButton(.signIn) { request in
-                        request.requestedScopes = [.fullName, .email]
-                    } onCompletion: { result in
-                        switch result {
-                        case .success(let authorization):
-                            guard
-                                let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
-                                let tokenData = credential.identityToken,
-                                let identityToken = String(data: tokenData, encoding: .utf8)
-                            else {
-                                viewModel.state = .error("Failed to get Apple identity token")
-                                return
-                            }
-                            dismissKeyboard()
-                            Task {
-                                await viewModel.signInWithApple(
-                                    identityToken: identityToken,
-                                    firstName: credential.fullName?.givenName,
-                                    lastName: credential.fullName?.familyName
-                                )
-                            }
-                        case .failure(let error):
-                            viewModel.state = .error(error.localizedDescription)
-                        }
-                    }
-                    .signInWithAppleButtonStyle(.black)
-                    .frame(height: AppSpacing.buttonHeight)
-                    .cornerRadius(AppRadius.medium)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: AppRadius.medium)
-                            .stroke(Color.white, lineWidth: 1)
-                    )
-                }
-                
-                Button {
-                    switchMode()
-                } label: {
-                    Text(
-                        isLogin
-                        ? "No account? Register"
-                        : "Already have account? Sign in"
-                    )
-                    .font(.footnote)
-                    .foregroundColor(AppColors.textSecondary)
-                }
-                
-                if case .error(let message) = viewModel.state {
-                    ErrorMessageView(text: message)
-                }
+                authenticationControls
             }
             .contentShape(Rectangle())
             .onTapGesture {
@@ -124,6 +45,98 @@ struct AuthView: View {
         }
         .onAppear {
             viewModel.onAppear()
+        }
+    }
+
+    private var authenticationControls: some View {
+        VStack(spacing: 16) {
+            AuthFormView(
+                viewModel: viewModel,
+                isLogin: isLogin,
+                focusedField: $focusedField
+            )
+            .disabled(viewModel.isLoading)
+
+            PrimaryButton(
+                title: isLogin ? "Sign in" : "Create account",
+                isLoading: viewModel.isLoading
+            ) {
+                dismissKeyboard()
+                Task {
+                    if isLogin {
+                        await viewModel.login()
+                    } else {
+                        await viewModel.register()
+                    }
+                }
+            }
+
+            if isLogin {
+                GoogleAuthButton(isLoading: viewModel.isLoading) {
+                    dismissKeyboard()
+                    Task { await viewModel.signInWithGoogle() }
+                }
+
+                appleSignInButton
+            }
+
+            Button {
+                switchMode()
+            } label: {
+                Text(isLogin ? "No account? Register" : "Already have account? Sign in")
+                    .font(.footnote)
+                    .foregroundColor(AppColors.textSecondary)
+            }
+            .disabled(viewModel.isLoading)
+
+            if case .error(let appError, let operation) = viewModel.state {
+                if operation == .apple {
+                    ErrorView(error: appError)
+                } else {
+                    ErrorView(error: appError) {
+                        dismissKeyboard()
+                        Task { await viewModel.retry(operation) }
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .appGlassSurface(level: .raised)
+    }
+
+    private var appleSignInButton: some View {
+        SignInWithAppleButton(.signIn) { request in
+            request.requestedScopes = [.fullName, .email]
+        } onCompletion: { result in
+            switch result {
+            case .success(let authorization):
+                guard
+                    let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                    let tokenData = credential.identityToken,
+                    let identityToken = String(data: tokenData, encoding: .utf8)
+                else {
+                    viewModel.handleMissingAppleToken()
+                    return
+                }
+                dismissKeyboard()
+                Task {
+                    await viewModel.signInWithApple(
+                        identityToken: identityToken,
+                        firstName: credential.fullName?.givenName,
+                        lastName: credential.fullName?.familyName
+                    )
+                }
+            case .failure(let error):
+                viewModel.handleAppleAuthorizationError(error)
+            }
+        }
+        .signInWithAppleButtonStyle(.black)
+        .frame(height: AppSpacing.buttonHeight)
+        .disabled(viewModel.isLoading)
+        .clipShape(RoundedRectangle(cornerRadius: AppRadius.medium))
+        .overlay {
+            RoundedRectangle(cornerRadius: AppRadius.medium)
+                .stroke(Color.white.opacity(0.8), lineWidth: 1)
         }
     }
     

@@ -16,7 +16,7 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
         return try await client.send(request)
     }
 
-    func createProfile(weight: Double?, height: Int?, age: Int?, gender: Gender?, goal: Goal?, activityLevel: ActivityLevel?, preferredUnits: PreferredUnits? = nil) async throws -> UserProfile {
+    func createProfile(weight: Double, height: Int, age: Int, gender: Gender, goal: Goal, activityLevel: ActivityLevel, preferredUnits: PreferredUnits? = nil) async throws -> UserProfile {
         let request = APIRequest(
             path: ProfileEndpoints.createProfile,
             method: .POST,
@@ -25,13 +25,26 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
         return try await client.send(request)
     }
 
-    func updateMyProfile(weight: Double?, height: Int?, age: Int?, gender: Gender?, goal: Goal?, activityLevel: ActivityLevel?, preferredUnits: PreferredUnits? = nil) async throws -> UserProfile {
+    func updateMyProfile(height: Int?, age: Int?, gender: Gender?, goal: Goal?, activityLevel: ActivityLevel?, preferredUnits: PreferredUnits? = nil) async throws -> UserProfile {
         let request = APIRequest(
             path: ProfileEndpoints.updateMyProfile,
             method: .PUT,
-            body: UpdateProfileRequest(weight: weight, height: height, age: age, gender: gender, goal: goal, activityLevel: activityLevel, preferredUnits: preferredUnits)
+            body: UpdateProfileRequest(height: height, age: age, gender: gender, goal: goal, activityLevel: activityLevel, preferredUnits: preferredUnits)
         )
         return try await client.send(request)
+    }
+
+    func updateTimeZone(_ timeZone: String) async throws {
+        struct TimeZoneRequest: Encodable, Sendable {
+            let timeZone: String
+        }
+
+        let request = APIRequest(
+            path: ProfileEndpoints.updateTimeZone,
+            method: .PUT,
+            body: TimeZoneRequest(timeZone: timeZone)
+        )
+        _ = try await client.send(request) as UserProfile
     }
 
     func deleteMyProfile() async throws {
@@ -56,5 +69,26 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
             queryItems: query
         )
         return try await client.send(request)
+    }
+
+    func recordWeight(weightKg: Double) async throws -> WeightLog {
+        struct RecordWeightRequest: Encodable, Sendable {
+            let weightKg: Double
+        }
+
+        let request = APIRequest(
+            path: ProfileEndpoints.weightLogs,
+            method: .POST,
+            body: RecordWeightRequest(weightKg: weightKg)
+        )
+        return try await client.send(request)
+    }
+
+    func deleteWeightLog(date: String) async throws {
+        let request = APIRequest<NeverBody>(
+            path: "\(ProfileEndpoints.weightLogs)/\(date)",
+            method: .DELETE
+        )
+        try await client.sendVoid(request)
     }
 }

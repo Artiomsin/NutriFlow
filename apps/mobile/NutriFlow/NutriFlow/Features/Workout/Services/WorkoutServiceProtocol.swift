@@ -17,6 +17,7 @@ protocol WorkoutServiceProtocol {
     ) async throws -> WorkoutHistoryResponse
     func deleteMissing(
         from startDate: String,
+        to endDate: String,
         healthKitWorkoutIds: [String]
     ) async throws
 }

@@ -16,5 +16,5 @@ enum WaterState {
 
     case saving
 
-    case error(Error)
+    case error(AppError)
 }

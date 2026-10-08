@@ -12,10 +12,12 @@ import { WeightLogsService } from './weight-logs.service';
 import {
   createWeightLogSchema,
   listWeightLogsSchema,
+  weightLogDateParamSchema,
 } from './weight-logs.schema';
 import type {
   CreateWeightLogDto,
   ListWeightLogsDto,
+  WeightLogDateParamDto,
 } from './weight-logs.schema';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
 import { JwtAuthGuard } from '../auth/jwt.guard';
@@ -44,7 +46,10 @@ export class WeightLogsController {
   }
 
   @Delete(':date')
-  remove(@User() user: AuthPayload, @Param('date') date: string) {
-    return this.weightLogsService.remove(user.userId, date);
+  remove(
+    @User() user: AuthPayload,
+    @Param(new ZodValidationPipe(weightLogDateParamSchema)) params: WeightLogDateParamDto,
+  ) {
+    return this.weightLogsService.remove(user.userId, params.date);
   }
 }

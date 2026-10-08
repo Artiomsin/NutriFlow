@@ -3,7 +3,7 @@ import { db } from '../db/db';
 import { foods } from '../db/schema/foods';
 import { foodCategories } from '../db/schema/foodCategories';
 import { eq, sql } from 'drizzle-orm';
-import type { FoodAnalysisItem } from './food.schema';
+import type { FoodAnalysisFoodItem } from './food.schema';
 
 interface CandidateRow {
   id: string;
@@ -20,7 +20,9 @@ interface CandidateRow {
 export class FoodMatcherService {
   private readonly logger = new Logger(FoodMatcherService.name);
 
-  async matchItems(items: FoodAnalysisItem[]): Promise<FoodAnalysisItem[]> {
+  async matchItems(
+    items: FoodAnalysisFoodItem[],
+  ): Promise<FoodAnalysisFoodItem[]> {
     const names = items
       .map((i) => i.name?.trim())
       .filter((n): n is string => !!n);
@@ -44,8 +46,9 @@ export class FoodMatcherService {
       const catalogCalories = Math.round(match.caloriesPer100g * ratio);
       const aiCalories = item.calories;
 
-      const replaced: FoodAnalysisItem = {
+      const replaced: FoodAnalysisFoodItem = {
         ...item,
+        kind: 'food',
         name: match.name,
         category: match.category ?? item.category,
         foodId: match.id,

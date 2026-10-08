@@ -4,6 +4,8 @@ import { dailyActivity } from '../db/schema/dailyActivity';
 import { dailySummary } from '../db/schema/dailySummary';
 import { eq, and, sql } from 'drizzle-orm';
 import type { SyncActivityDto } from './activity.schema';
+import { invalidateAnalyticsCache } from '../redis';
+import { currentUserDate } from '../common/time/user-date';
 
 @Injectable()
 export class ActivityService {
@@ -25,20 +27,22 @@ export class ActivityService {
           .onConflictDoUpdate({
             target: [dailyActivity.userId, dailyActivity.date],
             set: {
-              steps: sql`GREATEST(${dailyActivity.steps}, ${values.steps})`,
-              activeCalories: sql`GREATEST(${dailyActivity.activeCalories}, ${values.activeCalories})`,
-              basalCalories: sql`GREATEST(${dailyActivity.basalCalories}, ${values.basalCalories})`,
-              distanceMeters: sql`GREATEST(${dailyActivity.distanceMeters}, ${values.distanceMeters})`,
+              steps: values.steps,
+              activeCalories: values.activeCalories,
+              basalCalories: values.basalCalories,
+              distanceMeters: values.distanceMeters,
             },
           })
           .returning();
       }),
     );
+    await invalidateAnalyticsCache(userId);
     return rows.flat();
   }
 
   async getToday(userId: string, dateStr?: string) {
-    const dateClause = dateStr ? sql`${dateStr}::date` : sql`CURRENT_DATE`;
+    const date = dateStr ?? await currentUserDate(userId);
+    const dateClause = sql`${date}::date`;
     const [row] = await db
       .select()
       .from(dailyActivity)

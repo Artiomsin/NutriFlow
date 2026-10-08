@@ -26,6 +26,7 @@ export const appleLoginSchema = z.object({
   identityToken: z.string().min(1),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
+  nonce: z.string().min(1).optional(),
 });
 
 

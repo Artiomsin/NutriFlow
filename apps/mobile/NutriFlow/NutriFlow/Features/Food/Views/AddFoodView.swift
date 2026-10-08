@@ -4,13 +4,10 @@ import Kingfisher
 
 struct AddFoodView: View {
     let onSave: () -> Void
-    let todayFoodVM: TodayFoodViewModel
     let onSearchCatalog: (() -> Void)?
     let onSelectPopular: ((CatalogFood) -> Void)?
 
     @State private var viewModel: AddFoodViewModel
-    @State private var photosItem: PhotosPickerItem?
-    @State private var selectedImageData: Data?
     @State private var prefsStore = PreferencesStore.shared
 
     private enum Field: Hashable {
@@ -23,10 +20,10 @@ struct AddFoodView: View {
     }
 
     @FocusState private var focusedField: Field?
+    @State private var isActive = true
 
-    init(onSave: @escaping () -> Void, viewModel: AddFoodViewModel, todayFoodVM: TodayFoodViewModel, onSearchCatalog: (() -> Void)? = nil, onSelectPopular: ((CatalogFood) -> Void)? = nil) {
+    init(onSave: @escaping () -> Void, viewModel: AddFoodViewModel, onSearchCatalog: (() -> Void)? = nil, onSelectPopular: ((CatalogFood) -> Void)? = nil) {
         self.onSave = onSave
-        self.todayFoodVM = todayFoodVM
         self.onSearchCatalog = onSearchCatalog
         self.onSelectPopular = onSelectPopular
         _viewModel = State(initialValue: viewModel)
@@ -41,10 +38,16 @@ struct AddFoodView: View {
                     ProgressView()
                         .tint(AppColors.accent)
                 }
+                if let popularError = viewModel.popularError {
+                    ErrorView(error: popularError) { viewModel.retryPopular() }
+                }
                 photoPicker
-                formSection()
+                formSection
+                if let categoriesError = viewModel.categoriesError {
+                    ErrorView(error: categoriesError) { viewModel.retryCategories() }
+                }
                 categorySection()
-                saveButton
+                saveSection
             }
             .contentShape(Rectangle())
             .onTapGesture { dismissKeyboard() }
@@ -59,7 +62,10 @@ struct AddFoodView: View {
             await viewModel.loadCategories()
             await viewModel.loadPopular()
         }
-        .onChange(of: photosItem) { _, item in loadImage(item) }
+        .onChange(of: viewModel.photosItem) { _, item in viewModel.loadImage(item) }
+        .onChange(of: prefsStore.preferredUnits) { old, new in viewModel.convertUnits(from: old, to: new) }
+        .onAppear { isActive = true }
+        .onDisappear { isActive = false }
     }
 
     private var popularSection: some View {
@@ -99,8 +105,9 @@ struct AddFoodView: View {
     }
 
     private var photoPicker: some View {
-        PhotosPicker(selection: $photosItem, matching: .images) {
-            if let data = selectedImageData, let uiImage = UIImage(data: data) {
+        let imageData = viewModel.selectedImageData
+        return PhotosPicker(selection: $viewModel.photosItem, matching: .images) {
+            if let data = imageData, let uiImage = UIImage(data: data) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
@@ -126,19 +133,22 @@ struct AddFoodView: View {
         }
     }
 
-    private func formSection() -> some View {
+    private var formSection: some View {
         AppCard {
             VStack(alignment: .leading, spacing: 14) {
                 sectionLabel("Details", icon: "square.and.pencil")
                 AppTextField(title: "Food name", text: $viewModel.name, submitLabel: .return, focus: $focusedField, focusValue: .name) {
                     nextField(.grams)
                 }
+                .onChange(of: viewModel.name) { _, _ in viewModel.clearError() }
                 AppTextField(title: viewModel.gramsLabel, text: $viewModel.grams, keyboardType: .decimalPad, submitLabel: .return, focus: $focusedField, focusValue: .grams) {
                     nextField(.calories)
                 }
+                .onChange(of: viewModel.grams) { _, _ in viewModel.clearError() }
                 AppTextField(title: viewModel.caloriesLabel, text: $viewModel.calories, keyboardType: .numberPad, submitLabel: .return, focus: $focusedField, focusValue: .calories) {
                     nextField(.protein)
                 }
+                .onChange(of: viewModel.calories) { _, _ in viewModel.clearError() }
                 HStack(spacing: 12) {
                     AppTextField(title: viewModel.proteinLabel, text: $viewModel.protein, keyboardType: .decimalPad, submitLabel: .return, focus: $focusedField, focusValue: .protein) {
                         nextField(.fat)
@@ -191,26 +201,22 @@ struct AddFoodView: View {
         }
     }
 
+    private var saveSection: some View {
+        VStack(spacing: 12) {
+            if case .error(let error) = viewModel.state {
+                ErrorView(error: error) { submit() }
+            }
+            saveButton
+        }
+    }
+
     private var saveButton: some View {
         Button {
-            dismissKeyboard()
-            Task {
-                await viewModel.createEntry(imageData: selectedImageData)
-                if case .idle = viewModel.state {
-                    await todayFoodVM.reloadAfterMutation()
-                    todayFoodVM.notifyDataMutated()
-                    onSave()
-                }
-            }
+            submit()
         } label: {
-            switch viewModel.state {
-            case .uploading, .saving:
+            if viewModel.isBusy {
                 ProgressView().tint(AppColors.accentOnPrimary)
-            case .error(let e):
-                Text(e.localizedDescription).font(.caption).foregroundColor(AppColors.error)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-            case .idle:
+            } else {
                 Text("Save")
                     .font(.headline)
                     .foregroundColor(AppColors.accentOnPrimary)
@@ -224,7 +230,15 @@ struct AddFoodView: View {
     }
 
     private var canSave: Bool {
-        !viewModel.name.isEmpty && !viewModel.grams.isEmpty && !viewModel.calories.isEmpty
+        viewModel.isFormValid && !viewModel.isBusy
+    }
+
+    private func submit() {
+        dismissKeyboard()
+        Task {
+            guard await viewModel.createEntry() else { return }
+            if isActive { onSave() }
+        }
     }
 
     private func dismissKeyboard() {
@@ -236,23 +250,11 @@ struct AddFoodView: View {
             focusedField = field
         }
     }
-
-    private func loadImage(_ item: PhotosPickerItem?) {
-        guard let item else { return }
-        Task {
-            guard let data = try? await item.loadTransferable(type: Data.self) else { return }
-            selectedImageData = ImageCompressor.optimizedJPEGData(
-                data,
-                maxDimension: 800,
-                quality: 0.8
-            )
-        }
-    }
 }
 
 #Preview {
     NavigationStack {
-        AddFoodView(onSave: {}, viewModel: AddFoodViewModel(service: MockFoodService(), coordinator: nil), todayFoodVM: TodayFoodViewModel(service: MockFoodService(), coordinator: AppCoordinator(container: AppDependencyContainer())))
+        AddFoodView(onSave: {}, viewModel: AddFoodViewModel(service: MockFoodService(), coordinator: nil, todayFoodVM: TodayFoodViewModel(service: MockFoodService(), coordinator: AppCoordinator(container: AppDependencyContainer()))))
     }
     
 }
