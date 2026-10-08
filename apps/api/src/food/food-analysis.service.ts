@@ -29,7 +29,7 @@ export class FoodAnalysisService {
     size: number;
   }): Promise<FoodAnalysisResult> {
     if (!this.gemini) {
-      this.logger.warn('GEMINI_API_KEY не задан');
+      this.logger.warn('GEMINI_API_KEY is not set');
       throw new ServiceUnavailableException(
         'Food analysis service is not configured',
       );
@@ -55,7 +55,7 @@ export class FoodAnalysisService {
         parsed.push(result.data);
       } else {
         this.logger.warn(
-          'Пункт ответа gemini не прошёл Zod: ' +
+          'Gemini response item failed Zod validation: ' +
             JSON.stringify(result.error.flatten()),
         );
       }

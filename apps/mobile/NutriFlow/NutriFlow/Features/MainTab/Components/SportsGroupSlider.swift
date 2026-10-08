@@ -296,11 +296,11 @@ struct SportView: View {
 struct GlassCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Стеклянная карточка")
+            Text("Glass card")
                 .font(.headline)
                 .foregroundColor(.black)
             
-            Text("Этот текст легко читается на любом динамическом фоне благодаря размытию.")
+            Text("This text stays readable on any dynamic background thanks to the blur.")
                 .font(.subheadline)
                 .foregroundColor(.black)
         }

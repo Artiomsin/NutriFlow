@@ -121,7 +121,7 @@ final class AppCoordinator {
 
     deinit {
             #if DEBUG
-            print("AppCoordinator УНИЧТОЖЕН!")
+            print("AppCoordinator deinit!")
             #endif
         }
 }

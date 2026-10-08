@@ -13,11 +13,11 @@ struct HealthKitConnectCard: View {
             }
             .padding(.top, 4)
 
-            Text("Подключи HealthKit")
+            Text("Connect HealthKit")
                 .font(.title3.bold())
                 .foregroundColor(AppColors.textPrimary)
 
-            Text("Активность, сон и тренировки появятся здесь после подключения.")
+            Text("Activity, sleep, and workouts will appear here once connected.")
                 .font(.footnote)
                 .foregroundColor(AppColors.textSecondary)
                 .multilineTextAlignment(.center)

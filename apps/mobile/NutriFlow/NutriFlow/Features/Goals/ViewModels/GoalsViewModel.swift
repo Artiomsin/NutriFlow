@@ -95,7 +95,7 @@ final class GoalsViewModel {
             ) {
                 state = .loaded(cached)
             } else if case .loaded = state {
-                // Оставляем уже показанные данные при временной ошибке.
+                // Keep the already shown data on a temporary error.
             } else {
                 state = .error(mapped)
             }

@@ -4,9 +4,9 @@ export function sessionKey(userId: string, sessionId: string): string {
   return `refresh:${userId}:${sessionId}`;
 }
 
-// Redis — единственный источник истины. Fail-closed гарантирует, что logout
-// немедленно работает на всех экземплярах API и при проблеме Redis не даёт
-// использовать отозванные access-токены.
+// Redis is the single source of truth. Fail-closed guarantees that logout
+// works immediately across all API instances and that a Redis outage never
+// allows revoked access tokens to be used.
 export async function sessionAlive(
   userId: string,
   sessionId: string,

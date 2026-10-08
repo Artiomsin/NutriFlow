@@ -13,7 +13,7 @@ struct NutriflowApp: App {
         let coordinator = AppCoordinator(container: container)
         self.coordinator = coordinator
 
-        print("NutriflowApp создан")
+        print("NutriflowApp created")
     }
 
     var body: some Scene {

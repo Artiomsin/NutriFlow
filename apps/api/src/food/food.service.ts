@@ -154,8 +154,8 @@ export class FoodService {
         })
         .returning();
 
-      // Каталог не должен меняться под чужим выбором: картинку можно
-      // сохранить только на свой собственный продукт.
+      // The catalog must not change based on someone else's choice: an
+      // image can only be saved onto the user's own product.
       if (foodId && data.imageUrl) {
         const [food] = await tx
           .select({ source: foods.source, createdBy: foods.createdBy })
@@ -309,8 +309,8 @@ export class FoodService {
     let newImageUrl = data.imageUrl ?? existing.imageUrl;
     let newUnit = data.unit ?? existing.unit;
 
-    // У ручной/AI-записи без каталожного продукта нутриенты заданы для
-    // конкретной порции. При изменении grams масштабируем их пропорционально.
+    // A manual/AI entry without a catalog product has nutrients defined
+    // for a specific portion. When grams change we scale them proportionally.
     if (
       !existing.foodId &&
       data.grams !== undefined &&
@@ -638,7 +638,7 @@ export class FoodService {
   async search(query: SearchFoodQueryDto, userId?: string) {
     const { q, limit, offset } = query;
 
-    // Вытащить вес из строки (подсказка для клиента)
+    // Extract weight from the string (hint for the client)
     const weightMatch = q.match(/(\d+([.,]\d+)?)\s*(g|kg|ml|l|oz|lb)\b/i);
     let suggestedGrams: number | null = null;
     let suggestedUnit: string | null = null;
@@ -663,14 +663,14 @@ export class FoodService {
       }
     }
 
-    // Чистый запрос (вес убираем из поиска)
+    // Clean query (weight is stripped from the search)
     const cleanQuery = (q.toLowerCase().trim()
       .replace(/\b\d+([.,]\d+)?\s?(г|g|kg|ml|l|oz|lb)\b/gi, '')
       .replace(/[^\p{L}\p{N}\s]/gu, ' ')
       .replace(/\s+/g, ' ')
       .trim());
 
-    // Персональный кэш полного списка (пагинация режется из него)
+    // Personal cache of the full list (pagination is sliced from it)
     const cacheKey = `search:q:${userId ?? 'anon'}:${cleanQuery}`;
     const cached = await cacheGet<OFProduct[]>(cacheKey);
     const required = offset + limit + FoodService.PRELOAD_PAGE_SIZE;
@@ -687,7 +687,7 @@ export class FoodService {
     return { foods, suggestedGrams, suggestedUnit, total, offset, limit, hasMore };
   }
 
-  /** Полный ранжированный список; USDA дозапрашиваем, если локальных мало */
+  /** Full ranked list; fetches more from USDA when local results are few */
   private async buildSearchResults(cleanQuery: string, userId?: string, required = 40): Promise<OFProduct[]> {
     const term = `%${cleanQuery}%`;
     const visibilityClause = userId
@@ -724,7 +724,7 @@ export class FoodService {
           .where(inArray(foodServings.foodId, localIds))
       : [];
 
-    // Частота использования данным юзером — для ранжирования
+    // How often this user picks each item — used for ranking
     const freqMap = new Map<string, number>();
     if (userId && localIds.length) {
       const stats = await db
@@ -765,7 +765,7 @@ export class FoodService {
       };
     });
 
-    // Ранжируем БД-результаты
+    // Rank the DB results
     const localRanked = this.rank(local, cleanQuery, userId);
     const enoughLocal = localRanked.length >= required;
 
@@ -773,7 +773,7 @@ export class FoodService {
       return localRanked;
     }
 
-    // Параллельный внешний поиск (USDA SR Legacy + Branded)
+    // Parallel external search (USDA SR Legacy + Branded)
     const [srLegacyRes, brandedRes] = await Promise.allSettled([
       this.searchUSDA(cleanQuery, 25, 'SR Legacy'),
       this.searchUSDA(cleanQuery, 25, 'Branded'),
@@ -784,7 +784,7 @@ export class FoodService {
 
     const allUsda = [...srItems, ...brandedItems];
 
-    // Дедуп (локальные впереди внешних)
+    // Dedup (locals go before external results)
     const merged = [...localRanked, ...allUsda];
     const deduped = this.deduplicate(merged);
 
@@ -994,8 +994,8 @@ export class FoodService {
     return result;
   }
 
-  /** Фиксирует выбор/добавление продукта пользователем, чтобы
-   *  чаще выбираемые всплывали выше (используется в поиске и популярных). */
+  /** Records a user's product pick/add so frequently chosen items
+   *  float higher (used in search and popular lists). */
   async trackSelection(userId: string, foodId: string) {
     const food = await this.findVisibleFood(foodId, userId);
 
@@ -1017,7 +1017,7 @@ export class FoodService {
     return { ok: true };
   }
 
-  // ── Dedup (3 уровня) ─────────────────────────────────────────
+  // ── Dedup (3 levels) ─────────────────────────────────────────
 
   private deduplicate(items: OFProduct[]): OFProduct[] {
     const seenBarcodes = new Set<string>();
@@ -1067,19 +1067,19 @@ export class FoodService {
         const nameLower = item.name.toLowerCase();
         let score = 0;
 
-        // Приоритет источника: свои продукты всегда вверху
+        // Source priority: my own products always float to the top
         if (isMine(item)) score += 100;
         else if (item.source === 'off') score += 6;
         else if (item.source === 'system') score += 5;
         else if (item.source === 'usda_sr') score += 4;
         else if (item.source === 'usda') score += 3;
 
-        // Часто выбираемое данным юзером — всплывает выше
+        // Frequently picked by this user — floats higher
         if (userId && (item.frequency ?? 0) > 0) {
           score += Math.min(item.frequency ?? 0, 20) / 2;
         }
 
-        // Совпадение с запросом
+        // Match against the query
         if (nameLower === qLower) score += 50;
         else if (nameLower.startsWith(qLower)) score += 30;
         else if (nameLower.includes(qLower)) score += 10;
@@ -1090,7 +1090,7 @@ export class FoodService {
           }
         }
 
-        // Качество карточки
+        // Card quality
         if (item.imageUrl) score += 3;
         if (item.brand) score += 2;
         if (item.servings?.length) score += 2;
@@ -1100,7 +1100,7 @@ export class FoodService {
       .sort((a, b) => {
         const diff = (b.score ?? 0) - (a.score ?? 0);
         if (diff !== 0) return diff;
-        // стабильность: при равном score — по алфавиту, потом по имени
+        // Stability: on equal score — alphabetical, then by name
         return a.name.localeCompare(b.name);
       });
   }

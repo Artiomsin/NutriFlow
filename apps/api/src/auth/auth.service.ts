@@ -157,8 +157,8 @@ export class AuthService {
           payload = await appleSignin.verifyIdToken(data.identityToken, {
             audience: env.APPLE_CLIENT_ID,
             ignoreExpiration: false,
-            // nonce сверяется с тем, что был подписан в identityToken
-            // при входе на клиенте — защита от replay авторизации.
+            // The nonce is verified against the one signed into the
+            // identityToken on the client — prevents auth replay.
             ...(data.nonce ? { nonce: data.nonce } : {}),
           });
         } catch {
@@ -225,11 +225,12 @@ export class AuthService {
       if (!storedHash) throw new UnauthorizedException();
 
       if (storedHash === hash) {
-        // Ротация: выдаём новую пару, фиксируем пред. токен и выдаваемую пару
-        // лишь на короткое окно приёма параллельного refresh (гонка).
+        // Rotation: issue a new pair, remember the previous token and the
+        // issued pair only for a short window accepting a parallel refresh.
         const tokens = this.generateTokens(payload.userId, payload.sessionId);
-        // Хеш предыдущего refresh держим до конца жизни сессии: это позволяет
-        // отличить реплей старого токена после grace-окна от неизвестного токена.
+        // The previous refresh hash is kept until the end of the session
+        // life: it lets us tell a replay of an old token after the grace
+        // window apart from an unknown token.
         await cacheSet(this.getPrevKey(key), storedHash, this.refreshTtl);
         await cacheSet(this.getUsedKey(key, storedHash), true, this.refreshTtl);
         await cacheSet(this.getPairKey(key), tokens, this.reuseGraceTtl);
@@ -241,24 +242,24 @@ export class AuthService {
         return tokens;
       }
 
-      // Токен уже был ротирован.
+      // The token has already been rotated.
       const prevHash = await cacheGet<string>(this.getPrevKey(key));
       if (prevHash === hash) {
         const pair = await cacheGet<{ accessToken: string; refreshToken: string }>(
           this.getPairKey(key),
         );
-        // Повтор старого токена в пределах короткого grace-окна — это
-        // легитимная гонка параллельных refresh: отдаём ту же пару.
+        // A repeat of the old token within the short grace window is a
+        // legit race of parallel refreshes: return the same pair.
         if (pair) return pair;
 
-        // Повтор после истечения grace-окна — это компрометация токена
-        // (реплей ротированного refresh). Отзываем всю сессию.
+        // A repeat after the grace window expires is a token compromise
+        // (replay of a rotated refresh). Revoke the whole session.
         await this.revokeSession(payload.userId, payload.sessionId);
         throw new UnauthorizedException('refresh token reuse detected');
       }
 
-      // Любой токен из более ранней ротации означает compromise: хеши
-      // использованных refresh живут до конца TTL сессии.
+      // Any token from an earlier rotation means compromise: hashes of
+      // used refresh tokens live until the end of the session TTL.
       const wasUsed = await cacheGet<boolean>(this.getUsedKey(key, hash));
       if (wasUsed) {
         await this.revokeSession(payload.userId, payload.sessionId);
@@ -351,8 +352,8 @@ export class AuthService {
 
   private refreshTtl = 604800;
 
-  // Окно приёма параллельного refresh: старый refresh-токен можно повторно
-  // передать в течение этого времени (гонка/дубликат запроса), после чего
-  // повтор расценивается как реплей и отзывает всю сессию.
+  // Window accepting a parallel refresh: an old refresh token may be
+  // replayed within it (race/duplicate request); after that a repeat is
+  // treated as a replay and revokes the whole session.
   private reuseGraceTtl = 120;
 }

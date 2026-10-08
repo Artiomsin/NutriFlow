@@ -15,8 +15,8 @@ type Transaction = Parameters<Parameters<Db['transaction']>[0]>[0];
 @Injectable()
 export class DailySummaryService {
 
-  // executor позволяет применять дельту в той же транзакции, что и изменение
-  // записи (food/water), чтобы summary не расходился с фактом.
+  // The executor lets us apply the delta in the same transaction as the
+  // food/water entry change so the summary never drifts from the fact.
   async adjust(
     userId: string,
     delta: {
