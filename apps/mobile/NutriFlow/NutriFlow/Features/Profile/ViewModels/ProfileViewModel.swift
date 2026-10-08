@@ -35,6 +35,8 @@ final class ProfileViewModel {
     @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
     @ObservationIgnored private let weightReminderScheduler: WeightReminderScheduling?
     @ObservationIgnored private let waterReminderScheduler: WaterReminderScheduling?
+    @ObservationIgnored private var profileLoadTask: Task<Void, Never>?
+    @ObservationIgnored private var profileLoadGeneration = 0
 
     init(
         coordinator: AppCoordinator,
@@ -76,9 +78,31 @@ final class ProfileViewModel {
         await cacheService?.remove("goals_personalization")
     }
 
-    func loadData() async {
-        if let cachedUser: User = try? await cacheService?.get("user"),
+    func loadData(forceRefresh: Bool = false) async {
+        if !forceRefresh, let profileLoadTask {
+            await profileLoadTask.value
+            return
+        }
+        if forceRefresh {
+            await cacheService?.remove("user")
+            await cacheService?.remove("profile")
+        }
+        profileLoadGeneration &+= 1
+        let generation = profileLoadGeneration
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.performLoadData(forceRefresh: forceRefresh, generation: generation)
+        }
+        profileLoadTask = task
+        await task.value
+        if generation == profileLoadGeneration { profileLoadTask = nil }
+    }
+
+    private func performLoadData(forceRefresh: Bool, generation: Int) async {
+        if !forceRefresh,
+           let cachedUser: User = try? await cacheService?.get("user"),
            let cachedProfile: UserProfile = try? await cacheService?.get("profile") {
+            guard generation == profileLoadGeneration else { return }
             email = cachedUser.email
             firstName = cachedUser.firstName
             lastName = cachedUser.lastName
@@ -88,6 +112,7 @@ final class ProfileViewModel {
         }
         let profileEmpty: Bool? = try? await cacheService?.get("profile_empty")
         if profileEmpty == true {
+            guard generation == profileLoadGeneration else { return }
             clearForm()
             state = .empty
             return
@@ -107,6 +132,7 @@ final class ProfileViewModel {
 
             let (userResult, profileResult) = try await (user, profile)
             try Task.checkCancellation()
+            guard generation == profileLoadGeneration else { return }
 
             email = userResult.email
             firstName = userResult.firstName
@@ -124,6 +150,7 @@ final class ProfileViewModel {
             state = .loaded(profileResult)
 
         } catch {
+            guard generation == profileLoadGeneration else { return }
             let mapped = ErrorMapper.map(error)
             routeAuth(mapped)
 

@@ -18,6 +18,8 @@ final class WaterViewModel {
     @ObservationIgnored private let goalsProvider: (() -> UserGoals?)?
     @ObservationIgnored private let achievementService: AchievementService?
     @ObservationIgnored private let achievementNotificationService: AchievementNotificationService?
+    @ObservationIgnored private var waterLoadTask: Task<Void, Never>?
+    @ObservationIgnored private var waterLoadGeneration = 0
 
     init(
         coordinator: AppCoordinator,
@@ -52,23 +54,64 @@ final class WaterViewModel {
         analyticsTracker?.track(.screenView(screen: "add_water"))
     }
     
-    func loadToday() async {
-        if let cached: [WaterEntry] = try? await cacheService?.get("water_today") {
-            state = .loaded(cached)
+    func loadToday(
+        forceRefresh: Bool = false,
+        keepsSavingState: Bool = false
+    ) async {
+        if !forceRefresh, let waterLoadTask {
+            await waterLoadTask.value
             return
         }
 
-        if case .loaded = state {} else { state = .loading }
+        if forceRefresh {
+            await cacheService?.remove("water_today")
+        }
+
+        waterLoadGeneration &+= 1
+        let generation = waterLoadGeneration
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.performLoadToday(
+                generation: generation,
+                keepsSavingState: keepsSavingState
+            )
+        }
+        waterLoadTask = task
+        await task.value
+        if generation == waterLoadGeneration {
+            waterLoadTask = nil
+        }
+    }
+
+    private func performLoadToday(
+        generation: Int,
+        keepsSavingState: Bool
+    ) async {
+        if let cached: [WaterEntry] = try? await cacheService?.get(
+            "water_today",
+            retainExpired: true
+        ) {
+            applyWaterEntries(cached, generation: generation)
+            return
+        }
+
+        if isCurrentWaterLoad(generation), !keepsSavingState,
+           case .loaded = state {
+        } else if isCurrentWaterLoad(generation), !keepsSavingState {
+            state = .loading
+        }
         do {
             #if DEBUG
             print("[Network] WaterVM loadToday")
             #endif
             let entries = try await service.getTodayWater()
+            guard isCurrentWaterLoad(generation) else { return }
             try? await cacheService?.set("water_today", entries, ttl: 300)
-            state = .loaded(entries)
+            applyWaterEntries(entries, generation: generation)
         } catch {
+            guard isCurrentWaterLoad(generation) else { return }
             if let cached: [WaterEntry] = try? await cacheService?.get("water_today", ignoreTTL: true) {
-                state = .loaded(cached)
+                applyWaterEntries(cached, generation: generation)
             } else if case .loaded = state {
                 #if DEBUG
                 print("[WaterVM] loadToday → FAIL, keeping existing data | \(error)")
@@ -106,6 +149,7 @@ final class WaterViewModel {
 
         addError = nil
         let stateBeforeWrite = state
+        invalidateWaterLoad()
         state = .saving
 
         do {
@@ -140,6 +184,7 @@ final class WaterViewModel {
     @discardableResult
     func deleteWater(id: String) async -> Bool {
         do {
+            invalidateWaterLoad()
             #if DEBUG
             print("[Network] WaterVM deleteWater")
             #endif
@@ -158,17 +203,24 @@ final class WaterViewModel {
         }
     }
 
-    /// Refetches the day after a successful write. A failing refetch must never leave
-    /// the state stuck in .saving, so it falls back to loadToday(), which owns the
-    /// stale-cache path and the error mapping.
+    /// Refetches the day after a successful write without allowing a pre-write
+    /// request to overwrite the newly saved list.
     private func refreshAfterWrite() async {
-        do {
-            let entries = try await service.getTodayWater()
-            try? await cacheService?.set("water_today", entries, ttl: 300)
-            state = .loaded(entries)
-        } catch {
-            await loadToday()
-        }
+        await loadToday(forceRefresh: true, keepsSavingState: true)
+    }
+
+    private func invalidateWaterLoad() {
+        waterLoadGeneration &+= 1
+        waterLoadTask = nil
+    }
+
+    private func isCurrentWaterLoad(_ generation: Int) -> Bool {
+        generation == waterLoadGeneration
+    }
+
+    private func applyWaterEntries(_ entries: [WaterEntry], generation: Int) {
+        guard isCurrentWaterLoad(generation) else { return }
+        state = .loaded(entries)
     }
 
     private func checkWaterAchievements() async {

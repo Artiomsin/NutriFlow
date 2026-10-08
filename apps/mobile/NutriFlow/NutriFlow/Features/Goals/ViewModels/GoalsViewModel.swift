@@ -15,6 +15,8 @@ final class GoalsViewModel {
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let cacheService: CacheService?
     @ObservationIgnored private let progressRefreshState: ProgressRefreshState?
+    @ObservationIgnored private var goalLoadTask: Task<Void, Never>?
+    @ObservationIgnored private var goalLoadGeneration = 0
 
     init(coordinator: AppCoordinator, service: GoalsServiceProtocol, cacheService: CacheService? = nil, progressRefreshState: ProgressRefreshState? = nil) {
         print("GoalsViewModel init")
@@ -26,31 +28,75 @@ final class GoalsViewModel {
 
     deinit { print("GoalsViewModel deinit") }
 
-    func loadGoals() async {
+    func loadGoals(forceRefresh: Bool = false) async {
+        if !forceRefresh, let goalLoadTask {
+            await goalLoadTask.value
+            return
+        }
+
+        if forceRefresh {
+            await cacheService?.remove("goals")
+        }
+
+        goalLoadGeneration &+= 1
+        let generation = goalLoadGeneration
+
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.performLoadGoals(generation: generation)
+        }
+
+        goalLoadTask = task
+        await task.value
+
+        if generation == goalLoadGeneration {
+            goalLoadTask = nil
+        }
+    }
+
+    private func performLoadGoals(generation: Int) async {
         if let cached: UserGoals = try? await cacheService?.get("goals") {
+            guard generation == goalLoadGeneration else { return }
             state = .loaded(cached)
             return
         }
 
-        if case .loaded = state {} else { state = .loading }
+        guard generation == goalLoadGeneration else { return }
+
+        if case .loaded = state {
+        } else {
+            state = .loading
+        }
+
         do {
             #if DEBUG
             print("[Network] GoalsVM loadGoals")
             #endif
+
             let goals = try await service.getGoals()
+
+            guard generation == goalLoadGeneration else { return }
+
             try? await cacheService?.set("goals", goals, ttl: 1800)
             state = .loaded(goals)
         } catch {
-            if let cached: UserGoals = try? await cacheService?.get("goals", ignoreTTL: true) {
-                state = .loaded(cached)
-                return
-            }
+            guard generation == goalLoadGeneration else { return }
+
             let mapped = ErrorMapper.map(error)
             routeAuth(mapped)
-            // A cancelled task is not a failure, so it must not overwrite the state
-            // with an error the terminal switch would render as an empty view.
-            if mapped == .cancelled { return }
-            if case .loaded = state {} else {
+
+            if mapped == .cancelled {
+                return
+            }
+
+            if let cached: UserGoals = try? await cacheService?.get(
+                "goals",
+                ignoreTTL: true
+            ) {
+                state = .loaded(cached)
+            } else if case .loaded = state {
+                // Оставляем уже показанные данные при временной ошибке.
+            } else {
                 state = .error(mapped)
             }
         }
@@ -63,7 +109,7 @@ final class GoalsViewModel {
     }
 
     func retryGoals() {
-        Task { await loadGoals() }
+        Task { await loadGoals(forceRefresh: true) }
     }
 
     func retryPersonalization() {

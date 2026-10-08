@@ -20,6 +20,7 @@ final class TodayFoodViewModel {
     @ObservationIgnored private let cacheService: CacheService?
     @ObservationIgnored private let progressRefreshState: ProgressRefreshState?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
+    @ObservationIgnored private var loadGeneration = 0
     @ObservationIgnored private var pendingDeleteId: String?
     @ObservationIgnored private let goalsService: GoalsServiceProtocol?
     @ObservationIgnored private let goalsProvider: (() -> UserGoals?)?
@@ -50,32 +51,47 @@ final class TodayFoodViewModel {
     deinit { print("TodayFoodViewModel deinit") }
 
     func loadToday(forceNetwork: Bool = false) async {
-        loadTask?.cancel()
-        let task = Task { await performLoad(forceNetwork: forceNetwork) }
+        if !forceNetwork, let loadTask {
+            await loadTask.value
+            return
+        }
+
+        if forceNetwork {
+            await cacheService?.remove("food_today")
+        }
+
+        loadGeneration &+= 1
+        let generation = loadGeneration
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.performLoad(forceNetwork: forceNetwork, generation: generation)
+        }
         loadTask = task
         await task.value
+        if generation == loadGeneration {
+            loadTask = nil
+        }
     }
 
-    private func performLoad(forceNetwork: Bool) async {
-        if !forceNetwork, let cached: [FoodEntry] = try? await cacheService?.get("food_today") {
-            if bailIfCancelled() { return }
+    private func performLoad(forceNetwork: Bool, generation: Int) async {
+        if !forceNetwork, let cached: [FoodEntry] = try? await cacheService?.get("food_today", retainExpired: true) {
+            guard generation == loadGeneration else { return }
             print("[TodayFoodVM] loadToday → cache HIT (\(cached.count) entries)")
             state = .loaded(cached)
             return
         }
 
-        if bailIfCancelled() { return }
-
+        guard generation == loadGeneration else { return }
         if case .loaded = state {} else { state = .loading }
         do {
             print("[Network] TodayFoodVM loadToday")
             let food = try await service.getTodayFood()
-            if bailIfCancelled() { return }
+            guard generation == loadGeneration else { return }
             try? await cacheService?.set("food_today", food, ttl: 300)
             print("[TodayFoodVM] loadToday → network OK (\(food.count) entries)")
             state = .loaded(food)
         } catch {
-            if bailIfCancelled() { return }
+            guard generation == loadGeneration else { return }
             let appError = ErrorMapper.map(error)
             routeAuth(appError)
             guard appError != .cancelled else { return }
@@ -86,7 +102,6 @@ final class TodayFoodViewModel {
                 print("[TodayFoodVM] loadToday → FAIL, keeping in-memory data | \(error)")
                 bannerError = appError
             } else if let cached: [FoodEntry] = try? await cacheService?.get("food_today", ignoreTTL: true) {
-                if bailIfCancelled() { return }
                 print("[TodayFoodVM] loadToday → fallback to stale cache (\(cached.count) entries)")
                 state = .loaded(cached)
                 bannerError = appError
@@ -95,12 +110,6 @@ final class TodayFoodViewModel {
                 state = .error(appError)
             }
         }
-    }
-
-    private func bailIfCancelled() -> Bool {
-        guard Task.isCancelled else { return false }
-        if case .loading = state { state = .idle }
-        return true
     }
 
     func reloadAfterMutation() async {
