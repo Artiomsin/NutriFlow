@@ -10,9 +10,12 @@ if (!connectionString) {
   throw new Error('DATABASE_URL is not defined');
 }
 
+const databaseUrl = new URL(connectionString);
+databaseUrl.searchParams.set('statement_timeout', '10000');
+
 const pool = new Pool({
-  connectionString: `${connectionString}?statement_timeout=10000`,
-  max: 20,
+  connectionString: databaseUrl.toString(),
+  max: 5,
   connectionTimeoutMillis: 5000,
   idleTimeoutMillis: 30000,
 });
