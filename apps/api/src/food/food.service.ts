@@ -5,7 +5,6 @@ import { foods } from '../db/schema/foods';
 import { foodServings } from '../db/schema/foodServings';
 import { userFoodStats } from '../db/schema/userFoodStats';
 import { eq, and, sql, desc, or, inArray, type SQL } from 'drizzle-orm';
-import { cacheGet, cacheSet, cacheDelByPrefix, invalidateAnalyticsCache } from '../redis';
 import { DailySummaryService } from '../daily-summary/daily-summary.service';
 import { foodCategories } from '../db/schema/foodCategories';
 import { env } from '../config/env';
@@ -45,7 +44,7 @@ export class FoodService {
 
   private visibilityClause(userId: string) {
     return or(
-      sql`${foods.source} IN ('usda', 'off', 'system')`,
+      sql`${foods.source} IN ('usda', 'system')`,
       and(eq(foods.source, 'user'), eq(foods.createdBy, userId)),
     );
   }
@@ -199,9 +198,6 @@ export class FoodService {
       return entry;
     });
 
-    await invalidateAnalyticsCache(userId);
-    await cacheDelByPrefix(`search:q:${userId}:`);
-
     return result;
   }
 
@@ -282,8 +278,6 @@ export class FoodService {
 
       return { message: 'Deleted' };
     });
-    await invalidateAnalyticsCache(userId);
-
     return result;
   }
 
@@ -554,9 +548,6 @@ export class FoodService {
       }
     });
 
-    await invalidateAnalyticsCache(userId);
-    await cacheDelByPrefix(`search:q:${userId}:`);
-
     const [updated] = await db
       .select()
       .from(foodEntries)
@@ -569,10 +560,10 @@ export class FoodService {
   async getAll(limit = 50, offset = 0, userId?: string) {
     const whereClause = userId
       ? or(
-          sql`${foods.source} IN ('usda', 'off', 'system')`,
+          sql`${foods.source} IN ('usda', 'system')`,
           and(eq(foods.source, 'user'), eq(foods.createdBy, userId)),
         )
-      : sql`${foods.source} IN ('usda', 'off', 'system')`;
+      : sql`${foods.source} IN ('usda', 'system')`;
 
     const rows = await db
       .select({
@@ -670,15 +661,8 @@ export class FoodService {
       .replace(/\s+/g, ' ')
       .trim());
 
-    // Personal cache of the full list (pagination is sliced from it)
-    const cacheKey = `search:q:${userId ?? 'anon'}:${cleanQuery}`;
-    const cached = await cacheGet<OFProduct[]>(cacheKey);
     const required = offset + limit + FoodService.PRELOAD_PAGE_SIZE;
-    const full: OFProduct[] = cached ?? await this.buildSearchResults(cleanQuery, userId, required);
-
-    if (!cached) {
-      await cacheSet(cacheKey, full);
-    }
+    const full = await this.buildSearchResults(cleanQuery, userId, required);
 
     const total = full.length;
     const hasMore = offset + limit < total;
@@ -692,10 +676,10 @@ export class FoodService {
     const term = `%${cleanQuery}%`;
     const visibilityClause = userId
       ? or(
-          sql`${foods.source} IN ('usda', 'off', 'system')`,
+          sql`${foods.source} IN ('usda', 'system')`,
           and(eq(foods.source, 'user'), eq(foods.createdBy, userId)),
         )
-      : sql`${foods.source} IN ('usda', 'off', 'system')`;
+      : sql`${foods.source} IN ('usda', 'system')`;
 
     const localRows = await db
       .select({
@@ -928,6 +912,9 @@ export class FoodService {
       .select()
       .from(foods)
       .where(and(eq(foods.barcode, barcode), this.visibilityClause(userId)))
+      .orderBy(
+        sql`CASE WHEN ${foods.source} = 'user' AND ${foods.createdBy} = ${userId} THEN 0 ELSE 1 END`,
+      )
       .limit(1);
 
     if (!food) return null;
@@ -990,7 +977,6 @@ export class FoodService {
       return { ...food, servings };
     });
 
-    await cacheDelByPrefix(`search:q:${userId}:`);
     return result;
   }
 
@@ -1011,8 +997,6 @@ export class FoodService {
           lastUsedAt: sql`NOW()`,
         },
       });
-
-    await cacheDelByPrefix(`search:q:${userId}:`);
 
     return { ok: true };
   }
@@ -1069,7 +1053,6 @@ export class FoodService {
 
         // Source priority: my own products always float to the top
         if (isMine(item)) score += 100;
-        else if (item.source === 'off') score += 6;
         else if (item.source === 'system') score += 5;
         else if (item.source === 'usda_sr') score += 4;
         else if (item.source === 'usda') score += 3;

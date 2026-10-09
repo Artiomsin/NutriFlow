@@ -3,7 +3,6 @@ import { db } from '../db/db';
 import { weightLogs } from '../db/schema/weightLogs';
 import { userProfiles } from '../db/schema/userProfiles';
 import { eq, and, desc, gte, lte, sql } from 'drizzle-orm';
-import { invalidateAnalyticsCache } from '../redis';
 import { GoalsService } from '../goals/goals.service';
 import type {
   CreateWeightLogDto,
@@ -63,12 +62,10 @@ export class WeightLogsService {
 
         // Custom/personalized targets remain protected by GoalsService; only
         // calculated fields are adjusted for the newly recorded current weight.
-        await this.goalsService.calculate(userId, tx, false);
+        await this.goalsService.calculate(userId, tx);
       }
       return recorded;
     });
-
-    await invalidateAnalyticsCache(userId);
 
     return log;
   }
@@ -140,12 +137,10 @@ export class WeightLogsService {
             .update(userProfiles)
             .set({ weight: Number(previous.weightKg), updatedAt: new Date() })
             .where(eq(userProfiles.userId, userId));
-          await this.goalsService.calculate(userId, tx, false);
+          await this.goalsService.calculate(userId, tx);
         }
       }
     });
-
-    await invalidateAnalyticsCache(userId);
 
     return { message: 'Weight log removed' };
   }

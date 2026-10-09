@@ -16,6 +16,9 @@ export const createWeightLogSchema = z.object({
 export const listWeightLogsSchema = z.object({
   from: dateStringSchema.optional(),
   to: dateStringSchema.optional(),
+}).refine((value) => !value.from || !value.to || value.from <= value.to, {
+  message: 'from must not be after to',
+  path: ['to'],
 });
 
 export const weightLogDateParamSchema = z.object({

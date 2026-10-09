@@ -7,7 +7,9 @@ import {
   jsonb,
   timestamp,
   uniqueIndex,
+  check,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { users } from './users';
 
 const app = pgSchema('app');
@@ -53,6 +55,18 @@ export const userProfiles = app.table(
   (table) => ({
     userIdUnique: uniqueIndex('idx_user_profiles_user_id_unique').on(
       table.userId,
+    ),
+    validMeasurements: check(
+      'user_profiles_valid_measurements',
+      sql`(${table.weight} IS NULL OR (${table.weight} >= 20 AND ${table.weight} <= 400))
+        AND (${table.height} IS NULL OR (${table.height} >= 50 AND ${table.height} <= 300))
+        AND (${table.age} IS NULL OR (${table.age} >= 1 AND ${table.age} <= 120))`,
+    ),
+    allowedValues: check(
+      'user_profiles_allowed_values',
+      sql`(${table.gender} IS NULL OR ${table.gender} IN ('male', 'female'))
+        AND (${table.goal} IS NULL OR ${table.goal} IN ('lose', 'gain', 'maintain'))
+        AND (${table.activityLevel} IS NULL OR ${table.activityLevel} IN ('low', 'medium', 'high'))`,
     ),
   }),
 );

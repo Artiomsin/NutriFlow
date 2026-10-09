@@ -19,8 +19,8 @@ export const preferredUnitsSchema = z.object({
 });
 
 export const createProfileSchema = z.object({
-  weight: z.number().positive(),
-  height: z.number().int().positive(),
+  weight: z.number().finite().min(20).max(400),
+  height: z.number().int().min(50).max(300),
   age: z.number().int().min(1).max(120),
   gender: z.enum(['male', 'female']),
   goal: z.enum(['lose', 'gain', 'maintain']),
@@ -29,7 +29,7 @@ export const createProfileSchema = z.object({
   preferredUnits: preferredUnitsSchema.optional(),
 });
 export const updateProfileSchema = z.object({
-  height: z.number().int().positive().optional(),
+  height: z.number().int().min(50).max(300).optional(),
   age: z.number().int().min(1).max(120).optional(),
   gender: z.enum(['male', 'female']).optional(),
   goal: z.enum(['lose', 'gain', 'maintain']).optional(),

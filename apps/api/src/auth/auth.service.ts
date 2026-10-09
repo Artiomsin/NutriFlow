@@ -7,12 +7,11 @@ import appleSignin from 'apple-signin-auth';
 
 import { db } from '../db/db';
 import { users } from '../db/schema/users';
-import { eq, or } from 'drizzle-orm';
+import { authSessions } from '../db/schema/authSessions';
+import { and, eq, gt, isNull, or } from 'drizzle-orm';
 
 import type { AuthPayload } from './types/auth.types';
 import { env } from '../config/env';
-import { cacheGet, cacheSet, cacheDel, cacheDelByPrefix, scanKeys } from '../redis';
-import { invalidateLocalSession, invalidateAllSessions } from '../session-store';
 
 @Injectable()
 export class AuthService {
@@ -67,7 +66,7 @@ export class AuthService {
   
     const tokens = this.generateTokens(createdUser.id, sessionId);
   
-    await this.saveRefresh(createdUser.id, sessionId, tokens.refreshToken);
+    await this.createSession(createdUser.id, sessionId, tokens.refreshToken);
   
     return tokens;
   }
@@ -91,7 +90,7 @@ export class AuthService {
 
     const tokens = this.generateTokens(user.id, sessionId);
 
-    await this.saveRefresh(user.id, sessionId, tokens.refreshToken);
+    await this.createSession(user.id, sessionId, tokens.refreshToken);
 
     return tokens;
   }
@@ -141,7 +140,7 @@ export class AuthService {
 
     const sessionId = randomUUID();
     const tokens = this.generateTokens(userId, sessionId);
-    await this.saveRefresh(userId, sessionId, tokens.refreshToken);
+    await this.createSession(userId, sessionId, tokens.refreshToken);
 
     return tokens;
   }
@@ -204,7 +203,7 @@ export class AuthService {
         
             const sessionId = randomUUID();
             const tokens = this.generateTokens(userId, sessionId);
-            await this.saveRefresh(userId, sessionId, tokens.refreshToken);
+            await this.createSession(userId, sessionId, tokens.refreshToken);
         
             return tokens;
           }
@@ -217,56 +216,61 @@ export class AuthService {
         { secret: env.JWT_REFRESH_SECRET },
       );
 
-      const key = this.getKey(payload.userId, payload.sessionId);
       const hash = this.hashRefreshToken(refreshToken);
+      const now = new Date();
+      const tokens = this.generateTokens(payload.userId, payload.sessionId);
+      const rotation = await db
+        .update(authSessions)
+        .set({
+          refreshTokenHash: this.hashRefreshToken(tokens.refreshToken),
+          previousRefreshTokenHash: hash,
+          previousValidUntil: new Date(now.getTime() + this.reuseGraceTtl * 1000),
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(authSessions.userId, payload.userId),
+            eq(authSessions.sessionId, payload.sessionId),
+            eq(authSessions.refreshTokenHash, hash),
+            isNull(authSessions.revokedAt),
+            gt(authSessions.expiresAt, now),
+          ),
+        )
+        .returning({ id: authSessions.id });
 
-      const storedHash = await cacheGet<string>(key);
+      if (rotation[0]) return tokens;
 
-      if (!storedHash) throw new UnauthorizedException();
+      const [session] = await db
+        .select({
+          previousRefreshTokenHash: authSessions.previousRefreshTokenHash,
+          previousValidUntil: authSessions.previousValidUntil,
+        })
+        .from(authSessions)
+        .where(
+          and(
+            eq(authSessions.userId, payload.userId),
+            eq(authSessions.sessionId, payload.sessionId),
+            isNull(authSessions.revokedAt),
+          ),
+        )
+        .limit(1);
 
-      if (storedHash === hash) {
-        // Rotation: issue a new pair, remember the previous token and the
-        // issued pair only for a short window accepting a parallel refresh.
-        const tokens = this.generateTokens(payload.userId, payload.sessionId);
-        // The previous refresh hash is kept until the end of the session
-        // life: it lets us tell a replay of an old token after the grace
-        // window apart from an unknown token.
-        await cacheSet(this.getPrevKey(key), storedHash, this.refreshTtl);
-        await cacheSet(this.getUsedKey(key, storedHash), true, this.refreshTtl);
-        await cacheSet(this.getPairKey(key), tokens, this.reuseGraceTtl);
-        await this.saveRefresh(
-          payload.userId,
-          payload.sessionId,
-          tokens.refreshToken,
-        );
-        return tokens;
+      // A duplicate in-flight refresh can arrive after the first request has
+      // rotated the row. Do not revoke a healthy session during this short
+      // grace period; the client should retain the token pair from the first
+      // successful response.
+      if (
+        session?.previousRefreshTokenHash === hash
+        && session.previousValidUntil != null
+        && session.previousValidUntil > now
+      ) {
+        throw new UnauthorizedException('Refresh token was already rotated');
       }
 
-      // The token has already been rotated.
-      const prevHash = await cacheGet<string>(this.getPrevKey(key));
-      if (prevHash === hash) {
-        const pair = await cacheGet<{ accessToken: string; refreshToken: string }>(
-          this.getPairKey(key),
-        );
-        // A repeat of the old token within the short grace window is a
-        // legit race of parallel refreshes: return the same pair.
-        if (pair) return pair;
-
-        // A repeat after the grace window expires is a token compromise
-        // (replay of a rotated refresh). Revoke the whole session.
-        await this.revokeSession(payload.userId, payload.sessionId);
-        throw new UnauthorizedException('refresh token reuse detected');
-      }
-
-      // Any token from an earlier rotation means compromise: hashes of
-      // used refresh tokens live until the end of the session TTL.
-      const wasUsed = await cacheGet<boolean>(this.getUsedKey(key, hash));
-      if (wasUsed) {
-        await this.revokeSession(payload.userId, payload.sessionId);
-        throw new UnauthorizedException('refresh token reuse detected');
-      }
-
-      throw new UnauthorizedException();
+      // A signed refresh token that no longer matches the current hash is a
+      // replay attempt. Revoke its session so it cannot mint more tokens.
+      await this.revokeSession(payload.userId, payload.sessionId);
+      throw new UnauthorizedException('Refresh token is no longer valid');
     } catch {
       throw new UnauthorizedException();
     }
@@ -278,33 +282,54 @@ export class AuthService {
   }
 
   async logoutAll(userId: string) {
-    const keys = await scanKeys(`refresh:${userId}:*`);
-    for (const key of keys) {
-      await cacheDel(key);
-    }
-    invalidateAllSessions(userId);
+    await db
+      .update(authSessions)
+      .set({ revokedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(authSessions.userId, userId), isNull(authSessions.revokedAt)));
     return { message: 'Logged out from all devices' };
   }
 
-  private async revokeSession(userId: string, sessionId: string) {
-    const key = this.getKey(userId, sessionId);
-    await cacheDel(key);
-    await cacheDel(this.getPrevKey(key));
-    await cacheDel(this.getPairKey(key));
-    await cacheDelByPrefix(`${key}:used:`);
-    invalidateLocalSession(userId, sessionId);
+  async isSessionAlive(userId: string, sessionId: string): Promise<boolean> {
+    const [session] = await db
+      .select({ id: authSessions.id })
+      .from(authSessions)
+      .where(
+        and(
+          eq(authSessions.userId, userId),
+          eq(authSessions.sessionId, sessionId),
+          isNull(authSessions.revokedAt),
+          gt(authSessions.expiresAt, new Date()),
+        ),
+      )
+      .limit(1);
+
+    return session !== undefined;
   }
 
-  private async saveRefresh(
+  private async revokeSession(userId: string, sessionId: string) {
+    await db
+      .update(authSessions)
+      .set({ revokedAt: new Date(), updatedAt: new Date() })
+      .where(
+        and(
+          eq(authSessions.userId, userId),
+          eq(authSessions.sessionId, sessionId),
+          isNull(authSessions.revokedAt),
+        ),
+      );
+  }
+
+  private async createSession(
     userId: string,
     sessionId: string,
     refreshToken: string,
   ) {
-    await cacheSet(
-      this.getKey(userId, sessionId),
-      this.hashRefreshToken(refreshToken),
-      this.refreshTtl,
-    );
+    await db.insert(authSessions).values({
+      userId,
+      sessionId,
+      refreshTokenHash: this.hashRefreshToken(refreshToken),
+      expiresAt: new Date(Date.now() + this.refreshTtl * 1000),
+    });
   }
 
   private hashRefreshToken(refreshToken: string) {
@@ -332,22 +357,6 @@ export class AuthService {
     });
 
     return { accessToken, refreshToken };
-  }
-
-  private getKey(userId: string, sessionId: string) {
-    return `refresh:${userId}:${sessionId}`;
-  }
-
-  private getPrevKey(key: string) {
-    return `${key}:prev`;
-  }
-
-  private getPairKey(key: string) {
-    return `${key}:pair`;
-  }
-
-  private getUsedKey(key: string, hash: string) {
-    return `${key}:used:${hash}`;
   }
 
   private refreshTtl = 604800;

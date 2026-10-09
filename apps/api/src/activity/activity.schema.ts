@@ -1,9 +1,8 @@
 import { z } from 'zod';
-
-const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+import { calendarDateSchema } from '../common/validation/date.schema';
 
 export const syncEntrySchema = z.object({
-  date: z.string().regex(dateRegex),
+  date: calendarDateSchema,
   steps: z.number().int().min(0).optional(),
   activeCalories: z.number().int().min(0).optional(),
   basalCalories: z.number().int().min(0).optional(),
@@ -15,12 +14,15 @@ export const syncActivitySchema = z.object({
 });
 
 export const rangeQuerySchema = z.object({
-  from: z.string().regex(dateRegex),
-  to: z.string().regex(dateRegex),
+  from: calendarDateSchema,
+  to: calendarDateSchema,
+}).refine((value) => value.from <= value.to, {
+  message: 'from must not be after to',
+  path: ['to'],
 });
 
 export const optionalDateQuerySchema = z.object({
-  date: z.string().regex(dateRegex).optional(),
+  date: calendarDateSchema.optional(),
 });
 
 export type SyncActivityDto = z.infer<typeof syncActivitySchema>;

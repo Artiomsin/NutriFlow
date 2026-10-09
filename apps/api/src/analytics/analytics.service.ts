@@ -6,30 +6,19 @@ import { userGoals } from '../db/schema/userGoals';
 import { userSleep } from '../db/schema/userSleep';
 import { userWorkouts } from '../db/schema/userWorkouts';
 import { eq, and, gte, lte } from 'drizzle-orm';
-import { cacheGet, cacheSet } from '../redis';
 import { currentUserDate } from '../common/time/user-date';
 
 @Injectable()
 export class AnalyticsService {
   async getAnalytics(userId: string, period: 'week' | 'month') {
-    const cacheKey = `analytics:${userId}:${period}`;
-    const cached = await cacheGet<any>(cacheKey);
-    if (cached) return cached;
     const toDate = await currentUserDate(userId);
     const from = new Date(`${toDate}T12:00:00Z`);
     from.setDate(from.getDate() - (period === 'week' ? 6 : 29));
     const fromDate = this.toDateStr(from);
-    const result = await this.computeAnalytics(userId, fromDate, toDate, period);
-    await cacheSet(cacheKey, result);
-    return result;
+    return this.computeAnalytics(userId, fromDate, toDate, period);
   }
   async getCustomRange(userId: string, from: string, to: string) {
-    const cacheKey = `analytics:${userId}:custom:${from}:${to}`;
-    const cached = await cacheGet<any>(cacheKey);
-    if (cached) return cached;
-    const result = await this.computeAnalytics(userId, from, to, 'custom');
-    await cacheSet(cacheKey, result);
-    return result;
+    return this.computeAnalytics(userId, from, to, 'custom');
   }
   private async computeAnalytics(
     userId: string,

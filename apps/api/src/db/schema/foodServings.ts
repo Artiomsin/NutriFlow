@@ -4,8 +4,10 @@ import {
   varchar,
   integer,
   timestamp,
+  check,
 } from 'drizzle-orm/pg-core';
 import { foods } from './foods';
+import { sql } from 'drizzle-orm';
 
 const app = pgSchema('app');
 
@@ -21,7 +23,12 @@ export const foodServings = app.table('food_servings', {
   grams: integer('grams').notNull(),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (table) => ({
+  validServing: check(
+    'food_servings_valid_serving',
+    sql`char_length(trim(${table.name})) > 0 AND ${table.grams} >= 0 AND ${table.grams} <= 10000`,
+  ),
+}));
 
 export type FoodServing = typeof foodServings.$inferSelect;
 export type NewFoodServing = typeof foodServings.$inferInsert;

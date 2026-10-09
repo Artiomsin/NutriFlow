@@ -4,7 +4,6 @@ import { dailyActivity } from '../db/schema/dailyActivity';
 import { dailySummary } from '../db/schema/dailySummary';
 import { eq, and, sql } from 'drizzle-orm';
 import type { SyncActivityDto } from './activity.schema';
-import { invalidateAnalyticsCache } from '../redis';
 import { currentUserDate } from '../common/time/user-date';
 
 @Injectable()
@@ -36,7 +35,6 @@ export class ActivityService {
           .returning();
       }),
     );
-    await invalidateAnalyticsCache(userId);
     return rows.flat();
   }
 

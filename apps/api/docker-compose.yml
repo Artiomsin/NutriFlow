@@ -12,13 +12,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  redis:
-    image: redis:7-alpine
-    container_name: redis
-    restart: always
-    ports:
-      - "6379:6379"
-
   minio:
     image: quay.io/minio/minio
     container_name: minio

@@ -12,5 +12,16 @@ export const updateGoalsSchema = z.object({
   weeklyWorkoutMinutesGoal: z.number().int().positive().nullable().optional(),
   nightlySleepMinMinutes: z.number().int().positive().nullable().optional(),
   nightlySleepMaxMinutes: z.number().int().positive().nullable().optional(),
+}).refine((value) => {
+  if (
+    value.nightlySleepMinMinutes == null
+    || value.nightlySleepMaxMinutes == null
+  ) {
+    return true;
+  }
+  return value.nightlySleepMinMinutes <= value.nightlySleepMaxMinutes;
+}, {
+  message: 'nightlySleepMinMinutes must not exceed nightlySleepMaxMinutes',
+  path: ['nightlySleepMaxMinutes'],
 });
 export type UpdateGoalsDto = z.infer<typeof updateGoalsSchema>;
