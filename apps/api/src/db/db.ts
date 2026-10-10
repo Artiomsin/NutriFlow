@@ -16,7 +16,7 @@ databaseUrl.searchParams.set('statement_timeout', '10000');
 const pool = new Pool({
   connectionString: databaseUrl.toString(),
   max: 5,
-  connectionTimeoutMillis: 5000,
+  connectionTimeoutMillis: 15000,
   idleTimeoutMillis: 30000,
 });
 

@@ -1,1 +1,0 @@
-ALTER TABLE "app"."foods" ADD COLUMN "brand" varchar(200);
