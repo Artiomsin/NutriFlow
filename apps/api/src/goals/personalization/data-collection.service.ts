@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { db } from '../../db/db';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import type { Db } from '../../db/db';
+import { DB } from '../../db/db.module';
 import { weightLogs } from '../../db/schema/weightLogs';
 import { dailyActivity } from '../../db/schema/dailyActivity';
 import { dailySummary } from '../../db/schema/dailySummary';
@@ -33,8 +34,10 @@ function toDateStr(date: Date): string {
 
 @Injectable()
 export class DataCollectionService {
+  constructor(@Inject(DB) private readonly db: Db) {}
+
   async collect(userId: string): Promise<CollectedData> {
-    const profileRow = await db
+    const profileRow = await this.db
       .select()
       .from(userProfiles)
       .where(eq(userProfiles.userId, userId))
@@ -44,7 +47,7 @@ export class DataCollectionService {
       throw new NotFoundException('Profile not found');
     }
 
-    const goalsRow = await db
+    const goalsRow = await this.db
       .select()
       .from(userGoals)
       .where(eq(userGoals.userId, userId))
@@ -58,7 +61,7 @@ export class DataCollectionService {
 
     const [weightRows, activityRows, summaryRows, workoutRows, sleepRows] =
       await Promise.all([
-        db
+        this.db
           .select()
           .from(weightLogs)
           .where(
@@ -68,7 +71,7 @@ export class DataCollectionService {
               lte(weightLogs.entryDate, periodEnd),
             ),
           ),
-        db
+        this.db
           .select()
           .from(dailyActivity)
           .where(
@@ -78,7 +81,7 @@ export class DataCollectionService {
               lte(dailyActivity.date, periodEnd),
             ),
           ),
-        db
+        this.db
           .select()
           .from(dailySummary)
           .where(
@@ -88,7 +91,7 @@ export class DataCollectionService {
               lte(dailySummary.date, periodEnd),
             ),
           ),
-        db
+        this.db
           .select()
           .from(userWorkouts)
           .where(
@@ -98,7 +101,7 @@ export class DataCollectionService {
               lte(userWorkouts.localDate, periodEnd),
             ),
           ),
-        db
+        this.db
           .select()
           .from(userSleep)
           .where(

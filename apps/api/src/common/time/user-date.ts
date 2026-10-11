@@ -1,9 +1,12 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../../db/db';
+import type { Db } from '../../db/db';
 import { userProfiles } from '../../db/schema/userProfiles';
 
-export async function currentUserDate(userId: string): Promise<string> {
-  const [profile] = await db
+export async function currentUserDate(
+  userId: string,
+  executor: Pick<Db, 'select'>,
+): Promise<string> {
+  const [profile] = await executor
     .select({ timeZone: userProfiles.timeZone })
     .from(userProfiles)
     .where(eq(userProfiles.userId, userId))

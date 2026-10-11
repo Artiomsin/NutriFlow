@@ -6,7 +6,6 @@ import {
   Delete,
   Body,
   UseGuards,
-  UsePipes,
 } from '@nestjs/common';
 
 import { ProfilesService } from './profiles.service';

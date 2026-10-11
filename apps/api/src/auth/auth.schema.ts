@@ -3,7 +3,6 @@ import { z } from 'zod';
 const passwordSchema = z.string().min(6).max(128);
 const nameSchema = z.string().trim().min(1).max(50);
 
-
 export const registerSchema = z.object({
   email: z.string().email().max(120),
   password: passwordSchema,
@@ -30,8 +29,6 @@ export const appleLoginSchema = z.object({
   lastName: nameSchema.optional(),
   nonce: z.string().min(1).max(512).optional(),
 });
-
-
 
 export type RegisterDto = z.infer<typeof registerSchema>;
 export type LoginDto = z.infer<typeof loginSchema>;

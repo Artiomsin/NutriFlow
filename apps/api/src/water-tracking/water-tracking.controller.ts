@@ -7,7 +7,6 @@ import {
   Param,
   Query,
   UseGuards,
-  UsePipes,
   ParseUUIDPipe,
 } from '@nestjs/common';
 
@@ -29,7 +28,6 @@ import { JwtAuthGuard } from '../auth/jwt.guard';
 import { User } from '../auth/decorators/user.decorator';
 import type { AuthPayload } from '../auth/types/auth.types';
 
-
 @Controller('water-tracking')
 export class WaterTrackingController {
   constructor(private readonly waterService: WaterTrackingService) {}
@@ -38,7 +36,8 @@ export class WaterTrackingController {
   @Post()
   create(
     @User() user: AuthPayload,
-    @Body(new ZodValidationPipe(createWaterEntrySchema)) data: CreateWaterEntryDto,
+    @Body(new ZodValidationPipe(createWaterEntrySchema))
+    data: CreateWaterEntryDto,
   ) {
     return this.waterService.create(user.userId, data);
   }
@@ -47,7 +46,8 @@ export class WaterTrackingController {
   @Get('today')
   findToday(
     @User() user: AuthPayload,
-    @Query(new ZodValidationPipe(optionalDateQuerySchema)) query: OptionalDateQueryDto,
+    @Query(new ZodValidationPipe(optionalDateQuerySchema))
+    query: OptionalDateQueryDto,
   ) {
     return this.waterService.getToday(user.userId, query.date);
   }
@@ -56,7 +56,8 @@ export class WaterTrackingController {
   @Get()
   getByDate(
     @User() user: AuthPayload,
-    @Query(new ZodValidationPipe(requiredDateQuerySchema)) query: RequiredDateQueryDto,
+    @Query(new ZodValidationPipe(requiredDateQuerySchema))
+    query: RequiredDateQueryDto,
   ) {
     return this.waterService.getByDate(user.userId, query.date);
   }

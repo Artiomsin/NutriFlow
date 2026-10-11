@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { db } from '../db/db';
+import { Inject, Injectable } from '@nestjs/common';
+import type { Db } from '../db/db';
+import { DB } from '../db/db.module';
 import { dailySummary } from '../db/schema/dailySummary';
 import { dailyActivity } from '../db/schema/dailyActivity';
 import { userGoals } from '../db/schema/userGoals';
@@ -10,8 +11,10 @@ import { currentUserDate } from '../common/time/user-date';
 
 @Injectable()
 export class AnalyticsService {
+  constructor(@Inject(DB) private readonly db: Db) {}
+
   async getAnalytics(userId: string, period: 'week' | 'month') {
-    const toDate = await currentUserDate(userId);
+    const toDate = await currentUserDate(userId, this.db);
     const from = new Date(`${toDate}T12:00:00Z`);
     from.setDate(from.getDate() - (period === 'week' ? 6 : 29));
     const fromDate = this.toDateStr(from);
@@ -26,7 +29,7 @@ export class AnalyticsService {
     toDate: string,
     period: string,
   ) {
-    const days = await db
+    const days = await this.db
       .select()
       .from(dailySummary)
       .where(
@@ -37,19 +40,17 @@ export class AnalyticsService {
         ),
       )
       .orderBy(dailySummary.date);
-    const [goals] = await db
+    const [goals] = await this.db
       .select()
       .from(userGoals)
       .where(eq(userGoals.userId, userId))
       .limit(1);
     const fromMs = new Date(fromDate).getTime();
     const toMs = new Date(toDate).getTime();
-    const totalDays = Math.round(
-      (toMs - fromMs) / (1000 * 60 * 60 * 24),
-    ) + 1;
+    const totalDays = Math.round((toMs - fromMs) / (1000 * 60 * 60 * 24)) + 1;
     const daysTracked = days.length;
 
-    const activityRows = await db
+    const activityRows = await this.db
       .select()
       .from(dailyActivity)
       .where(
@@ -61,7 +62,7 @@ export class AnalyticsService {
       );
 
     const [sleepRows, workoutRows] = await Promise.all([
-      db
+      this.db
         .select()
         .from(userSleep)
         .where(
@@ -71,7 +72,7 @@ export class AnalyticsService {
             lte(userSleep.localDate, toDate),
           ),
         ),
-      db
+      this.db
         .select()
         .from(userWorkouts)
         .where(
@@ -82,56 +83,84 @@ export class AnalyticsService {
           ),
         ),
     ]);
-    const avgCalories = daysTracked > 0
-      ? Math.round(days.reduce((s, d) => s + (d.totalCalories ?? 0), 0) / daysTracked)
-      : 0;
-    const avgProtein = daysTracked > 0
-      ? Math.round(days.reduce((s, d) => s + (d.totalProtein ?? 0), 0) / daysTracked)
-      : 0;
-    const avgWater = daysTracked > 0
-      ? Math.round(days.reduce((s, d) => s + (d.totalWaterMl ?? 0), 0) / daysTracked)
-      : 0;
-    const avgFat = daysTracked > 0
-      ? Math.round(days.reduce((s, d) => s + (d.totalFat ?? 0), 0) / daysTracked)
-      : 0;
-    const avgCarbs = daysTracked > 0
-      ? Math.round(days.reduce((s, d) => s + (d.totalCarbs ?? 0), 0) / daysTracked)
-      : 0;
+    const avgCalories =
+      daysTracked > 0
+        ? Math.round(
+            days.reduce((s, d) => s + (d.totalCalories ?? 0), 0) / daysTracked,
+          )
+        : 0;
+    const avgProtein =
+      daysTracked > 0
+        ? Math.round(
+            days.reduce((s, d) => s + (d.totalProtein ?? 0), 0) / daysTracked,
+          )
+        : 0;
+    const avgWater =
+      daysTracked > 0
+        ? Math.round(
+            days.reduce((s, d) => s + (d.totalWaterMl ?? 0), 0) / daysTracked,
+          )
+        : 0;
+    const avgFat =
+      daysTracked > 0
+        ? Math.round(
+            days.reduce((s, d) => s + (d.totalFat ?? 0), 0) / daysTracked,
+          )
+        : 0;
+    const avgCarbs =
+      daysTracked > 0
+        ? Math.round(
+            days.reduce((s, d) => s + (d.totalCarbs ?? 0), 0) / daysTracked,
+          )
+        : 0;
     const goalCalories = goals?.dailyCaloriesGoal ?? null;
     const goalProtein = goals?.dailyProteinGoal ?? null;
     const goalFat = goals?.dailyFatGoal ?? null;
     const goalCarbs = goals?.dailyCarbsGoal ?? null;
     const goalWater = goals?.dailyWaterGoal ?? null;
-    const goalCaloriesPct = goalCalories && goalCalories > 0
-      ? Math.round((avgCalories / goalCalories) * 100)
-      : null;
-    const goalProteinPct = goalProtein && goalProtein > 0
-      ? Math.round((avgProtein / goalProtein) * 100)
-      : null;
-    const goalFatPct = goalFat && goalFat > 0
-      ? Math.round((avgFat / goalFat) * 100)
-      : null;
-    const goalCarbsPct = goalCarbs && goalCarbs > 0
-      ? Math.round((avgCarbs / goalCarbs) * 100)
-      : null;
-    const goalWaterPct = goalWater && goalWater > 0
-      ? Math.round((avgWater / goalWater) * 100)
-      : null;
+    const goalCaloriesPct =
+      goalCalories && goalCalories > 0
+        ? Math.round((avgCalories / goalCalories) * 100)
+        : null;
+    const goalProteinPct =
+      goalProtein && goalProtein > 0
+        ? Math.round((avgProtein / goalProtein) * 100)
+        : null;
+    const goalFatPct =
+      goalFat && goalFat > 0 ? Math.round((avgFat / goalFat) * 100) : null;
+    const goalCarbsPct =
+      goalCarbs && goalCarbs > 0
+        ? Math.round((avgCarbs / goalCarbs) * 100)
+        : null;
+    const goalWaterPct =
+      goalWater && goalWater > 0
+        ? Math.round((avgWater / goalWater) * 100)
+        : null;
 
-    const avgSteps = activityRows.length > 0
-      ? Math.round(activityRows.reduce((s, d) => s + (d.steps ?? 0), 0) / activityRows.length)
-      : 0;
-    const avgActiveCalories = activityRows.length > 0
-      ? Math.round(activityRows.reduce((s, d) => s + (d.activeCalories ?? 0), 0) / activityRows.length)
-      : 0;
+    const avgSteps =
+      activityRows.length > 0
+        ? Math.round(
+            activityRows.reduce((s, d) => s + (d.steps ?? 0), 0) /
+              activityRows.length,
+          )
+        : 0;
+    const avgActiveCalories =
+      activityRows.length > 0
+        ? Math.round(
+            activityRows.reduce((s, d) => s + (d.activeCalories ?? 0), 0) /
+              activityRows.length,
+          )
+        : 0;
     const goalSteps = goals?.dailyStepsGoal ?? null;
     const goalActiveCalories = goals?.dailyActiveCaloriesGoal ?? null;
-    const goalStepsPct = goalSteps && goalSteps > 0
-      ? Math.round((avgSteps / goalSteps) * 100)
-      : null;
-    const goalActiveCaloriesPct = goalActiveCalories && goalActiveCalories > 0
-      ? Math.round((avgActiveCalories / goalActiveCalories) * 100)
-      : null;
+    const goalStepsPct =
+      goalSteps && goalSteps > 0
+        ? Math.round((avgSteps / goalSteps) * 100)
+        : null;
+    const goalActiveCaloriesPct =
+      goalActiveCalories && goalActiveCalories > 0
+        ? Math.round((avgActiveCalories / goalActiveCalories) * 100)
+        : null;
 
     const sleepMinMinutes = goals?.nightlySleepMinMinutes ?? null;
     const sleepMaxMinutes = goals?.nightlySleepMaxMinutes ?? null;
@@ -147,10 +176,7 @@ export class AnalyticsService {
 
     const workoutsDone = workoutRows.length;
     const workoutMinutes = Math.round(
-      workoutRows.reduce(
-        (s, w) => s + Number(w.durationSeconds) / 60,
-        0,
-      ),
+      workoutRows.reduce((s, w) => s + Number(w.durationSeconds) / 60, 0),
     );
     const streak = this.calculateStreak(days, toDate);
     const trend = this.calculateTrend(days);
@@ -167,16 +193,24 @@ export class AnalyticsService {
         fat: ft,
         carbs: crb,
         water: wat,
-        caloriesPct: goalCalories && goalCalories > 0
-          ? Math.round((cals / goalCalories) * 100) : null,
-        proteinPct: goalProtein && goalProtein > 0
-          ? Math.round((prot / goalProtein) * 100) : null,
-        fatPct: goalFat && goalFat > 0
-          ? Math.round((ft / goalFat) * 100) : null,
-        carbsPct: goalCarbs && goalCarbs > 0
-          ? Math.round((crb / goalCarbs) * 100) : null,
-        waterPct: goalWater && goalWater > 0
-          ? Math.round((wat / goalWater) * 100) : null,
+        caloriesPct:
+          goalCalories && goalCalories > 0
+            ? Math.round((cals / goalCalories) * 100)
+            : null,
+        proteinPct:
+          goalProtein && goalProtein > 0
+            ? Math.round((prot / goalProtein) * 100)
+            : null,
+        fatPct:
+          goalFat && goalFat > 0 ? Math.round((ft / goalFat) * 100) : null,
+        carbsPct:
+          goalCarbs && goalCarbs > 0
+            ? Math.round((crb / goalCarbs) * 100)
+            : null,
+        waterPct:
+          goalWater && goalWater > 0
+            ? Math.round((wat / goalWater) * 100)
+            : null,
       };
     });
     return {
@@ -226,9 +260,7 @@ export class AnalyticsService {
     let count = 0;
     let start = '';
     const today = new Date(`${anchorDate}T12:00:00Z`);
-    const dateSet = new Set(
-      days.map((d) => d.date),
-    );
+    const dateSet = new Set(days.map((d) => d.date));
     for (let i = 0; i < 365; i++) {
       const check = new Date(today);
       check.setDate(check.getDate() - i);
@@ -249,8 +281,12 @@ export class AnalyticsService {
     const mid = Math.floor(days.length / 2);
     const firstHalf = days.slice(0, mid);
     const secondHalf = days.slice(mid);
-    const avgFirst = firstHalf.reduce((s, d) => s + (d.totalCalories ?? 0), 0) / firstHalf.length;
-    const avgSecond = secondHalf.reduce((s, d) => s + (d.totalCalories ?? 0), 0) / secondHalf.length;
+    const avgFirst =
+      firstHalf.reduce((s, d) => s + (d.totalCalories ?? 0), 0) /
+      firstHalf.length;
+    const avgSecond =
+      secondHalf.reduce((s, d) => s + (d.totalCalories ?? 0), 0) /
+      secondHalf.length;
     if (avgFirst === 0) return 'insufficient_data';
     const diff = ((avgSecond - avgFirst) / avgFirst) * 100;
     if (diff > 5) return 'increasing';

@@ -1,1 +1,0 @@
-CREATE UNIQUE INDEX "user_food_stats_user_id_food_id_index" ON "app"."user_food_stats" USING btree ("user_id","food_id");

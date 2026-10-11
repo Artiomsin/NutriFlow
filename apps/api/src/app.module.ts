@@ -1,11 +1,11 @@
-import { Module, RequestMethod } from "@nestjs/common";
-import { ConfigModule } from "@nestjs/config";
-import { LoggerModule } from "nestjs-pino";
+import { Module, RequestMethod } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { LoggerModule } from 'nestjs-pino';
 
-import { DbModule } from "./db/db.module";
-import { UsersModule } from "./users/users.module";
-import { AuthModule } from "./auth/auth.module";
-import { ProfilesModule } from "./profiles/profiles.module";
+import { DbModule } from './db/db.module';
+import { UsersModule } from './users/users.module';
+import { AuthModule } from './auth/auth.module';
+import { ProfilesModule } from './profiles/profiles.module';
 import { FoodModule } from './food/food.module';
 import { WaterTrackingModule } from './water-tracking/water-tracking.module';
 import { DailySummaryModule } from './daily-summary/daily-summary.module';
@@ -19,22 +19,20 @@ import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
-   
     ConfigModule.forRoot({
       isGlobal: true,
     }),
 
-    
     LoggerModule.forRoot({
-      forRoutes: [{ path: "*path", method: RequestMethod.ALL }],
+      forRoutes: [{ path: '*path', method: RequestMethod.ALL }],
       pinoHttp: {
         transport:
-          process.env.NODE_ENV !== "production"
+          process.env.NODE_ENV !== 'production'
             ? {
-                target: "pino-pretty",
+                target: 'pino-pretty',
                 options: {
                   colorize: true,
-                  translateTime: "SYS:standard",
+                  translateTime: 'SYS:standard',
                 },
               }
             : undefined,

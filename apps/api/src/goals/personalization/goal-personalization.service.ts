@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { db } from '../../db/db';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import type { Db } from '../../db/db';
+import { DB } from '../../db/db.module';
 import { userGoals } from '../../db/schema/userGoals';
 import { goalRecommendations } from '../../db/schema/goalRecommendations';
 import { goalHistory } from '../../db/schema/goalHistory';
@@ -20,7 +21,10 @@ export type PersonalizeResult =
 
 @Injectable()
 export class GoalPersonalizationService {
-  constructor(private readonly dataCollection: DataCollectionService) {}
+  constructor(
+    private readonly dataCollection: DataCollectionService,
+    @Inject(DB) private readonly db: Db,
+  ) {}
 
   async personalize(userId: string): Promise<PersonalizeResult> {
     await this.expireOverduePending(userId);
@@ -50,7 +54,7 @@ export class GoalPersonalizationService {
 
     let row: typeof goalRecommendations.$inferSelect;
     try {
-      const [created] = await db
+      const [created] = await this.db
         .insert(goalRecommendations)
         .values({
           userId,
@@ -72,7 +76,8 @@ export class GoalPersonalizationService {
       if (!this.isUniqueViolation(error)) throw error;
 
       const existing = await this.findPending(userId);
-      if (existing) return { status: 'pending_exists', recommendation: existing };
+      if (existing)
+        return { status: 'pending_exists', recommendation: existing };
       throw error;
     }
 
@@ -94,70 +99,70 @@ export class GoalPersonalizationService {
   }
 
   private isUniqueViolation(error: unknown): boolean {
-    return typeof error === 'object'
-      && error !== null
-      && 'code' in error
-      && (error as { code?: unknown }).code === '23505';
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: unknown }).code === '23505'
+    );
   }
 
   async acceptRecommendation(userId: string, recommendationId: string) {
-    const rec = await db
-      .select()
-      .from(goalRecommendations)
-      .where(
-        and(
-          eq(goalRecommendations.id, recommendationId),
-          eq(goalRecommendations.userId, userId),
-        ),
-      )
-      .limit(1);
+    return this.db.transaction(async (tx) => {
+      // Claim the pending recommendation first. The status predicate prevents
+      // concurrent requests from applying the same recommendation twice.
+      const [recRow] = await tx
+        .update(goalRecommendations)
+        .set({ status: 'accepted', acceptedAt: new Date() })
+        .where(
+          and(
+            eq(goalRecommendations.id, recommendationId),
+            eq(goalRecommendations.userId, userId),
+            eq(goalRecommendations.status, 'pending'),
+          ),
+        )
+        .returning();
 
-    const recRow = rec[0];
-    if (!recRow) {
-      throw new NotFoundException('Recommendation not found');
-    }
-    if (recRow.status !== 'pending') {
-      throw new NotFoundException('Recommendation is not pending');
-    }
+      if (!recRow) {
+        throw new NotFoundException('Recommendation is not pending');
+      }
 
-    const previous = recRow.previousGoals;
-    const next = recRow.recommendedGoals;
+      const previous = recRow.previousGoals;
+      const next = recRow.recommendedGoals;
+      const [existing] = await tx
+        .select()
+        .from(userGoals)
+        .where(eq(userGoals.userId, userId))
+        .limit(1);
 
-    const existing = await db
-      .select()
-      .from(userGoals)
-      .where(eq(userGoals.userId, userId))
-      .limit(1);
+      if (existing) {
+        await tx
+          .update(userGoals)
+          .set({ ...this.toGoalFields(next), source: 'personalized' })
+          .where(eq(userGoals.userId, userId));
+      } else {
+        await tx.insert(userGoals).values({
+          userId,
+          ...this.toGoalFields(next),
+          source: 'personalized',
+        });
+      }
 
-    if (existing[0]) {
-      await db
-        .update(userGoals)
-        .set({ ...this.toGoalFields(next), source: 'personalized' })
-        .where(eq(userGoals.userId, userId));
-    } else {
-      await db
-        .insert(userGoals)
-        .values({ userId, ...this.toGoalFields(next), source: 'personalized' });
-    }
+      await recordGoalHistory(
+        userId,
+        previous,
+        next,
+        'personalized',
+        'recommendation_accepted',
+        tx,
+      );
 
-    await recordGoalHistory(
-      userId,
-      previous,
-      next,
-      'personalized',
-      'recommendation_accepted',
-    );
-
-    await db
-      .update(goalRecommendations)
-      .set({ status: 'accepted', acceptedAt: new Date() })
-      .where(eq(goalRecommendations.id, recommendationId));
-
-    return next;
+      return next;
+    });
   }
 
   async dismissRecommendation(userId: string, recommendationId: string) {
-    const rec = await db
+    const rec = await this.db
       .select()
       .from(goalRecommendations)
       .where(
@@ -176,7 +181,7 @@ export class GoalPersonalizationService {
       throw new NotFoundException('Recommendation is not pending');
     }
 
-    await db
+    await this.db
       .update(goalRecommendations)
       .set({ status: 'dismissed', dismissedAt: new Date() })
       .where(eq(goalRecommendations.id, recommendationId));
@@ -185,7 +190,7 @@ export class GoalPersonalizationService {
   }
 
   async getGoalHistory(userId: string) {
-    return db
+    return this.db
       .select()
       .from(goalHistory)
       .where(eq(goalHistory.userId, userId))
@@ -194,7 +199,7 @@ export class GoalPersonalizationService {
   }
 
   private async findPending(userId: string) {
-    const rows = await db
+    const rows = await this.db
       .select()
       .from(goalRecommendations)
       .where(
@@ -209,13 +214,13 @@ export class GoalPersonalizationService {
   }
 
   private async getLastEvaluationAt(userId: string): Promise<Date> {
-    const [goalsRow] = await db
+    const [goalsRow] = await this.db
       .select()
       .from(userGoals)
       .where(eq(userGoals.userId, userId))
       .limit(1);
 
-    const [lastRec] = await db
+    const [lastRec] = await this.db
       .select()
       .from(goalRecommendations)
       .where(eq(goalRecommendations.userId, userId))
@@ -243,7 +248,7 @@ export class GoalPersonalizationService {
   }
 
   private async expireOverduePending(userId: string) {
-    await db
+    await this.db
       .update(goalRecommendations)
       .set({ status: 'expired' })
       .where(

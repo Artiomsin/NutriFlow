@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   ConflictException,
@@ -7,31 +8,35 @@ import {
 import { eq } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
 
-import { db } from '../db/db';
+import type { Db } from '../db/db';
+import { DB } from '../db/db.module';
 import { users } from '../db/schema/users';
 
 import type { UpdateUserDto } from './users.schema';
 
 @Injectable()
 export class UsersService {
+  constructor(@Inject(DB) private readonly db: Db) {}
 
   private toSafeUser(user: typeof users.$inferSelect) {
-    const {
-      passwordHash: _passwordHash,
-      googleId: _googleId,
-      appleId: _appleId,
-      ...safe
-    } = user;
-    return safe;
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      avatarUrl: user.avatarUrl,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
   }
 
   async findOne(id: string) {
-    const user = await db
+    const user = await this.db
       .select()
       .from(users)
       .where(eq(users.id, id))
       .limit(1)
-      .then(r => r[0]);
+      .then((r) => r[0]);
 
     if (!user) {
       throw new NotFoundException('User not found');
@@ -44,12 +49,12 @@ export class UsersService {
     const existing = await this.findOne(userId);
 
     if (data.email && data.email !== existing.email) {
-      const emailTaken = await db
+      const emailTaken = await this.db
         .select()
         .from(users)
         .where(eq(users.email, data.email))
         .limit(1)
-        .then(r => r[0]);
+        .then((r) => r[0]);
 
       if (emailTaken) {
         throw new ConflictException('Email already exists');
@@ -62,7 +67,7 @@ export class UsersService {
       passwordHash = await bcrypt.hash(data.password, 10);
     }
 
-    const result = await db
+    const result = await this.db
       .update(users)
       .set({
         email: data.email ?? existing.email,

@@ -1,8 +1,24 @@
-import { Controller, Get, Post, Delete, Body, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 
 import { WorkoutsService } from './workouts.service';
-import { syncWorkoutsSchema, historyQuerySchema, deleteMissingSchema } from './workouts.schema';
-import type { SyncWorkoutsDto, HistoryQueryDto, DeleteMissingDto } from './workouts.schema';
+import {
+  syncWorkoutsSchema,
+  historyQuerySchema,
+  deleteMissingSchema,
+} from './workouts.schema';
+import type {
+  SyncWorkoutsDto,
+  HistoryQueryDto,
+  DeleteMissingDto,
+} from './workouts.schema';
 
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
 import { JwtAuthGuard } from '../auth/jwt.guard';

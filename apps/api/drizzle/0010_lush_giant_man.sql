@@ -1,1 +1,0 @@
-ALTER TABLE "app"."user_profiles" ADD COLUMN "preferred_units" jsonb DEFAULT '{"weight":"metric","volume":"metric","energy":"kcal"}'::jsonb NOT NULL;

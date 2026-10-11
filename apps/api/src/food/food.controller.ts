@@ -43,7 +43,6 @@ import type {
   RequiredDateQueryDto,
 } from './food.schema';
 
-
 @Controller()
 @UseGuards(JwtAuthGuard)
 export class FoodController {
@@ -55,7 +54,12 @@ export class FoodController {
 
   // ── Upload ───────────────────────────────────────────────────
 
-  private assertImage(file?: { buffer: Buffer; mimetype: string; originalname: string; size: number }) {
+  private assertImage(file?: {
+    buffer: Buffer;
+    mimetype: string;
+    originalname: string;
+    size: number;
+  }) {
     if (!file) throw new BadRequestException('File is required');
     const allowedMimeTypes = new Set([
       'image/jpeg',
@@ -65,26 +69,38 @@ export class FoodController {
       'image/heif',
     ]);
     if (!allowedMimeTypes.has(file.mimetype)) {
-      throw new BadRequestException('Only JPEG, PNG, WebP, and HEIC images are allowed');
+      throw new BadRequestException(
+        'Only JPEG, PNG, WebP, and HEIC images are allowed',
+      );
     }
     return file;
   }
 
   @Post('food/upload')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
   async upload(
-    @UploadedFile() file: { buffer: Buffer; mimetype: string; originalname: string; size: number } | undefined,
+    @UploadedFile()
+    file:
+      | { buffer: Buffer; mimetype: string; originalname: string; size: number }
+      | undefined,
   ) {
     const f = this.assertImage(file);
 
-    const url = await this.uploadService.upload(f.buffer, f.mimetype);
+    const url = await this.uploadService.upload(f.buffer);
     return { url };
   }
 
   @Post('food/analyze')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
   async analyze(
-    @UploadedFile() file: { buffer: Buffer; mimetype: string; originalname: string; size: number } | undefined,
+    @UploadedFile()
+    file:
+      | { buffer: Buffer; mimetype: string; originalname: string; size: number }
+      | undefined,
   ) {
     const f = this.assertImage(file);
     return this.foodAnalysisService.analyzePhoto(f);
@@ -99,7 +115,8 @@ export class FoodController {
 
   @Post('food-categories')
   createCategory(
-    @Body(new ZodValidationPipe(createFoodCategorySchema)) data: CreateFoodCategoryDto,
+    @Body(new ZodValidationPipe(createFoodCategorySchema))
+    data: CreateFoodCategoryDto,
   ) {
     return this.foodService.createCategory(data);
   }
@@ -109,7 +126,8 @@ export class FoodController {
   @Post('food-entry')
   create(
     @User() user: AuthPayload,
-    @Body(new ZodValidationPipe(createFoodEntrySchema)) data: CreateFoodEntryDto,
+    @Body(new ZodValidationPipe(createFoodEntrySchema))
+    data: CreateFoodEntryDto,
   ) {
     return this.foodService.create(user.userId, data);
   }
@@ -117,7 +135,8 @@ export class FoodController {
   @Get('food-entry/today')
   getToday(
     @User() user: AuthPayload,
-    @Query(new ZodValidationPipe(optionalDateQuerySchema)) query: OptionalDateQueryDto,
+    @Query(new ZodValidationPipe(optionalDateQuerySchema))
+    query: OptionalDateQueryDto,
   ) {
     return this.foodService.getToday(user.userId, query.date);
   }
@@ -125,7 +144,8 @@ export class FoodController {
   @Get('food-entry')
   getByDate(
     @User() user: AuthPayload,
-    @Query(new ZodValidationPipe(requiredDateQuerySchema)) query: RequiredDateQueryDto,
+    @Query(new ZodValidationPipe(requiredDateQuerySchema))
+    query: RequiredDateQueryDto,
   ) {
     return this.foodService.getByDate(user.userId, query.date);
   }
@@ -143,7 +163,8 @@ export class FoodController {
   update(
     @User() user: AuthPayload,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body(new ZodValidationPipe(updateFoodEntrySchema)) data: UpdateFoodEntryDto,
+    @Body(new ZodValidationPipe(updateFoodEntrySchema))
+    data: UpdateFoodEntryDto,
   ) {
     return this.foodService.update(user.userId, id, data);
   }
@@ -166,7 +187,8 @@ export class FoodController {
   @Get('foods/search')
   search(
     @User() user: AuthPayload,
-    @Query(new ZodValidationPipe(searchFoodQuerySchema)) query: SearchFoodQueryDto,
+    @Query(new ZodValidationPipe(searchFoodQuerySchema))
+    query: SearchFoodQueryDto,
   ) {
     return this.foodService.search(query, user.userId);
   }
@@ -187,10 +209,7 @@ export class FoodController {
   }
 
   @Post('foods/:id/select')
-  select(
-    @User() user: AuthPayload,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  select(@User() user: AuthPayload, @Param('id', ParseUUIDPipe) id: string) {
     return this.foodService.trackSelection(user.userId, id);
   }
 
@@ -201,5 +220,4 @@ export class FoodController {
   ) {
     return this.foodService.createFood(user.userId, data);
   }
-
 }

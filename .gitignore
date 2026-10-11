@@ -18,6 +18,7 @@ coverage/
 *.lcov
 
 # Environment
+.neon
 .env
 .env.*
 !.env.example

@@ -1,16 +1,17 @@
 import { z } from 'zod';
 
-const timeZoneSchema = z.string().min(1).max(64).refine(
-  (value) => {
+const timeZoneSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .refine((value) => {
     try {
       Intl.DateTimeFormat(undefined, { timeZone: value });
       return true;
     } catch {
       return false;
     }
-  },
-  'Invalid IANA time zone',
-);
+  }, 'Invalid IANA time zone');
 
 export const preferredUnitsSchema = z.object({
   weight: z.enum(['metric', 'imperial']).default('metric'),

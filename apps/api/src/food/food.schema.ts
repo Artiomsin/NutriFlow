@@ -38,7 +38,9 @@ export const updateFoodEntrySchema = createFoodEntrySchema.partial().extend({
 export type CreateFoodEntryDto = z.infer<typeof createFoodEntrySchema>;
 export type UpdateFoodEntryDto = z.infer<typeof updateFoodEntrySchema>;
 
-export const optionalDateQuerySchema = z.object({ date: dateString.optional() });
+export const optionalDateQuerySchema = z.object({
+  date: dateString.optional(),
+});
 export const requiredDateQuerySchema = z.object({ date: dateString });
 export type OptionalDateQueryDto = z.infer<typeof optionalDateQuerySchema>;
 export type RequiredDateQueryDto = z.infer<typeof requiredDateQuerySchema>;

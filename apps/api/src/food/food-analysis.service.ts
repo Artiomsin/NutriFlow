@@ -1,4 +1,10 @@
-import { Injectable, Logger, ServiceUnavailableException, BadGatewayException, GatewayTimeoutException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+  BadGatewayException,
+  GatewayTimeoutException,
+} from '@nestjs/common';
 import { GoogleGenAI } from '@google/genai';
 import sharp from 'sharp';
 import { env } from '../config/env';
@@ -163,7 +169,11 @@ export class FoodAnalysisService {
       error?: { code?: number | string; status?: number | string };
     };
 
-    const raw = anyErr.error?.code ?? anyErr.code ?? anyErr.error?.status ?? anyErr.status;
+    const raw =
+      anyErr.error?.code ??
+      anyErr.code ??
+      anyErr.error?.status ??
+      anyErr.status;
     if (raw == null) return null;
 
     const num = typeof raw === 'number' ? raw : Number(raw);
