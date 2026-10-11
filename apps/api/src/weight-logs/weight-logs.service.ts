@@ -1,5 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { db } from '../db/db';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { DB } from '../db/db.module';
+import type { Db } from '../db/db';
 import { weightLogs } from '../db/schema/weightLogs';
 import { userProfiles } from '../db/schema/userProfiles';
 import { eq, and, desc, gte, lte, sql } from 'drizzle-orm';
@@ -12,10 +18,13 @@ import { formatDateInTimeZone } from '../common/time/user-date';
 
 @Injectable()
 export class WeightLogsService {
-  constructor(private readonly goalsService: GoalsService) {}
+  constructor(
+    @Inject(DB) private readonly db: Db,
+    private readonly goalsService: GoalsService,
+  ) {}
 
   async record(userId: string, data: CreateWeightLogDto) {
-    const log = await db.transaction(async (tx) => {
+    const log = await this.db.transaction(async (tx) => {
       const [profile] = await tx
         .select({ timeZone: userProfiles.timeZone })
         .from(userProfiles)
@@ -80,7 +89,7 @@ export class WeightLogsService {
       conditions.push(lte(weightLogs.entryDate, query.to));
     }
 
-    return db
+    return this.db
       .select({
         id: weightLogs.id,
         weightKg: sql<number>`${weightLogs.weightKg}::float8`,
@@ -93,7 +102,7 @@ export class WeightLogsService {
   }
 
   async remove(userId: string, date: string) {
-    await db.transaction(async (tx) => {
+    await this.db.transaction(async (tx) => {
       const [profile] = await tx
         .select({ timeZone: userProfiles.timeZone })
         .from(userProfiles)
@@ -104,11 +113,15 @@ export class WeightLogsService {
       const [existing] = await tx
         .select({ source: weightLogs.source })
         .from(weightLogs)
-        .where(and(eq(weightLogs.userId, userId), eq(weightLogs.entryDate, date)))
+        .where(
+          and(eq(weightLogs.userId, userId), eq(weightLogs.entryDate, date)),
+        )
         .limit(1);
 
       if (existing?.source === 'initial') {
-        throw new BadRequestException('The initial weight record cannot be deleted');
+        throw new BadRequestException(
+          'The initial weight record cannot be deleted',
+        );
       }
       if (!existing) {
         throw new NotFoundException('Weight record not found');
@@ -117,10 +130,7 @@ export class WeightLogsService {
       await tx
         .delete(weightLogs)
         .where(
-          and(
-            eq(weightLogs.userId, userId),
-            eq(weightLogs.entryDate, date),
-          ),
+          and(eq(weightLogs.userId, userId), eq(weightLogs.entryDate, date)),
         );
 
       const today = formatDateInTimeZone(new Date(), profile.timeZone);
@@ -128,7 +138,12 @@ export class WeightLogsService {
         const [previous] = await tx
           .select({ weightKg: weightLogs.weightKg })
           .from(weightLogs)
-          .where(and(eq(weightLogs.userId, userId), lte(weightLogs.entryDate, today)))
+          .where(
+            and(
+              eq(weightLogs.userId, userId),
+              lte(weightLogs.entryDate, today),
+            ),
+          )
           .orderBy(desc(weightLogs.entryDate))
           .limit(1);
 
@@ -144,5 +159,4 @@ export class WeightLogsService {
 
     return { message: 'Weight log removed' };
   }
-
 }

@@ -1,11 +1,17 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { randomUUID, createHash } from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import appleSignin from 'apple-signin-auth';
 
-import { db } from '../db/db';
+import type { Db } from '../db/db';
+import { DB } from '../db/db.module';
 import { users } from '../db/schema/users';
 import { authSessions } from '../db/schema/authSessions';
 import { and, eq, gt, isNull, or } from 'drizzle-orm';
@@ -17,7 +23,10 @@ import { env } from '../config/env';
 export class AuthService {
   private googleClient = new OAuth2Client(env.GOOGLE_CLIENT_ID);
 
-  constructor(private jwtService: JwtService) {}
+  constructor(
+    private jwtService: JwtService,
+    @Inject(DB) private readonly db: Db,
+  ) {}
 
   async register(data: {
     email: string;
@@ -25,7 +34,7 @@ export class AuthService {
     firstName: string;
     lastName: string;
   }) {
-    const existing = await db
+    const existing = await this.db
       .select()
       .from(users)
       .where(eq(users.email, data.email))
@@ -37,10 +46,10 @@ export class AuthService {
     }
 
     const hash = await bcrypt.hash(data.password, 10);
-  
+
     let user: Array<typeof users.$inferSelect>;
     try {
-      user = await db
+      user = await this.db
         .insert(users)
         .values({
           email: data.email,
@@ -55,25 +64,24 @@ export class AuthService {
       }
       throw error;
     }
-  
+
     const createdUser = user[0];
-  
+
     if (!createdUser) {
       throw new Error('User creation failed');
     }
-  
+
     const sessionId = randomUUID();
-  
+
     const tokens = this.generateTokens(createdUser.id, sessionId);
-  
+
     await this.createSession(createdUser.id, sessionId, tokens.refreshToken);
-  
+
     return tokens;
   }
 
- 
   async login(data: { email: string; password: string }) {
-    const user = await db
+    const user = await this.db
       .select()
       .from(users)
       .where(eq(users.email, data.email))
@@ -113,7 +121,7 @@ export class AuthService {
     const lastName = payload.family_name ?? '';
     const avatarUrl = payload.picture ?? null;
 
-    const existing = await db
+    const existing = await this.db
       .select()
       .from(users)
       .where(or(eq(users.googleId, googleId), eq(users.email, email)))
@@ -124,12 +132,12 @@ export class AuthService {
 
     if (existing) {
       userId = existing.id;
-      await db
+      await this.db
         .update(users)
         .set({ googleId, firstName, lastName, avatarUrl })
         .where(eq(users.id, existing.id));
     } else {
-      const created = await db
+      const created = await this.db
         .insert(users)
         .values({ email, googleId, firstName, lastName, avatarUrl })
         .returning();
@@ -153,62 +161,61 @@ export class AuthService {
   }) {
     let payload: { sub: string; email?: string | null };
     try {
-          payload = await appleSignin.verifyIdToken(data.identityToken, {
-            audience: env.APPLE_CLIENT_ID,
-            ignoreExpiration: false,
-            // The nonce is verified against the one signed into the
-            // identityToken on the client — prevents auth replay.
-            ...(data.nonce ? { nonce: data.nonce } : {}),
-          });
-        } catch {
-          throw new UnauthorizedException('Invalid Apple identity token');
-        }
-        
-        const appleId = payload.sub;
-        const email = payload.email ?? `${appleId}@apple.local`;
+      payload = await appleSignin.verifyIdToken(data.identityToken, {
+        audience: env.APPLE_CLIENT_ID,
+        ignoreExpiration: false,
+        // The nonce is verified against the one signed into the
+        // identityToken on the client — prevents auth replay.
+        ...(data.nonce ? { nonce: data.nonce } : {}),
+      });
+    } catch {
+      throw new UnauthorizedException('Invalid Apple identity token');
+    }
 
-        const existing = await db
-              .select()
-              .from(users)
-              .where(or(eq(users.appleId, appleId), eq(users.email, email)))
-              .limit(1)
-              .then((r) => r[0]);
-        
-            let userId: string;
-        
-            if (existing) {
-              userId = existing.id;
-              await db
-                .update(users)
-                .set({
-                  appleId: existing.appleId ?? appleId,
-                  firstName: data.firstName ?? existing.firstName ?? '',
-                  lastName: data.lastName ?? existing.lastName ?? '',
-                })
-                .where(eq(users.id, existing.id));
-            } else {
-              const created = await db
-                .insert(users)
-                .values({
-                  email,
-                  appleId,
-                  firstName: data.firstName ?? '',
-                  lastName: data.lastName ?? '',
-                })
-                .returning();
-              const createdUser = created[0];
-              if (!createdUser) throw new Error('Failed to create user');
-              userId = createdUser.id;
-            }
-        
-            const sessionId = randomUUID();
-            const tokens = this.generateTokens(userId, sessionId);
-            await this.createSession(userId, sessionId, tokens.refreshToken);
-        
-            return tokens;
-          }
+    const appleId = payload.sub;
+    const email = payload.email ?? `${appleId}@apple.local`;
 
-  
+    const existing = await this.db
+      .select()
+      .from(users)
+      .where(or(eq(users.appleId, appleId), eq(users.email, email)))
+      .limit(1)
+      .then((r) => r[0]);
+
+    let userId: string;
+
+    if (existing) {
+      userId = existing.id;
+      await this.db
+        .update(users)
+        .set({
+          appleId: existing.appleId ?? appleId,
+          firstName: data.firstName ?? existing.firstName ?? '',
+          lastName: data.lastName ?? existing.lastName ?? '',
+        })
+        .where(eq(users.id, existing.id));
+    } else {
+      const created = await this.db
+        .insert(users)
+        .values({
+          email,
+          appleId,
+          firstName: data.firstName ?? '',
+          lastName: data.lastName ?? '',
+        })
+        .returning();
+      const createdUser = created[0];
+      if (!createdUser) throw new Error('Failed to create user');
+      userId = createdUser.id;
+    }
+
+    const sessionId = randomUUID();
+    const tokens = this.generateTokens(userId, sessionId);
+    await this.createSession(userId, sessionId, tokens.refreshToken);
+
+    return tokens;
+  }
+
   async refresh(refreshToken: string) {
     try {
       const payload = await this.jwtService.verifyAsync<AuthPayload>(
@@ -219,12 +226,14 @@ export class AuthService {
       const hash = this.hashRefreshToken(refreshToken);
       const now = new Date();
       const tokens = this.generateTokens(payload.userId, payload.sessionId);
-      const rotation = await db
+      const rotation = await this.db
         .update(authSessions)
         .set({
           refreshTokenHash: this.hashRefreshToken(tokens.refreshToken),
           previousRefreshTokenHash: hash,
-          previousValidUntil: new Date(now.getTime() + this.reuseGraceTtl * 1000),
+          previousValidUntil: new Date(
+            now.getTime() + this.reuseGraceTtl * 1000,
+          ),
           updatedAt: now,
         })
         .where(
@@ -240,7 +249,7 @@ export class AuthService {
 
       if (rotation[0]) return tokens;
 
-      const [session] = await db
+      const [session] = await this.db
         .select({
           previousRefreshTokenHash: authSessions.previousRefreshTokenHash,
           previousValidUntil: authSessions.previousValidUntil,
@@ -260,9 +269,9 @@ export class AuthService {
       // grace period; the client should retain the token pair from the first
       // successful response.
       if (
-        session?.previousRefreshTokenHash === hash
-        && session.previousValidUntil != null
-        && session.previousValidUntil > now
+        session?.previousRefreshTokenHash === hash &&
+        session.previousValidUntil != null &&
+        session.previousValidUntil > now
       ) {
         throw new UnauthorizedException('Refresh token was already rotated');
       }
@@ -282,15 +291,17 @@ export class AuthService {
   }
 
   async logoutAll(userId: string) {
-    await db
+    await this.db
       .update(authSessions)
       .set({ revokedAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(authSessions.userId, userId), isNull(authSessions.revokedAt)));
+      .where(
+        and(eq(authSessions.userId, userId), isNull(authSessions.revokedAt)),
+      );
     return { message: 'Logged out from all devices' };
   }
 
   async isSessionAlive(userId: string, sessionId: string): Promise<boolean> {
-    const [session] = await db
+    const [session] = await this.db
       .select({ id: authSessions.id })
       .from(authSessions)
       .where(
@@ -307,7 +318,7 @@ export class AuthService {
   }
 
   private async revokeSession(userId: string, sessionId: string) {
-    await db
+    await this.db
       .update(authSessions)
       .set({ revokedAt: new Date(), updatedAt: new Date() })
       .where(
@@ -324,7 +335,7 @@ export class AuthService {
     sessionId: string,
     refreshToken: string,
   ) {
-    await db.insert(authSessions).values({
+    await this.db.insert(authSessions).values({
       userId,
       sessionId,
       refreshTokenHash: this.hashRefreshToken(refreshToken),
@@ -337,10 +348,12 @@ export class AuthService {
   }
 
   private isUniqueViolation(error: unknown): boolean {
-    return typeof error === 'object'
-      && error !== null
-      && 'code' in error
-      && (error as { code?: unknown }).code === '23505';
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: unknown }).code === '23505'
+    );
   }
 
   private generateTokens(userId: string, sessionId: string) {

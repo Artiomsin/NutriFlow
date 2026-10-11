@@ -1,10 +1,10 @@
-import { db } from '../db/db';
+import type { Db } from '../db/db';
 import { goalHistory } from '../db/schema/goalHistory';
 import type { GoalTypeValue } from '../db/schema/goalHistory';
 import type { GoalSource } from '../db/schema/userGoals';
 import type { GoalMetrics } from './personalization/types';
 
-type DatabaseExecutor = Pick<typeof db, 'insert'>;
+type DatabaseExecutor = Pick<Db, 'insert'>;
 
 const GOAL_METRICS: Record<keyof GoalMetrics, GoalTypeValue> = {
   dailyCaloriesGoal: 'nutrition',
@@ -65,7 +65,7 @@ export async function recordGoalHistory(
   next: GoalMetrics,
   source: GoalSource,
   reason: string,
-  executor: DatabaseExecutor = db,
+  executor: DatabaseExecutor,
 ) {
   const rows = METRIC_KEYS.filter((key) => previous[key] !== next[key]).map(
     (key) => ({

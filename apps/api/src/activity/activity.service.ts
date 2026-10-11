@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { db } from '../db/db';
+import { Inject, Injectable } from '@nestjs/common';
+import type { Db } from '../db/db';
+import { DB } from '../db/db.module';
 import { dailyActivity } from '../db/schema/dailyActivity';
 import { dailySummary } from '../db/schema/dailySummary';
 import { eq, and, sql } from 'drizzle-orm';
@@ -8,6 +9,7 @@ import { currentUserDate } from '../common/time/user-date';
 
 @Injectable()
 export class ActivityService {
+  constructor(@Inject(DB) private readonly db: Db) {}
 
   async sync(userId: string, dto: SyncActivityDto) {
     const rows = await Promise.all(
@@ -18,9 +20,10 @@ export class ActivityService {
           steps: e.steps ?? 0,
           activeCalories: e.activeCalories ?? 0,
           basalCalories: e.basalCalories ?? 0,
-          distanceMeters: e.distanceMeters != null ? String(e.distanceMeters) : '0',
+          distanceMeters:
+            e.distanceMeters != null ? String(e.distanceMeters) : '0',
         };
-        return db
+        return this.db
           .insert(dailyActivity)
           .values(values)
           .onConflictDoUpdate({
@@ -39,18 +42,25 @@ export class ActivityService {
   }
 
   async getToday(userId: string, dateStr?: string) {
-    const date = dateStr ?? await currentUserDate(userId);
+    const date = dateStr ?? (await currentUserDate(userId, this.db));
     const dateClause = sql`${date}::date`;
-    const [row] = await db
+    const [row] = await this.db
       .select()
       .from(dailyActivity)
-      .where(and(eq(dailyActivity.userId, userId), eq(dailyActivity.date, dateClause)))
+      .where(
+        and(
+          eq(dailyActivity.userId, userId),
+          eq(dailyActivity.date, dateClause),
+        ),
+      )
       .limit(1);
-    return row ?? this.empty(dateStr ? new Date(dateStr + 'T00:00:00') : new Date());
+    return (
+      row ?? this.empty(dateStr ? new Date(dateStr + 'T00:00:00') : new Date())
+    );
   }
 
   async getRange(userId: string, from: string, to: string) {
-    const activity = await db
+    const activity = await this.db
       .select()
       .from(dailyActivity)
       .where(
@@ -62,7 +72,7 @@ export class ActivityService {
       )
       .orderBy(dailyActivity.date);
 
-    const summaries = await db
+    const summaries = await this.db
       .select()
       .from(dailySummary)
       .where(
@@ -103,4 +113,3 @@ export class ActivityService {
     };
   }
 }
-  

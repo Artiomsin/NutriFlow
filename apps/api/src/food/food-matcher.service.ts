@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { db } from '../db/db';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import type { Db } from '../db/db';
+import { DB } from '../db/db.module';
 import { foods } from '../db/schema/foods';
 import { foodCategories } from '../db/schema/foodCategories';
 import { eq, sql } from 'drizzle-orm';
@@ -19,6 +20,8 @@ interface CandidateRow {
 @Injectable()
 export class FoodMatcherService {
   private readonly logger = new Logger(FoodMatcherService.name);
+
+  constructor(@Inject(DB) private readonly db: Db) {}
 
   async matchItems(
     items: FoodAnalysisFoodItem[],
@@ -76,11 +79,13 @@ export class FoodMatcherService {
     });
   }
 
-  private async findMatches(names: string[]): Promise<Map<string, CandidateRow>> {
+  private async findMatches(
+    names: string[],
+  ): Promise<Map<string, CandidateRow>> {
     const clauses = names.map((name) => this.nameClause(name));
     const where = sql`(${sql.join(clauses, sql.raw(' OR '))})`;
 
-    const rows: CandidateRow[] = await db
+    const rows: CandidateRow[] = await this.db
       .select({
         id: foods.id,
         name: foods.name,
@@ -134,7 +139,8 @@ export class FoodMatcherService {
   }
 
   private readinessBonus(fn: string): number {
-    const cooked = /(отварн|варё|варен|приготовлен|готов|тушен|жарен|запечен|пассер|сварен|печен)/;
+    const cooked =
+      /(отварн|варё|варен|приготовлен|готов|тушен|жарен|запечен|пассер|сварен|печен)/;
     const raw = /(сух|сыр|всухом|сухой|всыром|необработанн)/;
     if (cooked.test(fn)) return 15;
     if (raw.test(fn)) return -15;

@@ -1,9 +1,11 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { db } from '../db/db';
+import type { Db } from '../db/db';
+import { DB } from '../db/db.module';
 import { userGoals } from '../db/schema/userGoals';
 import { goalRecommendations } from '../db/schema/goalRecommendations';
 import { userProfiles } from '../db/schema/userProfiles';
@@ -16,12 +18,14 @@ import {
   EMPTY_GOALS_METRICS,
 } from './goals-history';
 
-type DatabaseExecutor = Pick<typeof db, 'select' | 'insert' | 'update'>;
+type DatabaseExecutor = Pick<Db, 'select' | 'insert' | 'update'>;
 
 @Injectable()
 export class GoalsService {
+  constructor(@Inject(DB) private readonly db: Db) {}
+
   async findByUserId(userId: string) {
-    const [goals] = await db
+    const [goals] = await this.db
       .select()
       .from(userGoals)
       .where(eq(userGoals.userId, userId))
@@ -38,7 +42,7 @@ export class GoalsService {
     const existing = await this.findByUserIdSafe(userId);
 
     if (existing) {
-      const [goals] = await db
+      const [goals] = await this.db
         .update(userGoals)
         .set({
           ...data,
@@ -54,11 +58,12 @@ export class GoalsService {
         rowToGoalMetrics(goals),
         'user',
         'user_edit',
+        this.db,
       );
       return goals;
     }
 
-    const [goals] = await db
+    const [goals] = await this.db
       .insert(userGoals)
       .values({
         userId,
@@ -73,13 +78,14 @@ export class GoalsService {
       rowToGoalMetrics(goals),
       'user',
       'user_edit',
+      this.db,
     );
     return goals;
   }
 
   async calculate(
     userId: string,
-    executor: DatabaseExecutor = db,
+    executor: DatabaseExecutor = this.db,
     forceAutomatic = false,
   ) {
     const [profile] = await executor
@@ -200,7 +206,8 @@ export class GoalsService {
           existing.dailyStepsGoal !== merged.dailyStepsGoal ||
           existing.dailyActiveCaloriesGoal !== merged.dailyActiveCaloriesGoal ||
           existing.weeklyWorkoutsGoal !== merged.weeklyWorkoutsGoal ||
-          existing.weeklyWorkoutMinutesGoal !== merged.weeklyWorkoutMinutesGoal ||
+          existing.weeklyWorkoutMinutesGoal !==
+            merged.weeklyWorkoutMinutesGoal ||
           existing.nightlySleepMinMinutes !== merged.nightlySleepMinMinutes ||
           existing.nightlySleepMaxMinutes !== merged.nightlySleepMaxMinutes;
 
@@ -249,7 +256,8 @@ export class GoalsService {
           existing.dailyStepsGoal !== merged.dailyStepsGoal ||
           existing.dailyActiveCaloriesGoal !== merged.dailyActiveCaloriesGoal ||
           existing.weeklyWorkoutsGoal !== merged.weeklyWorkoutsGoal ||
-          existing.weeklyWorkoutMinutesGoal !== merged.weeklyWorkoutMinutesGoal ||
+          existing.weeklyWorkoutMinutesGoal !==
+            merged.weeklyWorkoutMinutesGoal ||
           existing.nightlySleepMinMinutes !== merged.nightlySleepMinMinutes ||
           existing.nightlySleepMaxMinutes !== merged.nightlySleepMaxMinutes;
 
@@ -290,9 +298,7 @@ export class GoalsService {
         rowToGoalMetrics(existing),
         rowToGoalMetrics(goals),
         'initial',
-        forceAutomatic
-          ? 'manual_reset_to_automatic'
-          : 'profile_recalculation',
+        forceAutomatic ? 'manual_reset_to_automatic' : 'profile_recalculation',
         executor,
       );
 
@@ -321,7 +327,7 @@ export class GoalsService {
   }
 
   async resetToAutomatic(userId: string) {
-    return this.calculate(userId, db, true);
+    return this.calculate(userId, this.db, true);
   }
 
   /**
@@ -457,7 +463,7 @@ export class GoalsService {
 
   private async findByUserIdSafe(
     userId: string,
-    executor: Pick<typeof db, 'select'> = db,
+    executor: Pick<Db, 'select'> = this.db,
   ) {
     const [goals] = await executor
       .select()

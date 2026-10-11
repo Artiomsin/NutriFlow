@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { db } from '../db/db';
+import { Inject, Injectable } from '@nestjs/common';
+import type { Db, Transaction } from '../db/db';
+import { DB } from '../db/db.module';
 import { dailySummary } from '../db/schema/dailySummary';
 import { foodEntries } from '../db/schema/foodEntries';
 import { foods } from '../db/schema/foods';
@@ -9,11 +10,9 @@ import { waterEntries } from '../db/schema/waterEntries';
 import { eq, and, sql } from 'drizzle-orm';
 import { currentUserDate } from '../common/time/user-date';
 
-type Db = typeof db;
-type Transaction = Parameters<Parameters<Db['transaction']>[0]>[0];
-
 @Injectable()
 export class DailySummaryService {
+  constructor(@Inject(DB) private readonly db: Db) {}
 
   // The executor lets us apply the delta in the same transaction as the
   // food/water entry change so the summary never drifts from the fact.
@@ -27,14 +26,14 @@ export class DailySummaryService {
       waterMl?: number;
       date?: string;
     },
-    executor: Db | Transaction = db,
+    executor: Db | Transaction = this.db,
   ) {
     const c = delta.calories ?? 0;
     const p = delta.protein ?? 0;
     const f = delta.fat ?? 0;
     const ca = delta.carbs ?? 0;
     const w = delta.waterMl ?? 0;
-    const date = delta.date ?? await currentUserDate(userId);
+    const date = delta.date ?? (await currentUserDate(userId, executor));
     const dateClause = sql`${date}::date`;
 
     if (c === 0 && p === 0 && f === 0 && ca === 0 && w === 0) return;
@@ -82,16 +81,13 @@ export class DailySummaryService {
   }
 
   async findToday(userId: string, dateStr?: string) {
-    const date = dateStr ?? await currentUserDate(userId);
+    const date = dateStr ?? (await currentUserDate(userId, this.db));
     const dateClause = sql`${date}::date`;
-    const [summary] = await db
+    const [summary] = await this.db
       .select()
       .from(dailySummary)
       .where(
-        and(
-          eq(dailySummary.userId, userId),
-          eq(dailySummary.date, dateClause),
-        ),
+        and(eq(dailySummary.userId, userId), eq(dailySummary.date, dateClause)),
       )
       .limit(1);
 
@@ -101,7 +97,7 @@ export class DailySummaryService {
   async findByDate(userId: string, date?: string) {
     if (!date) return this.findToday(userId);
 
-    const [summary] = await db
+    const [summary] = await this.db
       .select()
       .from(dailySummary)
       .where(
@@ -117,7 +113,7 @@ export class DailySummaryService {
   }
 
   async findRange(userId: string, from: string, to: string) {
-    const result = await db
+    const result = await this.db
       .select()
       .from(dailySummary)
       .where(
@@ -133,21 +129,18 @@ export class DailySummaryService {
   }
 
   async findTodayDashboard(userId: string, dateStr?: string) {
-    const date = dateStr ?? await currentUserDate(userId);
+    const date = dateStr ?? (await currentUserDate(userId, this.db));
     const dateClause = sql`${date}::date`;
-    const [summary] = await db
+    const [summary] = await this.db
       .select()
       .from(dailySummary)
       .where(
-        and(
-          eq(dailySummary.userId, userId),
-          eq(dailySummary.date, dateClause),
-        ),
+        and(eq(dailySummary.userId, userId), eq(dailySummary.date, dateClause)),
       )
       .limit(1);
 
     const [food, water] = await Promise.all([
-      db
+      this.db
         .select({
           id: foodEntries.id,
           userId: foodEntries.userId,
@@ -172,7 +165,7 @@ export class DailySummaryService {
             eq(foodEntries.entryDate, dateClause),
           ),
         ),
-      db
+      this.db
         .select()
         .from(waterEntries)
         .where(

@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { db } from '../db/db';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import type { Db } from '../db/db';
+import { DB } from '../db/db.module';
 import { waterEntries } from '../db/schema/waterEntries';
 import { eq, and, sql } from 'drizzle-orm';
 import { DailySummaryService } from '../daily-summary/daily-summary.service';
@@ -8,12 +9,14 @@ import type { CreateWaterEntryDto } from './water-tracking.schema';
 
 @Injectable()
 export class WaterTrackingService {
-
-  constructor(private readonly dailySummaryService: DailySummaryService) {}
+  constructor(
+    private readonly dailySummaryService: DailySummaryService,
+    @Inject(DB) private readonly db: Db,
+  ) {}
 
   async create(userId: string, dto: CreateWaterEntryDto) {
-    const entryDate = dto.date ?? await currentUserDate(userId);
-    const entry = await db.transaction(async (tx) => {
+    const entryDate = dto.date ?? (await currentUserDate(userId, this.db));
+    const entry = await this.db.transaction(async (tx) => {
       const [created] = await tx
         .insert(waterEntries)
         .values({
@@ -36,9 +39,9 @@ export class WaterTrackingService {
   }
 
   async getToday(userId: string, dateStr?: string) {
-    const date = dateStr ?? await currentUserDate(userId);
+    const date = dateStr ?? (await currentUserDate(userId, this.db));
     const dateClause = sql`${date}::date`;
-    return db
+    return this.db
       .select()
       .from(waterEntries)
       .where(
@@ -50,7 +53,7 @@ export class WaterTrackingService {
   }
 
   async getByDate(userId: string, date: string) {
-    return db
+    return this.db
       .select()
       .from(waterEntries)
       .where(
@@ -62,24 +65,22 @@ export class WaterTrackingService {
   }
 
   async delete(userId: string, id: string, date?: string) {
-    const result = await db.transaction(async (tx) => {
+    const result = await this.db.transaction(async (tx) => {
       const [deleted] = await tx
         .delete(waterEntries)
-        .where(
-          and(
-            eq(waterEntries.id, id),
-            eq(waterEntries.userId, userId),
-          ),
-        )
+        .where(and(eq(waterEntries.id, id), eq(waterEntries.userId, userId)))
         .returning();
 
       if (!deleted) {
         throw new NotFoundException('Water entry not found');
       }
 
-      const deletedDate = deleted.entryDate ?? date ?? (deleted.createdAt instanceof Date
-        ? deleted.createdAt.toISOString().split('T')[0]
-        : undefined);
+      const deletedDate =
+        deleted.entryDate ??
+        date ??
+        (deleted.createdAt instanceof Date
+          ? deleted.createdAt.toISOString().split('T')[0]
+          : undefined);
 
       await this.dailySummaryService.adjust(
         userId,
@@ -92,5 +93,4 @@ export class WaterTrackingService {
 
     return result;
   }
-
 }

@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { db } from '../db/db';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import type { Db, Transaction } from '../db/db';
+import { DB } from '../db/db.module';
 import { foodEntries } from '../db/schema/foodEntries';
 import { foods } from '../db/schema/foods';
 import { foodServings } from '../db/schema/foodServings';
@@ -8,11 +9,14 @@ import { eq, and, sql, desc, or, inArray, type SQL } from 'drizzle-orm';
 import { DailySummaryService } from '../daily-summary/daily-summary.service';
 import { foodCategories } from '../db/schema/foodCategories';
 import { env } from '../config/env';
-import type { CreateFoodEntryDto, UpdateFoodEntryDto, CreateFoodDto, CreateFoodCategoryDto, SearchFoodQueryDto } from './food.schema';
+import type {
+  CreateFoodEntryDto,
+  UpdateFoodEntryDto,
+  CreateFoodDto,
+  CreateFoodCategoryDto,
+  SearchFoodQueryDto,
+} from './food.schema';
 import { currentUserDate } from '../common/time/user-date';
-
-type Db = typeof db;
-type Transaction = Parameters<Parameters<Db['transaction']>[0]>[0];
 
 interface OFProduct {
   id: string;
@@ -30,17 +34,27 @@ interface OFProduct {
   createdBy: string | null;
   createdAt: string;
   updatedAt: string;
-  servings?: Array<{ id: string; foodId: string; name: string; grams: number; createdAt: string | null }>;
+  servings?: Array<{
+    id: string;
+    foodId: string;
+    name: string;
+    grams: number;
+    createdAt: string | null;
+  }>;
   score?: number;
   frequency?: number;
 }
 
 @Injectable()
 export class FoodService {
-
   private normalizeCache = new Map<string, string>();
   private readonly NORMALIZE_CACHE_MAX = 500;
-  private static readonly PRELOAD_PAGE_SIZE = 20;  constructor(private readonly dailySummaryService: DailySummaryService) {}
+  private static readonly PRELOAD_PAGE_SIZE = 20;
+
+  constructor(
+    private readonly dailySummaryService: DailySummaryService,
+    @Inject(DB) private readonly db: Db,
+  ) {}
 
   private visibilityClause(userId: string) {
     return or(
@@ -52,7 +66,7 @@ export class FoodService {
   private async findVisibleFood(
     id: string,
     userId: string,
-    executor: Db | Transaction = db,
+    executor: Db | Transaction = this.db,
   ) {
     const [food] = await executor
       .select()
@@ -63,8 +77,8 @@ export class FoodService {
   }
 
   async create(userId: string, data: CreateFoodEntryDto) {
-    const entryDate = data.date ?? await currentUserDate(userId);
-    const result = await db.transaction(async (tx) => {
+    const entryDate = data.date ?? (await currentUserDate(userId, this.db));
+    const result = await this.db.transaction(async (tx) => {
       let foodId = data.foodId;
 
       if (foodId && !(await this.findVisibleFood(foodId, userId, tx))) {
@@ -202,9 +216,9 @@ export class FoodService {
   }
 
   async getToday(userId: string, dateStr?: string) {
-    const date = dateStr ?? await currentUserDate(userId);
+    const date = dateStr ?? (await currentUserDate(userId, this.db));
     const dateClause = sql`${date}::date`;
-    return db
+    return this.db
       .select({
         id: foodEntries.id,
         userId: foodEntries.userId,
@@ -234,7 +248,7 @@ export class FoodService {
   }
 
   async getByDate(userId: string, date: string) {
-    return db
+    return this.db
       .select()
       .from(foodEntries)
       .where(
@@ -246,24 +260,22 @@ export class FoodService {
   }
 
   async delete(userId: string, id: string, date?: string) {
-    const result = await db.transaction(async (tx) => {
+    const result = await this.db.transaction(async (tx) => {
       const [deleted] = await tx
         .delete(foodEntries)
-        .where(
-          and(
-            eq(foodEntries.id, id),
-            eq(foodEntries.userId, userId),
-          ),
-        )
+        .where(and(eq(foodEntries.id, id), eq(foodEntries.userId, userId)))
         .returning();
 
       if (!deleted) {
         throw new NotFoundException('Food entry not found');
       }
 
-      const deletedDate = deleted.entryDate ?? date ?? (deleted.createdAt instanceof Date
-        ? deleted.createdAt.toISOString().split('T')[0]
-        : undefined);
+      const deletedDate =
+        deleted.entryDate ??
+        date ??
+        (deleted.createdAt instanceof Date
+          ? deleted.createdAt.toISOString().split('T')[0]
+          : undefined);
       await this.dailySummaryService.adjust(
         userId,
         {
@@ -282,7 +294,7 @@ export class FoodService {
   }
 
   async update(userId: string, id: string, data: UpdateFoodEntryDto) {
-    const [existing] = await db
+    const [existing] = await this.db
       .select()
       .from(foodEntries)
       .where(and(eq(foodEntries.id, id), eq(foodEntries.userId, userId)))
@@ -299,7 +311,8 @@ export class FoodService {
     let newProtein = existing.protein ?? 0;
     let newFat = existing.fat ?? 0;
     let newCarbs = existing.carbs ?? 0;
-    let newEntryDate: string | SQL<unknown> = data.date ?? existing.entryDate ?? sql`CURRENT_DATE`;
+    let newEntryDate: string | SQL<unknown> =
+      data.date ?? existing.entryDate ?? sql`CURRENT_DATE`;
     let newImageUrl = data.imageUrl ?? existing.imageUrl;
     let newUnit = data.unit ?? existing.unit;
 
@@ -319,13 +332,37 @@ export class FoodService {
       newCarbs = Math.round((existing.carbs ?? 0) * ratio);
     }
 
-    const [originalFood] = existing.foodId && !data.foodId
-      ? await db.select().from(foods).where(eq(foods.id, existing.foodId)).limit(1)
-      : [undefined];
-    const isUserFood = originalFood?.source === 'user' && originalFood?.createdBy === userId;
-    const needsFork = !!(originalFood && !isUserFood && !data.foodId && data.name);
+    const [originalFood] =
+      existing.foodId && !data.foodId
+        ? await this.db
+            .select()
+            .from(foods)
+            .where(eq(foods.id, existing.foodId))
+            .limit(1)
+        : [undefined];
+    const isUserFood =
+      originalFood?.source === 'user' && originalFood?.createdBy === userId;
+    const needsFork = !!(
+      originalFood &&
+      !isUserFood &&
+      !data.foodId &&
+      data.name
+    );
 
-    const needTransaction = !!(data.name || data.foodId || data.grams !== undefined || data.calories !== undefined || data.protein !== undefined || data.fat !== undefined || data.carbs !== undefined || data.imageUrl || data.date || data.unit !== undefined || data.categoryName !== undefined || needsFork);
+    const needTransaction = !!(
+      data.name ||
+      data.foodId ||
+      data.grams !== undefined ||
+      data.calories !== undefined ||
+      data.protein !== undefined ||
+      data.fat !== undefined ||
+      data.carbs !== undefined ||
+      data.imageUrl ||
+      data.date ||
+      data.unit !== undefined ||
+      data.categoryName !== undefined ||
+      needsFork
+    );
 
     if (data.foodId) {
       if (!(await this.findVisibleFood(data.foodId, userId))) {
@@ -334,7 +371,7 @@ export class FoodService {
       newFoodId = data.foodId;
     }
 
-    await db.transaction(async (tx) => {
+    await this.db.transaction(async (tx) => {
       if (needTransaction) {
         if (data.name && !data.foodId) {
           const [matched] = await tx
@@ -377,10 +414,13 @@ export class FoodService {
           if (food) {
             const g = newGrams ?? 100;
             const ratio = g > 0 ? g / 100 : 1;
-            newCalories = data.calories ?? Math.round(food.caloriesPer100g * ratio);
-            newProtein = data.protein ?? Math.round((food.proteinPer100g ?? 0) * ratio);
+            newCalories =
+              data.calories ?? Math.round(food.caloriesPer100g * ratio);
+            newProtein =
+              data.protein ?? Math.round((food.proteinPer100g ?? 0) * ratio);
             newFat = data.fat ?? Math.round((food.fatPer100g ?? 0) * ratio);
-            newCarbs = data.carbs ?? Math.round((food.carbsPer100g ?? 0) * ratio);
+            newCarbs =
+              data.carbs ?? Math.round((food.carbsPer100g ?? 0) * ratio);
 
             if (needsFork && food.source !== 'user') {
               const per100gRatio = g > 0 ? 100 / g : 1;
@@ -402,20 +442,42 @@ export class FoodService {
                 .returning();
 
               newFoodId = forked!.id;
-            } else if (newFoodId === existing.foodId && food.source === 'user' && food.createdBy === userId) {
+            } else if (
+              newFoodId === existing.foodId &&
+              food.source === 'user' &&
+              food.createdBy === userId
+            ) {
               const foodUpdates: Record<string, unknown> = {};
               if (data.name) foodUpdates.name = data.name;
               if (data.imageUrl) foodUpdates.imageUrl = data.imageUrl;
-              if (data.calories !== undefined || data.protein !== undefined || data.fat !== undefined || data.carbs !== undefined) {
+              if (
+                data.calories !== undefined ||
+                data.protein !== undefined ||
+                data.fat !== undefined ||
+                data.carbs !== undefined
+              ) {
                 const per100gRatio = g > 0 ? 100 / g : 1;
-                if (data.calories !== undefined) foodUpdates.caloriesPer100g = Math.round(newCalories * per100gRatio);
-                if (data.protein !== undefined) foodUpdates.proteinPer100g = Math.round(newProtein * per100gRatio);
-                if (data.fat !== undefined) foodUpdates.fatPer100g = Math.round(newFat * per100gRatio);
-                if (data.carbs !== undefined) foodUpdates.carbsPer100g = Math.round(newCarbs * per100gRatio);
+                if (data.calories !== undefined)
+                  foodUpdates.caloriesPer100g = Math.round(
+                    newCalories * per100gRatio,
+                  );
+                if (data.protein !== undefined)
+                  foodUpdates.proteinPer100g = Math.round(
+                    newProtein * per100gRatio,
+                  );
+                if (data.fat !== undefined)
+                  foodUpdates.fatPer100g = Math.round(newFat * per100gRatio);
+                if (data.carbs !== undefined)
+                  foodUpdates.carbsPer100g = Math.round(
+                    newCarbs * per100gRatio,
+                  );
               }
               if (Object.keys(foodUpdates).length > 0) {
                 foodUpdates.updatedAt = new Date();
-                await tx.update(foods).set(foodUpdates).where(eq(foods.id, existing.foodId));
+                await tx
+                  .update(foods)
+                  .set(foodUpdates)
+                  .where(eq(foods.id, existing.foodId));
               }
             }
           }
@@ -501,9 +563,7 @@ export class FoodService {
             protein: newProtein,
             fat: newFat,
             carbs: newCarbs,
-            date: typeof newEntryDate === 'string'
-              ? newEntryDate
-              : undefined,
+            date: typeof newEntryDate === 'string' ? newEntryDate : undefined,
           },
           tx,
         );
@@ -515,40 +575,55 @@ export class FoodService {
             protein: protDelta,
             fat: fatDelta,
             carbs: carbsDelta,
-            date: typeof newEntryDate === 'string'
-              ? newEntryDate
-              : undefined,
+            date: typeof newEntryDate === 'string' ? newEntryDate : undefined,
           },
           tx,
         );
       }
 
       if (data.categoryName !== undefined && newFoodId) {
-        const [food] = await tx.select().from(foods).where(eq(foods.id, newFoodId)).limit(1);
+        const [food] = await tx
+          .select()
+          .from(foods)
+          .where(eq(foods.id, newFoodId))
+          .limit(1);
 
         // Never alter a shared catalog product. A forked or user-owned food
         // may either receive a category name or be explicitly uncategorized.
         if (food && food.source === 'user' && food.createdBy === userId) {
           if (data.categoryName === null) {
-            await tx.update(foods).set({ categoryId: null }).where(eq(foods.id, newFoodId));
+            await tx
+              .update(foods)
+              .set({ categoryId: null })
+              .where(eq(foods.id, newFoodId));
           } else {
             const [cat] = await tx
               .insert(foodCategories)
               .values({ name: data.categoryName })
               .onConflictDoNothing({ target: foodCategories.name })
               .returning();
-            const categoryId = cat?.id
-              ?? (await tx.select().from(foodCategories).where(eq(foodCategories.name, data.categoryName)).limit(1))[0]?.id;
+            const categoryId =
+              cat?.id ??
+              (
+                await tx
+                  .select()
+                  .from(foodCategories)
+                  .where(eq(foodCategories.name, data.categoryName))
+                  .limit(1)
+              )[0]?.id;
 
             if (categoryId) {
-              await tx.update(foods).set({ categoryId }).where(eq(foods.id, newFoodId));
+              await tx
+                .update(foods)
+                .set({ categoryId })
+                .where(eq(foods.id, newFoodId));
             }
           }
         }
       }
     });
 
-    const [updated] = await db
+    const [updated] = await this.db
       .select()
       .from(foodEntries)
       .where(eq(foodEntries.id, id))
@@ -565,7 +640,7 @@ export class FoodService {
         )
       : sql`${foods.source} IN ('usda', 'system')`;
 
-    const rows = await db
+    const rows = await this.db
       .select({
         food: foods,
         categoryId: foodCategories.id,
@@ -579,9 +654,15 @@ export class FoodService {
       .limit(limit)
       .offset(offset);
 
-    const catMap = new Map<string, {
-      id: string; name: string; icon: string | null; foods: typeof foods.$inferSelect[];
-    }>();
+    const catMap = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        icon: string | null;
+        foods: (typeof foods.$inferSelect)[];
+      }
+    >();
 
     for (const row of rows) {
       const key = row.categoryId ?? '';
@@ -604,11 +685,11 @@ export class FoodService {
   // ── Food Categories ──────────────────────────────────────────
 
   async getCategories() {
-    return db.select().from(foodCategories).orderBy(foodCategories.name);
+    return this.db.select().from(foodCategories).orderBy(foodCategories.name);
   }
 
   async createCategory(data: CreateFoodCategoryDto) {
-    const [category] = await db
+    const [category] = await this.db
       .insert(foodCategories)
       .values({ name: data.name, icon: data.icon })
       .onConflictDoNothing({ target: foodCategories.name })
@@ -616,7 +697,7 @@ export class FoodService {
 
     if (category) return category;
 
-    const [existing] = await db
+    const [existing] = await this.db
       .select()
       .from(foodCategories)
       .where(eq(foodCategories.name, data.name))
@@ -639,12 +720,12 @@ export class FoodService {
       const rawUnit = (weightMatch[3] ?? '').toLowerCase();
 
       const unitMap: Record<string, { mul: number; display: string }> = {
-        'g': { mul: 1, display: 'g' },
-        'kg': { mul: 1000, display: 'g' },
-        'ml': { mul: 1, display: 'ml' },
-        'l': { mul: 1000, display: 'ml' },
-        'oz': { mul: 28.35, display: 'g' },
-        'lb': { mul: 453.6, display: 'g' },
+        g: { mul: 1, display: 'g' },
+        kg: { mul: 1000, display: 'g' },
+        ml: { mul: 1, display: 'ml' },
+        l: { mul: 1000, display: 'ml' },
+        oz: { mul: 28.35, display: 'g' },
+        lb: { mul: 453.6, display: 'g' },
       };
 
       const conversion = unitMap[rawUnit];
@@ -655,11 +736,13 @@ export class FoodService {
     }
 
     // Clean query (weight is stripped from the search)
-    const cleanQuery = (q.toLowerCase().trim()
+    const cleanQuery = q
+      .toLowerCase()
+      .trim()
       .replace(/\b\d+([.,]\d+)?\s?(г|g|kg|ml|l|oz|lb)\b/gi, '')
       .replace(/[^\p{L}\p{N}\s]/gu, ' ')
       .replace(/\s+/g, ' ')
-      .trim());
+      .trim();
 
     const required = offset + limit + FoodService.PRELOAD_PAGE_SIZE;
     const full = await this.buildSearchResults(cleanQuery, userId, required);
@@ -668,11 +751,23 @@ export class FoodService {
     const hasMore = offset + limit < total;
     const foods = full.slice(offset, offset + limit);
 
-    return { foods, suggestedGrams, suggestedUnit, total, offset, limit, hasMore };
+    return {
+      foods,
+      suggestedGrams,
+      suggestedUnit,
+      total,
+      offset,
+      limit,
+      hasMore,
+    };
   }
 
   /** Full ranked list; fetches more from USDA when local results are few */
-  private async buildSearchResults(cleanQuery: string, userId?: string, required = 40): Promise<OFProduct[]> {
+  private async buildSearchResults(
+    cleanQuery: string,
+    userId?: string,
+    required = 40,
+  ): Promise<OFProduct[]> {
     const term = `%${cleanQuery}%`;
     const visibilityClause = userId
       ? or(
@@ -681,7 +776,7 @@ export class FoodService {
         )
       : sql`${foods.source} IN ('usda', 'system')`;
 
-    const localRows = await db
+    const localRows = await this.db
       .select({
         food: foods,
         categoryName: foodCategories.name,
@@ -702,7 +797,7 @@ export class FoodService {
     const localIds = localRows.map((r) => r.food.id);
 
     const localServings = localIds.length
-      ? await db
+      ? await this.db
           .select()
           .from(foodServings)
           .where(inArray(foodServings.foodId, localIds))
@@ -711,10 +806,18 @@ export class FoodService {
     // How often this user picks each item — used for ranking
     const freqMap = new Map<string, number>();
     if (userId && localIds.length) {
-      const stats = await db
-        .select({ foodId: userFoodStats.foodId, frequency: userFoodStats.frequency })
+      const stats = await this.db
+        .select({
+          foodId: userFoodStats.foodId,
+          frequency: userFoodStats.frequency,
+        })
         .from(userFoodStats)
-        .where(and(eq(userFoodStats.userId, userId), inArray(userFoodStats.foodId, localIds)));
+        .where(
+          and(
+            eq(userFoodStats.userId, userId),
+            inArray(userFoodStats.foodId, localIds),
+          ),
+        );
       for (const s of stats) freqMap.set(s.foodId, s.frequency ?? 0);
     }
 
@@ -734,8 +837,14 @@ export class FoodService {
         imageUrl: f.imageUrl,
         source: f.source,
         createdBy: f.createdBy,
-        createdAt: f.createdAt instanceof Date ? f.createdAt.toISOString() : String(f.createdAt),
-        updatedAt: f.updatedAt instanceof Date ? f.updatedAt.toISOString() : String(f.updatedAt),
+        createdAt:
+          f.createdAt instanceof Date
+            ? f.createdAt.toISOString()
+            : String(f.createdAt),
+        updatedAt:
+          f.updatedAt instanceof Date
+            ? f.updatedAt.toISOString()
+            : String(f.updatedAt),
         frequency: freqMap.get(f.id) ?? 0,
         servings: localServings
           .filter((s) => s.foodId === f.id)
@@ -744,7 +853,8 @@ export class FoodService {
             foodId: s.foodId,
             name: s.name,
             grams: s.grams,
-            createdAt: s.createdAt instanceof Date ? s.createdAt.toISOString() : null,
+            createdAt:
+              s.createdAt instanceof Date ? s.createdAt.toISOString() : null,
           })),
       };
     });
@@ -763,8 +873,10 @@ export class FoodService {
       this.searchUSDA(cleanQuery, 25, 'Branded'),
     ]);
 
-    const srItems: OFProduct[] = srLegacyRes.status === 'fulfilled' ? srLegacyRes.value : [];
-    const brandedItems: OFProduct[] = brandedRes.status === 'fulfilled' ? brandedRes.value : [];
+    const srItems: OFProduct[] =
+      srLegacyRes.status === 'fulfilled' ? srLegacyRes.value : [];
+    const brandedItems: OFProduct[] =
+      brandedRes.status === 'fulfilled' ? brandedRes.value : [];
 
     const allUsda = [...srItems, ...brandedItems];
 
@@ -803,10 +915,7 @@ export class FoodService {
 
   private normalizeKey(name: string): string {
     return this.normalize(name)
-      .replace(
-        /\b(cheese|food|product|pack|piece|slices|slice|block)\b/g,
-        '',
-      )
+      .replace(/\b(cheese|food|product|pack|piece|slices|slice|block)\b/g, '')
       .replace(/\s+/g, ' ')
       .trim();
   }
@@ -824,7 +933,9 @@ export class FoodService {
   private async rateLimitedFetch(url: string): Promise<Response> {
     const prev = this.usdaQueue;
     let done: () => void;
-    this.usdaQueue = new Promise((r) => { done = r; });
+    this.usdaQueue = new Promise((r) => {
+      done = r;
+    });
     await prev;
     await new Promise((r) => setTimeout(r, 250));
     try {
@@ -834,7 +945,11 @@ export class FoodService {
     }
   }
 
-  private async searchUSDA(query: string, pageSize: number, dataType: string): Promise<OFProduct[]> {
+  private async searchUSDA(
+    query: string,
+    pageSize: number,
+    dataType: string,
+  ): Promise<OFProduct[]> {
     const url = new URL('https://api.nal.usda.gov/fdc/v1/foods/search');
     url.searchParams.set('api_key', env.USDA_API_KEY);
     url.searchParams.set('query', query);
@@ -843,11 +958,13 @@ export class FoodService {
 
     const res = await this.rateLimitedFetch(url.toString());
     if (!res.ok) {
-      console.error(`[USDA] ${dataType} returned ${res.status}: ${res.statusText}`);
+      console.error(
+        `[USDA] ${dataType} returned ${res.status}: ${res.statusText}`,
+      );
       return [];
     }
 
-    const body = await res.json() as {
+    const body = (await res.json()) as {
       foods?: Array<{
         fdcId: number;
         description: string;
@@ -893,7 +1010,7 @@ export class FoodService {
   }
 
   async getPopular(userId: string) {
-    const results = await db
+    const results = await this.db
       .select({
         food: foods,
         frequency: userFoodStats.frequency,
@@ -908,7 +1025,7 @@ export class FoodService {
   }
 
   async getByBarcode(barcode: string, userId: string) {
-    const [food] = await db
+    const [food] = await this.db
       .select()
       .from(foods)
       .where(and(eq(foods.barcode, barcode), this.visibilityClause(userId)))
@@ -919,7 +1036,7 @@ export class FoodService {
 
     if (!food) return null;
 
-    const servings = await db
+    const servings = await this.db
       .select()
       .from(foodServings)
       .where(eq(foodServings.foodId, food.id));
@@ -931,7 +1048,7 @@ export class FoodService {
     const food = await this.findVisibleFood(id, userId);
     if (!food) throw new NotFoundException('Food not found');
 
-    const servings = await db
+    const servings = await this.db
       .select()
       .from(foodServings)
       .where(eq(foodServings.foodId, id));
@@ -940,21 +1057,21 @@ export class FoodService {
   }
 
   async createFood(userId: string, data: CreateFoodDto) {
-    const result = await db.transaction(async (tx) => {
+    const result = await this.db.transaction(async (tx) => {
       const [food] = await tx
         .insert(foods)
         .values({
-        name: data.name,
-        categoryId: data.categoryId,
-        caloriesPer100g: Math.round(data.caloriesPer100g),
-        proteinPer100g: Math.round(data.proteinPer100g ?? 0),
-        fatPer100g: Math.round(data.fatPer100g ?? 0),
-        carbsPer100g: Math.round(data.carbsPer100g ?? 0),
-        barcode: data.barcode,
-        imageUrl: data.imageUrl,
-        source: 'user',
-        createdBy: userId,
-      })
+          name: data.name,
+          categoryId: data.categoryId,
+          caloriesPer100g: Math.round(data.caloriesPer100g),
+          proteinPer100g: Math.round(data.proteinPer100g ?? 0),
+          fatPer100g: Math.round(data.fatPer100g ?? 0),
+          carbsPer100g: Math.round(data.carbsPer100g ?? 0),
+          barcode: data.barcode,
+          imageUrl: data.imageUrl,
+          source: 'user',
+          createdBy: userId,
+        })
         .returning();
 
       if (!food) throw new Error('Failed to create food');
@@ -987,7 +1104,7 @@ export class FoodService {
 
     if (!food) throw new NotFoundException('Food not found');
 
-    await db
+    await this.db
       .insert(userFoodStats)
       .values({ userId, foodId, frequency: 1 })
       .onConflictDoUpdate({
@@ -1040,7 +1157,11 @@ export class FoodService {
 
   // ── Ranking ────────────────────────────────────────────────
 
-  private rank(items: OFProduct[], query: string, userId?: string): OFProduct[] {
+  private rank(
+    items: OFProduct[],
+    query: string,
+    userId?: string,
+  ): OFProduct[] {
     const qLower = query.toLowerCase();
     const qWords = qLower.split(/\s+/).filter((w) => w.length > 0);
     const isMine = (item: OFProduct) =>
@@ -1068,7 +1189,9 @@ export class FoodService {
         else if (nameLower.includes(qLower)) score += 10;
 
         for (const qw of qWords) {
-          if (nameLower.split(/\s+/).some((nw) => nw === qw || nw.startsWith(qw))) {
+          if (
+            nameLower.split(/\s+/).some((nw) => nw === qw || nw.startsWith(qw))
+          ) {
             score += 0.5;
           }
         }

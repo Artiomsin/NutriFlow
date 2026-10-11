@@ -1,31 +1,27 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
-import { db } from '../db/db';
+import type { Db } from '../db/db';
+import { DB } from '../db/db.module';
 import { userProfiles } from '../db/schema/userProfiles';
 import { eq } from 'drizzle-orm';
 import { GoalsService } from '../goals/goals.service';
 import { weightLogs } from '../db/schema/weightLogs';
 import { formatDateInTimeZone } from '../common/time/user-date';
 
-import type {
-  CreateProfileDto,
-  UpdateProfileDto,
-} from './profiles.schema';
+import type { CreateProfileDto, UpdateProfileDto } from './profiles.schema';
 
 @Injectable()
 export class ProfilesService {
   constructor(
     private goalsService: GoalsService,
+    @Inject(DB) private readonly db: Db,
   ) {}
-  
+
   async create(data: CreateProfileDto & { userId: string }) {
     const timeZone = data.timeZone ?? 'UTC';
     const initialDate = formatDateInTimeZone(new Date(), timeZone);
 
-    const result = await db.transaction(async (tx) => {
+    const result = await this.db.transaction(async (tx) => {
       const [profile] = await tx
         .insert(userProfiles)
         .values({
@@ -37,7 +33,11 @@ export class ProfilesService {
           goal: data.goal,
           activityLevel: data.activityLevel,
           timeZone,
-          preferredUnits: data.preferredUnits ?? { weight: 'metric', volume: 'metric', energy: 'kcal' },
+          preferredUnits: data.preferredUnits ?? {
+            weight: 'metric',
+            volume: 'metric',
+            energy: 'kcal',
+          },
         })
         .onConflictDoNothing({ target: userProfiles.userId })
         .returning();
@@ -79,7 +79,7 @@ export class ProfilesService {
   }
 
   async updateByUserId(userId: string, data: UpdateProfileDto) {
-    const profile = await db.transaction(async (tx) => {
+    const profile = await this.db.transaction(async (tx) => {
       const [existing] = await tx
         .select()
         .from(userProfiles)
@@ -98,7 +98,8 @@ export class ProfilesService {
           goal: data.goal ?? existing.goal,
           activityLevel: data.activityLevel ?? existing.activityLevel,
           timeZone: data.timeZone ?? existing.timeZone,
-          preferredUnits: data.preferredUnits ?? existing.preferredUnits as any,
+          preferredUnits:
+            data.preferredUnits ?? (existing.preferredUnits as any),
           updatedAt: new Date(),
         })
         .where(eq(userProfiles.userId, userId))
@@ -118,15 +119,13 @@ export class ProfilesService {
       throw new NotFoundException('Profile not found');
     }
 
-    await db
-      .delete(userProfiles)
-      .where(eq(userProfiles.userId, userId));
+    await this.db.delete(userProfiles).where(eq(userProfiles.userId, userId));
 
     return { message: 'Profile deleted' };
   }
 
   async updateTimeZone(userId: string, timeZone: string) {
-    const [profile] = await db
+    const [profile] = await this.db
       .update(userProfiles)
       .set({ timeZone, updatedAt: new Date() })
       .where(eq(userProfiles.userId, userId))
@@ -137,7 +136,7 @@ export class ProfilesService {
   }
 
   private async findByUserIdSafe(userId: string) {
-    const [profile] = await db
+    const [profile] = await this.db
       .select()
       .from(userProfiles)
       .where(eq(userProfiles.userId, userId))
@@ -145,5 +144,4 @@ export class ProfilesService {
 
     return profile;
   }
-
 }
