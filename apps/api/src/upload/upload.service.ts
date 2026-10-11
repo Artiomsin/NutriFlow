@@ -31,7 +31,7 @@ export class UploadService {
     }
   }
 
-  async upload(buffer: Buffer, mime: string): Promise<string> {
+  async upload(buffer: Buffer): Promise<string> {
     const image = sharp(buffer, {
       failOn: 'error',
       limitInputPixels: MAX_INPUT_PIXELS,
@@ -45,11 +45,18 @@ export class UploadService {
       !metadata.width ||
       !metadata.height
     ) {
-      throw new BadRequestException('The uploaded file is not a supported image');
+      throw new BadRequestException(
+        'The uploaded file is not a supported image',
+      );
     }
 
-    if (metadata.width > MAX_INPUT_WIDTH || metadata.height > MAX_INPUT_HEIGHT) {
-      throw new BadRequestException('Image dimensions must not exceed 6000×6000 pixels');
+    if (
+      metadata.width > MAX_INPUT_WIDTH ||
+      metadata.height > MAX_INPUT_HEIGHT
+    ) {
+      throw new BadRequestException(
+        'Image dimensions must not exceed 6000×6000 pixels',
+      );
     }
 
     const normalizedBuffer = await image
@@ -63,7 +70,9 @@ export class UploadService {
       .webp({ quality: 85, effort: 4 })
       .toBuffer()
       .catch(() => {
-        throw new BadRequestException('The uploaded image could not be processed');
+        throw new BadRequestException(
+          'The uploaded image could not be processed',
+        );
       });
 
     if (this.s3) {

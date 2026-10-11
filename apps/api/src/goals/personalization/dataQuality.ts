@@ -51,8 +51,8 @@ export function evaluateDataQuality(
       nutritionDays / thresholds.nutritionDaysMin +
       sleepNights / thresholds.sleepNightsMin +
       workoutCount / thresholds.workoutCountMin) /
-    dimensions /
-    1,
+      dimensions /
+      1,
   );
 
   const isEnough = Object.values(domainSufficient).some(Boolean);

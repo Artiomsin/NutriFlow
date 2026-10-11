@@ -13,13 +13,15 @@ export const syncActivitySchema = z.object({
   entries: z.array(syncEntrySchema).min(1).max(31),
 });
 
-export const rangeQuerySchema = z.object({
-  from: calendarDateSchema,
-  to: calendarDateSchema,
-}).refine((value) => value.from <= value.to, {
-  message: 'from must not be after to',
-  path: ['to'],
-});
+export const rangeQuerySchema = z
+  .object({
+    from: calendarDateSchema,
+    to: calendarDateSchema,
+  })
+  .refine((value) => value.from <= value.to, {
+    message: 'from must not be after to',
+    path: ['to'],
+  });
 
 export const optionalDateQuerySchema = z.object({
   date: calendarDateSchema.optional(),

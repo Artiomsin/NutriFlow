@@ -10,7 +10,9 @@ export const createWaterEntrySchema = z.object({
 
 export type CreateWaterEntryDto = z.infer<typeof createWaterEntrySchema>;
 
-export const optionalDateQuerySchema = z.object({ date: dateString.optional() });
+export const optionalDateQuerySchema = z.object({
+  date: dateString.optional(),
+});
 export const requiredDateQuerySchema = z.object({ date: dateString });
 export type OptionalDateQueryDto = z.infer<typeof optionalDateQuerySchema>;
 export type RequiredDateQueryDto = z.infer<typeof requiredDateQuerySchema>;

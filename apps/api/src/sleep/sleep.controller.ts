@@ -1,8 +1,24 @@
-import { Controller, Get, Post, Delete, Body, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 
 import { SleepService } from './sleep.service';
-import { syncSleepSchema, historyQuerySchema, deleteMissingSchema } from './sleep.schema';
-import type { SyncSleepDto, HistoryQueryDto, DeleteMissingDto } from './sleep.schema';
+import {
+  syncSleepSchema,
+  historyQuerySchema,
+  deleteMissingSchema,
+} from './sleep.schema';
+import type {
+  SyncSleepDto,
+  HistoryQueryDto,
+  DeleteMissingDto,
+} from './sleep.schema';
 
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
 import { JwtAuthGuard } from '../auth/jwt.guard';

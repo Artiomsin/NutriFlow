@@ -1,9 +1,4 @@
-import {
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AnalyticsService } from './analytics.service';
 import { rangeQuerySchema } from './analytics.schema';
 import type { RangeQueryDto } from './analytics.schema';
@@ -28,6 +23,10 @@ export class AnalyticsController {
     @User() user: AuthPayload,
     @Query(new ZodValidationPipe(rangeQuerySchema)) query: RangeQueryDto,
   ) {
-    return this.analyticsService.getCustomRange(user.userId, query.from, query.to);
+    return this.analyticsService.getCustomRange(
+      user.userId,
+      query.from,
+      query.to,
+    );
   }
 }

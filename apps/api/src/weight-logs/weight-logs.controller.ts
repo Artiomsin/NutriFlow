@@ -32,7 +32,8 @@ export class WeightLogsController {
   @Post()
   record(
     @User() user: AuthPayload,
-    @Body(new ZodValidationPipe(createWeightLogSchema)) data: CreateWeightLogDto,
+    @Body(new ZodValidationPipe(createWeightLogSchema))
+    data: CreateWeightLogDto,
   ) {
     return this.weightLogsService.record(user.userId, data);
   }
@@ -40,7 +41,8 @@ export class WeightLogsController {
   @Get()
   list(
     @User() user: AuthPayload,
-    @Query(new ZodValidationPipe(listWeightLogsSchema)) query: ListWeightLogsDto,
+    @Query(new ZodValidationPipe(listWeightLogsSchema))
+    query: ListWeightLogsDto,
   ) {
     return this.weightLogsService.findByRange(user.userId, query);
   }
@@ -48,7 +50,8 @@ export class WeightLogsController {
   @Delete(':date')
   remove(
     @User() user: AuthPayload,
-    @Param(new ZodValidationPipe(weightLogDateParamSchema)) params: WeightLogDateParamDto,
+    @Param(new ZodValidationPipe(weightLogDateParamSchema))
+    params: WeightLogDateParamDto,
   ) {
     return this.weightLogsService.remove(user.userId, params.date);
   }

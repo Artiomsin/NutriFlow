@@ -24,8 +24,10 @@ export const env = {
 
   GEMINI_API_KEY: process.env.GEMINI_API_KEY ?? '',
 
-  S3_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID ?? process.env.S3_ACCESS_KEY_ID ?? '',
-  S3_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY ?? process.env.S3_SECRET_ACCESS_KEY ?? '',
+  S3_ACCESS_KEY_ID:
+    process.env.AWS_ACCESS_KEY_ID ?? process.env.S3_ACCESS_KEY_ID ?? '',
+  S3_SECRET_ACCESS_KEY:
+    process.env.AWS_SECRET_ACCESS_KEY ?? process.env.S3_SECRET_ACCESS_KEY ?? '',
   S3_ENDPOINT: process.env.AWS_ENDPOINT_URL_S3 ?? process.env.S3_ENDPOINT ?? '',
   S3_REGION: process.env.AWS_REGION ?? process.env.S3_REGION ?? 'us-east-1',
   S3_BUCKET: process.env.S3_BUCKET ?? 'nutriflow-uploads',

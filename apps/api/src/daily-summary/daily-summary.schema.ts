@@ -7,13 +7,15 @@ export const dateQuerySchema = z.object({
   date: dateString.optional(),
 });
 
-export const rangeQuerySchema = z.object({
-  from: dateString,
-  to: dateString,
-}).refine((value) => value.from <= value.to, {
-  message: 'from must not be after to',
-  path: ['to'],
-});
+export const rangeQuerySchema = z
+  .object({
+    from: dateString,
+    to: dateString,
+  })
+  .refine((value) => value.from <= value.to, {
+    message: 'from must not be after to',
+    path: ['to'],
+  });
 
 export type DateQueryDto = z.infer<typeof dateQuerySchema>;
 export type RangeQueryDto = z.infer<typeof rangeQuerySchema>;

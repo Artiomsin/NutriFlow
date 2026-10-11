@@ -48,9 +48,7 @@ export const goalRecommendations = app.table(
 
     previousGoals: jsonb('previous_goals').$type<GoalMetrics>().notNull(),
 
-    recommendedGoals: jsonb('recommended_goals')
-      .$type<GoalMetrics>()
-      .notNull(),
+    recommendedGoals: jsonb('recommended_goals').$type<GoalMetrics>().notNull(),
 
     analysisPeriodStart: date('analysis_period_start').notNull(),
     analysisPeriodEnd: date('analysis_period_end').notNull(),
