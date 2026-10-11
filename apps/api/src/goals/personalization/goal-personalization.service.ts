@@ -108,60 +108,57 @@ export class GoalPersonalizationService {
   }
 
   async acceptRecommendation(userId: string, recommendationId: string) {
-    const rec = await this.db
-      .select()
-      .from(goalRecommendations)
-      .where(
-        and(
-          eq(goalRecommendations.id, recommendationId),
-          eq(goalRecommendations.userId, userId),
-        ),
-      )
-      .limit(1);
+    return this.db.transaction(async (tx) => {
+      // Claim the pending recommendation first. The status predicate prevents
+      // concurrent requests from applying the same recommendation twice.
+      const [recRow] = await tx
+        .update(goalRecommendations)
+        .set({ status: 'accepted', acceptedAt: new Date() })
+        .where(
+          and(
+            eq(goalRecommendations.id, recommendationId),
+            eq(goalRecommendations.userId, userId),
+            eq(goalRecommendations.status, 'pending'),
+          ),
+        )
+        .returning();
 
-    const recRow = rec[0];
-    if (!recRow) {
-      throw new NotFoundException('Recommendation not found');
-    }
-    if (recRow.status !== 'pending') {
-      throw new NotFoundException('Recommendation is not pending');
-    }
+      if (!recRow) {
+        throw new NotFoundException('Recommendation is not pending');
+      }
 
-    const previous = recRow.previousGoals;
-    const next = recRow.recommendedGoals;
+      const previous = recRow.previousGoals;
+      const next = recRow.recommendedGoals;
+      const [existing] = await tx
+        .select()
+        .from(userGoals)
+        .where(eq(userGoals.userId, userId))
+        .limit(1);
 
-    const existing = await this.db
-      .select()
-      .from(userGoals)
-      .where(eq(userGoals.userId, userId))
-      .limit(1);
+      if (existing) {
+        await tx
+          .update(userGoals)
+          .set({ ...this.toGoalFields(next), source: 'personalized' })
+          .where(eq(userGoals.userId, userId));
+      } else {
+        await tx.insert(userGoals).values({
+          userId,
+          ...this.toGoalFields(next),
+          source: 'personalized',
+        });
+      }
 
-    if (existing[0]) {
-      await this.db
-        .update(userGoals)
-        .set({ ...this.toGoalFields(next), source: 'personalized' })
-        .where(eq(userGoals.userId, userId));
-    } else {
-      await this.db
-        .insert(userGoals)
-        .values({ userId, ...this.toGoalFields(next), source: 'personalized' });
-    }
+      await recordGoalHistory(
+        userId,
+        previous,
+        next,
+        'personalized',
+        'recommendation_accepted',
+        tx,
+      );
 
-    await recordGoalHistory(
-      userId,
-      previous,
-      next,
-      'personalized',
-      'recommendation_accepted',
-      this.db,
-    );
-
-    await this.db
-      .update(goalRecommendations)
-      .set({ status: 'accepted', acceptedAt: new Date() })
-      .where(eq(goalRecommendations.id, recommendationId));
-
-    return next;
+      return next;
+    });
   }
 
   async dismissRecommendation(userId: string, recommendationId: string) {

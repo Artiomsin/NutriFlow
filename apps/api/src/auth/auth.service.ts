@@ -226,6 +226,9 @@ export class AuthService {
       const hash = this.hashRefreshToken(refreshToken);
       const now = new Date();
       const tokens = this.generateTokens(payload.userId, payload.sessionId);
+      const refreshExpiresAt = this.getRefreshTokenExpiration(
+        tokens.refreshToken,
+      );
       const rotation = await this.db
         .update(authSessions)
         .set({
@@ -234,6 +237,7 @@ export class AuthService {
           previousValidUntil: new Date(
             now.getTime() + this.reuseGraceTtl * 1000,
           ),
+          expiresAt: refreshExpiresAt,
           updatedAt: now,
         })
         .where(
@@ -339,8 +343,23 @@ export class AuthService {
       userId,
       sessionId,
       refreshTokenHash: this.hashRefreshToken(refreshToken),
-      expiresAt: new Date(Date.now() + this.refreshTtl * 1000),
+      expiresAt: this.getRefreshTokenExpiration(refreshToken),
     });
+  }
+
+  private getRefreshTokenExpiration(refreshToken: string): Date {
+    const payload = this.jwtService.decode(refreshToken);
+
+    if (
+      typeof payload !== 'object' ||
+      payload === null ||
+      !('exp' in payload) ||
+      typeof payload.exp !== 'number'
+    ) {
+      throw new Error('Generated refresh token has no expiration');
+    }
+
+    return new Date(payload.exp * 1000);
   }
 
   private hashRefreshToken(refreshToken: string) {
@@ -371,8 +390,6 @@ export class AuthService {
 
     return { accessToken, refreshToken };
   }
-
-  private refreshTtl = 604800;
 
   // Window accepting a parallel refresh: an old refresh token may be
   // replayed within it (race/duplicate request); after that a repeat is
