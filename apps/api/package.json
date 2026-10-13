@@ -24,6 +24,7 @@
     "@types/node": "^25.6.0",
     "@types/passport-jwt": "^4.0.1",
     "@types/pg": "^8.20.0",
+    "@types/supertest": "^7.2.1",
     "@typescript-eslint/eslint-plugin": "^8.59.2",
     "@typescript-eslint/parser": "^8.59.2",
     "drizzle-kit": "^0.31.10",
@@ -31,6 +32,7 @@
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-prettier": "^5.5.5",
     "globals": "^17.6.0",
+    "supertest": "^7.3.1",
     "tsx": "^4.21.0"
   },
   "peerDependencies": {
