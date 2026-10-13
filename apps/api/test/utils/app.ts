@@ -9,7 +9,7 @@ import { DB, DB_POOL } from '../../src/db/db.module';
  * BEGIN/COMMIT. Otherwise drizzle would COMMIT the outer test transaction,
  * leaking rows into the database and breaking per-file isolation.
  */
-function isolate(tx: unknown): unknown {
+export function isolate(tx: unknown): unknown {
   let handle: unknown;
   handle = new Proxy(tx as object, {
     get(target, prop) {
