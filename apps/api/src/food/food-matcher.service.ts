@@ -131,8 +131,7 @@ export class FoodMatcherService {
 
   private nameClause(name: string) {
     return sql`(
-      to_tsvector('russian', ${foods.name}) @@ plainto_tsquery('russian', ${name})
-      OR to_tsvector('english', ${foods.name}) @@ plainto_tsquery('english', ${name})
+      to_tsvector('english', ${foods.name}) @@ plainto_tsquery('english', ${name})
       OR to_tsvector('simple', ${foods.name}) @@ plainto_tsquery('simple', ${name})
       OR ${foods.name} ILIKE ${`%${name}%`}
     )`;
@@ -140,8 +139,8 @@ export class FoodMatcherService {
 
   private readinessBonus(fn: string): number {
     const cooked =
-      /(отварн|варё|варен|приготовлен|готов|тушен|жарен|запечен|пассер|сварен|печен)/;
-    const raw = /(сух|сыр|всухом|сухой|всыром|необработанн)/;
+      /(cooked|baked|grilled|fried|roasted|boiled|steamed|braised|stewed|sauteed|prepared)/;
+    const raw = /(raw|uncooked|dry)/;
     if (cooked.test(fn)) return 15;
     if (raw.test(fn)) return -15;
     return 0;
