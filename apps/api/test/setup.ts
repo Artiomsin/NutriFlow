@@ -11,9 +11,3 @@ const defaults: Record<string, string> = {
   USDA_API_KEY: 'test-usda',
 };
 for (const [k, v] of Object.entries(defaults)) process.env[k] ??= v;
-
-if (!process.env.TEST_DATABASE_URL && !process.env.DATABASE_URL) {
-  throw new Error(
-    'Set TEST_DATABASE_URL (or DATABASE_URL) before running tests',
-  );
-}
