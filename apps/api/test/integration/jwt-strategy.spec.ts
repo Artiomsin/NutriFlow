@@ -46,14 +46,14 @@ describe('JwtStrategy.validate', () => {
   it('returns the payload for a live session', async () => {
     const payload = await registerAndDecode();
 
-    await expect(strategy.validate(payload)).resolves.toEqual(payload);
+    expect(strategy.validate(payload)).resolves.toEqual(payload);
   });
 
   it('throws when the session has been revoked', async () => {
     const payload = await registerAndDecode();
     await service.logout(payload.userId, payload.sessionId);
 
-    await expect(strategy.validate(payload)).rejects.toBeInstanceOf(
+    expect(strategy.validate(payload)).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
   });

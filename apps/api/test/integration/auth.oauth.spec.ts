@@ -98,9 +98,9 @@ describe('AuthService.googleLogin', () => {
       sub: randomUUID(),
     });
 
-    await expect(
-      service.googleLogin({ idToken: 'ignored' }),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(service.googleLogin({ idToken: 'ignored' })).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 });
 
@@ -133,7 +133,7 @@ describe('AuthService.appleLogin', () => {
     );
 
     try {
-      await expect(
+      expect(
         service.appleLogin({ identityToken: 'bad' }),
       ).rejects.toBeInstanceOf(UnauthorizedException);
     } finally {

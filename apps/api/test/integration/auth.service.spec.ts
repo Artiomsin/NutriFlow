@@ -87,7 +87,7 @@ describe('AuthService.register', () => {
   it('rejects a duplicate email', async () => {
     const { email } = await register();
 
-    await expect(
+    expect(
       service.register({
         email,
         password: 'secret1',
@@ -111,13 +111,13 @@ describe('AuthService.login', () => {
   it('rejects an invalid password', async () => {
     const { email } = await register({ password: 'secret1' });
 
-    await expect(
+    expect(
       service.login({ email, password: 'wrong-password' }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('rejects an unknown email', async () => {
-    await expect(
+    expect(
       service.login({ email: uniqueEmail(), password: 'secret1' }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
@@ -150,7 +150,7 @@ describe('AuthService.refresh', () => {
   });
 
   it('rejects a malformed token', async () => {
-    await expect(service.refresh('not-a-jwt')).rejects.toBeInstanceOf(
+    expect(service.refresh('not-a-jwt')).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
   });
@@ -167,7 +167,7 @@ describe('AuthService.refresh', () => {
       const next = await service.refresh(tokens.refreshToken);
       expect(next.refreshToken).not.toBe(tokens.refreshToken);
 
-      await expect(service.refresh(tokens.refreshToken)).rejects.toBeInstanceOf(
+      expect(service.refresh(tokens.refreshToken)).rejects.toBeInstanceOf(
         UnauthorizedException,
       );
 
@@ -193,7 +193,7 @@ describe('AuthService.refresh', () => {
       await service.refresh(tokens.refreshToken);
 
       setSystemTime(new Date(t0.getTime() + 200_000));
-      await expect(service.refresh(tokens.refreshToken)).rejects.toBeInstanceOf(
+      expect(service.refresh(tokens.refreshToken)).rejects.toBeInstanceOf(
         UnauthorizedException,
       );
 
