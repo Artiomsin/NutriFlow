@@ -1,0 +1,36 @@
+name: backend-tests
+
+on:
+  pull_request:
+    branches: [dev]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('apps/api/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bun run typecheck
+      - run: bun run test:unit
+      - run: bun run test:integration
+        env:
+          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+      - run: bun run build

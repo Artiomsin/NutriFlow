@@ -1,8 +1,8 @@
 {
-  "exclude": ["**/*.spec.ts", "**/*.test.ts"],
   "compilerOptions": {
     // Environment setup & latest features
     "lib": ["ESNext"],
+    "types": ["bun", "node"],
     "target": "ESNext",
     "module": "Preserve",
     "moduleDetection": "force",

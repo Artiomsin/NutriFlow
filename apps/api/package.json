@@ -6,7 +6,13 @@
     "start": "bun run src/main.ts",
     "dev": "bun --watch src/main.ts",
     "typecheck": "tsc --noEmit",
-    "migrate": "drizzle-kit migrate"
+    "migrate": "drizzle-kit migrate",
+    "test": "bun test",
+    "test:unit": "bun test src",
+    "test:integration": "bun test test/integration",
+    "test:e2e": "bun test test/e2e",
+    "lint": "eslint .",
+    "build": "tsc --noEmit"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
