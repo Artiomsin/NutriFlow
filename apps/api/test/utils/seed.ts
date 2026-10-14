@@ -4,6 +4,7 @@ import { users } from '../../src/db/schema/users';
 import { userProfiles } from '../../src/db/schema/userProfiles';
 import { foods } from '../../src/db/schema/foods';
 import { foodCategories } from '../../src/db/schema/foodCategories';
+import type { NewUserProfile } from '../../src/db/schema/userProfiles';
 import type { TestTx } from './db';
 
 /**
@@ -26,6 +27,27 @@ export async function createUser(
   }
 
   return user!;
+}
+
+export async function createProfile(
+  tx: TestTx,
+  userId: string,
+  overrides: Partial<NewUserProfile> = {},
+) {
+  const [profile] = await tx
+    .insert(userProfiles)
+    .values({
+      userId,
+      weight: 80,
+      height: 180,
+      age: 30,
+      gender: 'male',
+      goal: 'maintain',
+      activityLevel: 'medium',
+      ...overrides,
+    })
+    .returning();
+  return profile!;
 }
 
 export async function createCategory(tx: TestTx, name: string) {

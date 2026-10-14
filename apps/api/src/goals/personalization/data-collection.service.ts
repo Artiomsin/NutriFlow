@@ -59,59 +59,63 @@ export class DataCollectionService {
     const periodStart = toDateStr(start);
     const periodEnd = toDateStr(now);
 
-    const [weightRows, activityRows, summaryRows, workoutRows, sleepRows] =
-      await Promise.all([
-        this.db
-          .select()
-          .from(weightLogs)
-          .where(
-            and(
-              eq(weightLogs.userId, userId),
-              gte(weightLogs.entryDate, periodStart),
-              lte(weightLogs.entryDate, periodEnd),
-            ),
-          ),
-        this.db
-          .select()
-          .from(dailyActivity)
-          .where(
-            and(
-              eq(dailyActivity.userId, userId),
-              gte(dailyActivity.date, periodStart),
-              lte(dailyActivity.date, periodEnd),
-            ),
-          ),
-        this.db
-          .select()
-          .from(dailySummary)
-          .where(
-            and(
-              eq(dailySummary.userId, userId),
-              gte(dailySummary.date, periodStart),
-              lte(dailySummary.date, periodEnd),
-            ),
-          ),
-        this.db
-          .select()
-          .from(userWorkouts)
-          .where(
-            and(
-              eq(userWorkouts.userId, userId),
-              gte(userWorkouts.localDate, periodStart),
-              lte(userWorkouts.localDate, periodEnd),
-            ),
-          ),
-        this.db
-          .select()
-          .from(userSleep)
-          .where(
-            and(
-              eq(userSleep.userId, userId),
-              gte(userSleep.localDate, periodStart),
-              lte(userSleep.localDate, periodEnd),
-            ),
-          ),
-      ]);
+    // Sequential, not Promise.all: collect may run inside a transaction that
+    // holds a single connection, and pg cannot execute concurrent queries on
+    // one client.
+    const weightRows = await this.db
+      .select()
+      .from(weightLogs)
+      .where(
+        and(
+          eq(weightLogs.userId, userId),
+          gte(weightLogs.entryDate, periodStart),
+          lte(weightLogs.entryDate, periodEnd),
+        ),
+      );
+
+    const activityRows = await this.db
+      .select()
+      .from(dailyActivity)
+      .where(
+        and(
+          eq(dailyActivity.userId, userId),
+          gte(dailyActivity.date, periodStart),
+          lte(dailyActivity.date, periodEnd),
+        ),
+      );
+
+    const summaryRows = await this.db
+      .select()
+      .from(dailySummary)
+      .where(
+        and(
+          eq(dailySummary.userId, userId),
+          gte(dailySummary.date, periodStart),
+          lte(dailySummary.date, periodEnd),
+        ),
+      );
+
+    const workoutRows = await this.db
+      .select()
+      .from(userWorkouts)
+      .where(
+        and(
+          eq(userWorkouts.userId, userId),
+          gte(userWorkouts.localDate, periodStart),
+          lte(userWorkouts.localDate, periodEnd),
+        ),
+      );
+
+    const sleepRows = await this.db
+      .select()
+      .from(userSleep)
+      .where(
+        and(
+          eq(userSleep.userId, userId),
+          gte(userSleep.localDate, periodStart),
+          lte(userSleep.localDate, periodEnd),
+        ),
+      );
 
     const sleepData: SleepData[] = sleepRows.map((row) => ({
       date: row.localDate,
