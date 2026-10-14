@@ -1,4 +1,12 @@
-import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  setSystemTime,
+} from 'bun:test';
 import { ConfigModule } from '@nestjs/config';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
@@ -42,6 +50,10 @@ beforeAll(async () => {
 afterAll(async () => {
   await rollback();
   await db.close();
+});
+
+afterEach(() => {
+  setSystemTime();
 });
 
 const TODAY = formatDateInTimeZone(new Date(), 'UTC');
@@ -126,6 +138,27 @@ describe('WeightLogsService.record', () => {
 
     expect(log.source).toBe('initial');
     expect(Number(log.weightKg)).toBe(79);
+  });
+
+  it('rolls over to a new day at the user time zone midnight', async () => {
+    const user = await createUser(tx);
+    await createProfile(tx, user.id, {
+      weight: 80,
+      timeZone: 'Asia/Tokyo',
+    });
+
+    // 2026-01-01T14:59Z is 23:59 on Jan 1 in Asia/Tokyo (UTC+9).
+    setSystemTime(new Date('2026-01-01T14:59:00Z'));
+    const beforeMidnight = (await service.record(user.id, { weightKg: 81 }))!;
+    expect(beforeMidnight.entryDate).toBe('2026-01-01');
+
+    // Two minutes later the same instant is 00:01 on Jan 2 locally.
+    setSystemTime(new Date('2026-01-01T15:01:00Z'));
+    const afterMidnight = (await service.record(user.id, { weightKg: 82 }))!;
+    expect(afterMidnight.entryDate).toBe('2026-01-02');
+
+    expect(await loadLogs(user.id)).toHaveLength(2);
+    expect(await loadProfileWeight(user.id)).toMatchObject({ weight: 82 });
   });
 });
 
