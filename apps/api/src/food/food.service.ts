@@ -315,6 +315,10 @@ export class FoodService {
       data.date ?? existing.entryDate ?? sql`CURRENT_DATE`;
     let newImageUrl = data.imageUrl ?? existing.imageUrl;
     let newUnit = data.unit ?? existing.unit;
+    // Set when a manual entry (no product) is renamed: the product is created as
+    // a copy of the entry snapshot, so its per-100g values must come from the
+    // entry (never zero) and the entry nutrients must not be recalculated from it.
+    let createdFromSnapshot = false;
 
     // A manual/AI entry without a catalog product has nutrients defined
     // for a specific portion. When grams change we scale them proportionally.
@@ -386,20 +390,31 @@ export class FoodService {
             if (existing.foodId && (isUserFood || needsFork)) {
               newName = data.name;
             } else {
+              const snapGrams =
+                existing.grams && existing.grams > 0 ? existing.grams : 0;
+              const per100g = (value: number) =>
+                snapGrams > 0
+                  ? Math.min(
+                      1000,
+                      Math.max(0, Math.round((value * 100) / snapGrams)),
+                    )
+                  : 0;
+
               const [created] = await tx
                 .insert(foods)
                 .values({
                   name: data.name,
                   source: 'user',
                   createdBy: userId,
-                  caloriesPer100g: 0,
-                  proteinPer100g: 0,
-                  fatPer100g: 0,
-                  carbsPer100g: 0,
+                  caloriesPer100g: per100g(existing.calories),
+                  proteinPer100g: per100g(existing.protein ?? 0),
+                  fatPer100g: per100g(existing.fat ?? 0),
+                  carbsPer100g: per100g(existing.carbs ?? 0),
                 })
                 .returning();
               newFoodId = created!.id;
               newName = data.name;
+              createdFromSnapshot = true;
             }
           }
         }
@@ -415,12 +430,25 @@ export class FoodService {
             const g = newGrams ?? 100;
             const ratio = g > 0 ? g / 100 : 1;
             newCalories =
-              data.calories ?? Math.round(food.caloriesPer100g * ratio);
+              data.calories ??
+              (createdFromSnapshot
+                ? newCalories
+                : Math.round(food.caloriesPer100g * ratio));
             newProtein =
-              data.protein ?? Math.round((food.proteinPer100g ?? 0) * ratio);
-            newFat = data.fat ?? Math.round((food.fatPer100g ?? 0) * ratio);
+              data.protein ??
+              (createdFromSnapshot
+                ? newProtein
+                : Math.round((food.proteinPer100g ?? 0) * ratio));
+            newFat =
+              data.fat ??
+              (createdFromSnapshot
+                ? newFat
+                : Math.round((food.fatPer100g ?? 0) * ratio));
             newCarbs =
-              data.carbs ?? Math.round((food.carbsPer100g ?? 0) * ratio);
+              data.carbs ??
+              (createdFromSnapshot
+                ? newCarbs
+                : Math.round((food.carbsPer100g ?? 0) * ratio));
 
             if (needsFork && food.source !== 'user') {
               const per100gRatio = g > 0 ? 100 / g : 1;
@@ -739,7 +767,7 @@ export class FoodService {
     const cleanQuery = q
       .toLowerCase()
       .trim()
-      .replace(/\b\d+([.,]\d+)?\s?(г|g|kg|ml|l|oz|lb)\b/gi, '')
+      .replace(/\b\d+([.,]\d+)?\s?(g|kg|ml|l|oz|lb)\b/gi, '')
       .replace(/[^\p{L}\p{N}\s]/gu, ' ')
       .replace(/\s+/g, ' ')
       .trim();

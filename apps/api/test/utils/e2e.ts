@@ -5,6 +5,7 @@ import type { INestApplication } from '@nestjs/common';
 import { AppModule } from '../../src/app.module';
 import { AppExceptionFilter } from '../../src/common/http/app-exception.filter';
 import { DB, DB_POOL } from '../../src/db/db.module';
+import { isolate } from './app';
 
 /**
  * Boots the real AppModule against an isolated transaction, mirroring the
@@ -16,7 +17,7 @@ export async function createE2eApp(tx: unknown): Promise<INestApplication> {
     .overrideProvider(DB_POOL)
     .useValue({ end: async () => {} })
     .overrideProvider(DB)
-    .useValue(tx)
+    .useValue(isolate(tx))
     .compile();
 
   const app = moduleRef.createNestApplication({ logger: false });
