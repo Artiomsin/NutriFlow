@@ -4,8 +4,78 @@ import { users } from '../../src/db/schema/users';
 import { userProfiles } from '../../src/db/schema/userProfiles';
 import { foods } from '../../src/db/schema/foods';
 import { foodCategories } from '../../src/db/schema/foodCategories';
+import { dailyActivity } from '../../src/db/schema/dailyActivity';
+import { dailySummary } from '../../src/db/schema/dailySummary';
+import { userSleep } from '../../src/db/schema/userSleep';
+import { userWorkouts } from '../../src/db/schema/userWorkouts';
 import type { NewUserProfile } from '../../src/db/schema/userProfiles';
+import type { NewDailyActivity } from '../../src/db/schema/dailyActivity';
+import type { NewDailySummary } from '../../src/db/schema/dailySummary';
+import type { NewUserSleep } from '../../src/db/schema/userSleep';
+import type { NewUserWorkout } from '../../src/db/schema/userWorkouts';
 import type { TestTx } from './db';
+
+export async function createDailyActivity(
+  tx: TestTx,
+  userId: string,
+  overrides: Partial<NewDailyActivity> & { date: string },
+) {
+  const [row] = await tx
+    .insert(dailyActivity)
+    .values({ userId, ...overrides })
+    .returning();
+  return row!;
+}
+
+export async function createDailySummary(
+  tx: TestTx,
+  userId: string,
+  overrides: Partial<NewDailySummary> & { date: string },
+) {
+  const [row] = await tx
+    .insert(dailySummary)
+    .values({ userId, ...overrides })
+    .returning();
+  return row!;
+}
+
+export async function createSleepNight(
+  tx: TestTx,
+  userId: string,
+  overrides: Partial<NewUserSleep> & {
+    startDate: Date;
+    endDate: Date;
+    localDate: string;
+  },
+) {
+  const [row] = await tx
+    .insert(userSleep)
+    .values({ userId, ...overrides })
+    .returning();
+  return row!;
+}
+
+export async function createWorkout(
+  tx: TestTx,
+  userId: string,
+  overrides: Partial<NewUserWorkout> & {
+    startDate: Date;
+    endDate: Date;
+    localDate: string;
+  },
+) {
+  const [row] = await tx
+    .insert(userWorkouts)
+    .values({
+      userId,
+      healthKitWorkoutId: `HK-${randomUUID()}`,
+      type: 'running',
+      durationSeconds: '1800',
+      ...overrides,
+    })
+    .returning();
+  return row!;
+}
 
 /**
  * Shared fixtures for integration specs. Every helper writes through the test
