@@ -4,11 +4,17 @@ import { FoodController } from './food.controller';
 import { DailySummaryModule } from '../daily-summary/daily-summary.module';
 import { UploadModule } from '../upload/upload.module';
 import { FoodAnalysisService } from './food-analysis.service';
+import { AnalysisQuotaService } from './analysis-quota.service';
 import { FoodMatcherService } from './food-matcher.service';
 
 @Module({
   imports: [DailySummaryModule, UploadModule],
   controllers: [FoodController],
-  providers: [FoodService, FoodAnalysisService, FoodMatcherService],
+  providers: [
+    FoodService,
+    FoodAnalysisService,
+    AnalysisQuotaService,
+    FoodMatcherService,
+  ],
 })
 export class FoodModule {}
