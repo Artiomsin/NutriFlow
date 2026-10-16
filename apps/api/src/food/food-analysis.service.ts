@@ -16,6 +16,14 @@ import {
 } from './food.schema';
 import { FoodMatcherService } from './food-matcher.service';
 
+// Tried in order; if one model is unavailable (429/503) or removed (404), the
+// next one is used. Keep the list here so the fallback chain lives in one place.
+const GEMINI_MODELS = [
+  'gemini-3.6-flash',
+  'gemini-flash-latest',
+  'gemini-flash-lite-latest',
+] as const;
+
 @Injectable()
 export class FoodAnalysisService {
   private readonly logger = new Logger(FoodAnalysisService.name);
@@ -95,69 +103,91 @@ export class FoodAnalysisService {
     mimeType: string,
   ): Promise<unknown> {
     const TIMEOUT_MS = 120_000;
+    let lastStatus: number | null = null;
 
-    const response = await Promise.race([
-      this.gemini!.models.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: [
-          {
-            inlineData: {
-              mimeType,
-              data: buffer.toString('base64'),
-            },
-          },
-          { text: this.prompt() },
-        ],
-        config: { responseMimeType: 'application/json' },
-      }),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Gemini timeout')), TIMEOUT_MS),
-      ),
-    ]).catch((e: unknown) => {
-      const anyErr = e as { message?: string };
+    for (const model of GEMINI_MODELS) {
+      try {
+        const response = await Promise.race([
+          this.gemini!.models.generateContent({
+            model,
+            contents: [
+              {
+                inlineData: {
+                  mimeType,
+                  data: buffer.toString('base64'),
+                },
+              },
+              { text: this.prompt() },
+            ],
+            config: { responseMimeType: 'application/json' },
+          }),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Gemini timeout')), TIMEOUT_MS),
+          ),
+        ]);
 
-      if (anyErr?.message === 'Gemini timeout') {
-        this.logger.error(`Gemini timed out after ${TIMEOUT_MS / 1000}s`);
-        throw new GatewayTimeoutException(
-          'Food analysis service timed out. Please try again later.',
+        this.logger.log(
+          `Gemini (${model}) raw response: ` +
+            (response.text ?? 'null').slice(0, 1000),
         );
-      }
 
-      const status = this.extractStatus(e);
-      this.logger.error(
-        `Gemini request failed: ${status} — ${
-          anyErr?.message ?? 'unknown error'
-        }`,
-      );
+        try {
+          return JSON.parse(response.text ?? '[]');
+        } catch {
+          this.logger.warn(`Gemini (${model}) returned invalid JSON`);
+          lastStatus = null;
+          continue;
+        }
+      } catch (e) {
+        const anyErr = e as { message?: string };
 
-      if (status === 503) {
-        throw new ServiceUnavailableException(
-          'Food analysis service is temporarily overloaded. Please try again later.',
+        if (anyErr?.message === 'Gemini timeout') {
+          this.logger.error(
+            `Gemini (${model}) timed out after ${TIMEOUT_MS / 1000}s`,
+          );
+          lastStatus = 504;
+          continue;
+        }
+
+        const status = this.extractStatus(e);
+        lastStatus = status;
+        this.logger.error(
+          `Gemini (${model}) request failed: ${status} — ${
+            anyErr?.message ?? 'unknown error'
+          }`,
         );
+
+        if (status === 429 || status === 503 || status === 404) {
+          this.logger.warn(`Gemini ${model} unavailable, trying next model`);
+          continue;
+        }
+
+        throw this.toGeminiException(status);
       }
-      if (status === 429) {
-        throw new ServiceUnavailableException(
-          'Too many analysis requests. Please wait a moment and try again.',
-        );
-      }
+    }
 
-      throw new BadGatewayException(
-        'Food analysis service failed. Please try again later.',
-      );
-    });
+    throw this.toGeminiException(lastStatus);
+  }
 
-    this.logger.log(
-      'Gemini raw response: ' + (response.text ?? 'null').slice(0, 1000),
-    );
-
-    try {
-      return JSON.parse(response.text ?? '[]');
-    } catch {
-      this.logger.error('Gemini returned invalid JSON');
-      throw new BadGatewayException(
-        'Food analysis service returned an invalid response. Please try again later.',
+  private toGeminiException(status: number | null): Error {
+    if (status === 504) {
+      return new GatewayTimeoutException(
+        'Food analysis service timed out. Please try again later.',
       );
     }
+    if (status === 429) {
+      return new ServiceUnavailableException(
+        'Too many analysis requests. Please wait a moment and try again.',
+      );
+    }
+    if (status === 503) {
+      return new ServiceUnavailableException(
+        'Food analysis service is temporarily overloaded. Please try again later.',
+      );
+    }
+    return new BadGatewayException(
+      'Food analysis service failed. Please try again later.',
+    );
   }
 
   private extractStatus(e: unknown): number | null {

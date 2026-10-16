@@ -3,6 +3,7 @@ import {
   BadGatewayException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { FoodAnalysisService } from './food-analysis.service';
 import type { FoodMatcherService } from './food-matcher.service';
 import type { FoodAnalysisResult } from './food.schema';
 
@@ -10,22 +11,6 @@ const generateContent = mock(async (...args: unknown[]) => {
   void args;
   return { text: '[]' };
 });
-
-mock.module('@google/genai', () => ({
-  GoogleGenAI: class {
-    models = { generateContent };
-  },
-}));
-
-mock.module('./food-matcher.service', () => ({
-  FoodMatcherService: class {},
-}));
-
-mock.module('../config/env', () => ({
-  env: { GEMINI_API_KEY: 'test-key' },
-}));
-
-const { FoodAnalysisService } = await import('./food-analysis.service');
 
 type MatcherFn = (items: unknown[]) => unknown;
 
@@ -43,13 +28,16 @@ function setup(matcherFn?: MatcherFn) {
   const service = new FoodAnalysisService({
     matchItems,
   } as unknown as FoodMatcherService);
+  (service as unknown as { gemini: unknown }).gemini = {
+    models: { generateContent },
+  };
   return { service, matchItems };
 }
 
 const rawText = (payload: unknown) => ({ text: JSON.stringify(payload) });
 
-const geminiRequest = () =>
-  generateContent.mock.calls[0]?.[0] as unknown as {
+const geminiRequest = (index = 0) =>
+  generateContent.mock.calls[index]?.[0] as unknown as {
     model: string;
     config: { responseMimeType: string };
     contents: Array<{ inlineData: { mimeType: string; data: string } }>;
@@ -101,6 +89,38 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     expect(service.analyzePhoto(file)).rejects.toBeInstanceOf(
       BadGatewayException,
     );
+  });
+
+  it('falls back to the next model when one is unavailable', async () => {
+    generateContent
+      .mockImplementationOnce(async () => {
+        throw { status: 503 };
+      })
+      .mockImplementationOnce(async () =>
+        rawText([{ kind: 'water', amountMl: 300, confidence: 1 }]),
+      );
+    const { service } = setup();
+
+    const result = await service.analyzePhoto(file);
+
+    expect(result).toEqual([{ kind: 'water', amountMl: 300, confidence: 1 }]);
+    expect(generateContent).toHaveBeenCalledTimes(2);
+    expect(geminiRequest(0).model).toBe('gemini-3.6-flash');
+    expect(geminiRequest(1).model).toBe('gemini-flash-latest');
+  });
+
+  it('falls back to the next model when one was removed (404)', async () => {
+    generateContent
+      .mockImplementationOnce(async () => {
+        throw { status: 404 };
+      })
+      .mockImplementationOnce(async () => rawText([]));
+    const { service } = setup();
+
+    const result = await service.analyzePhoto(file);
+
+    expect(result).toEqual([]);
+    expect(generateContent).toHaveBeenCalledTimes(2);
   });
 
   it('maps invalid JSON output to BadGatewayException', async () => {
