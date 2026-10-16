@@ -23,6 +23,11 @@ export const env = {
   USDA_API_KEY: getEnv('USDA_API_KEY'),
 
   GEMINI_API_KEY: process.env.GEMINI_API_KEY ?? '',
+  GROQ_API_KEY: process.env.GROQ_API_KEY ?? '',
+  GROQ_MODEL:
+    process.env.GROQ_MODEL ?? 'meta-llama/llama-4-scout-17b-16e-instruct',
+  ANALYSIS_DAILY_LIMIT: Number(process.env.ANALYSIS_DAILY_LIMIT ?? 6),
+  ANALYSIS_CACHE_TTL_MS: Number(process.env.ANALYSIS_CACHE_TTL_MS ?? 3_600_000),
 
   S3_ACCESS_KEY_ID:
     process.env.AWS_ACCESS_KEY_ID ?? process.env.S3_ACCESS_KEY_ID ?? '',

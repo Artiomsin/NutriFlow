@@ -22,6 +22,7 @@ import type { AuthPayload } from '../auth/types/auth.types';
 import { FoodService } from './food.service';
 import { UploadService } from '../upload/upload.service';
 import { FoodAnalysisService } from './food-analysis.service';
+import { AnalysisQuotaService } from './analysis-quota.service';
 
 import {
   createFoodEntrySchema,
@@ -50,6 +51,7 @@ export class FoodController {
     private readonly foodService: FoodService,
     private readonly foodAnalysisService: FoodAnalysisService,
     private readonly uploadService: UploadService,
+    private readonly analysisQuota: AnalysisQuotaService,
   ) {}
 
   // ── Upload ───────────────────────────────────────────────────
@@ -97,13 +99,19 @@ export class FoodController {
     FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
   )
   async analyze(
+    @User() user: AuthPayload,
     @UploadedFile()
     file:
       | { buffer: Buffer; mimetype: string; originalname: string; size: number }
       | undefined,
   ) {
     const f = this.assertImage(file);
-    return this.foodAnalysisService.analyzePhoto(f);
+
+    this.analysisQuota.assertAllowed(user.userId);
+    const result = await this.foodAnalysisService.analyzePhoto(f);
+    this.analysisQuota.consume(user.userId);
+
+    return result;
   }
 
   // ── Food Category Routes ────────────────────────────────────
