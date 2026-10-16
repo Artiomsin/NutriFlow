@@ -1,33 +1,8 @@
-import { beforeEach, describe, expect, it, mock } from 'bun:test';
+import { describe, expect, it, mock } from 'bun:test';
 import { BadRequestException } from '@nestjs/common';
 import sharp from 'sharp';
-
-const send = mock(async () => ({}));
-let captured: Record<string, unknown> | undefined;
-
-mock.module('@aws-sdk/client-s3', () => ({
-  S3Client: class {
-    send = send;
-  },
-  PutObjectCommand: class {
-    constructor(input: Record<string, unknown>) {
-      captured = input;
-    }
-  },
-}));
-
-mock.module('../config/env', () => ({
-  env: {
-    S3_ACCESS_KEY_ID: 'test-key',
-    S3_SECRET_ACCESS_KEY: 'test-secret',
-    S3_ENDPOINT: 'https://s3.test.local',
-    S3_REGION: 'eu-central-1',
-    S3_BUCKET: 'test-bucket',
-    S3_PUBLIC_URL: 'https://cdn.test.local/',
-  },
-}));
-
-const { UploadService } = await import('./upload.service');
+import type { PutObjectCommand } from '@aws-sdk/client-s3';
+import { UploadService } from './upload.service';
 
 const createImage = (format: 'png' | 'gif' | 'tiff' = 'png') => {
   const image = sharp({
@@ -43,15 +18,31 @@ const createImage = (format: 'png' | 'gif' | 'tiff' = 'png') => {
   return image.png().toBuffer();
 };
 
-beforeEach(() => {
-  send.mockReset();
-  send.mockImplementation(async () => ({}));
-  captured = undefined;
-});
+type Send = (command: PutObjectCommand) => Promise<unknown>;
+
+function setup() {
+  const service = new UploadService();
+  const sent: PutObjectCommand[] = [];
+  const send = mock(async (command: PutObjectCommand) => {
+    sent.push(command);
+    return {};
+  });
+
+  const internal = service as unknown as {
+    s3: { send: Send } | null;
+    bucket: string;
+    publicUrl: string;
+  };
+  internal.s3 = { send };
+  internal.bucket = 'test-bucket';
+  internal.publicUrl = 'https://cdn.test.local';
+
+  return { service, send, sent };
+}
 
 describe('UploadService.upload', () => {
   it('rejects a non-image buffer', async () => {
-    const service = new UploadService();
+    const { service } = setup();
 
     expect(service.upload(Buffer.from('nope'))).rejects.toBeInstanceOf(
       BadRequestException,
@@ -59,7 +50,7 @@ describe('UploadService.upload', () => {
   });
 
   it('rejects an unsupported image format', async () => {
-    const service = new UploadService();
+    const { service } = setup();
 
     expect(service.upload(await createImage('gif'))).rejects.toBeInstanceOf(
       BadRequestException,
@@ -67,7 +58,7 @@ describe('UploadService.upload', () => {
   });
 
   it('uploads a png as webp and returns its public url', async () => {
-    const service = new UploadService();
+    const { service, send, sent } = setup();
 
     const url = await service.upload(await createImage('png'));
 
@@ -75,28 +66,29 @@ describe('UploadService.upload', () => {
       /^https:\/\/cdn\.test\.local\/uploads\/[0-9a-f-]{36}\.webp$/,
     );
     expect(send).toHaveBeenCalledTimes(1);
-    expect(captured).toMatchObject({
+    const input = sent[0]?.input;
+    expect(input).toMatchObject({
       Bucket: 'test-bucket',
       ContentType: 'image/webp',
     });
-    expect(captured?.Key).toMatch(/^uploads\/[0-9a-f-]{36}\.webp$/);
+    expect(input?.Key).toMatch(/^uploads\/[0-9a-f-]{36}\.webp$/);
 
-    const stored = await sharp(captured?.Body as Buffer).metadata();
+    const stored = await sharp(input?.Body as Buffer).metadata();
     expect(stored.format).toBe('webp');
     expect(stored.width).toBe(48);
   });
 
   it('propagates a storage failure', async () => {
+    const { service, send } = setup();
     send.mockImplementation(async () => {
       throw new Error('S3 down');
     });
-    const service = new UploadService();
 
     expect(service.upload(await createImage('png'))).rejects.toThrow('S3 down');
   });
 
   it('fails when storage is not configured', async () => {
-    const service = new UploadService();
+    const { service } = setup();
     (service as unknown as { s3: unknown }).s3 = null;
 
     expect(service.upload(await createImage('png'))).rejects.toThrow(
