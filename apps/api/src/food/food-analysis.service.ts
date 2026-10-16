@@ -5,9 +5,8 @@ import {
   BadGatewayException,
   GatewayTimeoutException,
 } from '@nestjs/common';
-import { GoogleGenAI } from '@google/genai';
+import { createHash } from 'node:crypto';
 import sharp from 'sharp';
-import { env } from '../config/env';
 import {
   foodAnalysisItemSchema,
   type FoodAnalysisFoodItem,
@@ -15,26 +14,30 @@ import {
   type FoodAnalysisResult,
 } from './food.schema';
 import { FoodMatcherService } from './food-matcher.service';
+import { buildVisionProviders } from './vision/providers';
+import type { VisionProvider } from './vision/vision.types';
+import { env } from '../config/env';
 
-// Tried in order; if one model is unavailable (429/503) or removed (404), the
-// next one is used. Keep the list here so the fallback chain lives in one place.
-const GEMINI_MODELS = [
-  'gemini-3.6-flash',
-  'gemini-flash-latest',
-  'gemini-flash-lite-latest',
-] as const;
+const PROVIDER_TIMEOUT_MS = 30_000;
+const TIMEOUT_SENTINEL = 'vision-timeout';
+const CACHE_MAX_ENTRIES = 500;
+const MAX_ITEMS = 8;
+
+type CacheEntry = { result: FoodAnalysisResult; at: number };
 
 @Injectable()
 export class FoodAnalysisService {
   private readonly logger = new Logger(FoodAnalysisService.name);
 
-  private readonly gemini: GoogleGenAI | null = env.GEMINI_API_KEY
-    ? new GoogleGenAI({ apiKey: env.GEMINI_API_KEY })
-    : null;
+  private readonly cache = new Map<string, CacheEntry>();
 
-  constructor(private readonly matcher: FoodMatcherService) {}
+  private readonly cacheTtlMs = env.ANALYSIS_CACHE_TTL_MS;
 
-  private static readonly MAX_ITEMS = 8;
+  private providers: VisionProvider[];
+
+  constructor(private readonly matcher: FoodMatcherService) {
+    this.providers = buildVisionProviders();
+  }
 
   async analyzePhoto(file: {
     buffer: Buffer;
@@ -42,8 +45,8 @@ export class FoodAnalysisService {
     originalname: string;
     size: number;
   }): Promise<FoodAnalysisResult> {
-    if (!this.gemini) {
-      this.logger.warn('GEMINI_API_KEY is not set');
+    if (!this.providers.length) {
+      this.logger.warn('No vision provider is configured');
       throw new ServiceUnavailableException(
         'Food analysis service is not configured',
       );
@@ -54,12 +57,19 @@ export class FoodAnalysisService {
       file.mimetype,
     );
 
-    const raw = await this.analyzeWithGemini(buffer, mimeType);
+    const cacheKey = this.hashImage(buffer);
+    const cached = this.cache.get(cacheKey);
+    if (cached && Date.now() - cached.at < this.cacheTtlMs) {
+      this.logger.log('Vision cache hit, skipping providers');
+      return cached.result;
+    }
+    if (cached) {
+      this.cache.delete(cacheKey);
+    }
 
-    const items = this.normalizeItems(raw).slice(
-      0,
-      FoodAnalysisService.MAX_ITEMS,
-    );
+    const raw = await this.analyzeWithProviders(buffer, mimeType);
+
+    const items = this.normalizeItems(raw).slice(0, MAX_ITEMS);
 
     const parsed: FoodAnalysisItem[] = [];
     for (const item of items) {
@@ -69,13 +79,14 @@ export class FoodAnalysisService {
         parsed.push(result.data);
       } else {
         this.logger.warn(
-          'Gemini response item failed Zod validation: ' +
+          'Vision response item failed Zod validation: ' +
             JSON.stringify(result.error.flatten()),
         );
       }
     }
 
     if (!parsed.length) {
+      this.cacheSet(cacheKey, []);
       return [];
     }
 
@@ -87,7 +98,7 @@ export class FoodAnalysisService {
     // Food matching changes food values only. Reinsert those values into the
     // validated array so water stays in the same visual order as the photo.
     let foodIndex = 0;
-    return parsed.map((item) => {
+    const result = parsed.map((item) => {
       if (item.kind === 'water') {
         return item;
       }
@@ -96,54 +107,42 @@ export class FoodAnalysisService {
       foodIndex += 1;
       return matched ?? item;
     });
+
+    this.cacheSet(cacheKey, result);
+    return result;
   }
 
-  private async analyzeWithGemini(
+  private async analyzeWithProviders(
     buffer: Buffer,
     mimeType: string,
   ): Promise<unknown> {
-    const TIMEOUT_MS = 120_000;
+    const image = { data: buffer.toString('base64'), mimeType };
+    const prompt = this.prompt();
     let lastStatus: number | null = null;
 
-    for (const model of GEMINI_MODELS) {
+    for (const provider of this.providers) {
       try {
-        const response = await Promise.race([
-          this.gemini!.models.generateContent({
-            model,
-            contents: [
-              {
-                inlineData: {
-                  mimeType,
-                  data: buffer.toString('base64'),
-                },
-              },
-              { text: this.prompt() },
-            ],
-            config: { responseMimeType: 'application/json' },
-          }),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Gemini timeout')), TIMEOUT_MS),
-          ),
-        ]);
+        const text = await this.withTimeout(provider.analyze(image, prompt));
 
         this.logger.log(
-          `Gemini (${model}) raw response: ` +
-            (response.text ?? 'null').slice(0, 1000),
+          `Vision (${provider.name}) raw response: ${text.slice(0, 1000)}`,
         );
 
         try {
-          return JSON.parse(response.text ?? '[]');
+          return this.parseJson(text);
         } catch {
-          this.logger.warn(`Gemini (${model}) returned invalid JSON`);
+          this.logger.warn(`Vision (${provider.name}) returned invalid JSON`);
           lastStatus = null;
           continue;
         }
       } catch (e) {
         const anyErr = e as { message?: string };
 
-        if (anyErr?.message === 'Gemini timeout') {
+        if (anyErr?.message === TIMEOUT_SENTINEL) {
           this.logger.error(
-            `Gemini (${model}) timed out after ${TIMEOUT_MS / 1000}s`,
+            `Vision (${provider.name}) timed out after ${
+              PROVIDER_TIMEOUT_MS / 1000
+            }s`,
           );
           lastStatus = 504;
           continue;
@@ -152,24 +151,79 @@ export class FoodAnalysisService {
         const status = this.extractStatus(e);
         lastStatus = status;
         this.logger.error(
-          `Gemini (${model}) request failed: ${status} — ${
+          `Vision (${provider.name}) request failed: ${status} — ${
             anyErr?.message ?? 'unknown error'
           }`,
         );
 
-        if (status === 429 || status === 503 || status === 404) {
-          this.logger.warn(`Gemini ${model} unavailable, trying next model`);
+        if (this.isFallbackStatus(status)) {
+          this.logger.warn(
+            `Vision ${provider.name} unavailable, trying next provider`,
+          );
           continue;
         }
 
-        throw this.toGeminiException(status);
+        throw this.toException(status);
       }
     }
 
-    throw this.toGeminiException(lastStatus);
+    throw this.toException(lastStatus);
   }
 
-  private toGeminiException(status: number | null): Error {
+  private async withTimeout<T>(promise: Promise<T>): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error(TIMEOUT_SENTINEL)),
+            PROVIDER_TIMEOUT_MS,
+          );
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  private parseJson(text: string): unknown {
+    const trimmed = text.trim();
+    const withoutFence = trimmed.startsWith('```')
+      ? trimmed
+          .replace(/^```[a-zA-Z]*\s*/, '')
+          .replace(/```$/, '')
+          .trim()
+      : trimmed;
+    return JSON.parse(withoutFence);
+  }
+
+  private hashImage(buffer: Buffer): string {
+    return createHash('sha256').update(buffer).digest('hex');
+  }
+
+  private cacheSet(key: string, result: FoodAnalysisResult): void {
+    if (this.cache.size >= CACHE_MAX_ENTRIES) {
+      const oldest = this.cache.keys().next().value;
+      if (oldest !== undefined) {
+        this.cache.delete(oldest);
+      }
+    }
+    this.cache.set(key, { result, at: Date.now() });
+  }
+
+  private isFallbackStatus(status: number | null): boolean {
+    if (status === null) return false;
+    return (
+      status === 401 ||
+      status === 403 ||
+      status === 404 ||
+      status === 429 ||
+      status >= 500
+    );
+  }
+
+  private toException(status: number | null): Error {
     if (status === 504) {
       return new GatewayTimeoutException(
         'Food analysis service timed out. Please try again later.',
@@ -215,6 +269,10 @@ export class FoodAnalysisService {
       return raw;
     }
     if (raw && typeof raw === 'object') {
+      const wrapped = (raw as { items?: unknown }).items;
+      if (Array.isArray(wrapped)) {
+        return wrapped as Array<Record<string, unknown>>;
+      }
       return [raw as Record<string, unknown>];
     }
     return [];

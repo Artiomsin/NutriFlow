@@ -1,135 +1,182 @@
-import { beforeEach, describe, expect, it, mock } from 'bun:test';
+import { describe, expect, it, mock } from 'bun:test';
 import {
   BadGatewayException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+
 import { FoodAnalysisService } from './food-analysis.service';
 import type { FoodMatcherService } from './food-matcher.service';
+import type { VisionImage, VisionProvider } from './vision/vision.types';
 import type { FoodAnalysisResult } from './food.schema';
 
-const generateContent = mock(async (...args: unknown[]) => {
-  void args;
-  return { text: '[]' };
+type Analyze = (image: VisionImage, prompt: string) => Promise<string>;
+
+const rawText = (payload: unknown) => JSON.stringify(payload);
+
+const makeProvider = (analyze: Analyze, name = 'test'): VisionProvider => ({
+  name,
+  analyze: mock(analyze),
 });
 
-type MatcherFn = (items: unknown[]) => unknown;
+const okProvider = () => makeProvider(async () => '[]');
+
+const calls = (provider: VisionProvider) =>
+  (provider.analyze as ReturnType<typeof mock>).mock.calls;
 
 const file = {
-  buffer: Buffer.from('not-an-image'),
+  buffer: Buffer.from('not-a-real-image'),
   mimetype: 'image/png',
   originalname: 'meal.png',
-  size: 12,
+  size: 17,
 };
 
-function setup(matcherFn?: MatcherFn) {
+function setup(
+  matcherImpl?: (items: unknown[]) => unknown,
+  providers?: VisionProvider[],
+) {
   const matchItems = mock(async (items: unknown[]) =>
-    matcherFn ? matcherFn(items) : items,
+    matcherImpl ? matcherImpl(items) : items,
   );
   const service = new FoodAnalysisService({
     matchItems,
   } as unknown as FoodMatcherService);
-  (service as unknown as { gemini: unknown }).gemini = {
-    models: { generateContent },
-  };
-  return { service, matchItems };
+
+  const list = providers ?? [okProvider()];
+  (service as unknown as { providers: VisionProvider[] }).providers = list;
+
+  return { service, matchItems, providers: list };
 }
 
-const rawText = (payload: unknown) => ({ text: JSON.stringify(payload) });
-
-const geminiRequest = (index = 0) =>
-  generateContent.mock.calls[index]?.[0] as unknown as {
-    model: string;
-    config: { responseMimeType: string };
-    contents: Array<{ inlineData: { mimeType: string; data: string } }>;
-  };
-
-beforeEach(() => {
-  generateContent.mockReset();
-  generateContent.mockImplementation(async () => ({ text: '[]' }));
-});
-
 describe('FoodAnalysisService.analyzePhoto', () => {
-  it('throws 503 when Gemini is not configured', async () => {
-    const { service } = setup();
-    (service as unknown as { gemini: unknown }).gemini = null;
+  it('throws 503 when no provider is configured', async () => {
+    const { service } = setup(undefined, []);
 
     expect(service.analyzePhoto(file)).rejects.toBeInstanceOf(
       ServiceUnavailableException,
     );
   });
 
-  it('maps a Gemini 503 to ServiceUnavailableException', async () => {
-    generateContent.mockImplementation(async () => {
+  it('maps a 503 to ServiceUnavailableException', async () => {
+    const provider = makeProvider(async () => {
       throw { status: 503 };
     });
-    const { service } = setup();
+    const { service } = setup(undefined, [provider]);
 
     expect(service.analyzePhoto(file)).rejects.toBeInstanceOf(
       ServiceUnavailableException,
     );
   });
 
-  it('maps a Gemini 429 to ServiceUnavailableException', async () => {
-    generateContent.mockImplementation(async () => {
-      throw { error: { code: 429 } };
-    });
-    const { service } = setup();
+  it('maps a 429 to ServiceUnavailableException', async () => {
+    const { service } = setup(undefined, [
+      makeProvider(async () => {
+        throw { error: { code: 429 } };
+      }),
+    ]);
 
     expect(service.analyzePhoto(file)).rejects.toBeInstanceOf(
       ServiceUnavailableException,
     );
   });
 
-  it('maps an unknown Gemini failure to BadGatewayException', async () => {
-    generateContent.mockImplementation(async () => {
-      throw new Error('boom');
-    });
-    const { service } = setup();
+  it('maps an unknown failure to BadGatewayException', async () => {
+    const { service } = setup(undefined, [
+      makeProvider(async () => {
+        throw new Error('boom');
+      }),
+    ]);
 
     expect(service.analyzePhoto(file)).rejects.toBeInstanceOf(
       BadGatewayException,
     );
   });
 
-  it('falls back to the next model when one is unavailable', async () => {
-    generateContent
-      .mockImplementationOnce(async () => {
-        throw { status: 503 };
-      })
-      .mockImplementationOnce(async () =>
-        rawText([{ kind: 'water', amountMl: 300, confidence: 1 }]),
-      );
-    const { service } = setup();
+  it('falls back to the next provider when one is unavailable', async () => {
+    const first = makeProvider(async () => {
+      throw { status: 503 };
+    });
+    const second = makeProvider(async () =>
+      rawText([{ kind: 'water', amountMl: 300, confidence: 1 }]),
+    );
+    const { service } = setup(undefined, [first, second]);
 
     const result = await service.analyzePhoto(file);
 
     expect(result).toEqual([{ kind: 'water', amountMl: 300, confidence: 1 }]);
-    expect(generateContent).toHaveBeenCalledTimes(2);
-    expect(geminiRequest(0).model).toBe('gemini-3.6-flash');
-    expect(geminiRequest(1).model).toBe('gemini-flash-latest');
+    expect(first.analyze).toHaveBeenCalledTimes(1);
+    expect(second.analyze).toHaveBeenCalledTimes(1);
   });
 
-  it('falls back to the next model when one was removed (404)', async () => {
-    generateContent
-      .mockImplementationOnce(async () => {
-        throw { status: 404 };
-      })
-      .mockImplementationOnce(async () => rawText([]));
-    const { service } = setup();
+  it('falls back to the next provider when one was removed (404)', async () => {
+    const first = makeProvider(async () => {
+      throw { status: 404 };
+    });
+    const second = makeProvider(async () => rawText([]));
+    const { service } = setup(undefined, [first, second]);
 
     const result = await service.analyzePhoto(file);
 
     expect(result).toEqual([]);
-    expect(generateContent).toHaveBeenCalledTimes(2);
+    expect(first.analyze).toHaveBeenCalledTimes(1);
+    expect(second.analyze).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back on a 403 (region/key blocked) instead of failing', async () => {
+    const first = makeProvider(async () => {
+      throw { status: 403 };
+    });
+    const second = makeProvider(async () => rawText([]));
+    const { service } = setup(undefined, [first, second]);
+
+    const result = await service.analyzePhoto(file);
+
+    expect(result).toEqual([]);
+    expect(first.analyze).toHaveBeenCalledTimes(1);
+    expect(second.analyze).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back on a 401 (invalid key) instead of failing', async () => {
+    const first = makeProvider(async () => {
+      throw { status: 401 };
+    });
+    const second = makeProvider(async () => rawText([]));
+    const { service } = setup(undefined, [first, second]);
+
+    const result = await service.analyzePhoto(file);
+
+    expect(result).toEqual([]);
+    expect(second.analyze).toHaveBeenCalledTimes(1);
   });
 
   it('maps invalid JSON output to BadGatewayException', async () => {
-    generateContent.mockImplementation(async () => ({ text: 'not json' }));
-    const { service } = setup();
+    const { service } = setup(undefined, [
+      makeProvider(async () => 'not json'),
+    ]);
 
     expect(service.analyzePhoto(file)).rejects.toBeInstanceOf(
       BadGatewayException,
     );
+  });
+
+  it('serves a repeated image from cache without calling providers', async () => {
+    const provider = okProvider();
+    const { service } = setup(undefined, [provider]);
+
+    await service.analyzePhoto(file);
+    await service.analyzePhoto(file);
+
+    expect(provider.analyze).toHaveBeenCalledTimes(1);
+  });
+
+  it('re-analyzes once a cached entry outlives its TTL', async () => {
+    const provider = okProvider();
+    const { service } = setup(undefined, [provider]);
+    (service as unknown as { cacheTtlMs: number }).cacheTtlMs = 0;
+
+    await service.analyzePhoto(file);
+    await service.analyzePhoto(file);
+
+    expect(provider.analyze).toHaveBeenCalledTimes(2);
   });
 
   it('returns [] for an empty array and skips the matcher', async () => {
@@ -142,18 +189,46 @@ describe('FoodAnalysisService.analyzePhoto', () => {
   });
 
   it('normalizes a single object response into one item', async () => {
-    generateContent.mockImplementation(async () =>
-      rawText({ kind: 'water', amountMl: 300, confidence: 1 }),
-    );
-    const { service } = setup();
+    const { service } = setup(undefined, [
+      makeProvider(async () =>
+        rawText({ kind: 'water', amountMl: 300, confidence: 1 }),
+      ),
+    ]);
 
     const result = await service.analyzePhoto(file);
 
     expect(result).toEqual([{ kind: 'water', amountMl: 300, confidence: 1 }]);
   });
 
+  it('unwraps a { items: [...] } response', async () => {
+    const { service } = setup(undefined, [
+      makeProvider(async () =>
+        rawText({
+          items: [{ kind: 'water', amountMl: 250, confidence: 1 }],
+        }),
+      ),
+    ]);
+
+    const result = await service.analyzePhoto(file);
+
+    expect(result).toEqual([{ kind: 'water', amountMl: 250, confidence: 1 }]);
+  });
+
+  it('parses a JSON array wrapped in a markdown fence', async () => {
+    const { service } = setup(undefined, [
+      makeProvider(
+        async () =>
+          '```json\n[{"kind":"water","amountMl":200,"confidence":1}]\n```',
+      ),
+    ]);
+
+    const result = await service.analyzePhoto(file);
+
+    expect(result).toEqual([{ kind: 'water', amountMl: 200, confidence: 1 }]);
+  });
+
   it('rounds food fields and merges the matcher result', async () => {
-    generateContent.mockImplementation(async () =>
+    const provider = makeProvider(async () =>
       rawText([
         {
           kind: 'food',
@@ -168,9 +243,10 @@ describe('FoodAnalysisService.analyzePhoto', () => {
         },
       ]),
     );
-    const { service, matchItems } = setup(() => [
-      { kind: 'food', name: 'Catalog Rice', source: 'catalog' },
-    ]);
+    const { service, matchItems } = setup(
+      () => [{ kind: 'food', name: 'Catalog Rice', source: 'catalog' }],
+      [provider],
+    );
 
     const result = await service.analyzePhoto(file);
 
@@ -197,13 +273,14 @@ describe('FoodAnalysisService.analyzePhoto', () => {
   });
 
   it('drops items that fail schema validation', async () => {
-    generateContent.mockImplementation(async () =>
-      rawText([
-        { kind: 'food' },
-        { kind: 'water', amountMl: 5, confidence: 1 },
-      ]),
-    );
-    const { service, matchItems } = setup();
+    const { service, matchItems } = setup(undefined, [
+      makeProvider(async () =>
+        rawText([
+          { kind: 'food' },
+          { kind: 'water', amountMl: 5, confidence: 1 },
+        ]),
+      ),
+    ]);
 
     const result = await service.analyzePhoto(file);
 
@@ -222,10 +299,11 @@ describe('FoodAnalysisService.analyzePhoto', () => {
       carbs: 1,
       confidence: 1,
     };
-    generateContent.mockImplementation(async () =>
-      rawText(Array.from({ length: 10 }, () => ({ ...item }))),
-    );
-    const { service, matchItems } = setup();
+    const { service, matchItems } = setup(undefined, [
+      makeProvider(async () =>
+        rawText(Array.from({ length: 10 }, () => ({ ...item }))),
+      ),
+    ]);
 
     const result = await service.analyzePhoto(file);
 
@@ -234,15 +312,22 @@ describe('FoodAnalysisService.analyzePhoto', () => {
   });
 
   it('keeps water between foods in the original order', async () => {
-    generateContent.mockImplementation(async () =>
-      rawText([
-        { kind: 'food', name: 'A', grams: 1, calories: 1, confidence: 1 },
-        { kind: 'water', amountMl: 250, confidence: 1 },
-        { kind: 'food', name: 'B', grams: 1, calories: 1, confidence: 1 },
-      ]),
-    );
-    const { service } = setup((items) =>
-      items.map((_, i) => ({ kind: 'food', source: 'catalog', name: `M${i}` })),
+    const { service } = setup(
+      (items) =>
+        items.map((_, i) => ({
+          kind: 'food',
+          source: 'catalog',
+          name: `M${i}`,
+        })),
+      [
+        makeProvider(async () =>
+          rawText([
+            { kind: 'food', name: 'A', grams: 1, calories: 1, confidence: 1 },
+            { kind: 'water', amountMl: 250, confidence: 1 },
+            { kind: 'food', name: 'B', grams: 1, calories: 1, confidence: 1 },
+          ]),
+        ),
+      ],
     );
 
     const result = await service.analyzePhoto(file);
@@ -261,26 +346,24 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     });
   });
 
-  it('passes a non-image mime type through to Gemini untouched', async () => {
-    const { service } = setup();
+  it('passes a non-image mime type through to the provider untouched', async () => {
+    const provider = okProvider();
+    const { service } = setup(undefined, [provider]);
 
     await service.analyzePhoto({ ...file, mimetype: 'application/pdf' });
 
-    const request = geminiRequest();
-    expect(request.model).toBe('gemini-3.6-flash');
-    expect(request.config.responseMimeType).toBe('application/json');
-    expect(request.contents[0]?.inlineData.mimeType).toBe('application/pdf');
+    const image = calls(provider)[0]?.[0] as VisionImage;
+    expect(image.mimeType).toBe('application/pdf');
   });
 
   it('sends a broken image buffer as-is after compression fails', async () => {
-    const { service } = setup();
+    const provider = okProvider();
+    const { service } = setup(undefined, [provider]);
 
     await service.analyzePhoto(file);
 
-    const request = geminiRequest();
-    expect(request.contents[0]?.inlineData.mimeType).toBe('image/png');
-    expect(request.contents[0]?.inlineData.data).toBe(
-      file.buffer.toString('base64'),
-    );
+    const image = calls(provider)[0]?.[0] as VisionImage;
+    expect(image.mimeType).toBe('image/png');
+    expect(image.data).toBe(file.buffer.toString('base64'));
   });
 });
