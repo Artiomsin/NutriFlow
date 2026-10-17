@@ -16,6 +16,7 @@ import { WorkoutsModule } from './workouts/workouts.module';
 import { SleepModule } from './sleep/sleep.module';
 import { WeightLogsModule } from './weight-logs/weight-logs.module';
 import { HealthModule } from './health/health.module';
+import { MediaModule } from './media/media.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { HealthModule } from './health/health.module';
     SleepModule,
     WeightLogsModule,
     HealthModule,
+    MediaModule,
   ],
 })
 export class AppModule {}
