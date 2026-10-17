@@ -89,7 +89,10 @@ describe('FoodService.getAll', () => {
       createdBy: other.id,
     });
 
-    const groups = await service.getAll(200, 0, user.id);
+    // The shared test database includes the seeded catalog, which currently
+    // contains more than 200 foods. Use a limit above the catalog size so this
+    // test verifies visibility instead of accidentally testing pagination.
+    const groups = await service.getAll(1_000, 0, user.id);
     const names = groups.flatMap((g) => g.foods).map((f) => f.name);
 
     expect(names).toContain('ZqVisibleSystem');
