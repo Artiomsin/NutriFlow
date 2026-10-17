@@ -25,7 +25,7 @@ export const env = {
   GEMINI_API_KEY: process.env.GEMINI_API_KEY ?? '',
   GROQ_API_KEY: process.env.GROQ_API_KEY ?? '',
   GROQ_MODEL:
-    process.env.GROQ_MODEL ?? 'meta-llama/llama-4-scout-17b-16e-instruct',
+    process.env.GROQ_MODEL ?? 'qwen/qwen3.8-27b',
   ANALYSIS_DAILY_LIMIT: Number(process.env.ANALYSIS_DAILY_LIMIT ?? 6),
   ANALYSIS_CACHE_TTL_MS: Number(process.env.ANALYSIS_CACHE_TTL_MS ?? 3_600_000),
 
