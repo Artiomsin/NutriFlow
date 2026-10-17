@@ -414,9 +414,10 @@ describe('FoodService.update', () => {
       calories: 10,
       date: '2026-10-05',
     });
-    const category = await createCategory(tx, 'Snacks');
+    // Avoid colliding with the system catalog category seeded in the test DB.
+    const category = await createCategory(tx, 'ZqSnacks');
 
-    await service.update(user.id, entry!.id, { categoryName: 'Snacks' });
+    await service.update(user.id, entry!.id, { categoryName: 'ZqSnacks' });
     let [food] = await tx.select().from(foods).where(eq(foods.id, own.id));
     expect(food?.categoryId).toBe(category.id);
 

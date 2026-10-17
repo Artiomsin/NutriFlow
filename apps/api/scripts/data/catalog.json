@@ -1,0 +1,2429 @@
+{
+  "categories": [
+    { "name": "Breakfast", "icon": "🍳" },
+    { "name": "Soups", "icon": "🍲" },
+    { "name": "Salads", "icon": "🥗" },
+    { "name": "Meat", "icon": "🥩" },
+    { "name": "Seafood", "icon": "🐟" },
+    { "name": "Pasta & Grains", "icon": "🍝" },
+    { "name": "Vegetables & Sides", "icon": "🥦" },
+    { "name": "Desserts", "icon": "🍰" },
+    { "name": "Drinks", "icon": "🥤" },
+    { "name": "Fast Food", "icon": "🍔" },
+    { "name": "Snacks", "icon": "🥨" },
+    { "name": "Bakery", "icon": "🥐" }
+  ],
+  "foods": [
+    {
+      "name": "Oatmeal",
+      "category": "Breakfast",
+      "caloriesPer100g": 68,
+      "proteinPer100g": 2,
+      "fatPer100g": 1,
+      "carbsPer100g": 12
+    },
+    {
+      "name": "Scrambled Eggs",
+      "category": "Breakfast",
+      "caloriesPer100g": 149,
+      "proteinPer100g": 10,
+      "fatPer100g": 11,
+      "carbsPer100g": 1
+    },
+    {
+      "name": "Cheese Omelette",
+      "category": "Breakfast",
+      "caloriesPer100g": 154,
+      "proteinPer100g": 11,
+      "fatPer100g": 12,
+      "carbsPer100g": 1
+    },
+    {
+      "name": "Pancakes",
+      "category": "Breakfast",
+      "caloriesPer100g": 227,
+      "proteinPer100g": 6,
+      "fatPer100g": 9,
+      "carbsPer100g": 28
+    },
+    {
+      "name": "Belgian Waffles",
+      "category": "Breakfast",
+      "caloriesPer100g": 291,
+      "proteinPer100g": 8,
+      "fatPer100g": 13,
+      "carbsPer100g": 38
+    },
+    {
+      "name": "French Toast",
+      "category": "Breakfast",
+      "caloriesPer100g": 229,
+      "proteinPer100g": 8,
+      "fatPer100g": 10,
+      "carbsPer100g": 26
+    },
+    {
+      "name": "Avocado Toast",
+      "category": "Breakfast",
+      "caloriesPer100g": 160,
+      "proteinPer100g": 4,
+      "fatPer100g": 9,
+      "carbsPer100g": 16
+    },
+    {
+      "name": "Bagel with Cream Cheese",
+      "category": "Breakfast",
+      "caloriesPer100g": 280,
+      "proteinPer100g": 9,
+      "fatPer100g": 7,
+      "carbsPer100g": 45
+    },
+    {
+      "name": "Butter Croissant",
+      "category": "Breakfast",
+      "caloriesPer100g": 406,
+      "proteinPer100g": 8,
+      "fatPer100g": 21,
+      "carbsPer100g": 45
+    },
+    {
+      "name": "Granola Bowl",
+      "category": "Breakfast",
+      "caloriesPer100g": 190,
+      "proteinPer100g": 4,
+      "fatPer100g": 6,
+      "carbsPer100g": 30
+    },
+    {
+      "name": "Greek Yogurt with Berries",
+      "category": "Breakfast",
+      "caloriesPer100g": 90,
+      "proteinPer100g": 6,
+      "fatPer100g": 3,
+      "carbsPer100g": 9
+    },
+    {
+      "name": "Smoothie Bowl",
+      "category": "Breakfast",
+      "caloriesPer100g": 110,
+      "proteinPer100g": 3,
+      "fatPer100g": 2,
+      "carbsPer100g": 20
+    },
+    {
+      "name": "Breakfast Burrito",
+      "category": "Breakfast",
+      "caloriesPer100g": 210,
+      "proteinPer100g": 10,
+      "fatPer100g": 9,
+      "carbsPer100g": 22
+    },
+    {
+      "name": "Eggs Benedict",
+      "category": "Breakfast",
+      "caloriesPer100g": 220,
+      "proteinPer100g": 11,
+      "fatPer100g": 16,
+      "carbsPer100g": 8
+    },
+    {
+      "name": "Hash Browns",
+      "category": "Breakfast",
+      "caloriesPer100g": 265,
+      "proteinPer100g": 3,
+      "fatPer100g": 17,
+      "carbsPer100g": 26
+    },
+    {
+      "name": "Bacon and Eggs",
+      "category": "Breakfast",
+      "caloriesPer100g": 250,
+      "proteinPer100g": 14,
+      "fatPer100g": 20,
+      "carbsPer100g": 1
+    },
+    {
+      "name": "Sausage and Eggs",
+      "category": "Breakfast",
+      "caloriesPer100g": 260,
+      "proteinPer100g": 15,
+      "fatPer100g": 20,
+      "carbsPer100g": 2
+    },
+    {
+      "name": "Full English Breakfast",
+      "category": "Breakfast",
+      "caloriesPer100g": 240,
+      "proteinPer100g": 13,
+      "fatPer100g": 17,
+      "carbsPer100g": 9
+    },
+    {
+      "name": "Shakshuka",
+      "category": "Breakfast",
+      "caloriesPer100g": 90,
+      "proteinPer100g": 5,
+      "fatPer100g": 6,
+      "carbsPer100g": 5
+    },
+    {
+      "name": "Muesli",
+      "category": "Breakfast",
+      "caloriesPer100g": 350,
+      "proteinPer100g": 9,
+      "fatPer100g": 6,
+      "carbsPer100g": 66
+    },
+    {
+      "name": "Porridge with Milk",
+      "category": "Breakfast",
+      "caloriesPer100g": 90,
+      "proteinPer100g": 3,
+      "fatPer100g": 2,
+      "carbsPer100g": 14
+    },
+    {
+      "name": "Blueberry Muffin",
+      "category": "Breakfast",
+      "caloriesPer100g": 380,
+      "proteinPer100g": 5,
+      "fatPer100g": 16,
+      "carbsPer100g": 54
+    },
+    {
+      "name": "Banana Bread",
+      "category": "Breakfast",
+      "caloriesPer100g": 320,
+      "proteinPer100g": 5,
+      "fatPer100g": 12,
+      "carbsPer100g": 50
+    },
+    {
+      "name": "Breakfast Sandwich",
+      "category": "Breakfast",
+      "caloriesPer100g": 250,
+      "proteinPer100g": 12,
+      "fatPer100g": 13,
+      "carbsPer100g": 20
+    },
+    {
+      "name": "Cottage Cheese with Fruit",
+      "category": "Breakfast",
+      "caloriesPer100g": 105,
+      "proteinPer100g": 9,
+      "fatPer100g": 4,
+      "carbsPer100g": 7
+    },
+    {
+      "name": "Chia Pudding",
+      "category": "Breakfast",
+      "caloriesPer100g": 150,
+      "proteinPer100g": 4,
+      "fatPer100g": 8,
+      "carbsPer100g": 15
+    },
+    {
+      "name": "Protein Pancakes",
+      "category": "Breakfast",
+      "caloriesPer100g": 200,
+      "proteinPer100g": 15,
+      "fatPer100g": 6,
+      "carbsPer100g": 20
+    },
+    {
+      "name": "Huevos Rancheros",
+      "category": "Breakfast",
+      "caloriesPer100g": 145,
+      "proteinPer100g": 7,
+      "fatPer100g": 8,
+      "carbsPer100g": 12
+    },
+
+    {
+      "name": "Borscht",
+      "category": "Soups",
+      "caloriesPer100g": 62,
+      "proteinPer100g": 3,
+      "fatPer100g": 3,
+      "carbsPer100g": 6
+    },
+    {
+      "name": "Chicken Noodle Soup",
+      "category": "Soups",
+      "caloriesPer100g": 45,
+      "proteinPer100g": 3,
+      "fatPer100g": 1,
+      "carbsPer100g": 5
+    },
+    {
+      "name": "Tomato Soup",
+      "category": "Soups",
+      "caloriesPer100g": 40,
+      "proteinPer100g": 1,
+      "fatPer100g": 1,
+      "carbsPer100g": 7
+    },
+    {
+      "name": "Minestrone",
+      "category": "Soups",
+      "caloriesPer100g": 50,
+      "proteinPer100g": 2,
+      "fatPer100g": 1,
+      "carbsPer100g": 8
+    },
+    {
+      "name": "Lentil Soup",
+      "category": "Soups",
+      "caloriesPer100g": 60,
+      "proteinPer100g": 4,
+      "fatPer100g": 1,
+      "carbsPer100g": 10
+    },
+    {
+      "name": "Split Pea Soup",
+      "category": "Soups",
+      "caloriesPer100g": 70,
+      "proteinPer100g": 5,
+      "fatPer100g": 1,
+      "carbsPer100g": 11
+    },
+    {
+      "name": "Cream of Mushroom Soup",
+      "category": "Soups",
+      "caloriesPer100g": 55,
+      "proteinPer100g": 2,
+      "fatPer100g": 3,
+      "carbsPer100g": 5
+    },
+    {
+      "name": "French Onion Soup",
+      "category": "Soups",
+      "caloriesPer100g": 55,
+      "proteinPer100g": 3,
+      "fatPer100g": 3,
+      "carbsPer100g": 4
+    },
+    {
+      "name": "Cream of Broccoli Soup",
+      "category": "Soups",
+      "caloriesPer100g": 50,
+      "proteinPer100g": 2,
+      "fatPer100g": 3,
+      "carbsPer100g": 4
+    },
+    {
+      "name": "Clam Chowder",
+      "category": "Soups",
+      "caloriesPer100g": 90,
+      "proteinPer100g": 4,
+      "fatPer100g": 4,
+      "carbsPer100g": 9
+    },
+    {
+      "name": "Gazpacho",
+      "category": "Soups",
+      "caloriesPer100g": 35,
+      "proteinPer100g": 1,
+      "fatPer100g": 1,
+      "carbsPer100g": 6
+    },
+    {
+      "name": "Miso Soup",
+      "category": "Soups",
+      "caloriesPer100g": 30,
+      "proteinPer100g": 3,
+      "fatPer100g": 1,
+      "carbsPer100g": 3
+    },
+    {
+      "name": "Tom Yum Soup",
+      "category": "Soups",
+      "caloriesPer100g": 45,
+      "proteinPer100g": 4,
+      "fatPer100g": 2,
+      "carbsPer100g": 3
+    },
+    {
+      "name": "Pho",
+      "category": "Soups",
+      "caloriesPer100g": 50,
+      "proteinPer100g": 5,
+      "fatPer100g": 1,
+      "carbsPer100g": 5
+    },
+    {
+      "name": "Ramen Soup",
+      "category": "Soups",
+      "caloriesPer100g": 90,
+      "proteinPer100g": 5,
+      "fatPer100g": 4,
+      "carbsPer100g": 9
+    },
+    {
+      "name": "Pumpkin Soup",
+      "category": "Soups",
+      "caloriesPer100g": 45,
+      "proteinPer100g": 1,
+      "fatPer100g": 2,
+      "carbsPer100g": 7
+    },
+    {
+      "name": "Potato Leek Soup",
+      "category": "Soups",
+      "caloriesPer100g": 55,
+      "proteinPer100g": 1,
+      "fatPer100g": 2,
+      "carbsPer100g": 8
+    },
+    {
+      "name": "Beef Stew",
+      "category": "Soups",
+      "caloriesPer100g": 120,
+      "proteinPer100g": 10,
+      "fatPer100g": 6,
+      "carbsPer100g": 6
+    },
+    {
+      "name": "Chili con Carne",
+      "category": "Soups",
+      "caloriesPer100g": 130,
+      "proteinPer100g": 8,
+      "fatPer100g": 6,
+      "carbsPer100g": 10
+    },
+    {
+      "name": "Vegetable Soup",
+      "category": "Soups",
+      "caloriesPer100g": 35,
+      "proteinPer100g": 1,
+      "fatPer100g": 1,
+      "carbsPer100g": 6
+    },
+    {
+      "name": "Chicken Tortilla Soup",
+      "category": "Soups",
+      "caloriesPer100g": 60,
+      "proteinPer100g": 4,
+      "fatPer100g": 2,
+      "carbsPer100g": 6
+    },
+    {
+      "name": "Zuppa Toscana",
+      "category": "Soups",
+      "caloriesPer100g": 100,
+      "proteinPer100g": 5,
+      "fatPer100g": 6,
+      "carbsPer100g": 7
+    },
+    {
+      "name": "Cabbage Soup",
+      "category": "Soups",
+      "caloriesPer100g": 30,
+      "proteinPer100g": 1,
+      "fatPer100g": 1,
+      "carbsPer100g": 4
+    },
+    {
+      "name": "Fish Soup",
+      "category": "Soups",
+      "caloriesPer100g": 55,
+      "proteinPer100g": 6,
+      "fatPer100g": 2,
+      "carbsPer100g": 2
+    },
+
+    {
+      "name": "Caesar Salad",
+      "category": "Salads",
+      "caloriesPer100g": 90,
+      "proteinPer100g": 6,
+      "fatPer100g": 6,
+      "carbsPer100g": 4
+    },
+    {
+      "name": "Greek Salad",
+      "category": "Salads",
+      "caloriesPer100g": 100,
+      "proteinPer100g": 3,
+      "fatPer100g": 8,
+      "carbsPer100g": 4
+    },
+    {
+      "name": "Garden Salad",
+      "category": "Salads",
+      "caloriesPer100g": 20,
+      "proteinPer100g": 1,
+      "fatPer100g": 1,
+      "carbsPer100g": 3
+    },
+    {
+      "name": "Cobb Salad",
+      "category": "Salads",
+      "caloriesPer100g": 110,
+      "proteinPer100g": 8,
+      "fatPer100g": 7,
+      "carbsPer100g": 3
+    },
+    {
+      "name": "Caprese Salad",
+      "category": "Salads",
+      "caloriesPer100g": 120,
+      "proteinPer100g": 7,
+      "fatPer100g": 9,
+      "carbsPer100g": 3
+    },
+    {
+      "name": "Waldorf Salad",
+      "category": "Salads",
+      "caloriesPer100g": 130,
+      "proteinPer100g": 2,
+      "fatPer100g": 10,
+      "carbsPer100g": 9
+    },
+    {
+      "name": "Nicoise Salad",
+      "category": "Salads",
+      "caloriesPer100g": 95,
+      "proteinPer100g": 7,
+      "fatPer100g": 6,
+      "carbsPer100g": 3
+    },
+    {
+      "name": "Tuna Salad",
+      "category": "Salads",
+      "caloriesPer100g": 160,
+      "proteinPer100g": 12,
+      "fatPer100g": 10,
+      "carbsPer100g": 4
+    },
+    {
+      "name": "Chicken Salad",
+      "category": "Salads",
+      "caloriesPer100g": 140,
+      "proteinPer100g": 11,
+      "fatPer100g": 9,
+      "carbsPer100g": 3
+    },
+    {
+      "name": "Egg Salad",
+      "category": "Salads",
+      "caloriesPer100g": 150,
+      "proteinPer100g": 8,
+      "fatPer100g": 12,
+      "carbsPer100g": 2
+    },
+    {
+      "name": "Potato Salad",
+      "category": "Salads",
+      "caloriesPer100g": 130,
+      "proteinPer100g": 2,
+      "fatPer100g": 7,
+      "carbsPer100g": 15
+    },
+    {
+      "name": "Coleslaw",
+      "category": "Salads",
+      "caloriesPer100g": 90,
+      "proteinPer100g": 1,
+      "fatPer100g": 6,
+      "carbsPer100g": 8
+    },
+    {
+      "name": "Quinoa Salad",
+      "category": "Salads",
+      "caloriesPer100g": 120,
+      "proteinPer100g": 4,
+      "fatPer100g": 4,
+      "carbsPer100g": 17
+    },
+    {
+      "name": "Beet Salad",
+      "category": "Salads",
+      "caloriesPer100g": 60,
+      "proteinPer100g": 1,
+      "fatPer100g": 2,
+      "carbsPer100g": 9
+    },
+    {
+      "name": "Spinach Salad",
+      "category": "Salads",
+      "caloriesPer100g": 45,
+      "proteinPer100g": 3,
+      "fatPer100g": 3,
+      "carbsPer100g": 3
+    },
+    {
+      "name": "Kale Salad",
+      "category": "Salads",
+      "caloriesPer100g": 70,
+      "proteinPer100g": 3,
+      "fatPer100g": 4,
+      "carbsPer100g": 6
+    },
+    {
+      "name": "Pasta Salad",
+      "category": "Salads",
+      "caloriesPer100g": 140,
+      "proteinPer100g": 4,
+      "fatPer100g": 5,
+      "carbsPer100g": 20
+    },
+    {
+      "name": "Fruit Salad",
+      "category": "Salads",
+      "caloriesPer100g": 55,
+      "proteinPer100g": 1,
+      "fatPer100g": 0,
+      "carbsPer100g": 13
+    },
+    {
+      "name": "Avocado Salad",
+      "category": "Salads",
+      "caloriesPer100g": 120,
+      "proteinPer100g": 2,
+      "fatPer100g": 10,
+      "carbsPer100g": 7
+    },
+    {
+      "name": "Cucumber Salad",
+      "category": "Salads",
+      "caloriesPer100g": 30,
+      "proteinPer100g": 1,
+      "fatPer100g": 2,
+      "carbsPer100g": 3
+    },
+    {
+      "name": "Fattoush Salad",
+      "category": "Salads",
+      "caloriesPer100g": 70,
+      "proteinPer100g": 2,
+      "fatPer100g": 3,
+      "carbsPer100g": 9
+    },
+    {
+      "name": "Tabbouleh Salad",
+      "category": "Salads",
+      "caloriesPer100g": 120,
+      "proteinPer100g": 3,
+      "fatPer100g": 4,
+      "carbsPer100g": 18
+    },
+    {
+      "name": "Three Bean Salad",
+      "category": "Salads",
+      "caloriesPer100g": 100,
+      "proteinPer100g": 5,
+      "fatPer100g": 2,
+      "carbsPer100g": 17
+    },
+    {
+      "name": "Mixed Green Salad",
+      "category": "Salads",
+      "caloriesPer100g": 25,
+      "proteinPer100g": 1,
+      "fatPer100g": 2,
+      "carbsPer100g": 3
+    },
+
+    {
+      "name": "Grilled Chicken Breast",
+      "category": "Meat",
+      "caloriesPer100g": 165,
+      "proteinPer100g": 31,
+      "fatPer100g": 4,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Roast Chicken",
+      "category": "Meat",
+      "caloriesPer100g": 190,
+      "proteinPer100g": 25,
+      "fatPer100g": 10,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Chicken Wings",
+      "category": "Meat",
+      "caloriesPer100g": 203,
+      "proteinPer100g": 18,
+      "fatPer100g": 14,
+      "carbsPer100g": 1
+    },
+    {
+      "name": "Chicken Curry",
+      "category": "Meat",
+      "caloriesPer100g": 150,
+      "proteinPer100g": 12,
+      "fatPer100g": 9,
+      "carbsPer100g": 5
+    },
+    {
+      "name": "Chicken Parmesan",
+      "category": "Meat",
+      "caloriesPer100g": 220,
+      "proteinPer100g": 18,
+      "fatPer100g": 12,
+      "carbsPer100g": 12
+    },
+    {
+      "name": "Beef Steak",
+      "category": "Meat",
+      "caloriesPer100g": 271,
+      "proteinPer100g": 25,
+      "fatPer100g": 19,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Beef Burger",
+      "category": "Meat",
+      "caloriesPer100g": 250,
+      "proteinPer100g": 20,
+      "fatPer100g": 17,
+      "carbsPer100g": 3
+    },
+    {
+      "name": "Meatloaf",
+      "category": "Meat",
+      "caloriesPer100g": 220,
+      "proteinPer100g": 15,
+      "fatPer100g": 15,
+      "carbsPer100g": 7
+    },
+    {
+      "name": "Beef Stroganoff",
+      "category": "Meat",
+      "caloriesPer100g": 180,
+      "proteinPer100g": 12,
+      "fatPer100g": 12,
+      "carbsPer100g": 6
+    },
+    {
+      "name": "Pork Chop",
+      "category": "Meat",
+      "caloriesPer100g": 240,
+      "proteinPer100g": 26,
+      "fatPer100g": 14,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Pork Tenderloin",
+      "category": "Meat",
+      "caloriesPer100g": 143,
+      "proteinPer100g": 26,
+      "fatPer100g": 3,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Pulled Pork",
+      "category": "Meat",
+      "caloriesPer100g": 200,
+      "proteinPer100g": 22,
+      "fatPer100g": 12,
+      "carbsPer100g": 2
+    },
+    {
+      "name": "BBQ Ribs",
+      "category": "Meat",
+      "caloriesPer100g": 260,
+      "proteinPer100g": 20,
+      "fatPer100g": 18,
+      "carbsPer100g": 6
+    },
+    {
+      "name": "Lamb Chops",
+      "category": "Meat",
+      "caloriesPer100g": 250,
+      "proteinPer100g": 25,
+      "fatPer100g": 16,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Roast Lamb",
+      "category": "Meat",
+      "caloriesPer100g": 230,
+      "proteinPer100g": 26,
+      "fatPer100g": 13,
+      "carbsPer100g": 1
+    },
+    {
+      "name": "Turkey Breast",
+      "category": "Meat",
+      "caloriesPer100g": 135,
+      "proteinPer100g": 30,
+      "fatPer100g": 1,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Ground Turkey",
+      "category": "Meat",
+      "caloriesPer100g": 170,
+      "proteinPer100g": 20,
+      "fatPer100g": 9,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Duck Breast",
+      "category": "Meat",
+      "caloriesPer100g": 200,
+      "proteinPer100g": 24,
+      "fatPer100g": 11,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Chicken Piccata",
+      "category": "Meat",
+      "caloriesPer100g": 180,
+      "proteinPer100g": 20,
+      "fatPer100g": 9,
+      "carbsPer100g": 5
+    },
+    {
+      "name": "Chicken Alfredo",
+      "category": "Meat",
+      "caloriesPer100g": 190,
+      "proteinPer100g": 15,
+      "fatPer100g": 11,
+      "carbsPer100g": 8
+    },
+    {
+      "name": "Beef Tacos",
+      "category": "Meat",
+      "caloriesPer100g": 200,
+      "proteinPer100g": 12,
+      "fatPer100g": 11,
+      "carbsPer100g": 14
+    },
+    {
+      "name": "Chicken Fajitas",
+      "category": "Meat",
+      "caloriesPer100g": 150,
+      "proteinPer100g": 14,
+      "fatPer100g": 7,
+      "carbsPer100g": 8
+    },
+    {
+      "name": "Sausages",
+      "category": "Meat",
+      "caloriesPer100g": 300,
+      "proteinPer100g": 15,
+      "fatPer100g": 25,
+      "carbsPer100g": 2
+    },
+    {
+      "name": "Ham",
+      "category": "Meat",
+      "caloriesPer100g": 145,
+      "proteinPer100g": 18,
+      "fatPer100g": 8,
+      "carbsPer100g": 1
+    },
+    {
+      "name": "Beef Ribeye",
+      "category": "Meat",
+      "caloriesPer100g": 270,
+      "proteinPer100g": 24,
+      "fatPer100g": 19,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Pork Schnitzel",
+      "category": "Meat",
+      "caloriesPer100g": 250,
+      "proteinPer100g": 22,
+      "fatPer100g": 16,
+      "carbsPer100g": 8
+    },
+    {
+      "name": "Chicken Shish Kebab",
+      "category": "Meat",
+      "caloriesPer100g": 165,
+      "proteinPer100g": 24,
+      "fatPer100g": 7,
+      "carbsPer100g": 2
+    },
+    {
+      "name": "Beef Goulash",
+      "category": "Meat",
+      "caloriesPer100g": 150,
+      "proteinPer100g": 13,
+      "fatPer100g": 8,
+      "carbsPer100g": 5
+    },
+
+    {
+      "name": "Grilled Salmon",
+      "category": "Seafood",
+      "caloriesPer100g": 208,
+      "proteinPer100g": 20,
+      "fatPer100g": 13,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Baked Cod",
+      "category": "Seafood",
+      "caloriesPer100g": 105,
+      "proteinPer100g": 23,
+      "fatPer100g": 1,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Tuna Steak",
+      "category": "Seafood",
+      "caloriesPer100g": 130,
+      "proteinPer100g": 28,
+      "fatPer100g": 1,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Fish and Chips",
+      "category": "Seafood",
+      "caloriesPer100g": 250,
+      "proteinPer100g": 14,
+      "fatPer100g": 12,
+      "carbsPer100g": 22
+    },
+    {
+      "name": "Shrimp Scampi",
+      "category": "Seafood",
+      "caloriesPer100g": 160,
+      "proteinPer100g": 18,
+      "fatPer100g": 8,
+      "carbsPer100g": 3
+    },
+    {
+      "name": "Grilled Prawns",
+      "category": "Seafood",
+      "caloriesPer100g": 120,
+      "proteinPer100g": 22,
+      "fatPer100g": 2,
+      "carbsPer100g": 2
+    },
+    {
+      "name": "Lobster",
+      "category": "Seafood",
+      "caloriesPer100g": 90,
+      "proteinPer100g": 19,
+      "fatPer100g": 1,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Crab Cakes",
+      "category": "Seafood",
+      "caloriesPer100g": 180,
+      "proteinPer100g": 14,
+      "fatPer100g": 10,
+      "carbsPer100g": 7
+    },
+    {
+      "name": "Sushi Rolls",
+      "category": "Seafood",
+      "caloriesPer100g": 150,
+      "proteinPer100g": 6,
+      "fatPer100g": 3,
+      "carbsPer100g": 26
+    },
+    {
+      "name": "Salmon Sashimi",
+      "category": "Seafood",
+      "caloriesPer100g": 140,
+      "proteinPer100g": 22,
+      "fatPer100g": 5,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Fried Calamari",
+      "category": "Seafood",
+      "caloriesPer100g": 175,
+      "proteinPer100g": 15,
+      "fatPer100g": 8,
+      "carbsPer100g": 8
+    },
+    {
+      "name": "Mussels in White Wine",
+      "category": "Seafood",
+      "caloriesPer100g": 90,
+      "proteinPer100g": 12,
+      "fatPer100g": 3,
+      "carbsPer100g": 4
+    },
+    {
+      "name": "Oysters",
+      "category": "Seafood",
+      "caloriesPer100g": 68,
+      "proteinPer100g": 7,
+      "fatPer100g": 2,
+      "carbsPer100g": 4
+    },
+    {
+      "name": "Sea Bass",
+      "category": "Seafood",
+      "caloriesPer100g": 120,
+      "proteinPer100g": 22,
+      "fatPer100g": 3,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Baked Tilapia",
+      "category": "Seafood",
+      "caloriesPer100g": 128,
+      "proteinPer100g": 26,
+      "fatPer100g": 3,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Sardines",
+      "category": "Seafood",
+      "caloriesPer100g": 208,
+      "proteinPer100g": 25,
+      "fatPer100g": 11,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Smoked Salmon",
+      "category": "Seafood",
+      "caloriesPer100g": 117,
+      "proteinPer100g": 18,
+      "fatPer100g": 4,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Fish Curry",
+      "category": "Seafood",
+      "caloriesPer100g": 140,
+      "proteinPer100g": 13,
+      "fatPer100g": 8,
+      "carbsPer100g": 5
+    },
+    {
+      "name": "Shrimp Fried Rice",
+      "category": "Seafood",
+      "caloriesPer100g": 160,
+      "proteinPer100g": 8,
+      "fatPer100g": 5,
+      "carbsPer100g": 22
+    },
+    {
+      "name": "Seafood Paella",
+      "category": "Seafood",
+      "caloriesPer100g": 145,
+      "proteinPer100g": 10,
+      "fatPer100g": 4,
+      "carbsPer100g": 18
+    },
+    {
+      "name": "Fish Tacos",
+      "category": "Seafood",
+      "caloriesPer100g": 150,
+      "proteinPer100g": 10,
+      "fatPer100g": 6,
+      "carbsPer100g": 14
+    },
+    {
+      "name": "Grilled Mackerel",
+      "category": "Seafood",
+      "caloriesPer100g": 205,
+      "proteinPer100g": 19,
+      "fatPer100g": 13,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Baked Trout",
+      "category": "Seafood",
+      "caloriesPer100g": 148,
+      "proteinPer100g": 21,
+      "fatPer100g": 6,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Tuna Poke Bowl",
+      "category": "Seafood",
+      "caloriesPer100g": 130,
+      "proteinPer100g": 12,
+      "fatPer100g": 3,
+      "carbsPer100g": 15
+    },
+
+    {
+      "name": "Spaghetti Bolognese",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 140,
+      "proteinPer100g": 7,
+      "fatPer100g": 5,
+      "carbsPer100g": 17
+    },
+    {
+      "name": "Spaghetti Carbonara",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 190,
+      "proteinPer100g": 9,
+      "fatPer100g": 10,
+      "carbsPer100g": 18
+    },
+    {
+      "name": "Lasagna",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 160,
+      "proteinPer100g": 9,
+      "fatPer100g": 8,
+      "carbsPer100g": 15
+    },
+    {
+      "name": "Penne Arrabbiata",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 130,
+      "proteinPer100g": 4,
+      "fatPer100g": 4,
+      "carbsPer100g": 21
+    },
+    {
+      "name": "Fettuccine Alfredo",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 200,
+      "proteinPer100g": 7,
+      "fatPer100g": 12,
+      "carbsPer100g": 17
+    },
+    {
+      "name": "Mac and Cheese",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 180,
+      "proteinPer100g": 8,
+      "fatPer100g": 8,
+      "carbsPer100g": 20
+    },
+    {
+      "name": "Ravioli",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 150,
+      "proteinPer100g": 7,
+      "fatPer100g": 5,
+      "carbsPer100g": 22
+    },
+    {
+      "name": "Gnocchi",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 130,
+      "proteinPer100g": 3,
+      "fatPer100g": 2,
+      "carbsPer100g": 27
+    },
+    {
+      "name": "Mushroom Risotto",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 140,
+      "proteinPer100g": 4,
+      "fatPer100g": 5,
+      "carbsPer100g": 22
+    },
+    {
+      "name": "Seafood Risotto",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 150,
+      "proteinPer100g": 6,
+      "fatPer100g": 5,
+      "carbsPer100g": 22
+    },
+    {
+      "name": "Fried Rice",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 160,
+      "proteinPer100g": 5,
+      "fatPer100g": 5,
+      "carbsPer100g": 26
+    },
+    {
+      "name": "Steamed White Rice",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 130,
+      "proteinPer100g": 3,
+      "fatPer100g": 0,
+      "carbsPer100g": 28
+    },
+    {
+      "name": "Brown Rice",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 111,
+      "proteinPer100g": 3,
+      "fatPer100g": 1,
+      "carbsPer100g": 23
+    },
+    {
+      "name": "Jasmine Rice",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 130,
+      "proteinPer100g": 3,
+      "fatPer100g": 0,
+      "carbsPer100g": 28
+    },
+    {
+      "name": "Quinoa",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 120,
+      "proteinPer100g": 4,
+      "fatPer100g": 2,
+      "carbsPer100g": 21
+    },
+    {
+      "name": "Couscous",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 112,
+      "proteinPer100g": 4,
+      "fatPer100g": 0,
+      "carbsPer100g": 23
+    },
+    {
+      "name": "Bulgur Pilaf",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 83,
+      "proteinPer100g": 3,
+      "fatPer100g": 0,
+      "carbsPer100g": 19
+    },
+    {
+      "name": "Buckwheat",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 92,
+      "proteinPer100g": 3,
+      "fatPer100g": 1,
+      "carbsPer100g": 20
+    },
+    {
+      "name": "Polenta",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 85,
+      "proteinPer100g": 2,
+      "fatPer100g": 0,
+      "carbsPer100g": 18
+    },
+    {
+      "name": "Egg Noodles",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 138,
+      "proteinPer100g": 5,
+      "fatPer100g": 2,
+      "carbsPer100g": 25
+    },
+    {
+      "name": "Pad Thai",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 190,
+      "proteinPer100g": 8,
+      "fatPer100g": 7,
+      "carbsPer100g": 25
+    },
+    {
+      "name": "Chow Mein",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 150,
+      "proteinPer100g": 5,
+      "fatPer100g": 6,
+      "carbsPer100g": 20
+    },
+    {
+      "name": "Pasta Primavera",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 130,
+      "proteinPer100g": 4,
+      "fatPer100g": 5,
+      "carbsPer100g": 19
+    },
+    {
+      "name": "Spaghetti Aglio e Olio",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 170,
+      "proteinPer100g": 5,
+      "fatPer100g": 7,
+      "carbsPer100g": 23
+    },
+    {
+      "name": "Pesto Pasta",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 180,
+      "proteinPer100g": 6,
+      "fatPer100g": 9,
+      "carbsPer100g": 20
+    },
+    {
+      "name": "Baked Ziti",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 165,
+      "proteinPer100g": 9,
+      "fatPer100g": 8,
+      "carbsPer100g": 15
+    },
+    {
+      "name": "Rice Pilaf",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 130,
+      "proteinPer100g": 3,
+      "fatPer100g": 3,
+      "carbsPer100g": 24
+    },
+    {
+      "name": "Tortellini",
+      "category": "Pasta & Grains",
+      "caloriesPer100g": 170,
+      "proteinPer100g": 8,
+      "fatPer100g": 6,
+      "carbsPer100g": 20
+    },
+
+    {
+      "name": "Mashed Potatoes",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 113,
+      "proteinPer100g": 2,
+      "fatPer100g": 4,
+      "carbsPer100g": 17
+    },
+    {
+      "name": "Roast Potatoes",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 150,
+      "proteinPer100g": 3,
+      "fatPer100g": 5,
+      "carbsPer100g": 24
+    },
+    {
+      "name": "French Fries",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 312,
+      "proteinPer100g": 3,
+      "fatPer100g": 15,
+      "carbsPer100g": 41
+    },
+    {
+      "name": "Sweet Potato Fries",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 160,
+      "proteinPer100g": 2,
+      "fatPer100g": 6,
+      "carbsPer100g": 25
+    },
+    {
+      "name": "Baked Potato",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 93,
+      "proteinPer100g": 2,
+      "fatPer100g": 0,
+      "carbsPer100g": 21
+    },
+    {
+      "name": "Grilled Vegetables",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 60,
+      "proteinPer100g": 2,
+      "fatPer100g": 3,
+      "carbsPer100g": 8
+    },
+    {
+      "name": "Steamed Broccoli",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 35,
+      "proteinPer100g": 2,
+      "fatPer100g": 0,
+      "carbsPer100g": 7
+    },
+    {
+      "name": "Roasted Broccoli",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 55,
+      "proteinPer100g": 4,
+      "fatPer100g": 2,
+      "carbsPer100g": 7
+    },
+    {
+      "name": "Sauteed Spinach",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 60,
+      "proteinPer100g": 3,
+      "fatPer100g": 4,
+      "carbsPer100g": 4
+    },
+    {
+      "name": "Green Beans",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 35,
+      "proteinPer100g": 2,
+      "fatPer100g": 0,
+      "carbsPer100g": 7
+    },
+    {
+      "name": "Grilled Asparagus",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 40,
+      "proteinPer100g": 2,
+      "fatPer100g": 2,
+      "carbsPer100g": 4
+    },
+    {
+      "name": "Corn on the Cob",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 86,
+      "proteinPer100g": 3,
+      "fatPer100g": 1,
+      "carbsPer100g": 19
+    },
+    {
+      "name": "Green Peas",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 81,
+      "proteinPer100g": 5,
+      "fatPer100g": 0,
+      "carbsPer100g": 14
+    },
+    {
+      "name": "Glazed Carrots",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 45,
+      "proteinPer100g": 1,
+      "fatPer100g": 1,
+      "carbsPer100g": 9
+    },
+    {
+      "name": "Brussels Sprouts",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 45,
+      "proteinPer100g": 3,
+      "fatPer100g": 1,
+      "carbsPer100g": 9
+    },
+    {
+      "name": "Cauliflower Gratin",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 90,
+      "proteinPer100g": 4,
+      "fatPer100g": 6,
+      "carbsPer100g": 7
+    },
+    {
+      "name": "Ratatouille",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 70,
+      "proteinPer100g": 2,
+      "fatPer100g": 4,
+      "carbsPer100g": 7
+    },
+    {
+      "name": "Caponata",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 90,
+      "proteinPer100g": 2,
+      "fatPer100g": 7,
+      "carbsPer100g": 8
+    },
+    {
+      "name": "Baked Beans",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 120,
+      "proteinPer100g": 5,
+      "fatPer100g": 1,
+      "carbsPer100g": 22
+    },
+    {
+      "name": "Hummus",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 166,
+      "proteinPer100g": 8,
+      "fatPer100g": 10,
+      "carbsPer100g": 14
+    },
+    {
+      "name": "Guacamole",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 160,
+      "proteinPer100g": 2,
+      "fatPer100g": 15,
+      "carbsPer100g": 9
+    },
+    {
+      "name": "Tomato Salsa",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 30,
+      "proteinPer100g": 1,
+      "fatPer100g": 0,
+      "carbsPer100g": 6
+    },
+    {
+      "name": "Creamy Coleslaw",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 90,
+      "proteinPer100g": 1,
+      "fatPer100g": 6,
+      "carbsPer100g": 8
+    },
+    {
+      "name": "Crispy Onion Rings",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 350,
+      "proteinPer100g": 4,
+      "fatPer100g": 18,
+      "carbsPer100g": 42
+    },
+    {
+      "name": "Zucchini Fries",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 130,
+      "proteinPer100g": 3,
+      "fatPer100g": 7,
+      "carbsPer100g": 14
+    },
+    {
+      "name": "Eggplant Parmesan",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 150,
+      "proteinPer100g": 7,
+      "fatPer100g": 9,
+      "carbsPer100g": 10
+    },
+    {
+      "name": "Butternut Squash",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 45,
+      "proteinPer100g": 1,
+      "fatPer100g": 0,
+      "carbsPer100g": 12
+    },
+    {
+      "name": "Creamed Spinach",
+      "category": "Vegetables & Sides",
+      "caloriesPer100g": 90,
+      "proteinPer100g": 3,
+      "fatPer100g": 7,
+      "carbsPer100g": 5
+    },
+
+    {
+      "name": "Chocolate Cake",
+      "category": "Desserts",
+      "caloriesPer100g": 350,
+      "proteinPer100g": 5,
+      "fatPer100g": 18,
+      "carbsPer100g": 45
+    },
+    {
+      "name": "Cheesecake",
+      "category": "Desserts",
+      "caloriesPer100g": 320,
+      "proteinPer100g": 6,
+      "fatPer100g": 22,
+      "carbsPer100g": 25
+    },
+    {
+      "name": "Apple Pie",
+      "category": "Desserts",
+      "caloriesPer100g": 265,
+      "proteinPer100g": 2,
+      "fatPer100g": 12,
+      "carbsPer100g": 38
+    },
+    {
+      "name": "Brownie",
+      "category": "Desserts",
+      "caloriesPer100g": 380,
+      "proteinPer100g": 5,
+      "fatPer100g": 20,
+      "carbsPer100g": 50
+    },
+    {
+      "name": "Chocolate Chip Cookie",
+      "category": "Desserts",
+      "caloriesPer100g": 480,
+      "proteinPer100g": 5,
+      "fatPer100g": 22,
+      "carbsPer100g": 65
+    },
+    {
+      "name": "Vanilla Ice Cream",
+      "category": "Desserts",
+      "caloriesPer100g": 207,
+      "proteinPer100g": 4,
+      "fatPer100g": 11,
+      "carbsPer100g": 24
+    },
+    {
+      "name": "Tiramisu",
+      "category": "Desserts",
+      "caloriesPer100g": 280,
+      "proteinPer100g": 5,
+      "fatPer100g": 17,
+      "carbsPer100g": 28
+    },
+    {
+      "name": "Panna Cotta",
+      "category": "Desserts",
+      "caloriesPer100g": 230,
+      "proteinPer100g": 3,
+      "fatPer100g": 17,
+      "carbsPer100g": 18
+    },
+    {
+      "name": "Creme Brulee",
+      "category": "Desserts",
+      "caloriesPer100g": 320,
+      "proteinPer100g": 4,
+      "fatPer100g": 24,
+      "carbsPer100g": 22
+    },
+    {
+      "name": "Fruit Tart",
+      "category": "Desserts",
+      "caloriesPer100g": 250,
+      "proteinPer100g": 3,
+      "fatPer100g": 12,
+      "carbsPer100g": 34
+    },
+    {
+      "name": "Lemon Meringue Pie",
+      "category": "Desserts",
+      "caloriesPer100g": 280,
+      "proteinPer100g": 3,
+      "fatPer100g": 12,
+      "carbsPer100g": 42
+    },
+    {
+      "name": "Carrot Cake",
+      "category": "Desserts",
+      "caloriesPer100g": 400,
+      "proteinPer100g": 4,
+      "fatPer100g": 22,
+      "carbsPer100g": 48
+    },
+    {
+      "name": "Red Velvet Cake",
+      "category": "Desserts",
+      "caloriesPer100g": 360,
+      "proteinPer100g": 5,
+      "fatPer100g": 18,
+      "carbsPer100g": 47
+    },
+    {
+      "name": "Glazed Donut",
+      "category": "Desserts",
+      "caloriesPer100g": 420,
+      "proteinPer100g": 5,
+      "fatPer100g": 22,
+      "carbsPer100g": 50
+    },
+    {
+      "name": "Chocolate Eclair",
+      "category": "Desserts",
+      "caloriesPer100g": 260,
+      "proteinPer100g": 5,
+      "fatPer100g": 15,
+      "carbsPer100g": 26
+    },
+    {
+      "name": "Macaron",
+      "category": "Desserts",
+      "caloriesPer100g": 400,
+      "proteinPer100g": 7,
+      "fatPer100g": 20,
+      "carbsPer100g": 50
+    },
+    {
+      "name": "Vanilla Cupcake",
+      "category": "Desserts",
+      "caloriesPer100g": 300,
+      "proteinPer100g": 4,
+      "fatPer100g": 14,
+      "carbsPer100g": 40
+    },
+    {
+      "name": "Bran Muffin",
+      "category": "Desserts",
+      "caloriesPer100g": 320,
+      "proteinPer100g": 5,
+      "fatPer100g": 12,
+      "carbsPer100g": 48
+    },
+    {
+      "name": "Almond Croissant",
+      "category": "Desserts",
+      "caloriesPer100g": 430,
+      "proteinPer100g": 8,
+      "fatPer100g": 24,
+      "carbsPer100g": 45
+    },
+    {
+      "name": "Cinnamon Roll",
+      "category": "Desserts",
+      "caloriesPer100g": 370,
+      "proteinPer100g": 5,
+      "fatPer100g": 16,
+      "carbsPer100g": 52
+    },
+    {
+      "name": "Churros",
+      "category": "Desserts",
+      "caloriesPer100g": 450,
+      "proteinPer100g": 5,
+      "fatPer100g": 22,
+      "carbsPer100g": 55
+    },
+    {
+      "name": "Cheesecake Slice",
+      "category": "Desserts",
+      "caloriesPer100g": 320,
+      "proteinPer100g": 6,
+      "fatPer100g": 22,
+      "carbsPer100g": 25
+    },
+    {
+      "name": "Panna Cotta Cup",
+      "category": "Desserts",
+      "caloriesPer100g": 230,
+      "proteinPer100g": 3,
+      "fatPer100g": 17,
+      "carbsPer100g": 18
+    },
+    {
+      "name": "Chocolate Pudding",
+      "category": "Desserts",
+      "caloriesPer100g": 160,
+      "proteinPer100g": 3,
+      "fatPer100g": 5,
+      "carbsPer100g": 26
+    },
+    {
+      "name": "Apple Crumble",
+      "category": "Desserts",
+      "caloriesPer100g": 240,
+      "proteinPer100g": 2,
+      "fatPer100g": 9,
+      "carbsPer100g": 38
+    },
+    {
+      "name": "Lemon Sorbet",
+      "category": "Desserts",
+      "caloriesPer100g": 130,
+      "proteinPer100g": 0,
+      "fatPer100g": 0,
+      "carbsPer100g": 33
+    },
+    {
+      "name": "Chocolate Mousse",
+      "category": "Desserts",
+      "caloriesPer100g": 280,
+      "proteinPer100g": 5,
+      "fatPer100g": 18,
+      "carbsPer100g": 25
+    },
+    {
+      "name": "Creme Caramel",
+      "category": "Desserts",
+      "caloriesPer100g": 200,
+      "proteinPer100g": 4,
+      "fatPer100g": 9,
+      "carbsPer100g": 27
+    },
+
+    {
+      "name": "Black Coffee",
+      "category": "Drinks",
+      "caloriesPer100g": 1,
+      "proteinPer100g": 0,
+      "fatPer100g": 0,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Espresso",
+      "category": "Drinks",
+      "caloriesPer100g": 2,
+      "proteinPer100g": 0,
+      "fatPer100g": 0,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Cappuccino",
+      "category": "Drinks",
+      "caloriesPer100g": 40,
+      "proteinPer100g": 2,
+      "fatPer100g": 2,
+      "carbsPer100g": 4
+    },
+    {
+      "name": "Caffe Latte",
+      "category": "Drinks",
+      "caloriesPer100g": 55,
+      "proteinPer100g": 3,
+      "fatPer100g": 3,
+      "carbsPer100g": 5
+    },
+    {
+      "name": "Black Tea",
+      "category": "Drinks",
+      "caloriesPer100g": 1,
+      "proteinPer100g": 0,
+      "fatPer100g": 0,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Green Tea",
+      "category": "Drinks",
+      "caloriesPer100g": 1,
+      "proteinPer100g": 0,
+      "fatPer100g": 0,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Orange Juice",
+      "category": "Drinks",
+      "caloriesPer100g": 45,
+      "proteinPer100g": 1,
+      "fatPer100g": 0,
+      "carbsPer100g": 10
+    },
+    {
+      "name": "Apple Juice",
+      "category": "Drinks",
+      "caloriesPer100g": 46,
+      "proteinPer100g": 0,
+      "fatPer100g": 0,
+      "carbsPer100g": 11
+    },
+    {
+      "name": "Mango Smoothie",
+      "category": "Drinks",
+      "caloriesPer100g": 60,
+      "proteinPer100g": 1,
+      "fatPer100g": 1,
+      "carbsPer100g": 13
+    },
+    {
+      "name": "Chocolate Milkshake",
+      "category": "Drinks",
+      "caloriesPer100g": 120,
+      "proteinPer100g": 3,
+      "fatPer100g": 4,
+      "carbsPer100g": 18
+    },
+    {
+      "name": "Hot Chocolate",
+      "category": "Drinks",
+      "caloriesPer100g": 90,
+      "proteinPer100g": 2,
+      "fatPer100g": 3,
+      "carbsPer100g": 14
+    },
+    {
+      "name": "Lemonade",
+      "category": "Drinks",
+      "caloriesPer100g": 40,
+      "proteinPer100g": 0,
+      "fatPer100g": 0,
+      "carbsPer100g": 10
+    },
+    {
+      "name": "Iced Tea",
+      "category": "Drinks",
+      "caloriesPer100g": 30,
+      "proteinPer100g": 0,
+      "fatPer100g": 0,
+      "carbsPer100g": 7
+    },
+    {
+      "name": "Cola",
+      "category": "Drinks",
+      "caloriesPer100g": 42,
+      "proteinPer100g": 0,
+      "fatPer100g": 0,
+      "carbsPer100g": 11
+    },
+    {
+      "name": "Energy Drink",
+      "category": "Drinks",
+      "caloriesPer100g": 45,
+      "proteinPer100g": 0,
+      "fatPer100g": 0,
+      "carbsPer100g": 11
+    },
+    {
+      "name": "Lager Beer",
+      "category": "Drinks",
+      "caloriesPer100g": 43,
+      "proteinPer100g": 0,
+      "fatPer100g": 0,
+      "carbsPer100g": 4
+    },
+    {
+      "name": "Red Wine",
+      "category": "Drinks",
+      "caloriesPer100g": 85,
+      "proteinPer100g": 0,
+      "fatPer100g": 0,
+      "carbsPer100g": 3
+    },
+    {
+      "name": "White Wine",
+      "category": "Drinks",
+      "caloriesPer100g": 82,
+      "proteinPer100g": 0,
+      "fatPer100g": 0,
+      "carbsPer100g": 3
+    },
+    {
+      "name": "Mojito",
+      "category": "Drinks",
+      "caloriesPer100g": 80,
+      "proteinPer100g": 0,
+      "fatPer100g": 0,
+      "carbsPer100g": 10
+    },
+    {
+      "name": "Margarita",
+      "category": "Drinks",
+      "caloriesPer100g": 130,
+      "proteinPer100g": 0,
+      "fatPer100g": 0,
+      "carbsPer100g": 9
+    },
+    {
+      "name": "Sparkling Water",
+      "category": "Drinks",
+      "caloriesPer100g": 0,
+      "proteinPer100g": 0,
+      "fatPer100g": 0,
+      "carbsPer100g": 0
+    },
+    {
+      "name": "Coconut Water",
+      "category": "Drinks",
+      "caloriesPer100g": 19,
+      "proteinPer100g": 1,
+      "fatPer100g": 0,
+      "carbsPer100g": 4
+    },
+    {
+      "name": "Protein Shake",
+      "category": "Drinks",
+      "caloriesPer100g": 60,
+      "proteinPer100g": 6,
+      "fatPer100g": 1,
+      "carbsPer100g": 7
+    },
+    {
+      "name": "Iced Coffee",
+      "category": "Drinks",
+      "caloriesPer100g": 20,
+      "proteinPer100g": 1,
+      "fatPer100g": 1,
+      "carbsPer100g": 3
+    },
+
+    {
+      "name": "Hamburger",
+      "category": "Fast Food",
+      "caloriesPer100g": 250,
+      "proteinPer100g": 13,
+      "fatPer100g": 9,
+      "carbsPer100g": 30
+    },
+    {
+      "name": "Cheeseburger",
+      "category": "Fast Food",
+      "caloriesPer100g": 280,
+      "proteinPer100g": 15,
+      "fatPer100g": 12,
+      "carbsPer100g": 30
+    },
+    {
+      "name": "Bacon Cheeseburger",
+      "category": "Fast Food",
+      "caloriesPer100g": 320,
+      "proteinPer100g": 18,
+      "fatPer100g": 18,
+      "carbsPer100g": 28
+    },
+    {
+      "name": "Hot Dog",
+      "category": "Fast Food",
+      "caloriesPer100g": 290,
+      "proteinPer100g": 10,
+      "fatPer100g": 17,
+      "carbsPer100g": 24
+    },
+    {
+      "name": "Chicken Nuggets",
+      "category": "Fast Food",
+      "caloriesPer100g": 296,
+      "proteinPer100g": 15,
+      "fatPer100g": 19,
+      "carbsPer100g": 16
+    },
+    {
+      "name": "Pizza Margherita",
+      "category": "Fast Food",
+      "caloriesPer100g": 250,
+      "proteinPer100g": 11,
+      "fatPer100g": 9,
+      "carbsPer100g": 33
+    },
+    {
+      "name": "Pepperoni Pizza",
+      "category": "Fast Food",
+      "caloriesPer100g": 280,
+      "proteinPer100g": 13,
+      "fatPer100g": 13,
+      "carbsPer100g": 32
+    },
+    {
+      "name": "Chicken Sandwich",
+      "category": "Fast Food",
+      "caloriesPer100g": 260,
+      "proteinPer100g": 15,
+      "fatPer100g": 11,
+      "carbsPer100g": 26
+    },
+    {
+      "name": "Fish Sandwich",
+      "category": "Fast Food",
+      "caloriesPer100g": 280,
+      "proteinPer100g": 13,
+      "fatPer100g": 13,
+      "carbsPer100g": 30
+    },
+    {
+      "name": "Crunchy Tacos",
+      "category": "Fast Food",
+      "caloriesPer100g": 220,
+      "proteinPer100g": 10,
+      "fatPer100g": 10,
+      "carbsPer100g": 24
+    },
+    {
+      "name": "Chicken Burrito",
+      "category": "Fast Food",
+      "caloriesPer100g": 210,
+      "proteinPer100g": 10,
+      "fatPer100g": 7,
+      "carbsPer100g": 27
+    },
+    {
+      "name": "Cheese Quesadilla",
+      "category": "Fast Food",
+      "caloriesPer100g": 260,
+      "proteinPer100g": 11,
+      "fatPer100g": 13,
+      "carbsPer100g": 27
+    },
+    {
+      "name": "Nachos with Cheese",
+      "category": "Fast Food",
+      "caloriesPer100g": 300,
+      "proteinPer100g": 7,
+      "fatPer100g": 18,
+      "carbsPer100g": 30
+    },
+    {
+      "name": "Chicken Wrap",
+      "category": "Fast Food",
+      "caloriesPer100g": 220,
+      "proteinPer100g": 12,
+      "fatPer100g": 9,
+      "carbsPer100g": 23
+    },
+    {
+      "name": "Chicken Shawarma",
+      "category": "Fast Food",
+      "caloriesPer100g": 200,
+      "proteinPer100g": 18,
+      "fatPer100g": 10,
+      "carbsPer100g": 12
+    },
+    {
+      "name": "Doner Kebab",
+      "category": "Fast Food",
+      "caloriesPer100g": 215,
+      "proteinPer100g": 16,
+      "fatPer100g": 12,
+      "carbsPer100g": 14
+    },
+    {
+      "name": "Falafel",
+      "category": "Fast Food",
+      "caloriesPer100g": 330,
+      "proteinPer100g": 13,
+      "fatPer100g": 18,
+      "carbsPer100g": 32
+    },
+    {
+      "name": "Gyro",
+      "category": "Fast Food",
+      "caloriesPer100g": 220,
+      "proteinPer100g": 13,
+      "fatPer100g": 12,
+      "carbsPer100g": 16
+    },
+    {
+      "name": "Chicken Strips",
+      "category": "Fast Food",
+      "caloriesPer100g": 270,
+      "proteinPer100g": 17,
+      "fatPer100g": 16,
+      "carbsPer100g": 18
+    },
+    {
+      "name": "Onion Rings",
+      "category": "Fast Food",
+      "caloriesPer100g": 350,
+      "proteinPer100g": 4,
+      "fatPer100g": 18,
+      "carbsPer100g": 42
+    },
+    {
+      "name": "Beef Burrito",
+      "category": "Fast Food",
+      "caloriesPer100g": 220,
+      "proteinPer100g": 11,
+      "fatPer100g": 8,
+      "carbsPer100g": 26
+    },
+    {
+      "name": "Crispy French Fries",
+      "category": "Fast Food",
+      "caloriesPer100g": 312,
+      "proteinPer100g": 3,
+      "fatPer100g": 15,
+      "carbsPer100g": 41
+    },
+    {
+      "name": "Nachos Supreme",
+      "category": "Fast Food",
+      "caloriesPer100g": 290,
+      "proteinPer100g": 9,
+      "fatPer100g": 16,
+      "carbsPer100g": 30
+    },
+    {
+      "name": "Corn Dog",
+      "category": "Fast Food",
+      "caloriesPer100g": 280,
+      "proteinPer100g": 9,
+      "fatPer100g": 15,
+      "carbsPer100g": 32
+    },
+
+    {
+      "name": "Potato Chips",
+      "category": "Snacks",
+      "caloriesPer100g": 536,
+      "proteinPer100g": 7,
+      "fatPer100g": 35,
+      "carbsPer100g": 53
+    },
+    {
+      "name": "Tortilla Chips",
+      "category": "Snacks",
+      "caloriesPer100g": 490,
+      "proteinPer100g": 7,
+      "fatPer100g": 24,
+      "carbsPer100g": 63
+    },
+    {
+      "name": "Salted Popcorn",
+      "category": "Snacks",
+      "caloriesPer100g": 500,
+      "proteinPer100g": 11,
+      "fatPer100g": 28,
+      "carbsPer100g": 57
+    },
+    {
+      "name": "Pretzels",
+      "category": "Snacks",
+      "caloriesPer100g": 380,
+      "proteinPer100g": 10,
+      "fatPer100g": 4,
+      "carbsPer100g": 80
+    },
+    {
+      "name": "Mixed Nuts",
+      "category": "Snacks",
+      "caloriesPer100g": 600,
+      "proteinPer100g": 20,
+      "fatPer100g": 54,
+      "carbsPer100g": 21
+    },
+    {
+      "name": "Roasted Almonds",
+      "category": "Snacks",
+      "caloriesPer100g": 575,
+      "proteinPer100g": 21,
+      "fatPer100g": 49,
+      "carbsPer100g": 22
+    },
+    {
+      "name": "Cashews",
+      "category": "Snacks",
+      "caloriesPer100g": 553,
+      "proteinPer100g": 18,
+      "fatPer100g": 44,
+      "carbsPer100g": 30
+    },
+    {
+      "name": "Peanuts",
+      "category": "Snacks",
+      "caloriesPer100g": 567,
+      "proteinPer100g": 26,
+      "fatPer100g": 49,
+      "carbsPer100g": 16
+    },
+    {
+      "name": "Trail Mix",
+      "category": "Snacks",
+      "caloriesPer100g": 460,
+      "proteinPer100g": 13,
+      "fatPer100g": 30,
+      "carbsPer100g": 44
+    },
+    {
+      "name": "Granola Bar",
+      "category": "Snacks",
+      "caloriesPer100g": 400,
+      "proteinPer100g": 8,
+      "fatPer100g": 12,
+      "carbsPer100g": 64
+    },
+    {
+      "name": "Protein Bar",
+      "category": "Snacks",
+      "caloriesPer100g": 380,
+      "proteinPer100g": 30,
+      "fatPer100g": 12,
+      "carbsPer100g": 40
+    },
+    {
+      "name": "Whole Wheat Crackers",
+      "category": "Snacks",
+      "caloriesPer100g": 430,
+      "proteinPer100g": 9,
+      "fatPer100g": 14,
+      "carbsPer100g": 66
+    },
+    {
+      "name": "Cheese and Crackers",
+      "category": "Snacks",
+      "caloriesPer100g": 400,
+      "proteinPer100g": 12,
+      "fatPer100g": 24,
+      "carbsPer100g": 34
+    },
+    {
+      "name": "Beef Jerky",
+      "category": "Snacks",
+      "caloriesPer100g": 410,
+      "proteinPer100g": 33,
+      "fatPer100g": 26,
+      "carbsPer100g": 11
+    },
+    {
+      "name": "Caramel Popcorn",
+      "category": "Snacks",
+      "caloriesPer100g": 460,
+      "proteinPer100g": 3,
+      "fatPer100g": 15,
+      "carbsPer100g": 75
+    },
+    {
+      "name": "Rice Cakes",
+      "category": "Snacks",
+      "caloriesPer100g": 380,
+      "proteinPer100g": 8,
+      "fatPer100g": 3,
+      "carbsPer100g": 80
+    },
+    {
+      "name": "Hummus Snack Pack",
+      "category": "Snacks",
+      "caloriesPer100g": 166,
+      "proteinPer100g": 8,
+      "fatPer100g": 10,
+      "carbsPer100g": 14
+    },
+    {
+      "name": "Edamame",
+      "category": "Snacks",
+      "caloriesPer100g": 121,
+      "proteinPer100g": 11,
+      "fatPer100g": 5,
+      "carbsPer100g": 9
+    },
+    {
+      "name": "Olives",
+      "category": "Snacks",
+      "caloriesPer100g": 115,
+      "proteinPer100g": 1,
+      "fatPer100g": 11,
+      "carbsPer100g": 6
+    },
+    {
+      "name": "Dark Chocolate",
+      "category": "Snacks",
+      "caloriesPer100g": 550,
+      "proteinPer100g": 5,
+      "fatPer100g": 35,
+      "carbsPer100g": 60
+    },
+
+    {
+      "name": "Baguette",
+      "category": "Bakery",
+      "caloriesPer100g": 270,
+      "proteinPer100g": 9,
+      "fatPer100g": 1,
+      "carbsPer100g": 55
+    },
+    {
+      "name": "Sourdough Bread",
+      "category": "Bakery",
+      "caloriesPer100g": 260,
+      "proteinPer100g": 10,
+      "fatPer100g": 1,
+      "carbsPer100g": 52
+    },
+    {
+      "name": "Whole Wheat Bread",
+      "category": "Bakery",
+      "caloriesPer100g": 250,
+      "proteinPer100g": 13,
+      "fatPer100g": 4,
+      "carbsPer100g": 43
+    },
+    {
+      "name": "White Bread",
+      "category": "Bakery",
+      "caloriesPer100g": 265,
+      "proteinPer100g": 9,
+      "fatPer100g": 3,
+      "carbsPer100g": 49
+    },
+    {
+      "name": "Rye Bread",
+      "category": "Bakery",
+      "caloriesPer100g": 250,
+      "proteinPer100g": 9,
+      "fatPer100g": 3,
+      "carbsPer100g": 48
+    },
+    {
+      "name": "Ciabatta",
+      "category": "Bakery",
+      "caloriesPer100g": 270,
+      "proteinPer100g": 10,
+      "fatPer100g": 3,
+      "carbsPer100g": 52
+    },
+    {
+      "name": "Pita Bread",
+      "category": "Bakery",
+      "caloriesPer100g": 275,
+      "proteinPer100g": 9,
+      "fatPer100g": 3,
+      "carbsPer100g": 55
+    },
+    {
+      "name": "Naan Bread",
+      "category": "Bakery",
+      "caloriesPer100g": 310,
+      "proteinPer100g": 9,
+      "fatPer100g": 7,
+      "carbsPer100g": 50
+    },
+    {
+      "name": "Focaccia",
+      "category": "Bakery",
+      "caloriesPer100g": 290,
+      "proteinPer100g": 8,
+      "fatPer100g": 10,
+      "carbsPer100g": 45
+    },
+    {
+      "name": "Multigrain Bread",
+      "category": "Bakery",
+      "caloriesPer100g": 260,
+      "proteinPer100g": 12,
+      "fatPer100g": 4,
+      "carbsPer100g": 44
+    },
+    {
+      "name": "Bagel",
+      "category": "Bakery",
+      "caloriesPer100g": 250,
+      "proteinPer100g": 10,
+      "fatPer100g": 2,
+      "carbsPer100g": 49
+    },
+    {
+      "name": "Brioche",
+      "category": "Bakery",
+      "caloriesPer100g": 350,
+      "proteinPer100g": 9,
+      "fatPer100g": 16,
+      "carbsPer100g": 42
+    },
+    {
+      "name": "Pumpernickel Bread",
+      "category": "Bakery",
+      "caloriesPer100g": 250,
+      "proteinPer100g": 9,
+      "fatPer100g": 3,
+      "carbsPer100g": 48
+    },
+    {
+      "name": "Cornbread",
+      "category": "Bakery",
+      "caloriesPer100g": 330,
+      "proteinPer100g": 6,
+      "fatPer100g": 11,
+      "carbsPer100g": 52
+    },
+    {
+      "name": "Banana Muffin",
+      "category": "Bakery",
+      "caloriesPer100g": 350,
+      "proteinPer100g": 5,
+      "fatPer100g": 15,
+      "carbsPer100g": 50
+    },
+    {
+      "name": "Cheese Scone",
+      "category": "Bakery",
+      "caloriesPer100g": 350,
+      "proteinPer100g": 9,
+      "fatPer100g": 15,
+      "carbsPer100g": 45
+    },
+    {
+      "name": "Blueberry Scone",
+      "category": "Bakery",
+      "caloriesPer100g": 390,
+      "proteinPer100g": 6,
+      "fatPer100g": 15,
+      "carbsPer100g": 58
+    },
+    {
+      "name": "Cinnamon Bun",
+      "category": "Bakery",
+      "caloriesPer100g": 370,
+      "proteinPer100g": 5,
+      "fatPer100g": 16,
+      "carbsPer100g": 52
+    },
+    {
+      "name": "Sesame Bagel",
+      "category": "Bakery",
+      "caloriesPer100g": 270,
+      "proteinPer100g": 11,
+      "fatPer100g": 3,
+      "carbsPer100g": 50
+    },
+    {
+      "name": "Cheese Danish",
+      "category": "Bakery",
+      "caloriesPer100g": 410,
+      "proteinPer100g": 7,
+      "fatPer100g": 22,
+      "carbsPer100g": 45
+    }
+  ]
+}

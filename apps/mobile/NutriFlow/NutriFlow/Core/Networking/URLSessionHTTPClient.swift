@@ -14,8 +14,8 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         refreshService: AuthRefreshService? = nil,
         configuration: URLSessionConfiguration = {
             let config = URLSessionConfiguration.default
-            config.timeoutIntervalForRequest = 120
-            config.timeoutIntervalForResource = 120
+            config.timeoutIntervalForRequest = 60
+            config.timeoutIntervalForResource = 60
             config.waitsForConnectivity = true
             return config
         }()
