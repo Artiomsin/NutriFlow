@@ -31,6 +31,11 @@ export class FoodAnalysisService {
 
   private readonly cache = new Map<string, CacheEntry>();
 
+  // Analyses currently in flight, keyed by image hash. Concurrent requests for
+  // the same image join the existing promise instead of calling the provider
+  // again, so a double-tap or a retry cannot spend the quota twice.
+  private readonly inFlight = new Map<string, Promise<FoodAnalysisResult>>();
+
   private readonly cacheTtlMs = env.ANALYSIS_CACHE_TTL_MS;
 
   private providers: VisionProvider[];
@@ -67,6 +72,26 @@ export class FoodAnalysisService {
       this.cache.delete(cacheKey);
     }
 
+    const pending = this.inFlight.get(cacheKey);
+    if (pending) {
+      this.logger.log('Vision analysis already in flight, joining it');
+      return pending;
+    }
+
+    const analysis = this.runAnalysis(cacheKey, buffer, mimeType);
+    this.inFlight.set(cacheKey, analysis);
+    try {
+      return await analysis;
+    } finally {
+      this.inFlight.delete(cacheKey);
+    }
+  }
+
+  private async runAnalysis(
+    cacheKey: string,
+    buffer: Buffer,
+    mimeType: string,
+  ): Promise<FoodAnalysisResult> {
     const raw = await this.analyzeWithProviders(buffer, mimeType);
 
     const items = this.normalizeItems(raw).slice(0, MAX_ITEMS);
