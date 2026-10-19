@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>APIBaseURL</key>
+	<string>$(API_BASE_URL)</string>
 	<key>AmplitudeApiKey</key>
 	<string>$(AMPLITUDE_API_KEY)</string>
 	<key>CFBundleURLTypes</key>
@@ -15,10 +17,6 @@
 	</array>
 	<key>GIDClientID</key>
 	<string>97707312659-3iui9bh59j0gg9fqp5hp9evdej3cmebi.apps.googleusercontent.com</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>healthkit</string>
-	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -37,5 +35,9 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>healthkit</string>
+	</array>
 </dict>
 </plist>
