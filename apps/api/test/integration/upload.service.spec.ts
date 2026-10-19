@@ -1,6 +1,8 @@
-import { afterAll, describe, expect, it } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import {
+  CreateBucketCommand,
   DeleteObjectCommand,
+  HeadBucketCommand,
   HeadObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -34,6 +36,15 @@ const head = (key: string) =>
 
 const remove = (key: string) =>
   client.send(new DeleteObjectCommand({ Bucket: env.S3_BUCKET, Key: key }));
+
+beforeAll(async () => {
+  if (!s3Configured) return;
+  try {
+    await client.send(new HeadBucketCommand({ Bucket: env.S3_BUCKET }));
+  } catch {
+    await client.send(new CreateBucketCommand({ Bucket: env.S3_BUCKET }));
+  }
+});
 
 afterAll(async () => {
   if (!s3Configured) return;

@@ -14,6 +14,29 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: nutriflow_test
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nutriflow_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nutriflow_test
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nutriflow_test
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_ENDPOINT_URL_S3: http://localhost:9000
+      AWS_REGION: us-east-1
+      S3_BUCKET: nutriflow-test
+      S3_PUBLIC_URL: http://localhost:9000/nutriflow-test
     defaults:
       run:
         working-directory: apps/api
@@ -29,30 +52,31 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
+      - name: Start local S3 storage
+        run: |
+          docker run --detach --name nutriflow-test-minio --publish 9000:9000 \
+            --env MINIO_ROOT_USER=minioadmin \
+            --env MINIO_ROOT_PASSWORD=minioadmin \
+            quay.io/minio/minio:latest server /data
+          for attempt in {1..30}; do
+            if curl --fail --silent http://localhost:9000/minio/health/live; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs nutriflow-test-minio
+          exit 1
+      - run: bun run migrate
       - run: bun run lint
       - run: bun run typecheck
       - run: bun run test:unit
       - run: bun run test:integration
-        env:
-          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
-          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_ENDPOINT_URL_S3: ${{ secrets.AWS_ENDPOINT_URL_S3 }}
-          AWS_REGION: eu-central-1
-          S3_BUCKET: ${{ secrets.S3_BUCKET || 'nutriflow-uploads' }}
-          S3_PUBLIC_URL: ${{ secrets.S3_PUBLIC_URL }}
       - run: bun run test:e2e
-        env:
-          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
-          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
       - name: Gemini vision evaluation (real API)
-        run: bun test test/integration/food-analysis.eval.spec.ts
+        run: bun run test:ai
         timeout-minutes: 20
         continue-on-error: true
         env:
-          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
-          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           EVAL_TEST_TIMEOUT_MS: "180000"
