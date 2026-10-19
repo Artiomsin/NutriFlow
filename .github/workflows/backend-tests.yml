@@ -57,7 +57,7 @@ jobs:
           docker run --detach --name nutriflow-test-minio --publish 9000:9000 \
             --env MINIO_ROOT_USER=minioadmin \
             --env MINIO_ROOT_PASSWORD=minioadmin \
-            quay.io/minio/minio:latest server /data
+            pgsty/silo:RELEASE.2026-10-18T00-00-00Z server /data
           for attempt in {1..30}; do
             if curl --fail --silent http://localhost:9000/minio/health/live; then
               exit 0

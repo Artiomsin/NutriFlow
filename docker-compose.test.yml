@@ -16,7 +16,7 @@ services:
       retries: 10
 
   minio:
-    image: quay.io/minio/minio:latest
+    image: pgsty/silo:RELEASE.2026-10-18T00-00-00Z
     command: server /data
     environment:
       MINIO_ROOT_PASSWORD: minioadmin
