@@ -25,16 +25,35 @@ export class AnalysisQuotaService {
     return Math.max(this.limit - entry.count, 0);
   }
 
-  assertAllowed(userId: string): void {
+  /**
+   * Atomically checks the daily limit and reserves a slot for the caller. The
+   * check and the increment happen in one synchronous step, so a burst of
+   * concurrent requests cannot slip past the limit while an earlier analysis
+   * is still in flight (the previous assert-then-consume pair had that gap
+   * across an `await`).
+   */
+  tryReserve(userId: string): void {
     if (this.remaining(userId) <= 0) {
       throw new HttpException(
         'Daily food analysis limit reached. Please try again tomorrow.',
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
+    this.increment(userId);
   }
 
-  consume(userId: string): void {
+  /**
+   * Returns a reserved slot after a failed analysis so the user can retry
+   * without spending the day's quota on an error.
+   */
+  release(userId: string): void {
+    const entry = this.counters.get(userId);
+    if (entry && entry.day === this.today() && entry.count > 0) {
+      entry.count -= 1;
+    }
+  }
+
+  private increment(userId: string): void {
     const day = this.today();
     const entry = this.counters.get(userId);
     if (!entry || entry.day !== day) {

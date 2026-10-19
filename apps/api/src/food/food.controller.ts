@@ -107,11 +107,16 @@ export class FoodController {
   ) {
     const f = this.assertImage(file);
 
-    this.analysisQuota.assertAllowed(user.userId);
-    const result = await this.foodAnalysisService.analyzePhoto(f);
-    this.analysisQuota.consume(user.userId);
-
-    return result;
+    // Reserve the slot before the long analysis call so a burst of parallel
+    // requests cannot all pass the check while this one is still in flight.
+    this.analysisQuota.tryReserve(user.userId);
+    try {
+      return await this.foodAnalysisService.analyzePhoto(f);
+    } catch (error) {
+      // Analysis failed, so the slot is refunded and the user may retry.
+      this.analysisQuota.release(user.userId);
+      throw error;
+    }
   }
 
   // ── Food Category Routes ────────────────────────────────────
