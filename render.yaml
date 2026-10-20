@@ -1,0 +1,70 @@
+# Exported from Render on 2026-10-20T20:03:41Z
+version: "1"
+projects:
+- name: My project
+  environments:
+  - name: Production
+    services:
+    - type: web
+      name: nutriflow-api-dev
+      runtime: node
+      repo: https://github.com/Artiomsin/NutriFlow
+      branch: dev
+      plan: free
+      envVars:
+      - key: ANALYSIS_DAILY_LIMIT
+        sync: false
+      - key: RATE_LIMIT_ANALYZE
+        sync: false
+      - key: RATE_LIMIT_UPLOAD
+        sync: false
+      - key: RATE_LIMIT_REFRESH
+        sync: false
+      - key: RATE_LIMIT_AUTH
+        sync: false
+      - key: RATE_LIMIT_GLOBAL
+        sync: false
+      - key: TRUST_PROXY
+        sync: false
+      - key: AWS_REGION
+        sync: false
+      - key: AWS_ENDPOINT_URL_S3
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: NEON_BRANCH
+        sync: false
+      - key: TEST_DATABASE_URL
+        sync: false
+      - key: DATABASE_URL_UNPOOLED
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: S3_PUBLIC_URL
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: USDA_API_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: JWT_REFRESH_EXPIRES
+        sync: false
+      - key: JWT_ACCESS_EXPIRES
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      region: frankfurt
+      buildCommand: bun install --frozen-lockfile
+      startCommand: bun run migrate && bun run start
+      healthCheckPath: /api/health/ready
+      autoDeployTrigger: checksPass
+      rootDir: apps/api
