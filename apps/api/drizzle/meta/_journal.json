@@ -22,6 +22,13 @@
       "when": 1792577600000,
       "tag": "0003_add_rate_limit_cleanup_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792600000000,
+      "tag": "0004_food_servings_owner",
+      "breakpoints": true
     }
   ]
 }

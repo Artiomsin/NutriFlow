@@ -31,6 +31,8 @@ import {
   createFoodEntrySchema,
   updateFoodEntrySchema,
   createFoodSchema,
+  createFoodServingSchema,
+  updateFoodServingSchema,
   createFoodCategorySchema,
   searchFoodQuerySchema,
   optionalDateQuerySchema,
@@ -41,6 +43,8 @@ import type {
   CreateFoodEntryDto,
   UpdateFoodEntryDto,
   CreateFoodDto,
+  CreateFoodServingDto,
+  UpdateFoodServingDto,
   CreateFoodCategoryDto,
   SearchFoodQueryDto,
   OptionalDateQueryDto,
@@ -237,6 +241,38 @@ export class FoodController {
   @Post('foods/:id/select')
   select(@User() user: AuthPayload, @Param('id', ParseUUIDPipe) id: string) {
     return this.foodService.trackSelection(user.userId, id);
+  }
+
+  // ── Servings (portions of a product) ─────────────────────────
+
+  @Post('foods/:id/servings')
+  addServing(
+    @User() user: AuthPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(createFoodServingSchema))
+    data: CreateFoodServingDto,
+  ) {
+    return this.foodService.addServing(user.userId, id, data);
+  }
+
+  @Patch('foods/:id/servings/:servingId')
+  updateServing(
+    @User() user: AuthPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('servingId', ParseUUIDPipe) servingId: string,
+    @Body(new ZodValidationPipe(updateFoodServingSchema))
+    data: UpdateFoodServingDto,
+  ) {
+    return this.foodService.updateServing(user.userId, id, servingId, data);
+  }
+
+  @Delete('foods/:id/servings/:servingId')
+  removeServing(
+    @User() user: AuthPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('servingId', ParseUUIDPipe) servingId: string,
+  ) {
+    return this.foodService.removeServing(user.userId, id, servingId);
   }
 
   @Post('foods')

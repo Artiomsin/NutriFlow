@@ -77,6 +77,21 @@ export const createFoodSchema = z.object({
 
 export type CreateFoodDto = z.infer<typeof createFoodSchema>;
 
+// ── Food Servings (portions of a product) ───────────────────────
+
+// A personal portion on top of the catalog ones. Stricter than the
+// servings embedded in createFoodSchema: a 0 g portion is useless.
+export const createFoodServingSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  grams: z.number().int().min(1).max(10000),
+});
+
+// Omission means "leave unchanged".
+export const updateFoodServingSchema = createFoodServingSchema.partial();
+
+export type CreateFoodServingDto = z.infer<typeof createFoodServingSchema>;
+export type UpdateFoodServingDto = z.infer<typeof updateFoodServingSchema>;
+
 export const searchFoodQuerySchema = z.object({
   q: z.string().trim().min(1).max(100),
   limit: z.coerce.number().int().min(1).max(50).optional().default(20),

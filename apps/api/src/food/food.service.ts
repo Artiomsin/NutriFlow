@@ -1,9 +1,19 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Db, Transaction } from '../db/db';
 import { DB } from '../db/db.module';
 import { foodEntries } from '../db/schema/foodEntries';
 import { foods } from '../db/schema/foods';
-import { foodServings } from '../db/schema/foodServings';
+import {
+  foodServings,
+  SERVING_SOURCE_SYSTEM,
+  SERVING_SOURCE_USER,
+} from '../db/schema/foodServings';
+import type { FoodServing } from '../db/schema/foodServings';
 import { userFoodStats } from '../db/schema/userFoodStats';
 import { eq, and, sql, desc, or, inArray, type SQL } from 'drizzle-orm';
 import { DailySummaryService } from '../daily-summary/daily-summary.service';
@@ -14,6 +24,8 @@ import type {
   UpdateFoodEntryDto,
   CreateFoodDto,
   CreateFoodCategoryDto,
+  CreateFoodServingDto,
+  UpdateFoodServingDto,
   SearchFoodQueryDto,
 } from './food.schema';
 import { currentUserDate } from '../common/time/user-date';
@@ -74,6 +86,48 @@ export class FoodService {
       .where(and(eq(foods.id, id), this.visibilityClause(userId)))
       .limit(1);
     return food;
+  }
+
+  /**
+   * Catalog portions ('system') are readable by everyone who may see the
+   * food; personal portions ('user') belong to their creator alone.
+   */
+  private servingVisibilityClause(userId?: string) {
+    if (!userId) return eq(foodServings.source, SERVING_SOURCE_SYSTEM);
+
+    return or(
+      eq(foodServings.source, SERVING_SOURCE_SYSTEM),
+      and(
+        eq(foodServings.source, SERVING_SOURCE_USER),
+        eq(foodServings.createdBy, userId),
+      ),
+    );
+  }
+
+  private listServings(
+    foodId: string,
+    userId?: string,
+    executor: Db | Transaction = this.db,
+  ) {
+    return executor
+      .select()
+      .from(foodServings)
+      .where(
+        and(
+          eq(foodServings.foodId, foodId),
+          this.servingVisibilityClause(userId),
+        ),
+      );
+  }
+
+  /** Every write of a personal portion goes through the owner scope. */
+  private servingOwnershipClause(userId: string, foodId: string, id: string) {
+    return and(
+      eq(foodServings.id, id),
+      eq(foodServings.foodId, foodId),
+      eq(foodServings.source, SERVING_SOURCE_USER),
+      eq(foodServings.createdBy, userId),
+    );
   }
 
   async create(userId: string, data: CreateFoodEntryDto) {
@@ -141,10 +195,14 @@ export class FoodService {
           foodId = created!.id;
 
           if (data.servingGrams && data.servingGrams > 0) {
+            // The portion is created together with a private product, so it
+            // belongs to the same user and stays editable afterwards.
             await tx.insert(foodServings).values({
               foodId,
               name: `serving (${data.servingGrams}g)`,
               grams: data.servingGrams,
+              source: SERVING_SOURCE_USER,
+              createdBy: userId,
             });
           }
         }
@@ -828,7 +886,12 @@ export class FoodService {
       ? await this.db
           .select()
           .from(foodServings)
-          .where(inArray(foodServings.foodId, localIds))
+          .where(
+            and(
+              inArray(foodServings.foodId, localIds),
+              this.servingVisibilityClause(userId),
+            ),
+          )
       : [];
 
     // How often this user picks each item — used for ranking
@@ -1064,10 +1127,7 @@ export class FoodService {
 
     if (!food) return null;
 
-    const servings = await this.db
-      .select()
-      .from(foodServings)
-      .where(eq(foodServings.foodId, food.id));
+    const servings = await this.listServings(food.id, userId);
 
     return { ...food, servings };
   }
@@ -1076,12 +1136,103 @@ export class FoodService {
     const food = await this.findVisibleFood(id, userId);
     if (!food) throw new NotFoundException('Food not found');
 
-    const servings = await this.db
-      .select()
-      .from(foodServings)
-      .where(eq(foodServings.foodId, id));
+    const servings = await this.listServings(id, userId);
 
     return { ...food, servings };
+  }
+
+  // ── Servings (portions of a product) ─────────────────────────
+
+  /**
+   * Adds a personal portion to any visible product, catalog ones included.
+   * Catalog portions stay untouched and read-only for everyone.
+   */
+  async addServing(
+    userId: string,
+    foodId: string,
+    data: CreateFoodServingDto,
+  ): Promise<FoodServing> {
+    const food = await this.findVisibleFood(foodId, userId);
+    if (!food) throw new NotFoundException('Food not found');
+
+    await this.assertServingNameFree(foodId, userId, data.name);
+
+    const [serving] = await this.db
+      .insert(foodServings)
+      .values({
+        foodId,
+        name: data.name,
+        grams: data.grams,
+        source: SERVING_SOURCE_USER,
+        createdBy: userId,
+      })
+      .returning();
+
+    return serving!;
+  }
+
+  async updateServing(
+    userId: string,
+    foodId: string,
+    servingId: string,
+    data: UpdateFoodServingDto,
+  ): Promise<FoodServing> {
+    if (data.name !== undefined) {
+      await this.assertServingNameFree(foodId, userId, data.name, servingId);
+    }
+
+    const [updated] = await this.db
+      .update(foodServings)
+      .set({
+        ...(data.name !== undefined ? { name: data.name } : {}),
+        ...(data.grams !== undefined ? { grams: data.grams } : {}),
+      })
+      .where(this.servingOwnershipClause(userId, foodId, servingId))
+      .returning();
+
+    // A catalog portion or someone else's portion reports as missing: a 403
+    // would confirm rows the caller must not learn about.
+    if (!updated) throw new NotFoundException('Serving not found');
+
+    return updated;
+  }
+
+  async removeServing(userId: string, foodId: string, servingId: string) {
+    const [deleted] = await this.db
+      .delete(foodServings)
+      .where(this.servingOwnershipClause(userId, foodId, servingId))
+      .returning({ id: foodServings.id });
+
+    if (!deleted) throw new NotFoundException('Serving not found');
+
+    return { id: servingId };
+  }
+
+  /** Portions are identified by name inside one product, per owner scope. */
+  private async assertServingNameFree(
+    foodId: string,
+    userId: string,
+    name: string,
+    excludeServingId?: string,
+  ) {
+    const conditions = [
+      eq(foodServings.foodId, foodId),
+      eq(foodServings.source, SERVING_SOURCE_USER),
+      eq(foodServings.createdBy, userId),
+      eq(foodServings.name, name),
+    ];
+
+    if (excludeServingId) {
+      conditions.push(sql`${foodServings.id} <> ${excludeServingId}`);
+    }
+
+    const [duplicate] = await this.db
+      .select({ id: foodServings.id })
+      .from(foodServings)
+      .where(and(...conditions))
+      .limit(1);
+
+    if (duplicate) throw new ConflictException('Serving already exists');
   }
 
   async createFood(userId: string, data: CreateFoodDto) {
@@ -1114,10 +1265,7 @@ export class FoodService {
         );
       }
 
-      const servings = await tx
-        .select()
-        .from(foodServings)
-        .where(eq(foodServings.foodId, food.id));
+      const servings = await this.listServings(food.id, userId, tx);
 
       return { ...food, servings };
     });
