@@ -187,3 +187,100 @@ describe('food upload route', () => {
       .expect(400);
   });
 });
+
+describe('food serving routes', () => {
+  async function createFood(token: string): Promise<string> {
+    const res = await http()
+      .post('/api/foods')
+      .set(auth(token))
+      .send({ name: `e2e-product-${randomUUID()}`, caloriesPer100g: 100 })
+      .expect(201);
+    return (res.body as { id: string }).id;
+  }
+
+  it('creates, updates and deletes a personal portion', async () => {
+    const token = await register();
+    const foodId = await createFood(token);
+
+    const created = await http()
+      .post(`/api/foods/${foodId}/servings`)
+      .set(auth(token))
+      .send({ name: 'cup', grams: 240 })
+      .expect(201);
+    expect(created.body.source).toBe('user');
+
+    const patched = await http()
+      .patch(`/api/foods/${foodId}/servings/${created.body.id as string}`)
+      .set(auth(token))
+      .send({ grams: 300 })
+      .expect(200);
+    expect(patched.body.grams).toBe(300);
+
+    const listed = await http()
+      .get(`/api/foods/${foodId}`)
+      .set(auth(token))
+      .expect(200);
+    expect(listed.body.servings).toHaveLength(1);
+
+    await http()
+      .delete(`/api/foods/${foodId}/servings/${created.body.id as string}`)
+      .set(auth(token))
+      .expect(200);
+
+    const after = await http()
+      .get(`/api/foods/${foodId}`)
+      .set(auth(token))
+      .expect(200);
+    expect(after.body.servings).toHaveLength(0);
+  });
+
+  it('rejects a duplicate portion name with 409', async () => {
+    const token = await register();
+    const foodId = await createFood(token);
+
+    await http()
+      .post(`/api/foods/${foodId}/servings`)
+      .set(auth(token))
+      .send({ name: 'cup', grams: 240 })
+      .expect(201);
+
+    await http()
+      .post(`/api/foods/${foodId}/servings`)
+      .set(auth(token))
+      .send({ name: 'cup', grams: 300 })
+      .expect(409);
+  });
+
+  it('reports an unknown portion as missing', async () => {
+    const token = await register();
+    const foodId = await createFood(token);
+
+    await http()
+      .patch(`/api/foods/${foodId}/servings/${randomUUID()}`)
+      .set(auth(token))
+      .send({ grams: 100 })
+      .expect(404);
+
+    await http()
+      .delete(`/api/foods/${foodId}/servings/${randomUUID()}`)
+      .set(auth(token))
+      .expect(404);
+  });
+
+  it('rejects a zero-gram portion and a non-uuid food id', async () => {
+    const token = await register();
+    const foodId = await createFood(token);
+
+    await http()
+      .post(`/api/foods/${foodId}/servings`)
+      .set(auth(token))
+      .send({ name: 'cup', grams: 0 })
+      .expect(400);
+
+    await http()
+      .post('/api/foods/not-a-uuid/servings')
+      .set(auth(token))
+      .send({ name: 'cup', grams: 100 })
+      .expect(400);
+  });
+});

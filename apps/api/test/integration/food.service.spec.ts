@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { ConfigModule } from '@nestjs/config';
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { and, eq, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
@@ -470,5 +470,160 @@ describe('FoodService.update', () => {
     expect(
       service.update(user.id, randomUUID(), { grams: 10 }),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('FoodService servings', () => {
+  async function addCatalogServing(
+    foodId: string,
+    name: string,
+    grams: number,
+  ) {
+    const [row] = await tx
+      .insert(foodServings)
+      .values({ foodId, name, grams, source: 'system', createdBy: null })
+      .returning();
+    return row!;
+  }
+
+  it('adds a personal portion to a catalog product', async () => {
+    const user = await createUser(tx);
+    const food = await createCatalogFood(tx, {
+      name: 'Banana',
+      caloriesPer100g: 89,
+      source: 'system',
+    });
+
+    const serving = await service.addServing(user.id, food.id, {
+      name: '1 banana',
+      grams: 120,
+    });
+
+    expect(serving.source).toBe('user');
+    expect(serving.createdBy).toBe(user.id);
+    expect(serving.foodId).toBe(food.id);
+  });
+
+  it('rejects a duplicate portion name for the same owner', async () => {
+    const user = await createUser(tx);
+    const food = await createCatalogFood(tx, {
+      name: 'Oats',
+      source: 'system',
+    });
+
+    await service.addServing(user.id, food.id, { name: 'bowl', grams: 40 });
+
+    await expect(
+      service.addServing(user.id, food.id, { name: 'bowl', grams: 60 }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('returns catalog and own portions but hides foreign ones', async () => {
+    const user = await createUser(tx);
+    const other = await createUser(tx);
+    const food = await createCatalogFood(tx, {
+      name: 'Milk',
+      caloriesPer100g: 60,
+      source: 'system',
+    });
+
+    await addCatalogServing(food.id, 'glass', 250);
+    await service.addServing(user.id, food.id, {
+      name: 'my glass',
+      grams: 300,
+    });
+    await service.addServing(other.id, food.id, {
+      name: 'foreign',
+      grams: 100,
+    });
+
+    const result = await service.getById(food.id, user.id);
+
+    expect(result.servings.map((s) => s.name).sort()).toEqual([
+      'glass',
+      'my glass',
+    ]);
+  });
+
+  it('updates an own portion and reports a catalog one as missing', async () => {
+    const user = await createUser(tx);
+    const food = await createCatalogFood(tx, {
+      name: 'Cottage',
+      source: 'system',
+    });
+    const catalog = await addCatalogServing(food.id, 'pack', 200);
+    const mine = await service.addServing(user.id, food.id, {
+      name: 'half pack',
+      grams: 100,
+    });
+
+    const updated = await service.updateServing(user.id, food.id, mine.id, {
+      grams: 150,
+    });
+    expect(updated.grams).toBe(150);
+
+    await expect(
+      service.updateServing(user.id, food.id, catalog.id, { grams: 999 }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("does not update another user's portion", async () => {
+    const user = await createUser(tx);
+    const other = await createUser(tx);
+    const food = await createCatalogFood(tx, {
+      name: 'Bread',
+      source: 'system',
+    });
+    const foreign = await service.addServing(other.id, food.id, {
+      name: 'slice',
+      grams: 30,
+    });
+
+    await expect(
+      service.updateServing(user.id, food.id, foreign.id, { grams: 50 }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('deletes an own portion and keeps the catalog one', async () => {
+    const user = await createUser(tx);
+    const food = await createCatalogFood(tx, {
+      name: 'Soup',
+      source: 'system',
+    });
+    const catalog = await addCatalogServing(food.id, 'bowl', 300);
+    const mine = await service.addServing(user.id, food.id, {
+      name: 'my bowl',
+      grams: 250,
+    });
+
+    await expect(
+      service.removeServing(user.id, food.id, mine.id),
+    ).resolves.toEqual({ id: mine.id });
+
+    const result = await service.getById(food.id, user.id);
+    expect(result.servings.map((s) => s.id)).toEqual([catalog.id]);
+
+    await expect(
+      service.removeServing(user.id, food.id, catalog.id),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('marks a portion created from a food entry as personal', async () => {
+    const user = await createUser(tx);
+    const entry = await service.create(user.id, {
+      name: 'Kefir',
+      grams: 250,
+      calories: 120,
+      servingGrams: 50,
+      date: '2026-01-05',
+    });
+
+    const [serving] = await tx
+      .select()
+      .from(foodServings)
+      .where(eq(foodServings.foodId, entry!.foodId!));
+
+    expect(serving?.source).toBe('user');
+    expect(serving?.createdBy).toBe(user.id);
   });
 });
