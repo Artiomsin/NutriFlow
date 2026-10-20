@@ -8,6 +8,20 @@
       "when": 1791619971935,
       "tag": "0000_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792487592034,
+      "tag": "0002_lyrical_omega_red",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792577600000,
+      "tag": "0003_add_rate_limit_cleanup_indexes",
+      "breakpoints": true
     }
   ]
 }

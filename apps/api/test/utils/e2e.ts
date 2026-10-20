@@ -6,6 +6,7 @@ import { AppModule } from '../../src/app.module';
 import { AppExceptionFilter } from '../../src/common/http/app-exception.filter';
 import { DB, DB_POOL } from '../../src/db/db.module';
 import { isolate } from './app';
+import { env } from '../../src/config/env';
 
 /**
  * Boots the real AppModule against an isolated transaction, mirroring the
@@ -21,6 +22,7 @@ export async function createE2eApp(tx: unknown): Promise<INestApplication> {
     .compile();
 
   const app = moduleRef.createNestApplication({ logger: false });
+  app.getHttpAdapter().getInstance().set('trust proxy', env.TRUST_PROXY);
   app.setGlobalPrefix('api');
   app.use(
     (

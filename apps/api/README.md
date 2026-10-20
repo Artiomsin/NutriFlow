@@ -41,6 +41,33 @@ The AI evaluation is separate because it uses real provider API quota:
 bun run test:ai
 ```
 
+## Rate limits
+
+Rate-limit counters and the daily AI-analysis quota are stored in PostgreSQL,
+so they survive Render restarts and deployments. Apply the included migration
+before deploying this change:
+
+```bash
+bun run migrate
+```
+
+Set the same values in local `.env` and Render Environment:
+
+```env
+TRUST_PROXY=1
+RATE_LIMIT_GLOBAL=120
+RATE_LIMIT_AUTH=10
+RATE_LIMIT_REFRESH=30
+RATE_LIMIT_UPLOAD=10
+RATE_LIMIT_ANALYZE=3
+ANALYSIS_DAILY_LIMIT=6
+```
+
+The API limits ordinary requests to 120 per minute per IP, authentication to
+10 per 15 minutes per IP, refreshes to 30 per minute per IP, uploads to 10 per
+minute per user, and food analysis to 3 per minute plus its daily quota. The
+Render health endpoints are excluded from throttling.
+
 To stop the test database:
 
 ```bash

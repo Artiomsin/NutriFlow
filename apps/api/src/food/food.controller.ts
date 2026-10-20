@@ -23,6 +23,9 @@ import { FoodService } from './food.service';
 import { UploadService } from '../upload/upload.service';
 import { FoodAnalysisService } from './food-analysis.service';
 import { AnalysisQuotaService } from './analysis-quota.service';
+import { RateLimit, UserRateLimit } from '../rate-limit/rate-limit.decorators';
+import { UserRateLimitGuard } from '../rate-limit/user-rate-limit.guard';
+import { env } from '../config/env';
 
 import {
   createFoodEntrySchema,
@@ -79,6 +82,9 @@ export class FoodController {
   }
 
   @Post('food/upload')
+  @RateLimit('upload-ip', env.RATE_LIMIT_UPLOAD, 60_000)
+  @UserRateLimit({ scope: 'upload', limit: env.RATE_LIMIT_UPLOAD, ttl: 60_000 })
+  @UseGuards(UserRateLimitGuard)
   @UseInterceptors(
     FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
   )
@@ -95,6 +101,13 @@ export class FoodController {
   }
 
   @Post('food/analyze')
+  @RateLimit('analyze-ip', env.RATE_LIMIT_ANALYZE, 60_000)
+  @UserRateLimit({
+    scope: 'analyze',
+    limit: env.RATE_LIMIT_ANALYZE,
+    ttl: 60_000,
+  })
+  @UseGuards(UserRateLimitGuard)
   @UseInterceptors(
     FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
   )
@@ -109,12 +122,12 @@ export class FoodController {
 
     // Reserve the slot before the long analysis call so a burst of parallel
     // requests cannot all pass the check while this one is still in flight.
-    this.analysisQuota.tryReserve(user.userId);
+    await this.analysisQuota.tryReserve(user.userId);
     try {
       return await this.foodAnalysisService.analyzePhoto(f);
     } catch (error) {
       // Analysis failed, so the slot is refunded and the user may retry.
-      this.analysisQuota.release(user.userId);
+      await this.analysisQuota.release(user.userId);
       throw error;
     }
   }

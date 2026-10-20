@@ -17,6 +17,7 @@ import { SleepModule } from './sleep/sleep.module';
 import { WeightLogsModule } from './weight-logs/weight-logs.module';
 import { HealthModule } from './health/health.module';
 import { MediaModule } from './media/media.module';
+import { RateLimitModule } from './rate-limit/rate-limit.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { MediaModule } from './media/media.module';
     }),
 
     DbModule,
+    RateLimitModule,
     UsersModule,
     AuthModule,
     ProfilesModule,
