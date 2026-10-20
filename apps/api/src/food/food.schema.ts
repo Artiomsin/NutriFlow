@@ -121,6 +121,10 @@ export const foodAnalysisFoodItemSchema = z.object({
 export const foodAnalysisWaterItemSchema = z.object({
   kind: z.literal('water'),
   amountMl: z.number().int().min(50).max(2_000),
+  // How many identical containers this object stands for. The model reports
+  // one object with containers: 2 instead of repeating the same volume, which
+  // is the only reliable way to tell two bottles from one bottle seen twice.
+  containers: z.number().int().min(1).max(8).optional(),
   confidence: z.number().min(0).max(1).nullable(),
 });
 

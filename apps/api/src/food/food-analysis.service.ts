@@ -24,6 +24,7 @@ const CACHE_MAX_ENTRIES = 500;
 const MAX_ITEMS = 8;
 // Water items whose volumes differ by at most 30% describe the same container.
 const WATER_DUPLICATE_TOLERANCE = 0.3;
+const MAX_WATER_CONTAINERS = 8;
 
 type CacheEntry = { result: FoodAnalysisResult; at: number };
 
@@ -117,13 +118,17 @@ export class FoodAnalysisService {
     // volume). Collapse those near-duplicate water items so a single bottle
     // is logged as a single item.
     const deduped = this.dedupeWater(parsed);
+    const withContainers = this.expandWaterContainers(deduped).slice(
+      0,
+      MAX_ITEMS,
+    );
 
-    if (!deduped.length) {
+    if (!withContainers.length) {
       this.cacheSet(cacheKey, []);
       return [];
     }
 
-    const foodItems = deduped.filter(
+    const foodItems = withContainers.filter(
       (item): item is FoodAnalysisFoodItem => item.kind === 'food',
     );
     const matchedFoodItems = await this.matcher.matchItems(foodItems);
@@ -131,7 +136,7 @@ export class FoodAnalysisService {
     // Food matching changes food values only. Reinsert those values into the
     // validated array so water stays in the same visual order as the photo.
     let foodIndex = 0;
-    const result = deduped.map((item) => {
+    const result = withContainers.map((item) => {
       if (item.kind === 'water') {
         return item;
       }
@@ -316,18 +321,26 @@ export class FoodAnalysisService {
    * first occurrence keeps its position (visual order); the amount and
    * confidence come from the highest-confidence detection in the group.
    * Clearly different volumes (a glass and a bottle) are kept apart.
+   *
+   * Two identical bottles are indistinguishable from one bottle reported
+   * twice without object positions, so the prompt asks the model to report an
+   * explicit `containers` count for identical containers instead of repeating
+   * the same volume. Items with an explicit count bypass this heuristic.
    */
   private dedupeWater(items: FoodAnalysisItem[]): FoodAnalysisItem[] {
     const kept: FoodAnalysisItem[] = [];
+    const isSingleContainer = (item: FoodAnalysisItem): boolean =>
+      item.kind === 'water' && (item.containers ?? 1) <= 1;
 
     for (const item of items) {
-      if (item.kind !== 'water') {
+      if (item.kind !== 'water' || !isSingleContainer(item)) {
         kept.push(item);
         continue;
       }
 
       const duplicateIndex = kept.findIndex(
         (candidate) =>
+          isSingleContainer(candidate) &&
           candidate.kind === 'water' &&
           this.isSameWaterVolume(candidate.amountMl, item.amountMl),
       );
@@ -363,6 +376,34 @@ export class FoodAnalysisService {
     return Math.abs(a - b) / largest <= WATER_DUPLICATE_TOLERANCE;
   }
 
+  /**
+   * Turns one water object that reports several identical containers into one
+   * item per container, so the client keeps its existing shape and each
+   * bottle stays visible/editable in the scan result.
+   */
+  private expandWaterContainers(items: FoodAnalysisItem[]): FoodAnalysisItem[] {
+    const expanded: FoodAnalysisItem[] = [];
+
+    for (const item of items) {
+      if (item.kind !== 'water' || (item.containers ?? 1) <= 1) {
+        expanded.push(item);
+        continue;
+      }
+
+      const count = Math.min(item.containers ?? 1, MAX_WATER_CONTAINERS);
+      const water: FoodAnalysisItem = {
+        kind: 'water',
+        amountMl: item.amountMl,
+        confidence: item.confidence,
+      };
+      for (let i = 0; i < count; i += 1) {
+        expanded.push(water);
+      }
+    }
+
+    return expanded;
+  }
+
   private prompt() {
     return [
       'Analyze visible food and plain drinking water in this photo.',
@@ -374,14 +415,19 @@ export class FoodAnalysisService {
       '  "calories": number, "protein": number, "fat": number, "carbs": number,',
       '  "unit": "g" | "ml", "confidence": number }',
       'For plain drinking water return:',
-      '{ "kind": "water", "amountMl": number, "confidence": number }',
+      '{ "kind": "water", "amountMl": number, "containers": number,',
+      '  "confidence": number }',
       'Use kind "water" ONLY for plain still or sparkling water.',
       'Do NOT classify tea, coffee, juice, milk, alcohol, soup, smoothies,',
       'cocktails, or flavored drinks as water.',
-      'Return EXACTLY ONE water object per physical container of water.',
+      'Return EXACTLY ONE water object per distinct container volume.',
       'Never emit several water objects for the same container: a bottle, its',
       'reflection, its label, and its cap are ONE container. If the photo shows',
       'only one container of water, the array must contain exactly one water object.',
+      'If two or more IDENTICAL containers are visible (for example two identical',
+      'bottles), return ONE water object with amountMl set to the volume of ONE',
+      'container and containers set to how many identical containers you see.',
+      'Otherwise set containers to 1.',
       'Use kind "food" for food and calorie-containing drinks.',
       'Nutrients are for the estimated portion, not per 100g.',
     ].join(' ');
@@ -430,12 +476,17 @@ export class FoodAnalysisService {
 
     if (raw.kind === 'water') {
       const amountMl = Number(raw.amountMl);
+      const containers = Number(raw.containers);
 
-      return {
+      const rounded: Record<string, unknown> = {
         kind: 'water',
         amountMl: Number.isFinite(amountMl) ? Math.round(amountMl) : null,
         confidence: roundedConfidence,
       };
+      if (Number.isFinite(containers)) {
+        rounded.containers = Math.round(containers);
+      }
+      return rounded;
     }
 
     const rounded: Record<string, unknown> = {
