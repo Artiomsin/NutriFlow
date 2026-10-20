@@ -7,8 +7,10 @@ import {
 import { sql } from 'drizzle-orm';
 import { DB } from '../db/db.module';
 import type { Db } from '../db/db';
+import { SkipThrottle } from '@nestjs/throttler';
 
 @Controller('health')
+@SkipThrottle()
 export class HealthController {
   constructor(@Inject(DB) private readonly db: Db) {}
   @Get()

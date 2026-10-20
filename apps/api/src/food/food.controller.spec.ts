@@ -37,8 +37,8 @@ function setup() {
   const foodAnalysisService = { analyzePhoto: mock(async () => []) };
   const uploadService = { upload: mock(async () => 'https://cdn/x.webp') };
   const analysisQuota = {
-    assertAllowed: mock(() => {}),
-    consume: mock(() => {}),
+    tryReserve: mock(() => {}),
+    release: mock(() => {}),
     remaining: mock(() => 6),
   };
 
@@ -95,17 +95,17 @@ describe('FoodController upload / analyze', () => {
     expect(result).toEqual({ url: 'https://cdn/x.webp' });
   });
 
-  it('delegates analysis to the analysis service and counts it', async () => {
+  it('reserves the quota slot before delegating the analysis', async () => {
     const { controller, foodAnalysisService, analysisQuota } = setup();
     await controller.analyze(user, image);
+    expect(analysisQuota.tryReserve).toHaveBeenCalledWith('user-1');
     expect(foodAnalysisService.analyzePhoto).toHaveBeenCalledWith(image);
-    expect(analysisQuota.assertAllowed).toHaveBeenCalledWith('user-1');
-    expect(analysisQuota.consume).toHaveBeenCalledWith('user-1');
+    expect(analysisQuota.release).not.toHaveBeenCalled();
   });
 
   it('rejects analysis once the daily limit is reached', () => {
     const { controller, foodAnalysisService, analysisQuota } = setup();
-    analysisQuota.assertAllowed.mockImplementation(() => {
+    analysisQuota.tryReserve.mockImplementation(() => {
       throw new HttpException('limit', HttpStatus.TOO_MANY_REQUESTS);
     });
 
@@ -113,6 +113,17 @@ describe('FoodController upload / analyze', () => {
       HttpException,
     );
     expect(foodAnalysisService.analyzePhoto).not.toHaveBeenCalled();
+  });
+
+  it('releases the reserved slot when the analysis fails', () => {
+    const { controller, foodAnalysisService, analysisQuota } = setup();
+    foodAnalysisService.analyzePhoto.mockImplementation(async () => {
+      throw new Error('provider down');
+    });
+
+    expect(controller.analyze(user, image)).rejects.toThrow('provider down');
+    expect(analysisQuota.tryReserve).toHaveBeenCalledWith('user-1');
+    expect(analysisQuota.release).toHaveBeenCalledWith('user-1');
   });
 });
 

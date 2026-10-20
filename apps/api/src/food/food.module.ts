@@ -6,9 +6,10 @@ import { UploadModule } from '../upload/upload.module';
 import { FoodAnalysisService } from './food-analysis.service';
 import { AnalysisQuotaService } from './analysis-quota.service';
 import { FoodMatcherService } from './food-matcher.service';
+import { RateLimitModule } from '../rate-limit/rate-limit.module';
 
 @Module({
-  imports: [DailySummaryModule, UploadModule],
+  imports: [DailySummaryModule, UploadModule, RateLimitModule],
   controllers: [FoodController],
   providers: [
     FoodService,

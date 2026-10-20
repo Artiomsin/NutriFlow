@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: nutriflow_test
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - nutriflow-test-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d nutriflow_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: pgsty/silo:RELEASE.2026-10-18T00-00-00Z
+    command: server /data
+    environment:
+      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: minioadmin
+    ports:
+      - "9000:9000"
+    volumes:
+      - nutriflow-test-minio:/data
+
+volumes:
+  nutriflow-test-postgres:
+  nutriflow-test-minio:

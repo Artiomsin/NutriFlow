@@ -168,6 +168,28 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     expect(provider.analyze).toHaveBeenCalledTimes(1);
   });
 
+  it('runs concurrent analyses of the same image only once', async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const provider = makeProvider(async () => {
+      await gate;
+      return rawText([]);
+    });
+    const { service } = setup(undefined, [provider]);
+
+    const first = service.analyzePhoto(file);
+    const second = service.analyzePhoto(file);
+    release();
+
+    const [a, b] = await Promise.all([first, second]);
+
+    expect(provider.analyze).toHaveBeenCalledTimes(1);
+    expect(a).toEqual([]);
+    expect(b).toEqual([]);
+  });
+
   it('re-analyzes once a cached entry outlives its TTL', async () => {
     const provider = okProvider();
     const { service } = setup(undefined, [provider]);

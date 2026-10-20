@@ -53,6 +53,16 @@ export const DEFAULT_SERVINGS: Record<string, Serving> = {
   'Fast Food': { name: 'portion', grams: 250 },
   Snacks: { name: 'handful', grams: 40 },
   Bakery: { name: 'slice', grams: 60 },
+  'Dairy & Eggs': { name: 'serving', grams: 150 },
+  Cheese: { name: 'slice', grams: 30 },
+  Poultry: { name: 'serving', grams: 150 },
+  'Legumes & Beans': { name: 'serving', grams: 150 },
+  'Nuts & Seeds': { name: 'handful', grams: 30 },
+  'Fruits & Berries': { name: 'piece', grams: 120 },
+  'Sauces & Condiments': { name: 'tbsp', grams: 15 },
+  'Sandwiches & Wraps': { name: 'piece', grams: 220 },
+  'Pizza & Flatbreads': { name: 'slice', grams: 120 },
+  'Sausages & Deli': { name: 'serving', grams: 50 },
 };
 
 export function slugify(name: string): string {
@@ -145,31 +155,59 @@ export async function seedDatabase(
       const categoryIds = new Map(categoryRows.map((c) => [c.name, c.id]));
 
       const names = dishes.map((d) => d.name);
-      if (names.length > 0) {
-        await tx
-          .delete(foods)
-          .where(and(eq(foods.source, 'system'), inArray(foods.name, names)));
-      }
+
+      // Existing system foods are updated in place instead of delete+insert:
+      // food_entries reference foods.id without a cascade, so removing rows
+      // would violate the foreign key once users logged those foods.
+      const existing = names.length
+        ? await tx
+            .select({ id: foods.id, name: foods.name })
+            .from(foods)
+            .where(and(eq(foods.source, 'system'), inArray(foods.name, names)))
+        : [];
+      const existingIds = new Map(existing.map((r) => [r.name, r.id]));
 
       const foodIds = new Map<string, string>();
-      for (const group of chunk(dishes, 100)) {
+      const toInsert: Dish[] = [];
+
+      const valuesFor = (dish: Dish) => ({
+        categoryId: categoryIds.get(dish.category) ?? null,
+        caloriesPer100g: Math.round(dish.caloriesPer100g),
+        proteinPer100g: Math.round(dish.proteinPer100g ?? 0),
+        fatPer100g: Math.round(dish.fatPer100g ?? 0),
+        carbsPer100g: Math.round(dish.carbsPer100g ?? 0),
+        imageUrl: imageUrlFor(dish),
+      });
+
+      for (const dish of dishes) {
+        const id = existingIds.get(dish.name);
+        if (!id) {
+          toInsert.push(dish);
+          continue;
+        }
+        foodIds.set(dish.name, id);
+        await tx.update(foods).set(valuesFor(dish)).where(eq(foods.id, id));
+      }
+
+      for (const group of chunk(toInsert, 100)) {
         const rows = await tx
           .insert(foods)
           .values(
             group.map((dish) => ({
               name: dish.name,
-              categoryId: categoryIds.get(dish.category) ?? null,
-              caloriesPer100g: Math.round(dish.caloriesPer100g),
-              proteinPer100g: Math.round(dish.proteinPer100g ?? 0),
-              fatPer100g: Math.round(dish.fatPer100g ?? 0),
-              carbsPer100g: Math.round(dish.carbsPer100g ?? 0),
-              imageUrl: imageUrlFor(dish),
+              ...valuesFor(dish),
               source: 'system' as const,
               createdBy: null,
             })),
           )
           .returning({ id: foods.id, name: foods.name });
         for (const row of rows) foodIds.set(row.name, row.id);
+      }
+
+      // Refresh servings for every catalog food (replace, not append).
+      const allIds = [...foodIds.values()];
+      for (const part of chunk(allIds, 500)) {
+        await tx.delete(foodServings).where(inArray(foodServings.foodId, part));
       }
 
       const servingRows: { foodId: string; name: string; grams: number }[] = [];

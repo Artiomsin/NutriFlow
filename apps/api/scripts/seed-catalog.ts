@@ -5,6 +5,7 @@ import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
 import {
   IMAGES_DIR,
+  catalogImageUrl,
   checkEnvironment,
   findLocalImage,
   readCatalog,
@@ -158,7 +159,9 @@ async function uploadImage(input: Buffer, slug: string): Promise<string> {
       cause: err,
     });
   }
-  return `${s3.publicUrl}/${key}`;
+  // Public URL goes through the API media proxy (MEDIA_BASE_URL), not the
+  // raw storage host, so the stored path stays stable if storage changes.
+  return catalogImageUrl(slug);
 }
 
 function describeError(err: unknown): string {

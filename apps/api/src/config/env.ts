@@ -8,6 +8,14 @@ function getEnv(key: string): string {
   return value;
 }
 
+function getPositiveInteger(key: string, fallback: number): number {
+  const value = Number(process.env[key] ?? fallback);
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`Invalid ${key}: expected a positive integer`);
+  }
+  return value;
+}
+
 export const env = {
   DATABASE_URL: getEnv('DATABASE_URL'),
 
@@ -25,8 +33,15 @@ export const env = {
   GEMINI_API_KEY: process.env.GEMINI_API_KEY ?? '',
   GROQ_API_KEY: process.env.GROQ_API_KEY ?? '',
   GROQ_MODEL: process.env.GROQ_MODEL ?? 'qwen/qwen3.8-27b',
-  ANALYSIS_DAILY_LIMIT: Number(process.env.ANALYSIS_DAILY_LIMIT ?? 6),
+  ANALYSIS_DAILY_LIMIT: getPositiveInteger('ANALYSIS_DAILY_LIMIT', 6),
   ANALYSIS_CACHE_TTL_MS: Number(process.env.ANALYSIS_CACHE_TTL_MS ?? 3_600_000),
+
+  RATE_LIMIT_GLOBAL: getPositiveInteger('RATE_LIMIT_GLOBAL', 120),
+  RATE_LIMIT_AUTH: getPositiveInteger('RATE_LIMIT_AUTH', 10),
+  RATE_LIMIT_REFRESH: getPositiveInteger('RATE_LIMIT_REFRESH', 30),
+  RATE_LIMIT_UPLOAD: getPositiveInteger('RATE_LIMIT_UPLOAD', 10),
+  RATE_LIMIT_ANALYZE: getPositiveInteger('RATE_LIMIT_ANALYZE', 3),
+  TRUST_PROXY: getPositiveInteger('TRUST_PROXY', 1),
 
   S3_ACCESS_KEY_ID:
     process.env.AWS_ACCESS_KEY_ID ?? process.env.S3_ACCESS_KEY_ID ?? '',
