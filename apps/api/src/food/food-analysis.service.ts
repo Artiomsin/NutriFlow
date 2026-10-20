@@ -22,6 +22,8 @@ const PROVIDER_TIMEOUT_MS = 30_000;
 const TIMEOUT_SENTINEL = 'vision-timeout';
 const CACHE_MAX_ENTRIES = 500;
 const MAX_ITEMS = 8;
+// Water items whose volumes differ by at most 30% describe the same container.
+const WATER_DUPLICATE_TOLERANCE = 0.3;
 
 type CacheEntry = { result: FoodAnalysisResult; at: number };
 
@@ -110,12 +112,18 @@ export class FoodAnalysisService {
       }
     }
 
-    if (!parsed.length) {
+    // Vision models frequently describe one container of water twice (the
+    // bottle plus its reflection, label or a second estimate of the same
+    // volume). Collapse those near-duplicate water items so a single bottle
+    // is logged as a single item.
+    const deduped = this.dedupeWater(parsed);
+
+    if (!deduped.length) {
       this.cacheSet(cacheKey, []);
       return [];
     }
 
-    const foodItems = parsed.filter(
+    const foodItems = deduped.filter(
       (item): item is FoodAnalysisFoodItem => item.kind === 'food',
     );
     const matchedFoodItems = await this.matcher.matchItems(foodItems);
@@ -123,7 +131,7 @@ export class FoodAnalysisService {
     // Food matching changes food values only. Reinsert those values into the
     // validated array so water stays in the same visual order as the photo.
     let foodIndex = 0;
-    const result = parsed.map((item) => {
+    const result = deduped.map((item) => {
       if (item.kind === 'water') {
         return item;
       }
@@ -303,10 +311,62 @@ export class FoodAnalysisService {
     return [];
   }
 
+  /**
+   * Collapses water items that describe the same physical container. The
+   * first occurrence keeps its position (visual order); the amount and
+   * confidence come from the highest-confidence detection in the group.
+   * Clearly different volumes (a glass and a bottle) are kept apart.
+   */
+  private dedupeWater(items: FoodAnalysisItem[]): FoodAnalysisItem[] {
+    const kept: FoodAnalysisItem[] = [];
+
+    for (const item of items) {
+      if (item.kind !== 'water') {
+        kept.push(item);
+        continue;
+      }
+
+      const duplicateIndex = kept.findIndex(
+        (candidate) =>
+          candidate.kind === 'water' &&
+          this.isSameWaterVolume(candidate.amountMl, item.amountMl),
+      );
+
+      const existing = duplicateIndex === -1 ? undefined : kept[duplicateIndex];
+      if (duplicateIndex === -1 || existing?.kind !== 'water') {
+        kept.push(item);
+        continue;
+      }
+
+      const existingConfidence = existing.confidence ?? 0;
+      const itemConfidence = item.confidence ?? 0;
+      const winner = itemConfidence > existingConfidence ? item : existing;
+
+      kept[duplicateIndex] = {
+        kind: 'water',
+        amountMl: winner.amountMl,
+        confidence: winner.confidence,
+      };
+
+      this.logger.log(
+        `Collapsed duplicate water item (${item.amountMl} ml), ` +
+          `keeping one water item at ${winner.amountMl} ml`,
+      );
+    }
+
+    return kept;
+  }
+
+  private isSameWaterVolume(a: number, b: number): boolean {
+    const largest = Math.max(a, b);
+    if (largest <= 0) return false;
+    return Math.abs(a - b) / largest <= WATER_DUPLICATE_TOLERANCE;
+  }
+
   private prompt() {
     return [
       'Analyze visible food and plain drinking water in this photo.',
-      'There may be one or more food dishes and containers of water.',
+      'There may be one or more food dishes, and separate containers of water.',
       'Return ONLY valid JSON with no markdown: an ARRAY of objects.',
       'Every object must include a "kind" field.',
       'For food return:',
@@ -318,6 +378,10 @@ export class FoodAnalysisService {
       'Use kind "water" ONLY for plain still or sparkling water.',
       'Do NOT classify tea, coffee, juice, milk, alcohol, soup, smoothies,',
       'cocktails, or flavored drinks as water.',
+      'Return EXACTLY ONE water object per physical container of water.',
+      'Never emit several water objects for the same container: a bottle, its',
+      'reflection, its label, and its cap are ONE container. If the photo shows',
+      'only one container of water, the array must contain exactly one water object.',
       'Use kind "food" for food and calorie-containing drinks.',
       'Nutrients are for the estimated portion, not per 100g.',
     ].join(' ');

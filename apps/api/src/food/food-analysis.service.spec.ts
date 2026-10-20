@@ -236,6 +236,72 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     expect(result).toEqual([{ kind: 'water', amountMl: 250, confidence: 1 }]);
   });
 
+  it('collapses duplicate water detections of the same container into one', async () => {
+    const { service } = setup(undefined, [
+      makeProvider(async () =>
+        rawText([
+          { kind: 'water', amountMl: 500, confidence: 0.8 },
+          { kind: 'water', amountMl: 550, confidence: 0.95 },
+        ]),
+      ),
+    ]);
+
+    const result = await service.analyzePhoto(file);
+
+    expect(result).toEqual<FoodAnalysisResult>([
+      { kind: 'water', amountMl: 550, confidence: 0.95 },
+    ]);
+  });
+
+  it('keeps water items with clearly different volumes apart', async () => {
+    const { service } = setup(undefined, [
+      makeProvider(async () =>
+        rawText([
+          { kind: 'water', amountMl: 250, confidence: 0.9 },
+          { kind: 'water', amountMl: 1_000, confidence: 0.9 },
+        ]),
+      ),
+    ]);
+
+    const result = await service.analyzePhoto(file);
+
+    expect(result).toEqual<FoodAnalysisResult>([
+      { kind: 'water', amountMl: 250, confidence: 0.9 },
+      { kind: 'water', amountMl: 1_000, confidence: 0.9 },
+    ]);
+  });
+
+  it('does not collapse water with a food item sharing its volume', async () => {
+    const { service } = setup(undefined, [
+      makeProvider(async () =>
+        rawText([
+          { kind: 'water', amountMl: 300, confidence: 0.9 },
+          {
+            kind: 'food',
+            name: 'Soup',
+            grams: 300,
+            calories: 120,
+            protein: 4,
+            fat: 3,
+            carbs: 18,
+            unit: 'g',
+            confidence: 0.9,
+          },
+        ]),
+      ),
+    ]);
+
+    const result = await service.analyzePhoto(file);
+
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({
+      kind: 'water',
+      amountMl: 300,
+      confidence: 0.9,
+    });
+    expect(result[1]).toMatchObject({ kind: 'food', name: 'Soup' });
+  });
+
   it('parses a JSON array wrapped in a markdown fence', async () => {
     const { service } = setup(undefined, [
       makeProvider(
