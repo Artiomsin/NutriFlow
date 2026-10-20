@@ -434,6 +434,92 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     });
   });
 
+  it('collapses duplicate water next to food without losing the plate', async () => {
+    const { service } = setup(
+      (items) =>
+        items.map((_, i) => ({
+          kind: 'food',
+          source: 'catalog',
+          name: `M${i}`,
+        })),
+      [
+        makeProvider(async () =>
+          rawText([
+            {
+              kind: 'food',
+              name: 'Plate',
+              grams: 350,
+              calories: 500,
+              confidence: 0.9,
+            },
+            { kind: 'water', amountMl: 500, confidence: 0.8 },
+            { kind: 'water', amountMl: 550, confidence: 0.95 },
+          ]),
+        ),
+      ],
+    );
+
+    const result = await service.analyzePhoto(file);
+
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({
+      kind: 'food',
+      source: 'catalog',
+      name: 'M0',
+    });
+    expect(result[1]).toEqual({
+      kind: 'water',
+      amountMl: 550,
+      confidence: 0.95,
+    });
+  });
+
+  it('instructs the model to report the number of identical containers', async () => {
+    const provider = okProvider();
+    const { service } = setup(undefined, [provider]);
+
+    await service.analyzePhoto(file);
+
+    const prompt = calls(provider)[0]?.[1] as string;
+    expect(prompt).toContain('"containers": number');
+    expect(prompt).toContain('volume of ONE');
+  });
+
+  it('expands one water object into one item per identical container', async () => {
+    const { service } = setup(undefined, [
+      makeProvider(async () =>
+        rawText([
+          { kind: 'water', amountMl: 500, containers: 3, confidence: 0.9 },
+        ]),
+      ),
+    ]);
+
+    const result = await service.analyzePhoto(file);
+
+    expect(result).toEqual<FoodAnalysisResult>([
+      { kind: 'water', amountMl: 500, confidence: 0.9 },
+      { kind: 'water', amountMl: 500, confidence: 0.9 },
+      { kind: 'water', amountMl: 500, confidence: 0.9 },
+    ]);
+  });
+
+  it('does not dedupe water that reports an explicit container count', async () => {
+    const { service } = setup(undefined, [
+      makeProvider(async () =>
+        rawText([
+          { kind: 'water', amountMl: 500, containers: 2, confidence: 0.9 },
+          { kind: 'water', amountMl: 500, confidence: 0.9 },
+        ]),
+      ),
+    ]);
+
+    const result = await service.analyzePhoto(file);
+
+    // Two bottles from the explicit count plus one separate detection.
+    expect(result).toHaveLength(3);
+    expect(result.every((item) => item.kind === 'water')).toBe(true);
+  });
+
   it('passes a non-image mime type through to the provider untouched', async () => {
     const provider = okProvider();
     const { service } = setup(undefined, [provider]);
