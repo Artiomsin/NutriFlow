@@ -85,9 +85,17 @@ describe('GoalsService.update', () => {
     expect(history.every((h) => h.source === 'user')).toBe(true);
   });
 
-  it('updates existing goals and records a user_edit entry', async () => {
+  it('coalesces consecutive edits to the same goal into one history entry', async () => {
     const user = await createUser(tx);
     await service.update(user.id, { dailyCaloriesGoal: 2000 });
+
+    const [firstEntry] = await loadHistory(user.id, 'user_edit');
+    const sessionStart = new Date(Date.now() - 5 * 60 * 1000);
+    await tx
+      .update(goalHistory)
+      .set({ createdAt: sessionStart, updatedAt: sessionStart })
+      .where(eq(goalHistory.id, firstEntry!.id));
+
     const updated = (await service.update(user.id, {
       dailyCaloriesGoal: 2400,
     }))!;
@@ -96,8 +104,14 @@ describe('GoalsService.update', () => {
 
     const history = await loadHistory(user.id, 'user_edit');
     const calories = history.filter((h) => h.metric === 'dailyCaloriesGoal');
-    expect(calories.length).toBe(2);
-    expect(calories.some((h) => h.newValue === 2400)).toBe(true);
+    expect(calories).toHaveLength(1);
+    expect(calories[0]?.id).toBe(firstEntry?.id);
+    expect(calories[0]?.oldValue).toBeNull();
+    expect(calories[0]?.newValue).toBe(2400);
+    expect(calories[0]?.createdAt.getTime()).toBe(sessionStart.getTime());
+    expect(calories[0]?.updatedAt.getTime()).toBeGreaterThan(
+      sessionStart.getTime(),
+    );
   });
 });
 

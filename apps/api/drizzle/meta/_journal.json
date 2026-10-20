@@ -29,6 +29,13 @@
       "when": 1792600000000,
       "tag": "0004_food_servings_owner",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793000000000,
+      "tag": "0005_goal_history_updated_at",
+      "breakpoints": true
     }
   ]
 }

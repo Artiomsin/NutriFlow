@@ -39,11 +39,22 @@ export const goalHistory = app.table(
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),
+
+    // `createdAt` marks the start of an edit session; `updatedAt` marks its
+    // latest change and drives the coalescing window.
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
   },
   (table) => ({
     userCreatedIdx: index('idx_goal_history_user_created').on(
       table.userId,
       table.createdAt,
+    ),
+    userUpdatedIdx: index('idx_goal_history_user_updated').on(
+      table.userId,
+      table.updatedAt,
     ),
   }),
 );
