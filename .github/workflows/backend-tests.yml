@@ -72,6 +72,7 @@ jobs:
       - run: bun run test:unit
       - run: bun run test:integration
       - run: bun run test:e2e
+      - run: bun run test:rate-limit
       - name: Gemini vision evaluation (real API)
         run: bun run test:ai
         timeout-minutes: 20
