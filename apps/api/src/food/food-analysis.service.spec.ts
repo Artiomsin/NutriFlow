@@ -30,16 +30,32 @@ const file = {
   size: 17,
 };
 
+const USER_ID = 'user-1';
+
+// The service reads the shared category list before prompting and validating.
+// Tests only need the query to resolve, so a tiny fake covers it.
+const systemCategories = (names: string[] = []) => ({
+  select: () => ({
+    from: () => ({
+      where: () => ({
+        orderBy: async () => names.map((name) => ({ name })),
+      }),
+    }),
+  }),
+});
+
 function setup(
-  matcherImpl?: (items: unknown[]) => unknown,
+  matcherImpl?: (items: unknown[], userId?: string) => unknown,
   providers?: VisionProvider[],
+  categories: string[] = [],
 ) {
-  const matchItems = mock(async (items: unknown[]) =>
-    matcherImpl ? matcherImpl(items) : items,
+  const matchItems = mock((items: unknown[], userId?: string) =>
+    Promise.resolve(matcherImpl ? matcherImpl(items, userId) : items),
   );
-  const service = new FoodAnalysisService({
-    matchItems,
-  } as unknown as FoodMatcherService);
+  const service = new FoodAnalysisService(
+    { matchItems } as unknown as FoodMatcherService,
+    systemCategories(categories) as never,
+  );
 
   const list = providers ?? [okProvider()];
   (service as unknown as { providers: VisionProvider[] }).providers = list;
@@ -51,7 +67,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
   it('throws 503 when no provider is configured', async () => {
     const { service } = setup(undefined, []);
 
-    expect(service.analyzePhoto(file)).rejects.toBeInstanceOf(
+    expect(service.analyzePhoto(USER_ID, file)).rejects.toBeInstanceOf(
       ServiceUnavailableException,
     );
   });
@@ -62,7 +78,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     });
     const { service } = setup(undefined, [provider]);
 
-    expect(service.analyzePhoto(file)).rejects.toBeInstanceOf(
+    expect(service.analyzePhoto(USER_ID, file)).rejects.toBeInstanceOf(
       ServiceUnavailableException,
     );
   });
@@ -74,7 +90,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
       }),
     ]);
 
-    expect(service.analyzePhoto(file)).rejects.toBeInstanceOf(
+    expect(service.analyzePhoto(USER_ID, file)).rejects.toBeInstanceOf(
       ServiceUnavailableException,
     );
   });
@@ -86,7 +102,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
       }),
     ]);
 
-    expect(service.analyzePhoto(file)).rejects.toBeInstanceOf(
+    expect(service.analyzePhoto(USER_ID, file)).rejects.toBeInstanceOf(
       BadGatewayException,
     );
   });
@@ -100,7 +116,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     );
     const { service } = setup(undefined, [first, second]);
 
-    const result = await service.analyzePhoto(file);
+    const result = await service.analyzePhoto(USER_ID, file);
 
     expect(result).toEqual([{ kind: 'water', amountMl: 300, confidence: 1 }]);
     expect(first.analyze).toHaveBeenCalledTimes(1);
@@ -114,7 +130,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     const second = makeProvider(async () => rawText([]));
     const { service } = setup(undefined, [first, second]);
 
-    const result = await service.analyzePhoto(file);
+    const result = await service.analyzePhoto(USER_ID, file);
 
     expect(result).toEqual([]);
     expect(first.analyze).toHaveBeenCalledTimes(1);
@@ -128,7 +144,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     const second = makeProvider(async () => rawText([]));
     const { service } = setup(undefined, [first, second]);
 
-    const result = await service.analyzePhoto(file);
+    const result = await service.analyzePhoto(USER_ID, file);
 
     expect(result).toEqual([]);
     expect(first.analyze).toHaveBeenCalledTimes(1);
@@ -142,7 +158,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     const second = makeProvider(async () => rawText([]));
     const { service } = setup(undefined, [first, second]);
 
-    const result = await service.analyzePhoto(file);
+    const result = await service.analyzePhoto(USER_ID, file);
 
     expect(result).toEqual([]);
     expect(second.analyze).toHaveBeenCalledTimes(1);
@@ -153,7 +169,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
       makeProvider(async () => 'not json'),
     ]);
 
-    expect(service.analyzePhoto(file)).rejects.toBeInstanceOf(
+    expect(service.analyzePhoto(USER_ID, file)).rejects.toBeInstanceOf(
       BadGatewayException,
     );
   });
@@ -162,8 +178,8 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     const provider = okProvider();
     const { service } = setup(undefined, [provider]);
 
-    await service.analyzePhoto(file);
-    await service.analyzePhoto(file);
+    await service.analyzePhoto(USER_ID, file);
+    await service.analyzePhoto(USER_ID, file);
 
     expect(provider.analyze).toHaveBeenCalledTimes(1);
   });
@@ -179,8 +195,8 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     });
     const { service } = setup(undefined, [provider]);
 
-    const first = service.analyzePhoto(file);
-    const second = service.analyzePhoto(file);
+    const first = service.analyzePhoto(USER_ID, file);
+    const second = service.analyzePhoto(USER_ID, file);
     release();
 
     const [a, b] = await Promise.all([first, second]);
@@ -195,8 +211,8 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     const { service } = setup(undefined, [provider]);
     (service as unknown as { cacheTtlMs: number }).cacheTtlMs = 0;
 
-    await service.analyzePhoto(file);
-    await service.analyzePhoto(file);
+    await service.analyzePhoto(USER_ID, file);
+    await service.analyzePhoto(USER_ID, file);
 
     expect(provider.analyze).toHaveBeenCalledTimes(2);
   });
@@ -204,7 +220,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
   it('returns [] for an empty array and skips the matcher', async () => {
     const { service, matchItems } = setup();
 
-    const result = await service.analyzePhoto(file);
+    const result = await service.analyzePhoto(USER_ID, file);
 
     expect(result).toEqual<FoodAnalysisResult>([]);
     expect(matchItems).not.toHaveBeenCalled();
@@ -217,7 +233,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
       ),
     ]);
 
-    const result = await service.analyzePhoto(file);
+    const result = await service.analyzePhoto(USER_ID, file);
 
     expect(result).toEqual([{ kind: 'water', amountMl: 300, confidence: 1 }]);
   });
@@ -231,7 +247,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
       ),
     ]);
 
-    const result = await service.analyzePhoto(file);
+    const result = await service.analyzePhoto(USER_ID, file);
 
     expect(result).toEqual([{ kind: 'water', amountMl: 250, confidence: 1 }]);
   });
@@ -246,7 +262,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
       ),
     ]);
 
-    const result = await service.analyzePhoto(file);
+    const result = await service.analyzePhoto(USER_ID, file);
 
     expect(result).toEqual<FoodAnalysisResult>([
       { kind: 'water', amountMl: 550, confidence: 0.95 },
@@ -263,7 +279,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
       ),
     ]);
 
-    const result = await service.analyzePhoto(file);
+    const result = await service.analyzePhoto(USER_ID, file);
 
     expect(result).toEqual<FoodAnalysisResult>([
       { kind: 'water', amountMl: 250, confidence: 0.9 },
@@ -291,7 +307,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
       ),
     ]);
 
-    const result = await service.analyzePhoto(file);
+    const result = await service.analyzePhoto(USER_ID, file);
 
     expect(result).toHaveLength(2);
     expect(result[0]).toEqual({
@@ -310,7 +326,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
       ),
     ]);
 
-    const result = await service.analyzePhoto(file);
+    const result = await service.analyzePhoto(USER_ID, file);
 
     expect(result).toEqual([{ kind: 'water', amountMl: 200, confidence: 1 }]);
   });
@@ -336,7 +352,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
       [provider],
     );
 
-    const result = await service.analyzePhoto(file);
+    const result = await service.analyzePhoto(USER_ID, file);
 
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
@@ -370,7 +386,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
       ),
     ]);
 
-    const result = await service.analyzePhoto(file);
+    const result = await service.analyzePhoto(USER_ID, file);
 
     expect(result).toEqual<FoodAnalysisResult>([]);
     expect(matchItems).not.toHaveBeenCalled();
@@ -393,7 +409,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
       ),
     ]);
 
-    const result = await service.analyzePhoto(file);
+    const result = await service.analyzePhoto(USER_ID, file);
 
     expect(result).toHaveLength(8);
     expect((matchItems.mock.calls[0]?.[0] as unknown[]).length).toBe(8);
@@ -418,7 +434,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
       ],
     );
 
-    const result = await service.analyzePhoto(file);
+    const result = await service.analyzePhoto(USER_ID, file);
 
     expect(result).toHaveLength(3);
     expect(result[0]).toMatchObject({
@@ -459,7 +475,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
       ],
     );
 
-    const result = await service.analyzePhoto(file);
+    const result = await service.analyzePhoto(USER_ID, file);
 
     expect(result).toHaveLength(2);
     expect(result[0]).toMatchObject({
@@ -478,7 +494,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     const provider = okProvider();
     const { service } = setup(undefined, [provider]);
 
-    await service.analyzePhoto(file);
+    await service.analyzePhoto(USER_ID, file);
 
     const prompt = calls(provider)[0]?.[1] as string;
     expect(prompt).toContain('"containers": number');
@@ -494,7 +510,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
       ),
     ]);
 
-    const result = await service.analyzePhoto(file);
+    const result = await service.analyzePhoto(USER_ID, file);
 
     expect(result).toEqual<FoodAnalysisResult>([
       { kind: 'water', amountMl: 500, confidence: 0.9 },
@@ -513,7 +529,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
       ),
     ]);
 
-    const result = await service.analyzePhoto(file);
+    const result = await service.analyzePhoto(USER_ID, file);
 
     // Two bottles from the explicit count plus one separate detection.
     expect(result).toHaveLength(3);
@@ -524,7 +540,10 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     const provider = okProvider();
     const { service } = setup(undefined, [provider]);
 
-    await service.analyzePhoto({ ...file, mimetype: 'application/pdf' });
+    await service.analyzePhoto(USER_ID, {
+      ...file,
+      mimetype: 'application/pdf',
+    });
 
     const image = calls(provider)[0]?.[0] as VisionImage;
     expect(image.mimeType).toBe('application/pdf');
@@ -534,7 +553,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     const provider = okProvider();
     const { service } = setup(undefined, [provider]);
 
-    await service.analyzePhoto(file);
+    await service.analyzePhoto(USER_ID, file);
 
     const image = calls(provider)[0]?.[0] as VisionImage;
     expect(image.mimeType).toBe('image/png');

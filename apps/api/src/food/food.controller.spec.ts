@@ -26,6 +26,8 @@ function setup() {
     update: mock(async () => ({ id: 'entry-1' })),
     getCategories: mock(async () => []),
     createCategory: mock(async () => ({ id: 'cat-1' })),
+    updateCategory: mock(async () => ({ id: 'cat-1' })),
+    removeCategory: mock(async () => ({ id: 'cat-1' })),
     getAll: mock(async () => []),
     search: mock(async () => ({ foods: [] })),
     getPopular: mock(async () => []),
@@ -99,7 +101,10 @@ describe('FoodController upload / analyze', () => {
     const { controller, foodAnalysisService, analysisQuota } = setup();
     await controller.analyze(user, image);
     expect(analysisQuota.tryReserve).toHaveBeenCalledWith('user-1');
-    expect(foodAnalysisService.analyzePhoto).toHaveBeenCalledWith(image);
+    expect(foodAnalysisService.analyzePhoto).toHaveBeenCalledWith(
+      'user-1',
+      image,
+    );
     expect(analysisQuota.release).not.toHaveBeenCalled();
   });
 
@@ -166,17 +171,34 @@ describe('FoodController food entries', () => {
 });
 
 describe('FoodController categories', () => {
-  it('lists categories', async () => {
+  it('lists categories for the caller', async () => {
     const { controller, foodService } = setup();
-    await controller.getCategories();
-    expect(foodService.getCategories).toHaveBeenCalled();
+    await controller.getCategories(user);
+    expect(foodService.getCategories).toHaveBeenCalledWith('user-1');
   });
 
-  it('creates a category', async () => {
+  it('creates a category for the caller', async () => {
     const { controller, foodService } = setup();
     const dto = { name: 'Fruit' };
-    await controller.createCategory(dto);
-    expect(foodService.createCategory).toHaveBeenCalledWith(dto);
+    await controller.createCategory(user, dto);
+    expect(foodService.createCategory).toHaveBeenCalledWith('user-1', dto);
+  });
+
+  it('updates a category for the caller', async () => {
+    const { controller, foodService } = setup();
+    const dto = { name: 'Fruit' };
+    await controller.updateCategory(user, 'cat-1', dto);
+    expect(foodService.updateCategory).toHaveBeenCalledWith(
+      'user-1',
+      'cat-1',
+      dto,
+    );
+  });
+
+  it('removes a category for the caller', async () => {
+    const { controller, foodService } = setup();
+    await controller.removeCategory(user, 'cat-1');
+    expect(foodService.removeCategory).toHaveBeenCalledWith('user-1', 'cat-1');
   });
 });
 

@@ -19,9 +19,27 @@ import {
 const shouldRun = Boolean(process.env.GEMINI_API_KEY) && hasAllFixtures();
 const run = shouldRun ? describe : describe.skip;
 
+const EVAL_USER_ID = 'eval-user';
+
 const matcher = {
-  matchItems: async (items: unknown[]) => items,
+  matchItems: (items: unknown[], userId?: string) => {
+    // Mirrors the real signature; the eval passes a fixed user id.
+    void userId;
+    return Promise.resolve(items);
+  },
 } as unknown as FoodMatcherService;
+
+// The service reads the shared system category list before prompting. The eval
+// only exercises the model output, so an empty list is enough.
+const emptyCategoriesDb = {
+  select: () => ({
+    from: () => ({
+      where: () => ({
+        orderBy: async () => [],
+      }),
+    }),
+  }),
+} as never;
 
 // For these fixtures the model must actually recognize the right kind of food.
 const expectedFood: Partial<Record<FixtureName, RegExp>> = {
@@ -64,14 +82,14 @@ const isQuotaError = (error: unknown): boolean =>
 
 async function analyzeWithRetry(
   service: FoodAnalysisService,
-  file: Parameters<FoodAnalysisService['analyzePhoto']>[0],
+  file: Parameters<FoodAnalysisService['analyzePhoto']>[1],
   attempts = 6,
 ) {
   // Throttle once per test, not per retry, so retries do not each pay the gap.
   await respectRateLimit();
   for (let attempt = 1; ; attempt += 1) {
     try {
-      return await service.analyzePhoto(file);
+      return await service.analyzePhoto(EVAL_USER_ID, file);
     } catch (error) {
       const reason = geminiReason(error);
       console.error(`[eval] attempt ${attempt}/${attempts}: ${reason}`);
@@ -95,7 +113,7 @@ async function analyzeWithRetry(
 }
 
 run('FoodAnalysisService evaluation (real Gemini)', () => {
-  const service = new FoodAnalysisService(matcher);
+  const service = new FoodAnalysisService(matcher, emptyCategoriesDb);
 
   it.each([...FIXTURE_NAMES])(
     'analyzes %s',
