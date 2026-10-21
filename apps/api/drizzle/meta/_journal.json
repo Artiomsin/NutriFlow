@@ -36,6 +36,13 @@
       "when": 1793000000000,
       "tag": "0005_goal_history_updated_at",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793000000001,
+      "tag": "0006_cute_makkari",
+      "breakpoints": true
     }
   ]
 }
