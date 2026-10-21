@@ -15,7 +15,18 @@ import {
 } from '../db/schema/foodServings';
 import type { FoodServing } from '../db/schema/foodServings';
 import { userFoodStats } from '../db/schema/userFoodStats';
-import { eq, and, sql, desc, or, inArray, type SQL } from 'drizzle-orm';
+import {
+  eq,
+  and,
+  sql,
+  desc,
+  or,
+  ne,
+  isNull,
+  count,
+  inArray,
+  type SQL,
+} from 'drizzle-orm';
 import { DailySummaryService } from '../daily-summary/daily-summary.service';
 import { foodCategories } from '../db/schema/foodCategories';
 import { env } from '../config/env';
@@ -24,6 +35,7 @@ import type {
   UpdateFoodEntryDto,
   CreateFoodDto,
   CreateFoodCategoryDto,
+  UpdateFoodCategoryDto,
   CreateFoodServingDto,
   UpdateFoodServingDto,
   SearchFoodQueryDto,
@@ -104,6 +116,87 @@ export class FoodService {
     );
   }
 
+  /**
+   * Categories a user may see: the shared catalog ones plus their own.
+   * Ownership is expressed in SQL rather than checked after the fact, so a
+   * missing row and a foreign row are indistinguishable to the caller.
+   */
+  private categoryVisibilityClause(userId: string): SQL {
+    return or(
+      isNull(foodCategories.createdBy),
+      eq(foodCategories.createdBy, userId),
+    )!;
+  }
+
+  /** Every write of a personal category goes through the owner scope. */
+  private categoryOwnershipClause(userId: string, id: string): SQL {
+    return and(
+      eq(foodCategories.id, id),
+      eq(foodCategories.createdBy, userId),
+    )!;
+  }
+
+  /**
+   * Maps a free-form category name onto a category the user may use.
+   *
+   * A system category wins when it exists, then the user's own one is reused,
+   * and only otherwise is a personal category created. Runtime code never adds
+   * rows to the shared catalog: that stays the job of the seed script.
+   */
+  private async resolveCategory(
+    executor: Db | Transaction,
+    userId: string,
+    name: string | null | undefined,
+  ): Promise<string | null> {
+    const clean = name?.trim();
+    if (!clean) return null;
+
+    const [existing] = await executor
+      .select({ id: foodCategories.id })
+      .from(foodCategories)
+      .where(
+        and(
+          eq(foodCategories.name, clean),
+          this.categoryVisibilityClause(userId),
+        ),
+      )
+      .orderBy(sql`${foodCategories.createdBy} IS NOT NULL`)
+      .limit(1);
+
+    if (existing) return existing.id;
+
+    const [created] = await executor
+      .insert(foodCategories)
+      .values({ name: clean, createdBy: userId })
+      .returning({ id: foodCategories.id });
+
+    return created?.id ?? null;
+  }
+
+  /**
+   * Guards a category id supplied by a client. A shared category and one of
+   * the caller's own are both acceptable; anything else is reported as missing
+   * so a foreign category cannot be probed or attached to a product.
+   */
+  private async assertVisibleCategory(
+    executor: Db | Transaction,
+    userId: string,
+    categoryId: string,
+  ): Promise<void> {
+    const [visible] = await executor
+      .select({ id: foodCategories.id })
+      .from(foodCategories)
+      .where(
+        and(
+          eq(foodCategories.id, categoryId),
+          this.categoryVisibilityClause(userId),
+        ),
+      )
+      .limit(1);
+
+    if (!visible) throw new NotFoundException('Category not found');
+  }
+
   private listServings(
     foodId: string,
     userId?: string,
@@ -149,26 +242,13 @@ export class FoodService {
         if (existing) {
           foodId = existing.id;
         } else {
-          let categoryId: string | null = null;
-
-          if (data.categoryName) {
-            const [cat] = await tx
-              .insert(foodCategories)
-              .values({ name: data.categoryName })
-              .onConflictDoNothing({ target: foodCategories.name })
-              .returning();
-
-            if (cat) {
-              categoryId = cat.id;
-            } else {
-              const [found] = await tx
-                .select()
-                .from(foodCategories)
-                .where(eq(foodCategories.name, data.categoryName))
-                .limit(1);
-              categoryId = found?.id ?? null;
-            }
-          }
+          // A category named by the client becomes a personal one: the shared
+          // catalog only ever grows through the seed script.
+          const categoryId = await this.resolveCategory(
+            tx,
+            userId,
+            data.categoryName,
+          );
 
           const ratio = data.grams && data.grams > 0 ? 100 / data.grams : 1;
           const source = 'user';
@@ -439,7 +519,9 @@ export class FoodService {
           const [matched] = await tx
             .select()
             .from(foods)
-            .where(eq(foods.name, data.name))
+            .where(
+              and(eq(foods.name, data.name), this.visibilityClause(userId)),
+            )
             .limit(1);
 
           if (matched) {
@@ -683,20 +765,13 @@ export class FoodService {
               .set({ categoryId: null })
               .where(eq(foods.id, newFoodId));
           } else {
-            const [cat] = await tx
-              .insert(foodCategories)
-              .values({ name: data.categoryName })
-              .onConflictDoNothing({ target: foodCategories.name })
-              .returning();
-            const categoryId =
-              cat?.id ??
-              (
-                await tx
-                  .select()
-                  .from(foodCategories)
-                  .where(eq(foodCategories.name, data.categoryName))
-                  .limit(1)
-              )[0]?.id;
+            // Same resolution as on create, so a named category is either an
+            // existing visible one or a fresh personal one.
+            const categoryId = await this.resolveCategory(
+              tx,
+              userId,
+              data.categoryName,
+            );
 
             if (categoryId) {
               await tx
@@ -770,25 +845,132 @@ export class FoodService {
 
   // ── Food Categories ──────────────────────────────────────────
 
-  async getCategories() {
-    return this.db.select().from(foodCategories).orderBy(foodCategories.name);
-  }
-
-  async createCategory(data: CreateFoodCategoryDto) {
-    const [category] = await this.db
-      .insert(foodCategories)
-      .values({ name: data.name, icon: data.icon })
-      .onConflictDoNothing({ target: foodCategories.name })
-      .returning();
-
-    if (category) return category;
-
-    const [existing] = await this.db
+  /** Shared catalog categories plus the ones owned by the caller. */
+  async getCategories(userId: string) {
+    return this.db
       .select()
       .from(foodCategories)
-      .where(eq(foodCategories.name, data.name))
+      .where(this.categoryVisibilityClause(userId))
+      .orderBy(foodCategories.name);
+  }
+
+  async createCategory(userId: string, data: CreateFoodCategoryDto) {
+    const name = data.name.trim();
+
+    // A name already taken in either scope would put two look-alike entries in
+    // the list the user sees, so both cases are rejected.
+    const [clash] = await this.db
+      .select({ id: foodCategories.id })
+      .from(foodCategories)
+      .where(
+        and(
+          eq(foodCategories.name, name),
+          this.categoryVisibilityClause(userId),
+        ),
+      )
       .limit(1);
-    return existing;
+
+    if (clash) {
+      throw new ConflictException(`Category "${name}" already exists`);
+    }
+
+    const [category] = await this.db
+      .insert(foodCategories)
+      .values({ name, icon: data.icon, createdBy: userId })
+      .returning();
+
+    return category;
+  }
+
+  async updateCategory(
+    userId: string,
+    id: string,
+    data: UpdateFoodCategoryDto,
+  ) {
+    // Same rule as on delete: a system or foreign category must be
+    // indistinguishable from a missing one, so ownership is verified before
+    // the name clash is even considered.
+    const [owned] = await this.db
+      .select({ id: foodCategories.id })
+      .from(foodCategories)
+      .where(this.categoryOwnershipClause(userId, id))
+      .limit(1);
+
+    if (!owned) throw new NotFoundException('Category not found');
+
+    const patch: { name?: string; icon?: string | null } = {};
+
+    if (data.name !== undefined) {
+      const name = data.name.trim();
+
+      const [clash] = await this.db
+        .select({ id: foodCategories.id })
+        .from(foodCategories)
+        .where(
+          and(
+            eq(foodCategories.name, name),
+            this.categoryVisibilityClause(userId),
+            ne(foodCategories.id, id),
+          ),
+        )
+        .limit(1);
+
+      if (clash) {
+        throw new ConflictException(`Category "${name}" already exists`);
+      }
+
+      patch.name = name;
+    }
+
+    if (data.icon !== undefined) patch.icon = data.icon;
+
+    const [updated] = await this.db
+      .update(foodCategories)
+      .set(patch)
+      .where(this.categoryOwnershipClause(userId, id))
+      .returning();
+
+    if (!updated) throw new NotFoundException('Category not found');
+
+    return updated;
+  }
+
+  async removeCategory(userId: string, id: string) {
+    // Ownership is checked first so a system category and someone else's look
+    // exactly like a missing one: the reference count must not leak that the
+    // row exists and is in use.
+    const [owned] = await this.db
+      .select({ id: foodCategories.id })
+      .from(foodCategories)
+      .where(this.categoryOwnershipClause(userId, id))
+      .limit(1);
+
+    if (!owned) throw new NotFoundException('Category not found');
+
+    // Products point at the category without a cascade, so the reference count
+    // is checked before the delete: letting the foreign key fail would surface
+    // as a 500 instead of an explainable conflict.
+    const [usage] = await this.db
+      .select({ products: count() })
+      .from(foods)
+      .where(eq(foods.categoryId, id));
+
+    const products = usage?.products ?? 0;
+
+    if (products > 0) {
+      throw new ConflictException(
+        `Category is used by ${products} product${products === 1 ? '' : 's'}`,
+      );
+    }
+
+    const [deleted] = await this.db
+      .delete(foodCategories)
+      .where(this.categoryOwnershipClause(userId, id))
+      .returning();
+
+    if (!deleted) throw new NotFoundException('Category not found');
+
+    return deleted;
   }
 
   // ── Food Catalog ──────────────────────────────────────────────
@@ -1237,6 +1419,10 @@ export class FoodService {
 
   async createFood(userId: string, data: CreateFoodDto) {
     const result = await this.db.transaction(async (tx) => {
+      if (data.categoryId) {
+        await this.assertVisibleCategory(tx, userId, data.categoryId);
+      }
+
       const [food] = await tx
         .insert(foods)
         .values({

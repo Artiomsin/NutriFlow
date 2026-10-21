@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Inject,
   Logger,
   ServiceUnavailableException,
   BadGatewayException,
@@ -7,6 +8,10 @@ import {
 } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import sharp from 'sharp';
+import { isNull } from 'drizzle-orm';
+import type { Db } from '../db/db';
+import { DB } from '../db/db.module';
+import { foodCategories } from '../db/schema/foodCategories';
 import {
   foodAnalysisItemSchema,
   type FoodAnalysisFoodItem,
@@ -43,16 +48,37 @@ export class FoodAnalysisService {
 
   private providers: VisionProvider[];
 
-  constructor(private readonly matcher: FoodMatcherService) {
+  constructor(
+    private readonly matcher: FoodMatcherService,
+    @Inject(DB) private readonly db: Db,
+  ) {
     this.providers = buildVisionProviders();
   }
 
-  async analyzePhoto(file: {
-    buffer: Buffer;
-    mimetype: string;
-    originalname: string;
-    size: number;
-  }): Promise<FoodAnalysisResult> {
+  /**
+   * Shared catalog category names, the only ones the model may pick from.
+   * Read on every analysis rather than cached: the query is trivial next to a
+   * vision call, and a stale list would let a removed category slip through.
+   */
+  private async systemCategoryNames(): Promise<string[]> {
+    const rows = await this.db
+      .select({ name: foodCategories.name })
+      .from(foodCategories)
+      .where(isNull(foodCategories.createdBy))
+      .orderBy(foodCategories.name);
+
+    return rows.map((r) => r.name);
+  }
+
+  async analyzePhoto(
+    userId: string,
+    file: {
+      buffer: Buffer;
+      mimetype: string;
+      originalname: string;
+      size: number;
+    },
+  ): Promise<FoodAnalysisResult> {
     if (!this.providers.length) {
       this.logger.warn('No vision provider is configured');
       throw new ServiceUnavailableException(
@@ -65,7 +91,9 @@ export class FoodAnalysisService {
       file.mimetype,
     );
 
-    const cacheKey = this.hashImage(buffer);
+    // The result depends on which products the caller may see, so the cache is
+    // scoped to the user: a shared key would hand one user's matches to another.
+    const cacheKey = `${userId}:${this.hashImage(buffer)}`;
     const cached = this.cache.get(cacheKey);
     if (cached && Date.now() - cached.at < this.cacheTtlMs) {
       this.logger.log('Vision cache hit, skipping providers');
@@ -81,7 +109,7 @@ export class FoodAnalysisService {
       return pending;
     }
 
-    const analysis = this.runAnalysis(cacheKey, buffer, mimeType);
+    const analysis = this.runAnalysis(cacheKey, userId, buffer, mimeType);
     this.inFlight.set(cacheKey, analysis);
     try {
       return await analysis;
@@ -92,12 +120,17 @@ export class FoodAnalysisService {
 
   private async runAnalysis(
     cacheKey: string,
+    userId: string,
     buffer: Buffer,
     mimeType: string,
   ): Promise<FoodAnalysisResult> {
     const raw = await this.analyzeWithProviders(buffer, mimeType);
 
-    const items = this.normalizeItems(raw).slice(0, MAX_ITEMS);
+    const allowed = new Set(await this.systemCategoryNames());
+    const items = this.sanitizeCategories(
+      this.normalizeItems(raw),
+      allowed,
+    ).slice(0, MAX_ITEMS);
 
     const parsed: FoodAnalysisItem[] = [];
     for (const item of items) {
@@ -131,7 +164,7 @@ export class FoodAnalysisService {
     const foodItems = withContainers.filter(
       (item): item is FoodAnalysisFoodItem => item.kind === 'food',
     );
-    const matchedFoodItems = await this.matcher.matchItems(foodItems);
+    const matchedFoodItems = await this.matcher.matchItems(foodItems, userId);
 
     // Food matching changes food values only. Reinsert those values into the
     // validated array so water stays in the same visual order as the photo.
@@ -155,7 +188,7 @@ export class FoodAnalysisService {
     mimeType: string,
   ): Promise<unknown> {
     const image = { data: buffer.toString('base64'), mimeType };
-    const prompt = this.prompt();
+    const prompt = await this.prompt();
     let lastStatus: number | null = null;
 
     for (const provider of this.providers) {
@@ -317,6 +350,32 @@ export class FoodAnalysisService {
   }
 
   /**
+   * Drops categories the model invented. The prompt already restricts it to
+   * the system list, but a hallucinated name would otherwise reach the client
+   * and, from there, create a stray personal category on save. An unknown or
+   * blank value becomes null, which the client shows as "uncategorized".
+   */
+  private sanitizeCategories(
+    items: Array<Record<string, unknown>>,
+    allowed: Set<string>,
+  ): Array<Record<string, unknown>> {
+    return items.map((item) => {
+      const raw = item['category'];
+      if (typeof raw !== 'string') return item;
+
+      const clean = raw.trim();
+      if (allowed.has(clean)) {
+        return item['category'] === clean ? item : { ...item, category: clean };
+      }
+
+      if (clean) {
+        this.logger.warn(`Vision returned unknown category "${clean}"`);
+      }
+      return { ...item, category: null };
+    });
+  }
+
+  /**
    * Collapses water items that describe the same physical container. The
    * first occurrence keeps its position (visual order); the amount and
    * confidence come from the highest-confidence detection in the group.
@@ -404,7 +463,9 @@ export class FoodAnalysisService {
     return expanded;
   }
 
-  private prompt() {
+  private async prompt() {
+    const categories = await this.systemCategoryNames();
+
     return [
       'Analyze visible food and plain drinking water in this photo.',
       'There may be one or more food dishes, and separate containers of water.',
@@ -430,6 +491,10 @@ export class FoodAnalysisService {
       'Otherwise set containers to 1.',
       'Use kind "food" for food and calorie-containing drinks.',
       'Nutrients are for the estimated portion, not per 100g.',
+      'For "category" choose ONE value from this list, copied exactly:',
+      categories.length ? categories.join(', ') : '(none available)',
+      'If none of them fits, set "category" to null. Never invent a new',
+      'category name: anything outside the list is rejected.',
     ].join(' ');
   }
 

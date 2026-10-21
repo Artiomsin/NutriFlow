@@ -34,6 +34,7 @@ import {
   createFoodServingSchema,
   updateFoodServingSchema,
   createFoodCategorySchema,
+  updateFoodCategorySchema,
   searchFoodQuerySchema,
   optionalDateQuerySchema,
   requiredDateQuerySchema,
@@ -46,6 +47,7 @@ import type {
   CreateFoodServingDto,
   UpdateFoodServingDto,
   CreateFoodCategoryDto,
+  UpdateFoodCategoryDto,
   SearchFoodQueryDto,
   OptionalDateQueryDto,
   RequiredDateQueryDto,
@@ -128,7 +130,7 @@ export class FoodController {
     // requests cannot all pass the check while this one is still in flight.
     await this.analysisQuota.tryReserve(user.userId);
     try {
-      return await this.foodAnalysisService.analyzePhoto(f);
+      return await this.foodAnalysisService.analyzePhoto(user.userId, f);
     } catch (error) {
       // Analysis failed, so the slot is refunded and the user may retry.
       await this.analysisQuota.release(user.userId);
@@ -139,16 +141,35 @@ export class FoodController {
   // ── Food Category Routes ────────────────────────────────────
 
   @Get('food-categories')
-  getCategories() {
-    return this.foodService.getCategories();
+  getCategories(@User() user: AuthPayload) {
+    return this.foodService.getCategories(user.userId);
   }
 
   @Post('food-categories')
   createCategory(
+    @User() user: AuthPayload,
     @Body(new ZodValidationPipe(createFoodCategorySchema))
     data: CreateFoodCategoryDto,
   ) {
-    return this.foodService.createCategory(data);
+    return this.foodService.createCategory(user.userId, data);
+  }
+
+  @Patch('food-categories/:id')
+  updateCategory(
+    @User() user: AuthPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(updateFoodCategorySchema))
+    data: UpdateFoodCategoryDto,
+  ) {
+    return this.foodService.updateCategory(user.userId, id, data);
+  }
+
+  @Delete('food-categories/:id')
+  removeCategory(
+    @User() user: AuthPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.foodService.removeCategory(user.userId, id);
   }
 
   // ── Food Entry Routes ────────────────────────────────────────

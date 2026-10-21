@@ -48,11 +48,20 @@ export type RequiredDateQueryDto = z.infer<typeof requiredDateQuerySchema>;
 // ── Food Categories ───────────────────────────────────────────────
 
 export const createFoodCategorySchema = z.object({
-  name: z.string().min(1).max(100),
-  icon: z.string().max(50).optional(),
+  name: z.string().trim().min(1).max(100),
+  icon: z.string().trim().max(50).optional(),
 });
 
 export type CreateFoodCategoryDto = z.infer<typeof createFoodCategorySchema>;
+
+// A partial patch: an absent field is left untouched, `null` clears an icon.
+export const updateFoodCategorySchema = createFoodCategorySchema
+  .partial()
+  .extend({
+    icon: z.string().trim().max(50).nullable().optional(),
+  });
+
+export type UpdateFoodCategoryDto = z.infer<typeof updateFoodCategorySchema>;
 
 // ── Food Catalog ──────────────────────────────────────────────────
 

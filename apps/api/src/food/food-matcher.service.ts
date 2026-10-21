@@ -3,7 +3,7 @@ import type { Db } from '../db/db';
 import { DB } from '../db/db.module';
 import { foods } from '../db/schema/foods';
 import { foodCategories } from '../db/schema/foodCategories';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, or, sql } from 'drizzle-orm';
 import type { FoodAnalysisFoodItem } from './food.schema';
 
 interface CandidateRow {
@@ -25,6 +25,7 @@ export class FoodMatcherService {
 
   async matchItems(
     items: FoodAnalysisFoodItem[],
+    userId?: string,
   ): Promise<FoodAnalysisFoodItem[]> {
     const names = items
       .map((i) => i.name?.trim())
@@ -34,7 +35,7 @@ export class FoodMatcherService {
       return items.map((item) => ({ ...item, source: 'ai' }));
     }
 
-    const matches = await this.findMatches(names);
+    const matches = await this.findMatches(names, userId);
 
     return items.map((item) => {
       const name = item.name?.trim();
@@ -81,9 +82,20 @@ export class FoodMatcherService {
 
   private async findMatches(
     names: string[],
+    userId?: string,
   ): Promise<Map<string, CandidateRow>> {
     const clauses = names.map((name) => this.nameClause(name));
     const where = sql`(${sql.join(clauses, sql.raw(' OR '))})`;
+
+    // Only products the caller is allowed to see take part: catalog items and
+    // the user's own. Another user's private product must never surface its
+    // name, nutrients or category here.
+    const visibility = userId
+      ? or(
+          sql`${foods.source} IN ('usda', 'system')`,
+          and(eq(foods.source, 'user'), eq(foods.createdBy, userId)),
+        )
+      : sql`${foods.source} IN ('usda', 'system')`;
 
     const rows: CandidateRow[] = await this.db
       .select({
@@ -98,7 +110,7 @@ export class FoodMatcherService {
       })
       .from(foods)
       .leftJoin(foodCategories, eq(foods.categoryId, foodCategories.id))
-      .where(where)
+      .where(and(where, visibility))
       .limit(100);
 
     const result = new Map<string, CandidateRow>();
