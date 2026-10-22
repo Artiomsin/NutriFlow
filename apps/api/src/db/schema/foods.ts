@@ -22,7 +22,11 @@ export const foods = app.table(
 
     name: varchar('name', { length: 255 }).notNull(),
 
-    categoryId: uuid('category_id').references(() => foodCategories.id),
+    // A deleted personal category must not make its products undeletable.
+    // The product keeps its nutrition snapshot but becomes uncategorized.
+    categoryId: uuid('category_id').references(() => foodCategories.id, {
+      onDelete: 'set null',
+    }),
 
     caloriesPer100g: integer('calories_per_100g').notNull(),
     proteinPer100g: integer('protein_per_100g').default(0),
@@ -40,7 +44,7 @@ export const foods = app.table(
     forkedFromId: uuid('forked_from_id'),
 
     createdBy: uuid('created_by').references(() => users.id, {
-      onDelete: 'set null',
+      onDelete: 'cascade',
     }),
 
     createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -76,6 +80,10 @@ export const foods = app.table(
     sourceValues: check(
       'foods_source_values',
       sql`${table.source} IN ('user', 'system', 'usda')`,
+    ),
+    ownerRequired: check(
+      'foods_owner_required',
+      sql`(${table.source} = 'user') = (${table.createdBy} IS NOT NULL)`,
     ),
   }),
 );

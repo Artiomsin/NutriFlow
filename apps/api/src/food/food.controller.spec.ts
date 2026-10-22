@@ -69,7 +69,7 @@ describe('FoodController guards', () => {
 describe('FoodController upload / analyze', () => {
   it('rejects an upload without a file', () => {
     const { controller } = setup();
-    expect(controller.upload(undefined)).rejects.toBeInstanceOf(
+    expect(controller.upload(user, undefined)).rejects.toBeInstanceOf(
       BadRequestException,
     );
   });
@@ -77,14 +77,14 @@ describe('FoodController upload / analyze', () => {
   it('rejects an unsupported mime type', () => {
     const { controller } = setup();
     expect(
-      controller.upload({ ...image, mimetype: 'application/pdf' }),
+      controller.upload(user, { ...image, mimetype: 'application/pdf' }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('uploads a valid image and returns its url', async () => {
     const { controller, uploadService } = setup();
-    const result = await controller.upload(image);
-    expect(uploadService.upload).toHaveBeenCalledWith(image.buffer);
+    const result = await controller.upload(user, image);
+    expect(uploadService.upload).toHaveBeenCalledWith('user-1', image.buffer);
     expect(result).toEqual({ url: 'https://cdn/x.webp' });
   });
 

@@ -17,3 +17,5 @@ export * from './goalHistory';
 export * from './goalRecommendations';
 export * from './rateLimits';
 export * from './analysisQuotaReservations';
+export * from './userUploads';
+export * from './storageCleanupTasks';
