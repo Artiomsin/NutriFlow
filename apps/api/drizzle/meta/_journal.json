@@ -43,6 +43,13 @@
       "when": 1793000000001,
       "tag": "0006_cute_makkari",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793000000002,
+      "tag": "0007_analysis_quota_reservations",
+      "breakpoints": true
     }
   ]
 }

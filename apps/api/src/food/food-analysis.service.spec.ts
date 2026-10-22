@@ -54,7 +54,11 @@ function setup(
     Promise.resolve(matcherImpl ? matcherImpl(items, userId) : items),
   );
   const analysisQuota = {
-    tryReserve: mock(async () => {}),
+    tryReserve: mock(async () => ({
+      id: 'b1cfa54c-0b86-4115-b81e-5a55b6d6c0d9',
+      reservedAt: new Date('2026-10-22T10:00:00.000Z'),
+    })),
+    consume: mock(async () => {}),
     release: mock(async () => {}),
   };
   const service = new FoodAnalysisService(
@@ -88,7 +92,10 @@ describe('FoodAnalysisService.analyzePhoto', () => {
       ServiceUnavailableException,
     );
     expect(analysisQuota.tryReserve).toHaveBeenCalledWith(USER_ID);
-    expect(analysisQuota.release).toHaveBeenCalledWith(USER_ID);
+    expect(analysisQuota.release).toHaveBeenCalledWith(
+      USER_ID,
+      expect.any(Object),
+    );
   });
 
   it('maps a 429 to ServiceUnavailableException', async () => {
@@ -191,6 +198,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
 
     expect(provider.analyze).toHaveBeenCalledTimes(1);
     expect(analysisQuota.tryReserve).toHaveBeenCalledTimes(1);
+    expect(analysisQuota.consume).toHaveBeenCalledTimes(1);
   });
 
   it('runs concurrent analyses of the same image only once', async () => {
@@ -212,6 +220,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
 
     expect(provider.analyze).toHaveBeenCalledTimes(1);
     expect(analysisQuota.tryReserve).toHaveBeenCalledTimes(1);
+    expect(analysisQuota.consume).toHaveBeenCalledTimes(1);
     expect(a).toEqual([]);
     expect(b).toEqual([]);
   });

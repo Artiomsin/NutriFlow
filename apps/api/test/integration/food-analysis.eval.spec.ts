@@ -115,7 +115,14 @@ async function analyzeWithRetry(
 run('FoodAnalysisService evaluation (real Gemini)', () => {
   const service = new FoodAnalysisService(
     matcher,
-    { tryReserve: async () => {}, release: async () => {} } as never,
+    {
+      tryReserve: async () => ({
+        id: 'b1cfa54c-0b86-4115-b81e-5a55b6d6c0d9',
+        reservedAt: new Date(),
+      }),
+      consume: async () => {},
+      release: async () => {},
+    } as never,
     emptyCategoriesDb,
   );
 

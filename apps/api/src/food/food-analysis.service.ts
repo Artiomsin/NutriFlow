@@ -133,13 +133,16 @@ export class FoodAnalysisService {
   ): Promise<FoodAnalysisResult> {
     // Reserve only after cache and in-flight checks have missed. A failed
     // analysis refunds its slot; a cache hit or joined request spends none.
-    await this.analysisQuota.tryReserve(userId);
+    const reservation = await this.analysisQuota.tryReserve(userId);
+    let result: FoodAnalysisResult;
     try {
-      return await this.runAnalysis(cacheKey, userId, buffer, mimeType);
+      result = await this.runAnalysis(cacheKey, userId, buffer, mimeType);
     } catch (error) {
-      await this.analysisQuota.release(userId);
+      await this.analysisQuota.release(userId, reservation);
       throw error;
     }
+    await this.analysisQuota.consume(userId, reservation);
+    return result;
   }
 
   private async runAnalysis(
