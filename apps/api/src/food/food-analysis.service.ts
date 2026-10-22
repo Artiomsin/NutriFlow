@@ -47,6 +47,8 @@ export class FoodAnalysisService {
 
   private readonly cacheTtlMs = env.ANALYSIS_CACHE_TTL_MS;
 
+  private readonly providerTimeoutMs = PROVIDER_TIMEOUT_MS;
+
   private providers: VisionProvider[];
 
   constructor(
@@ -138,6 +140,13 @@ export class FoodAnalysisService {
     try {
       result = await this.runAnalysis(cacheKey, userId, buffer, mimeType);
     } catch (error) {
+      // Once a provider timed out, it may already have accepted and billed the
+      // request. Do not refund the slot: a retry must not turn one unknown
+      // provider outcome into unbounded paid attempts.
+      if (error instanceof GatewayTimeoutException) {
+        await this.analysisQuota.consume(userId, reservation);
+        throw error;
+      }
       await this.analysisQuota.release(userId, reservation);
       throw error;
     }
@@ -220,7 +229,9 @@ export class FoodAnalysisService {
 
     for (const provider of this.providers) {
       try {
-        const text = await this.withTimeout(provider.analyze(image, prompt));
+        const text = await this.withTimeout((signal) =>
+          provider.analyze(image, prompt, signal),
+        );
 
         this.logger.log(
           `Vision (${provider.name}) raw response: ${text.slice(0, 1000)}`,
@@ -239,11 +250,13 @@ export class FoodAnalysisService {
         if (anyErr?.message === TIMEOUT_SENTINEL) {
           this.logger.error(
             `Vision (${provider.name}) timed out after ${
-              PROVIDER_TIMEOUT_MS / 1000
+              this.providerTimeoutMs / 1000
             }s`,
           );
-          lastStatus = 504;
-          continue;
+          // Do not fail over after a timeout. The preceding provider may have
+          // already accepted the request, so another paid call could duplicate
+          // one photo analysis.
+          throw this.toException(504);
         }
 
         const status = this.extractStatus(e);
@@ -253,6 +266,12 @@ export class FoodAnalysisService {
             anyErr?.message ?? 'unknown error'
           }`,
         );
+
+        if (status === 408 || status === 504) {
+          // The provider reports an unknown timeout outcome. It may have
+          // accepted the image, so do not start another paid provider call.
+          throw this.toException(status);
+        }
 
         if (this.isFallbackStatus(status)) {
           this.logger.warn(
@@ -268,18 +287,21 @@ export class FoodAnalysisService {
     throw this.toException(lastStatus);
   }
 
-  private async withTimeout<T>(promise: Promise<T>): Promise<T> {
-    let timer: ReturnType<typeof setTimeout> | undefined;
+  private async withTimeout<T>(
+    operation: (signal: AbortSignal) => Promise<T>,
+  ): Promise<T> {
+    const controller = new AbortController();
+    const timer = setTimeout(
+      () => controller.abort(TIMEOUT_SENTINEL),
+      this.providerTimeoutMs,
+    );
     try {
-      return await Promise.race([
-        promise,
-        new Promise<never>((_, reject) => {
-          timer = setTimeout(
-            () => reject(new Error(TIMEOUT_SENTINEL)),
-            PROVIDER_TIMEOUT_MS,
-          );
-        }),
-      ]);
+      return await operation(controller.signal);
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new Error(TIMEOUT_SENTINEL, { cause: error });
+      }
+      throw error;
     } finally {
       clearTimeout(timer);
     }
@@ -317,12 +339,12 @@ export class FoodAnalysisService {
       status === 403 ||
       status === 404 ||
       status === 429 ||
-      status >= 500
+      (status >= 500 && status !== 504)
     );
   }
 
   private toException(status: number | null): Error {
-    if (status === 504) {
+    if (status === 408 || status === 504) {
       return new GatewayTimeoutException(
         'Food analysis service timed out. Please try again later.',
       );

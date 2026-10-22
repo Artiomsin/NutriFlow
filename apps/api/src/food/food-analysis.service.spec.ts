@@ -1,6 +1,7 @@
 import { describe, expect, it, mock } from 'bun:test';
 import {
   BadGatewayException,
+  GatewayTimeoutException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 
@@ -10,7 +11,11 @@ import type { FoodMatcherService } from './food-matcher.service';
 import type { VisionImage, VisionProvider } from './vision/vision.types';
 import type { FoodAnalysisResult } from './food.schema';
 
-type Analyze = (image: VisionImage, prompt: string) => Promise<string>;
+type Analyze = (
+  image: VisionImage,
+  prompt: string,
+  signal: AbortSignal,
+) => Promise<string>;
 
 const rawText = (payload: unknown) => JSON.stringify(payload);
 
@@ -136,6 +141,45 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     expect(result).toEqual([{ kind: 'water', amountMl: 300, confidence: 1 }]);
     expect(first.analyze).toHaveBeenCalledTimes(1);
     expect(second.analyze).toHaveBeenCalledTimes(1);
+  });
+
+  it('aborts a timed-out provider without starting a paid fallback', async () => {
+    let receivedSignal: AbortSignal | undefined;
+    const first = makeProvider(
+      async (_image, _prompt, signal) =>
+        new Promise<string>((_resolve, reject) => {
+          receivedSignal = signal;
+          signal.addEventListener('abort', () => reject(signal.reason));
+        }),
+    );
+    const second = okProvider();
+    const { service, analysisQuota } = setup(undefined, [first, second]);
+    (service as unknown as { providerTimeoutMs: number }).providerTimeoutMs = 1;
+
+    await expect(service.analyzePhoto(USER_ID, file)).rejects.toBeInstanceOf(
+      GatewayTimeoutException,
+    );
+
+    expect(receivedSignal?.aborted).toBe(true);
+    expect(second.analyze).not.toHaveBeenCalled();
+    expect(analysisQuota.consume).toHaveBeenCalledTimes(1);
+    expect(analysisQuota.release).not.toHaveBeenCalled();
+  });
+
+  it('does not fall back when a provider reports a 504 timeout', async () => {
+    const first = makeProvider(async () => {
+      throw { status: 504 };
+    });
+    const second = okProvider();
+    const { service, analysisQuota } = setup(undefined, [first, second]);
+
+    await expect(service.analyzePhoto(USER_ID, file)).rejects.toBeInstanceOf(
+      GatewayTimeoutException,
+    );
+
+    expect(second.analyze).not.toHaveBeenCalled();
+    expect(analysisQuota.consume).toHaveBeenCalledTimes(1);
+    expect(analysisQuota.release).not.toHaveBeenCalled();
   });
 
   it('falls back to the next provider when one was removed (404)', async () => {

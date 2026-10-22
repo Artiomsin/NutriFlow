@@ -5,7 +5,9 @@ import { DB } from '../db/db.module';
 import type { Db } from '../db/db';
 
 const QUOTA_WINDOW_MS = 24 * 60 * 60 * 1_000;
-const PENDING_RESERVATION_MS = 2 * 60 * 1_000;
+// Must outlive the complete provider chain. It is only a crash-safety lease:
+// successful work becomes a 24-hour slot and normal failures release it.
+const PENDING_RESERVATION_MS = 5 * 60 * 1_000;
 
 export interface AnalysisQuotaReservation {
   id: string;

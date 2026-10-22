@@ -14,14 +14,18 @@ export class GeminiVisionProvider implements VisionProvider {
     this.client = new GoogleGenAI({ apiKey });
   }
 
-  async analyze(image: VisionImage, prompt: string): Promise<string> {
+  async analyze(
+    image: VisionImage,
+    prompt: string,
+    signal: AbortSignal,
+  ): Promise<string> {
     const response = await this.client.models.generateContent({
       model: this.model,
       contents: [
         { inlineData: { mimeType: image.mimeType, data: image.data } },
         { text: prompt },
       ],
-      config: { responseMimeType: 'application/json' },
+      config: { responseMimeType: 'application/json', abortSignal: signal },
     });
 
     return response.text ?? '';
