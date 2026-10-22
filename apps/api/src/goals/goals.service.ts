@@ -9,7 +9,7 @@ import { DB } from '../db/db.module';
 import { userGoals } from '../db/schema/userGoals';
 import { goalRecommendations } from '../db/schema/goalRecommendations';
 import { userProfiles } from '../db/schema/userProfiles';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import type { UpdateGoalsDto } from './goals.schema';
 import type { GoalMetrics } from './personalization/types';
 import {
@@ -39,48 +39,54 @@ export class GoalsService {
   }
 
   async update(userId: string, data: UpdateGoalsDto) {
-    const existing = await this.findByUserIdSafe(userId);
+    return this.db.transaction(async (tx) => {
+      // Serialize writes for one user. Without this lock, two simultaneous
+      // requests can both observe no open history row and insert duplicates.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${userId}))`);
 
-    if (existing) {
-      const [goals] = await this.db
-        .update(userGoals)
-        .set({
+      const existing = await this.findByUserIdSafe(userId, tx);
+
+      if (existing) {
+        const [goals] = await tx
+          .update(userGoals)
+          .set({
+            ...data,
+            source: 'user',
+            updatedAt: new Date(),
+          })
+          .where(eq(userGoals.userId, userId))
+          .returning();
+
+        await recordGoalHistory(
+          userId,
+          rowToGoalMetrics(existing),
+          rowToGoalMetrics(goals),
+          'user',
+          'user_edit',
+          tx,
+        );
+        return goals;
+      }
+
+      const [goals] = await tx
+        .insert(userGoals)
+        .values({
+          userId,
           ...data,
           source: 'user',
-          updatedAt: new Date(),
         })
-        .where(eq(userGoals.userId, userId))
         .returning();
 
       await recordGoalHistory(
         userId,
-        rowToGoalMetrics(existing),
+        EMPTY_GOALS_METRICS,
         rowToGoalMetrics(goals),
         'user',
         'user_edit',
-        this.db,
+        tx,
       );
       return goals;
-    }
-
-    const [goals] = await this.db
-      .insert(userGoals)
-      .values({
-        userId,
-        ...data,
-        source: 'user',
-      })
-      .returning();
-
-    await recordGoalHistory(
-      userId,
-      EMPTY_GOALS_METRICS,
-      rowToGoalMetrics(goals),
-      'user',
-      'user_edit',
-      this.db,
-    );
-    return goals;
+    });
   }
 
   async calculate(

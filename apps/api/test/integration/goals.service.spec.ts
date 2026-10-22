@@ -1,13 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
+import { randomUUID } from 'node:crypto';
 import { ConfigModule } from '@nestjs/config';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
 
+import { createDb } from '../../src/db/db';
 import { DbModule } from '../../src/db/db.module';
 import { goalHistory } from '../../src/db/schema/goalHistory';
 import { goalRecommendations } from '../../src/db/schema/goalRecommendations';
 import { userGoals } from '../../src/db/schema/userGoals';
 import { userProfiles } from '../../src/db/schema/userProfiles';
+import { users } from '../../src/db/schema/users';
 import { GoalsModule } from '../../src/goals/goals.module';
 import { GoalsService } from '../../src/goals/goals.service';
 import type { GoalMetrics } from '../../src/goals/personalization/types';
@@ -112,6 +115,39 @@ describe('GoalsService.update', () => {
     expect(calories[0]?.updatedAt.getTime()).toBeGreaterThan(
       sessionStart.getTime(),
     );
+  });
+
+  it('serializes simultaneous edits so they create one history entry', async () => {
+    const concurrentDb = createDb(db.pool);
+    const concurrentService = new GoalsService(concurrentDb);
+    const [user] = await concurrentDb
+      .insert(users)
+      .values({ email: `concurrent-goals-${randomUUID()}@test.com` })
+      .returning();
+
+    try {
+      await Promise.all([
+        concurrentService.update(user!.id, { dailyCaloriesGoal: 2100 }),
+        concurrentService.update(user!.id, { dailyCaloriesGoal: 2200 }),
+      ]);
+
+      const history = await concurrentDb
+        .select()
+        .from(goalHistory)
+        .where(
+          and(
+            eq(goalHistory.userId, user!.id),
+            eq(goalHistory.metric, 'dailyCaloriesGoal'),
+            eq(goalHistory.reason, 'user_edit'),
+          ),
+        );
+
+      expect(history).toHaveLength(1);
+      expect(history[0]?.oldValue).toBeNull();
+      expect([2100, 2200].includes(history[0]?.newValue ?? -1)).toBe(true);
+    } finally {
+      await concurrentDb.delete(users).where(eq(users.id, user!.id));
+    }
   });
 });
 
