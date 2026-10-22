@@ -22,7 +22,6 @@ import type { AuthPayload } from '../auth/types/auth.types';
 import { FoodService } from './food.service';
 import { UploadService } from '../upload/upload.service';
 import { FoodAnalysisService } from './food-analysis.service';
-import { AnalysisQuotaService } from './analysis-quota.service';
 import { RateLimit, UserRateLimit } from '../rate-limit/rate-limit.decorators';
 import { UserRateLimitGuard } from '../rate-limit/user-rate-limit.guard';
 import { env } from '../config/env';
@@ -60,7 +59,6 @@ export class FoodController {
     private readonly foodService: FoodService,
     private readonly foodAnalysisService: FoodAnalysisService,
     private readonly uploadService: UploadService,
-    private readonly analysisQuota: AnalysisQuotaService,
   ) {}
 
   // ── Upload ───────────────────────────────────────────────────
@@ -126,16 +124,7 @@ export class FoodController {
   ) {
     const f = this.assertImage(file);
 
-    // Reserve the slot before the long analysis call so a burst of parallel
-    // requests cannot all pass the check while this one is still in flight.
-    await this.analysisQuota.tryReserve(user.userId);
-    try {
-      return await this.foodAnalysisService.analyzePhoto(user.userId, f);
-    } catch (error) {
-      // Analysis failed, so the slot is refunded and the user may retry.
-      await this.analysisQuota.release(user.userId);
-      throw error;
-    }
+    return this.foodAnalysisService.analyzePhoto(user.userId, f);
   }
 
   // ── Food Category Routes ────────────────────────────────────

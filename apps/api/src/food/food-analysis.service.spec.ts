@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 
 import { FoodAnalysisService } from './food-analysis.service';
+import type { AnalysisQuotaService } from './analysis-quota.service';
 import type { FoodMatcherService } from './food-matcher.service';
 import type { VisionImage, VisionProvider } from './vision/vision.types';
 import type { FoodAnalysisResult } from './food.schema';
@@ -52,15 +53,20 @@ function setup(
   const matchItems = mock((items: unknown[], userId?: string) =>
     Promise.resolve(matcherImpl ? matcherImpl(items, userId) : items),
   );
+  const analysisQuota = {
+    tryReserve: mock(async () => {}),
+    release: mock(async () => {}),
+  };
   const service = new FoodAnalysisService(
     { matchItems } as unknown as FoodMatcherService,
+    analysisQuota as unknown as AnalysisQuotaService,
     systemCategories(categories) as never,
   );
 
   const list = providers ?? [okProvider()];
   (service as unknown as { providers: VisionProvider[] }).providers = list;
 
-  return { service, matchItems, providers: list };
+  return { service, matchItems, providers: list, analysisQuota };
 }
 
 describe('FoodAnalysisService.analyzePhoto', () => {
@@ -76,11 +82,13 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     const provider = makeProvider(async () => {
       throw { status: 503 };
     });
-    const { service } = setup(undefined, [provider]);
+    const { service, analysisQuota } = setup(undefined, [provider]);
 
-    expect(service.analyzePhoto(USER_ID, file)).rejects.toBeInstanceOf(
+    await expect(service.analyzePhoto(USER_ID, file)).rejects.toBeInstanceOf(
       ServiceUnavailableException,
     );
+    expect(analysisQuota.tryReserve).toHaveBeenCalledWith(USER_ID);
+    expect(analysisQuota.release).toHaveBeenCalledWith(USER_ID);
   });
 
   it('maps a 429 to ServiceUnavailableException', async () => {
@@ -176,12 +184,13 @@ describe('FoodAnalysisService.analyzePhoto', () => {
 
   it('serves a repeated image from cache without calling providers', async () => {
     const provider = okProvider();
-    const { service } = setup(undefined, [provider]);
+    const { service, analysisQuota } = setup(undefined, [provider]);
 
     await service.analyzePhoto(USER_ID, file);
     await service.analyzePhoto(USER_ID, file);
 
     expect(provider.analyze).toHaveBeenCalledTimes(1);
+    expect(analysisQuota.tryReserve).toHaveBeenCalledTimes(1);
   });
 
   it('runs concurrent analyses of the same image only once', async () => {
@@ -193,7 +202,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
       await gate;
       return rawText([]);
     });
-    const { service } = setup(undefined, [provider]);
+    const { service, analysisQuota } = setup(undefined, [provider]);
 
     const first = service.analyzePhoto(USER_ID, file);
     const second = service.analyzePhoto(USER_ID, file);
@@ -202,6 +211,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     const [a, b] = await Promise.all([first, second]);
 
     expect(provider.analyze).toHaveBeenCalledTimes(1);
+    expect(analysisQuota.tryReserve).toHaveBeenCalledTimes(1);
     expect(a).toEqual([]);
     expect(b).toEqual([]);
   });

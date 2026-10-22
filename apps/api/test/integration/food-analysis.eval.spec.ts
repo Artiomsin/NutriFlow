@@ -113,7 +113,11 @@ async function analyzeWithRetry(
 }
 
 run('FoodAnalysisService evaluation (real Gemini)', () => {
-  const service = new FoodAnalysisService(matcher, emptyCategoriesDb);
+  const service = new FoodAnalysisService(
+    matcher,
+    { tryReserve: async () => {}, release: async () => {} } as never,
+    emptyCategoriesDb,
+  );
 
   it.each([...FIXTURE_NAMES])(
     'analyzes %s',

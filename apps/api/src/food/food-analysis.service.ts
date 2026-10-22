@@ -22,6 +22,7 @@ import { FoodMatcherService } from './food-matcher.service';
 import { buildVisionProviders } from './vision/providers';
 import type { VisionProvider } from './vision/vision.types';
 import { env } from '../config/env';
+import { AnalysisQuotaService } from './analysis-quota.service';
 
 const PROVIDER_TIMEOUT_MS = 30_000;
 const TIMEOUT_SENTINEL = 'vision-timeout';
@@ -50,6 +51,7 @@ export class FoodAnalysisService {
 
   constructor(
     private readonly matcher: FoodMatcherService,
+    private readonly analysisQuota: AnalysisQuotaService,
     @Inject(DB) private readonly db: Db,
   ) {
     this.providers = buildVisionProviders();
@@ -109,12 +111,34 @@ export class FoodAnalysisService {
       return pending;
     }
 
-    const analysis = this.runAnalysis(cacheKey, userId, buffer, mimeType);
+    const analysis = this.runReservedAnalysis(
+      cacheKey,
+      userId,
+      buffer,
+      mimeType,
+    );
     this.inFlight.set(cacheKey, analysis);
     try {
       return await analysis;
     } finally {
       this.inFlight.delete(cacheKey);
+    }
+  }
+
+  private async runReservedAnalysis(
+    cacheKey: string,
+    userId: string,
+    buffer: Buffer,
+    mimeType: string,
+  ): Promise<FoodAnalysisResult> {
+    // Reserve only after cache and in-flight checks have missed. A failed
+    // analysis refunds its slot; a cache hit or joined request spends none.
+    await this.analysisQuota.tryReserve(userId);
+    try {
+      return await this.runAnalysis(cacheKey, userId, buffer, mimeType);
+    } catch (error) {
+      await this.analysisQuota.release(userId);
+      throw error;
     }
   }
 

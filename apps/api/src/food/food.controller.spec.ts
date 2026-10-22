@@ -1,12 +1,11 @@
 import { describe, expect, it, mock } from 'bun:test';
-import { BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 
 import { JwtAuthGuard } from '../auth/jwt.guard';
 import type { AuthPayload } from '../auth/types/auth.types';
 import type { UploadService } from '../upload/upload.service';
 import { FoodController } from './food.controller';
-import type { AnalysisQuotaService } from './analysis-quota.service';
 import type { FoodAnalysisService } from './food-analysis.service';
 import type { FoodService } from './food.service';
 
@@ -38,17 +37,10 @@ function setup() {
   };
   const foodAnalysisService = { analyzePhoto: mock(async () => []) };
   const uploadService = { upload: mock(async () => 'https://cdn/x.webp') };
-  const analysisQuota = {
-    tryReserve: mock(() => {}),
-    release: mock(() => {}),
-    remaining: mock(() => 6),
-  };
-
   const controller = new FoodController(
     foodService as unknown as FoodService,
     foodAnalysisService as unknown as FoodAnalysisService,
     uploadService as unknown as UploadService,
-    analysisQuota as unknown as AnalysisQuotaService,
   );
 
   return {
@@ -56,7 +48,6 @@ function setup() {
     foodService,
     foodAnalysisService,
     uploadService,
-    analysisQuota,
   };
 }
 
@@ -97,38 +88,13 @@ describe('FoodController upload / analyze', () => {
     expect(result).toEqual({ url: 'https://cdn/x.webp' });
   });
 
-  it('reserves the quota slot before delegating the analysis', async () => {
-    const { controller, foodAnalysisService, analysisQuota } = setup();
+  it('delegates a valid image to the analysis service', async () => {
+    const { controller, foodAnalysisService } = setup();
     await controller.analyze(user, image);
-    expect(analysisQuota.tryReserve).toHaveBeenCalledWith('user-1');
     expect(foodAnalysisService.analyzePhoto).toHaveBeenCalledWith(
       'user-1',
       image,
     );
-    expect(analysisQuota.release).not.toHaveBeenCalled();
-  });
-
-  it('rejects analysis once the daily limit is reached', () => {
-    const { controller, foodAnalysisService, analysisQuota } = setup();
-    analysisQuota.tryReserve.mockImplementation(() => {
-      throw new HttpException('limit', HttpStatus.TOO_MANY_REQUESTS);
-    });
-
-    expect(controller.analyze(user, image)).rejects.toBeInstanceOf(
-      HttpException,
-    );
-    expect(foodAnalysisService.analyzePhoto).not.toHaveBeenCalled();
-  });
-
-  it('releases the reserved slot when the analysis fails', () => {
-    const { controller, foodAnalysisService, analysisQuota } = setup();
-    foodAnalysisService.analyzePhoto.mockImplementation(async () => {
-      throw new Error('provider down');
-    });
-
-    expect(controller.analyze(user, image)).rejects.toThrow('provider down');
-    expect(analysisQuota.tryReserve).toHaveBeenCalledWith('user-1');
-    expect(analysisQuota.release).toHaveBeenCalledWith('user-1');
   });
 });
 
