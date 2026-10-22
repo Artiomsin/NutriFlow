@@ -19,6 +19,11 @@ export const refreshSchema = z.object({
   refreshToken: z.string(),
 });
 
+export const changePasswordSchema = z.object({
+  currentPassword: passwordSchema,
+  newPassword: passwordSchema,
+});
+
 export const googleLoginSchema = z.object({
   idToken: z.string().min(1).max(10_000),
 });
@@ -33,5 +38,6 @@ export const appleLoginSchema = z.object({
 export type RegisterDto = z.infer<typeof registerSchema>;
 export type LoginDto = z.infer<typeof loginSchema>;
 export type RefreshDto = z.infer<typeof refreshSchema>;
+export type ChangePasswordDto = z.infer<typeof changePasswordSchema>;
 export type GoogleLoginDto = z.infer<typeof googleLoginSchema>;
 export type AppleLoginDto = z.infer<typeof appleLoginSchema>;

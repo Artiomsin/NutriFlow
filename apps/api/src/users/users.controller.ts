@@ -1,4 +1,13 @@
-import { Controller, Get, Put, Body, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Put,
+  Delete,
+  Body,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+} from '@nestjs/common';
 
 import { UsersService } from './users.service';
 import { updateUserSchema } from './users.schema';
@@ -26,5 +35,12 @@ export class UsersController {
     @Body(new ZodValidationPipe(updateUserSchema)) data: UpdateUserDto,
   ) {
     return this.usersService.updateMe(user.userId, data);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('me')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteMe(@User() user: AuthPayload): Promise<void> {
+    await this.usersService.deleteMe(user.userId);
   }
 }

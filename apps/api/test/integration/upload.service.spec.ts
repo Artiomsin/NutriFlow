@@ -28,6 +28,29 @@ const client = new S3Client({
 });
 
 const uploadedKeys: string[] = [];
+const userId = '00000000-0000-4000-8000-000000000001';
+const db = {
+  transaction: async (
+    callback: (tx: {
+      execute: () => Promise<void>;
+      select: () => {
+        from: () => {
+          where: () => { limit: () => Promise<Array<{ id: string }>> };
+        };
+      };
+      insert: () => { values: () => Promise<void> };
+    }) => Promise<unknown>,
+  ) =>
+    callback({
+      execute: async () => undefined,
+      select: () => ({
+        from: () => ({
+          where: () => ({ limit: async () => [{ id: userId }] }),
+        }),
+      }),
+      insert: () => ({ values: async () => undefined }),
+    }),
+};
 
 const keyFromUrl = (url: string) => url.slice(publicUrlPrefix.length);
 
@@ -57,11 +80,13 @@ run('UploadService against real object storage', () => {
   it.each(['meal-single', 'drink-water'] as const)(
     'uploads %s, stores it as webp, then deletes it',
     async (name) => {
-      const service = new UploadService();
+      const service = new UploadService(db as never);
 
-      const url = await service.upload(readFixture(name).buffer);
+      const url = await service.upload(userId, readFixture(name).buffer);
       expect(url.startsWith(publicUrlPrefix)).toBe(true);
-      expect(url).toMatch(/\/uploads\/[0-9a-f-]{36}\.webp$/);
+      expect(url).toMatch(
+        new RegExp(`/uploads/${userId}/[0-9a-f-]{36}\\.webp$`),
+      );
 
       const key = keyFromUrl(url);
       uploadedKeys.push(key);

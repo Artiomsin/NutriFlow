@@ -23,7 +23,11 @@ export const foodEntries = app.table(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
 
-    foodId: uuid('food_id').references(() => foods.id),
+    // Entries retain their saved nutrition fields after a personal product is
+    // removed; only the optional link to that product is cleared.
+    foodId: uuid('food_id').references(() => foods.id, {
+      onDelete: 'set null',
+    }),
 
     name: varchar('name', { length: 120 }).notNull(),
 

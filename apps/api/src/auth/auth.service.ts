@@ -304,6 +304,45 @@ export class AuthService {
     return { message: 'Logged out from all devices' };
   }
 
+  /**
+   * Password changes invalidate every active session, including the caller's.
+   * The client must sign in again with the new password.
+   */
+  async changePassword(
+    userId: string,
+    data: { currentPassword: string; newPassword: string },
+  ) {
+    const [user] = await this.db
+      .select({ passwordHash: users.passwordHash })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    const valid = await bcrypt.compare(
+      data.currentPassword,
+      user?.passwordHash ?? '',
+    );
+    if (!valid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    const passwordHash = await bcrypt.hash(data.newPassword, 10);
+    await this.db.transaction(async (tx) => {
+      await tx
+        .update(users)
+        .set({ passwordHash, updatedAt: new Date() })
+        .where(eq(users.id, userId));
+      await tx
+        .update(authSessions)
+        .set({ revokedAt: new Date(), updatedAt: new Date() })
+        .where(
+          and(eq(authSessions.userId, userId), isNull(authSessions.revokedAt)),
+        );
+    });
+
+    return { message: 'Password changed. Please sign in again.' };
+  }
+
   async isSessionAlive(userId: string, sessionId: string): Promise<boolean> {
     const [session] = await this.db
       .select({ id: authSessions.id })

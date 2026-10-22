@@ -93,6 +93,7 @@ export class FoodController {
     FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
   )
   async upload(
+    @User() user: AuthPayload,
     @UploadedFile()
     file:
       | { buffer: Buffer; mimetype: string; originalname: string; size: number }
@@ -100,7 +101,7 @@ export class FoodController {
   ) {
     const f = this.assertImage(file);
 
-    const url = await this.uploadService.upload(f.buffer);
+    const url = await this.uploadService.upload(user.userId, f.buffer);
     return { url };
   }
 

@@ -6,6 +6,7 @@ import {
   registerSchema,
   loginSchema,
   refreshSchema,
+  changePasswordSchema,
   googleLoginSchema,
   appleLoginSchema,
 } from './auth.schema';
@@ -14,6 +15,7 @@ import type {
   RegisterDto,
   LoginDto,
   RefreshDto,
+  ChangePasswordDto,
   GoogleLoginDto,
   AppleLoginDto,
 } from './auth.schema';
@@ -48,6 +50,16 @@ export class AuthController {
   @UsePipes(new ZodValidationPipe(refreshSchema))
   refresh(@Body() data: RefreshDto) {
     return this.authService.refresh(data.refreshToken);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  @RateLimit('auth', env.RATE_LIMIT_AUTH, 900_000)
+  changePassword(
+    @User() user: AuthPayload,
+    @Body(new ZodValidationPipe(changePasswordSchema)) data: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(user.userId, data);
   }
 
   @Post('google')
