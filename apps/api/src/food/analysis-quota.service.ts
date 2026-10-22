@@ -4,63 +4,98 @@ import { env } from '../config/env';
 import { DB } from '../db/db.module';
 import type { Db } from '../db/db';
 
-/**
- * Caps how many photo analyses a single user may run per day. The counter is
- * stored in PostgreSQL, so Render restarts and deploys cannot reset the quota.
- */
+const QUOTA_WINDOW_MS = 24 * 60 * 60 * 1_000;
+// Must outlive the complete provider chain. It is only a crash-safety lease:
+// successful work becomes a 24-hour slot and normal failures release it.
+const PENDING_RESERVATION_MS = 5 * 60 * 1_000;
+
+export interface AnalysisQuotaReservation {
+  id: string;
+  reservedAt: Date;
+}
+
+/** Caps paid analyses in a rolling 24-hour window, independent of time zone. */
 @Injectable()
 export class AnalysisQuotaService {
   private readonly limit = env.ANALYSIS_DAILY_LIMIT;
 
   constructor(@Inject(DB) private readonly db: Db) {}
 
-  private today(): string {
-    return new Date().toISOString().slice(0, 10);
-  }
-
   async remaining(userId: string): Promise<number> {
     const result = await this.db.execute<{ count: number | string }>(sql`
-      SELECT count
-      FROM app.analysis_quotas
-      WHERE user_id = ${userId} AND date = ${this.today()}::date
+      SELECT COUNT(*) AS count
+      FROM app.analysis_quota_reservations
+      WHERE user_id = ${userId}::uuid AND expires_at > now()
     `);
     const count = Number(result.rows[0]?.count ?? 0);
     return Math.max(this.limit - count, 0);
   }
 
   /**
-   * Atomically checks the daily limit and reserves a slot for the caller. The
-   * check and the increment happen in one synchronous step, so a burst of
-   * concurrent requests cannot slip past the limit while an earlier analysis
-   * is still in flight (the previous assert-then-consume pair had that gap
-   * across an `await`).
+   * Serializes reservations per user, so requests from multiple devices or
+   * application instances cannot jointly exceed the rolling 24-hour limit.
    */
-  async tryReserve(userId: string): Promise<void> {
-    const result = await this.db.execute(sql`
-      INSERT INTO app.analysis_quotas AS quotas (user_id, date, count)
-      VALUES (${userId}::uuid, ${this.today()}::date, 1)
-      ON CONFLICT (user_id, date) DO UPDATE
-      SET count = quotas.count + 1
-      WHERE quotas.count < ${this.limit}
-      RETURNING count
-    `);
-    if (!result.rows[0]) {
-      throw new HttpException(
-        'Daily food analysis limit reached. Please try again tomorrow.',
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
+  async tryReserve(userId: string): Promise<AnalysisQuotaReservation> {
+    return this.db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${userId}))`);
+
+      const active = await tx.execute<{ count: number | string }>(sql`
+        SELECT COUNT(*) AS count
+        FROM app.analysis_quota_reservations
+        WHERE user_id = ${userId}::uuid AND expires_at > now()
+      `);
+      if (Number(active.rows[0]?.count ?? 0) >= this.limit) {
+        throw new HttpException(
+          'Food analysis limit reached. Try again when a slot becomes available.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+
+      const result = await tx.execute<
+        AnalysisQuotaReservation & Record<string, unknown>
+      >(sql`
+        INSERT INTO app.analysis_quota_reservations (
+          user_id, status, reserved_at, expires_at
+        )
+        VALUES (
+          ${userId}::uuid,
+          'pending',
+          now(),
+          now() + ${PENDING_RESERVATION_MS} * interval '1 millisecond'
+        )
+        RETURNING id, reserved_at AS "reservedAt"
+      `);
+      return result.rows[0]!;
+    });
   }
 
   /**
-   * Returns a reserved slot after a failed analysis so the user can retry
-   * without spending the day's quota on an error.
+   * Turns a short-lived reservation into a consumed 24-hour quota slot after
+   * the provider returns a successful analysis.
    */
-  async release(userId: string): Promise<void> {
+  async consume(
+    userId: string,
+    reservation: AnalysisQuotaReservation,
+  ): Promise<void> {
     await this.db.execute(sql`
-      UPDATE app.analysis_quotas
-      SET count = GREATEST(count - 1, 0)
-      WHERE user_id = ${userId}::uuid AND date = ${this.today()}::date
+      UPDATE app.analysis_quota_reservations
+      SET status = 'consumed', expires_at = ${reservation.reservedAt} + ${QUOTA_WINDOW_MS} * interval '1 millisecond'
+      WHERE id = ${reservation.id}::uuid
+        AND user_id = ${userId}::uuid
+        AND status = 'pending'
+    `);
+  }
+
+  /** Returns exactly this pending slot after a failed analysis. */
+  async release(
+    userId: string,
+    reservation: AnalysisQuotaReservation,
+  ): Promise<void> {
+    await this.db.execute(sql`
+      DELETE FROM app.analysis_quota_reservations
+      WHERE id = ${reservation.id}::uuid
+        AND user_id = ${userId}::uuid
+        AND status = 'pending'
     `);
   }
 }

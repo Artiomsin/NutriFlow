@@ -1,6 +1,6 @@
 import { access, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { createDb, createPool } from '../../src/db/db';
 import { foodCategories } from '../../src/db/schema/foodCategories';
 import { foods } from '../../src/db/schema/foods';
@@ -145,13 +145,19 @@ export async function seedDatabase(
           .values(
             catalog.categories.map((c) => ({ name: c.name, icon: c.icon })),
           )
+          // Categories are unique per scope now, so the conflict target has to
+          // match the partial index that covers system rows only.
           .onConflictDoUpdate({
             target: foodCategories.name,
+            targetWhere: sql`${foodCategories.createdBy} IS NULL`,
             set: { icon: sql`excluded.icon` },
           });
       }
 
-      const categoryRows = await tx.select().from(foodCategories);
+      const categoryRows = await tx
+        .select()
+        .from(foodCategories)
+        .where(isNull(foodCategories.createdBy));
       const categoryIds = new Map(categoryRows.map((c) => [c.name, c.id]));
 
       const names = dishes.map((d) => d.name);

@@ -120,10 +120,14 @@ export async function createProfile(
   return profile!;
 }
 
-export async function createCategory(tx: TestTx, name: string) {
+export async function createCategory(
+  tx: TestTx,
+  name: string,
+  createdBy: string | null = null,
+) {
   const [category] = await tx
     .insert(foodCategories)
-    .values({ name })
+    .values({ name, createdBy })
     .returning();
   return category!;
 }

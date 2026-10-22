@@ -1,13 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
+import { randomUUID } from 'node:crypto';
 import { ConfigModule } from '@nestjs/config';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
 
+import { createDb } from '../../src/db/db';
 import { DbModule } from '../../src/db/db.module';
 import { goalHistory } from '../../src/db/schema/goalHistory';
 import { goalRecommendations } from '../../src/db/schema/goalRecommendations';
 import { userGoals } from '../../src/db/schema/userGoals';
 import { userProfiles } from '../../src/db/schema/userProfiles';
+import { users } from '../../src/db/schema/users';
 import { GoalsModule } from '../../src/goals/goals.module';
 import { GoalsService } from '../../src/goals/goals.service';
 import type { GoalMetrics } from '../../src/goals/personalization/types';
@@ -85,9 +88,17 @@ describe('GoalsService.update', () => {
     expect(history.every((h) => h.source === 'user')).toBe(true);
   });
 
-  it('updates existing goals and records a user_edit entry', async () => {
+  it('coalesces consecutive edits to the same goal into one history entry', async () => {
     const user = await createUser(tx);
     await service.update(user.id, { dailyCaloriesGoal: 2000 });
+
+    const [firstEntry] = await loadHistory(user.id, 'user_edit');
+    const sessionStart = new Date(Date.now() - 5 * 60 * 1000);
+    await tx
+      .update(goalHistory)
+      .set({ createdAt: sessionStart, updatedAt: sessionStart })
+      .where(eq(goalHistory.id, firstEntry!.id));
+
     const updated = (await service.update(user.id, {
       dailyCaloriesGoal: 2400,
     }))!;
@@ -96,8 +107,47 @@ describe('GoalsService.update', () => {
 
     const history = await loadHistory(user.id, 'user_edit');
     const calories = history.filter((h) => h.metric === 'dailyCaloriesGoal');
-    expect(calories.length).toBe(2);
-    expect(calories.some((h) => h.newValue === 2400)).toBe(true);
+    expect(calories).toHaveLength(1);
+    expect(calories[0]?.id).toBe(firstEntry?.id);
+    expect(calories[0]?.oldValue).toBeNull();
+    expect(calories[0]?.newValue).toBe(2400);
+    expect(calories[0]?.createdAt.getTime()).toBe(sessionStart.getTime());
+    expect(calories[0]?.updatedAt.getTime()).toBeGreaterThan(
+      sessionStart.getTime(),
+    );
+  });
+
+  it('serializes simultaneous edits so they create one history entry', async () => {
+    const concurrentDb = createDb(db.pool);
+    const concurrentService = new GoalsService(concurrentDb);
+    const [user] = await concurrentDb
+      .insert(users)
+      .values({ email: `concurrent-goals-${randomUUID()}@test.com` })
+      .returning();
+
+    try {
+      await Promise.all([
+        concurrentService.update(user!.id, { dailyCaloriesGoal: 2100 }),
+        concurrentService.update(user!.id, { dailyCaloriesGoal: 2200 }),
+      ]);
+
+      const history = await concurrentDb
+        .select()
+        .from(goalHistory)
+        .where(
+          and(
+            eq(goalHistory.userId, user!.id),
+            eq(goalHistory.metric, 'dailyCaloriesGoal'),
+            eq(goalHistory.reason, 'user_edit'),
+          ),
+        );
+
+      expect(history).toHaveLength(1);
+      expect(history[0]?.oldValue).toBeNull();
+      expect([2100, 2200].includes(history[0]?.newValue ?? -1)).toBe(true);
+    } finally {
+      await concurrentDb.delete(users).where(eq(users.id, user!.id));
+    }
   });
 });
 

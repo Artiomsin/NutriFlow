@@ -48,11 +48,20 @@ export type RequiredDateQueryDto = z.infer<typeof requiredDateQuerySchema>;
 // ── Food Categories ───────────────────────────────────────────────
 
 export const createFoodCategorySchema = z.object({
-  name: z.string().min(1).max(100),
-  icon: z.string().max(50).optional(),
+  name: z.string().trim().min(1).max(100),
+  icon: z.string().trim().max(50).optional(),
 });
 
 export type CreateFoodCategoryDto = z.infer<typeof createFoodCategorySchema>;
+
+// A partial patch: an absent field is left untouched, `null` clears an icon.
+export const updateFoodCategorySchema = createFoodCategorySchema
+  .partial()
+  .extend({
+    icon: z.string().trim().max(50).nullable().optional(),
+  });
+
+export type UpdateFoodCategoryDto = z.infer<typeof updateFoodCategorySchema>;
 
 // ── Food Catalog ──────────────────────────────────────────────────
 
@@ -76,6 +85,21 @@ export const createFoodSchema = z.object({
 });
 
 export type CreateFoodDto = z.infer<typeof createFoodSchema>;
+
+// ── Food Servings (portions of a product) ───────────────────────
+
+// A personal portion on top of the catalog ones. Stricter than the
+// servings embedded in createFoodSchema: a 0 g portion is useless.
+export const createFoodServingSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  grams: z.number().int().min(1).max(10000),
+});
+
+// Omission means "leave unchanged".
+export const updateFoodServingSchema = createFoodServingSchema.partial();
+
+export type CreateFoodServingDto = z.infer<typeof createFoodServingSchema>;
+export type UpdateFoodServingDto = z.infer<typeof updateFoodServingSchema>;
 
 export const searchFoodQuerySchema = z.object({
   q: z.string().trim().min(1).max(100),
@@ -106,6 +130,10 @@ export const foodAnalysisFoodItemSchema = z.object({
 export const foodAnalysisWaterItemSchema = z.object({
   kind: z.literal('water'),
   amountMl: z.number().int().min(50).max(2_000),
+  // How many identical containers this object stands for. The model reports
+  // one object with containers: 2 instead of repeating the same volume, which
+  // is the only reliable way to tell two bottles from one bottle seen twice.
+  containers: z.number().int().min(1).max(8).optional(),
   confidence: z.number().min(0).max(1).nullable(),
 });
 

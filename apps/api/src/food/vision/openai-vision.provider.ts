@@ -24,7 +24,11 @@ export class OpenAiVisionProvider implements VisionProvider {
     this.name = `${options.name}:${options.model}`;
   }
 
-  async analyze(image: VisionImage, prompt: string): Promise<string> {
+  async analyze(
+    image: VisionImage,
+    prompt: string,
+    signal: AbortSignal,
+  ): Promise<string> {
     const response = await fetch(
       `${this.options.baseUrl.replace(/\/$/, '')}/chat/completions`,
       {
@@ -52,6 +56,7 @@ export class OpenAiVisionProvider implements VisionProvider {
             },
           ],
         }),
+        signal,
       },
     );
 

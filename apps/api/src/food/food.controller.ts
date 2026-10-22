@@ -22,7 +22,6 @@ import type { AuthPayload } from '../auth/types/auth.types';
 import { FoodService } from './food.service';
 import { UploadService } from '../upload/upload.service';
 import { FoodAnalysisService } from './food-analysis.service';
-import { AnalysisQuotaService } from './analysis-quota.service';
 import { RateLimit, UserRateLimit } from '../rate-limit/rate-limit.decorators';
 import { UserRateLimitGuard } from '../rate-limit/user-rate-limit.guard';
 import { env } from '../config/env';
@@ -31,7 +30,10 @@ import {
   createFoodEntrySchema,
   updateFoodEntrySchema,
   createFoodSchema,
+  createFoodServingSchema,
+  updateFoodServingSchema,
   createFoodCategorySchema,
+  updateFoodCategorySchema,
   searchFoodQuerySchema,
   optionalDateQuerySchema,
   requiredDateQuerySchema,
@@ -41,7 +43,10 @@ import type {
   CreateFoodEntryDto,
   UpdateFoodEntryDto,
   CreateFoodDto,
+  CreateFoodServingDto,
+  UpdateFoodServingDto,
   CreateFoodCategoryDto,
+  UpdateFoodCategoryDto,
   SearchFoodQueryDto,
   OptionalDateQueryDto,
   RequiredDateQueryDto,
@@ -54,7 +59,6 @@ export class FoodController {
     private readonly foodService: FoodService,
     private readonly foodAnalysisService: FoodAnalysisService,
     private readonly uploadService: UploadService,
-    private readonly analysisQuota: AnalysisQuotaService,
   ) {}
 
   // ── Upload ───────────────────────────────────────────────────
@@ -120,31 +124,41 @@ export class FoodController {
   ) {
     const f = this.assertImage(file);
 
-    // Reserve the slot before the long analysis call so a burst of parallel
-    // requests cannot all pass the check while this one is still in flight.
-    await this.analysisQuota.tryReserve(user.userId);
-    try {
-      return await this.foodAnalysisService.analyzePhoto(f);
-    } catch (error) {
-      // Analysis failed, so the slot is refunded and the user may retry.
-      await this.analysisQuota.release(user.userId);
-      throw error;
-    }
+    return this.foodAnalysisService.analyzePhoto(user.userId, f);
   }
 
   // ── Food Category Routes ────────────────────────────────────
 
   @Get('food-categories')
-  getCategories() {
-    return this.foodService.getCategories();
+  getCategories(@User() user: AuthPayload) {
+    return this.foodService.getCategories(user.userId);
   }
 
   @Post('food-categories')
   createCategory(
+    @User() user: AuthPayload,
     @Body(new ZodValidationPipe(createFoodCategorySchema))
     data: CreateFoodCategoryDto,
   ) {
-    return this.foodService.createCategory(data);
+    return this.foodService.createCategory(user.userId, data);
+  }
+
+  @Patch('food-categories/:id')
+  updateCategory(
+    @User() user: AuthPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(updateFoodCategorySchema))
+    data: UpdateFoodCategoryDto,
+  ) {
+    return this.foodService.updateCategory(user.userId, id, data);
+  }
+
+  @Delete('food-categories/:id')
+  removeCategory(
+    @User() user: AuthPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.foodService.removeCategory(user.userId, id);
   }
 
   // ── Food Entry Routes ────────────────────────────────────────
@@ -180,9 +194,10 @@ export class FoodController {
   delete(
     @User() user: AuthPayload,
     @Param('id', ParseUUIDPipe) id: string,
-    @Query('date') date?: string,
+    @Query(new ZodValidationPipe(optionalDateQuerySchema))
+    query: OptionalDateQueryDto,
   ) {
-    return this.foodService.delete(user.userId, id, date);
+    return this.foodService.delete(user.userId, id, query.date);
   }
 
   @Patch('food-entry/:id')
@@ -237,6 +252,38 @@ export class FoodController {
   @Post('foods/:id/select')
   select(@User() user: AuthPayload, @Param('id', ParseUUIDPipe) id: string) {
     return this.foodService.trackSelection(user.userId, id);
+  }
+
+  // ── Servings (portions of a product) ─────────────────────────
+
+  @Post('foods/:id/servings')
+  addServing(
+    @User() user: AuthPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(createFoodServingSchema))
+    data: CreateFoodServingDto,
+  ) {
+    return this.foodService.addServing(user.userId, id, data);
+  }
+
+  @Patch('foods/:id/servings/:servingId')
+  updateServing(
+    @User() user: AuthPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('servingId', ParseUUIDPipe) servingId: string,
+    @Body(new ZodValidationPipe(updateFoodServingSchema))
+    data: UpdateFoodServingDto,
+  ) {
+    return this.foodService.updateServing(user.userId, id, servingId, data);
+  }
+
+  @Delete('foods/:id/servings/:servingId')
+  removeServing(
+    @User() user: AuthPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('servingId', ParseUUIDPipe) servingId: string,
+  ) {
+    return this.foodService.removeServing(user.userId, id, servingId);
   }
 
   @Post('foods')

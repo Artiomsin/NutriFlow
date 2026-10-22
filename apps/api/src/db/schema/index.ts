@@ -16,4 +16,4 @@ export * from './weightLogs';
 export * from './goalHistory';
 export * from './goalRecommendations';
 export * from './rateLimits';
-export * from './analysisQuotas';
+export * from './analysisQuotaReservations';

@@ -3,8 +3,10 @@ import { describe, expect, it } from 'bun:test';
 import {
   createFoodEntrySchema,
   createFoodSchema,
+  createFoodServingSchema,
   searchFoodQuerySchema,
   updateFoodEntrySchema,
+  updateFoodServingSchema,
 } from './food.schema';
 
 describe('createFoodEntrySchema', () => {
@@ -139,5 +141,75 @@ describe('searchFoodQuerySchema', () => {
     expect(
       searchFoodQuerySchema.safeParse({ q: 'apple', limit: '51' }).success,
     ).toBe(false);
+  });
+});
+
+describe('createFoodServingSchema', () => {
+  it('accepts a personal portion', () => {
+    const result = createFoodServingSchema.safeParse({
+      name: '1 banana',
+      grams: 120,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('trims the portion name', () => {
+    const result = createFoodServingSchema.safeParse({
+      name: '  cup  ',
+      grams: 240,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.name).toBe('cup');
+  });
+
+  it('rejects a blank name', () => {
+    expect(
+      createFoodServingSchema.safeParse({ name: '   ', grams: 100 }).success,
+    ).toBe(false);
+  });
+
+  // Stricter than the servings embedded in createFoodSchema: a 0 g portion
+  // has no meaning for the user.
+  it('rejects zero grams', () => {
+    expect(
+      createFoodServingSchema.safeParse({ name: 'cup', grams: 0 }).success,
+    ).toBe(false);
+  });
+
+  it('rejects fractional, negative and oversized grams', () => {
+    expect(
+      createFoodServingSchema.safeParse({ name: 'cup', grams: 12.5 }).success,
+    ).toBe(false);
+    expect(
+      createFoodServingSchema.safeParse({ name: 'cup', grams: -1 }).success,
+    ).toBe(false);
+    expect(
+      createFoodServingSchema.safeParse({ name: 'cup', grams: 10001 }).success,
+    ).toBe(false);
+  });
+});
+
+describe('updateFoodServingSchema', () => {
+  it('accepts an empty patch', () => {
+    expect(updateFoodServingSchema.safeParse({}).success).toBe(true);
+  });
+
+  it('accepts changing only the grams', () => {
+    expect(updateFoodServingSchema.safeParse({ grams: 150 }).success).toBe(
+      true,
+    );
+  });
+
+  it('accepts changing only the name', () => {
+    expect(updateFoodServingSchema.safeParse({ name: 'big cup' }).success).toBe(
+      true,
+    );
+  });
+
+  it('rejects a grams value outside the allowed range', () => {
+    expect(updateFoodServingSchema.safeParse({ grams: 0 }).success).toBe(false);
+    expect(updateFoodServingSchema.safeParse({ grams: 10001 }).success).toBe(
+      false,
+    );
   });
 });

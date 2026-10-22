@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { ConfigModule } from '@nestjs/config';
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 
 import { DbModule } from '../../src/db/db.module';
 import { FoodModule } from '../../src/food/food.module';
@@ -61,10 +61,17 @@ describe('FoodService.createFood / createCategory', () => {
     expect(food.servings[0]?.grams).toBe(40);
   });
 
-  it('returns the existing category on a duplicate name', async () => {
-    const first = await service.createCategory({ name: 'ZqDup' });
-    const second = await service.createCategory({ name: 'ZqDup' });
-    expect(second?.id).toBe(first?.id);
+  it('creates a personal category and rejects a duplicate name', async () => {
+    const user = await createUser(tx);
+
+    const category = await service.createCategory(user.id, { name: 'ZqDup' });
+    expect(category?.createdBy).toBe(user.id);
+
+    // A second call with the same name is a conflict now that categories are
+    // scoped per owner instead of being merged into one shared row.
+    await expect(
+      service.createCategory(user.id, { name: 'ZqDup' }),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });
 

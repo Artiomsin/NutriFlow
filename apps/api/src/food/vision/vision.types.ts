@@ -10,5 +10,9 @@ export type VisionImage = {
  */
 export interface VisionProvider {
   readonly name: string;
-  analyze(image: VisionImage, prompt: string): Promise<string>;
+  analyze(
+    image: VisionImage,
+    prompt: string,
+    signal: AbortSignal,
+  ): Promise<string>;
 }
