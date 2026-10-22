@@ -182,6 +182,71 @@ describe('auth guard + logout', () => {
   });
 });
 
+describe('POST /api/auth/change-password', () => {
+  it('changes the password and revokes every existing session', async () => {
+    const { email, tokens } = await register();
+    const second = await http()
+      .post('/api/auth/login')
+      .send({ email, password: 'secret1' })
+      .expect(201);
+
+    await http()
+      .post('/api/auth/change-password')
+      .set('Authorization', `Bearer ${tokens.accessToken}`)
+      .send({ currentPassword: 'secret1', newPassword: 'new-secret1' })
+      .expect(201);
+
+    await http()
+      .post('/api/auth/logout')
+      .set('Authorization', `Bearer ${tokens.accessToken}`)
+      .expect(401);
+    await http()
+      .post('/api/auth/logout')
+      .set('Authorization', `Bearer ${second.body.accessToken}`)
+      .expect(401);
+    await http()
+      .post('/api/auth/login')
+      .send({ email, password: 'secret1' })
+      .expect(401);
+    await http()
+      .post('/api/auth/login')
+      .send({ email, password: 'new-secret1' })
+      .expect(201);
+  });
+
+  it('rejects an incorrect current password without ending the session', async () => {
+    const { tokens } = await register();
+    await http()
+      .post('/api/auth/change-password')
+      .set('Authorization', `Bearer ${tokens.accessToken}`)
+      .send({ currentPassword: 'wrong-password', newPassword: 'new-secret1' })
+      .expect(401);
+    await http()
+      .post('/api/auth/logout')
+      .set('Authorization', `Bearer ${tokens.accessToken}`)
+      .expect(201);
+  });
+});
+
+describe('DELETE /api/users/me', () => {
+  it('deletes the account and invalidates both token types', async () => {
+    const { tokens } = await register();
+
+    await http()
+      .delete('/api/users/me')
+      .set('Authorization', `Bearer ${tokens.accessToken}`)
+      .expect(204);
+    await http()
+      .get('/api/users/me')
+      .set('Authorization', `Bearer ${tokens.accessToken}`)
+      .expect(401);
+    await http()
+      .post('/api/auth/refresh')
+      .send({ refreshToken: tokens.refreshToken })
+      .expect(401);
+  });
+});
+
 describe('routing', () => {
   it('does not expose routes without the api prefix', async () => {
     await http()
