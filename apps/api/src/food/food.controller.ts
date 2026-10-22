@@ -195,7 +195,7 @@ export class FoodController {
     @User() user: AuthPayload,
     @Param('id', ParseUUIDPipe) id: string,
     @Query(new ZodValidationPipe(optionalDateQuerySchema))
-    query: OptionalDateQueryDto
+    query: OptionalDateQueryDto,
   ) {
     return this.foodService.delete(user.userId, id, query.date);
   }

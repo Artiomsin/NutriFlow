@@ -120,7 +120,7 @@ describe('FoodController food entries', () => {
 
   it('passes id and date to delete', async () => {
     const { controller, foodService } = setup();
-    await controller.delete(user, 'entry-1', '2026-01-03');
+    await controller.delete(user, 'entry-1', { date: '2026-01-03' });
     expect(foodService.delete).toHaveBeenCalledWith(
       'user-1',
       'entry-1',
