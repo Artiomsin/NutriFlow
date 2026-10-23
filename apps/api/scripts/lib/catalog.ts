@@ -105,9 +105,7 @@ export async function findLocalImage(slug: string): Promise<string | null> {
 export function catalogImageUrl(slug: string): string {
   const mediaBaseUrl = (process.env.MEDIA_BASE_URL ?? '').replace(/\/+$/, '');
   if (mediaBaseUrl) return `${mediaBaseUrl}/catalog/${slug}.webp`;
-  const publicUrl = (process.env.S3_PUBLIC_URL ?? '').replace(/\/+$/, '');
-  if (!publicUrl) throw new Error('S3_PUBLIC_URL is not set');
-  return `${publicUrl}/catalog/${slug}.webp`;
+  throw new Error('MEDIA_BASE_URL is not set');
 }
 
 export function checkEnvironment(allowProd: boolean): string {

@@ -49,6 +49,8 @@ export const env = {
     process.env.AWS_SECRET_ACCESS_KEY ?? process.env.S3_SECRET_ACCESS_KEY ?? '',
   S3_ENDPOINT: process.env.AWS_ENDPOINT_URL_S3 ?? process.env.S3_ENDPOINT ?? '',
   S3_REGION: process.env.AWS_REGION ?? process.env.S3_REGION ?? 'us-east-1',
-  S3_BUCKET: process.env.S3_BUCKET ?? 'nutriflow-uploads',
-  S3_PUBLIC_URL: process.env.S3_PUBLIC_URL ?? '',
+  // Shared catalog and media assets. Read-only for clients, safe to expose.
+  S3_PUBLIC_BUCKET: process.env.S3_PUBLIC_BUCKET ?? 'nutriflow-public',
+  // Personal uploads. Never exposed directly; streamed through the API only.
+  S3_PRIVATE_BUCKET: process.env.S3_PRIVATE_BUCKET ?? 'nutriflow-private',
 };

@@ -36,7 +36,7 @@ function setup() {
     createFood: mock(async () => ({ id: 'food-1' })),
   };
   const foodAnalysisService = { analyzePhoto: mock(async () => []) };
-  const uploadService = { upload: mock(async () => 'https://cdn/x.webp') };
+  const uploadService = { upload: mock(async () => ({ id: 'upload-1' })) };
   const controller = new FoodController(
     foodService as unknown as FoodService,
     foodAnalysisService as unknown as FoodAnalysisService,
@@ -81,11 +81,14 @@ describe('FoodController upload / analyze', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('uploads a valid image and returns its url', async () => {
+  it('uploads a valid image and returns its private upload id', async () => {
     const { controller, uploadService } = setup();
     const result = await controller.upload(user, image);
     expect(uploadService.upload).toHaveBeenCalledWith('user-1', image.buffer);
-    expect(result).toEqual({ url: 'https://cdn/x.webp' });
+    expect(result).toEqual({
+      uploadId: 'upload-1',
+      url: '/api/uploads/upload-1',
+    });
   });
 
   it('delegates a valid image to the analysis service', async () => {

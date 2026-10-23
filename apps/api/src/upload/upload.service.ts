@@ -4,13 +4,16 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import {
   DeleteObjectCommand,
+  GetObjectCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import { Readable } from 'node:stream';
 import { env } from '../config/env';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
@@ -32,8 +35,7 @@ const CLEANUP_BATCH_SIZE = 50;
 export class UploadService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(UploadService.name);
   private s3: S3Client | null = null;
-  private bucket = '';
-  private publicUrl = '';
+  private privateBucket = '';
   private cleanupInterval?: ReturnType<typeof setInterval>;
 
   constructor(@Inject(DB) private readonly db: Db) {
@@ -47,8 +49,7 @@ export class UploadService implements OnModuleInit, OnModuleDestroy {
           secretAccessKey: env.S3_SECRET_ACCESS_KEY,
         },
       });
-      this.bucket = env.S3_BUCKET;
-      this.publicUrl = env.S3_PUBLIC_URL.replace(/\/$/, '');
+      this.privateBucket = env.S3_PRIVATE_BUCKET;
     }
   }
 
@@ -66,7 +67,7 @@ export class UploadService implements OnModuleInit, OnModuleDestroy {
     if (this.cleanupInterval) clearInterval(this.cleanupInterval);
   }
 
-  async upload(userId: string, buffer: Buffer): Promise<string> {
+  async upload(userId: string, buffer: Buffer): Promise<{ id: string }> {
     const image = sharp(buffer, {
       failOn: 'error',
       limitInputPixels: MAX_INPUT_PIXELS,
@@ -114,7 +115,7 @@ export class UploadService implements OnModuleInit, OnModuleDestroy {
       const key = `uploads/${userId}/${randomUUID()}.webp`;
       await this.s3.send(
         new PutObjectCommand({
-          Bucket: this.bucket,
+          Bucket: this.privateBucket,
           Key: key,
           Body: normalizedBuffer,
           ContentType: 'image/webp',
@@ -122,7 +123,7 @@ export class UploadService implements OnModuleInit, OnModuleDestroy {
       );
 
       try {
-        await this.db.transaction(async (tx) => {
+        return await this.db.transaction(async (tx) => {
           // Serializes upload registration with account deletion. If deletion
           // won the race, the file is removed below rather than orphaned.
           await tx.execute(
@@ -135,23 +136,66 @@ export class UploadService implements OnModuleInit, OnModuleDestroy {
             .limit(1);
           if (!user) throw new NotFoundException('User not found');
 
-          await tx.insert(userUploads).values({
-            userId,
-            objectKey: key,
-            contentType: 'image/webp',
-          });
+          const [upload] = await tx
+            .insert(userUploads)
+            .values({
+              userId,
+              objectKey: key,
+              contentType: 'image/webp',
+            })
+            .returning({ id: userUploads.id });
+
+          if (!upload) throw new Error('Could not register uploaded image');
+          return upload;
         });
       } catch (error) {
         await this.deleteObject(key).catch(() => undefined);
         throw error;
       }
-
-      return `${this.publicUrl}/${key}`;
     }
 
     throw new Error(
-      'Upload storage not configured. Set S3_ACCESS_KEY_ID, S3_ENDPOINT, S3_BUCKET, S3_PUBLIC_URL',
+      'Upload storage not configured. Set S3_ACCESS_KEY_ID, S3_ENDPOINT, and S3_PRIVATE_BUCKET',
     );
+  }
+
+  async openForUser(
+    userId: string,
+    uploadId: string,
+  ): Promise<{ body: Readable; contentType: string; contentLength?: number }> {
+    if (!this.s3) {
+      throw new ServiceUnavailableException('Storage is not configured');
+    }
+
+    // Include the owner in the lookup: an id from another account is treated
+    // exactly like a missing file and reveals no information about it.
+    const [upload] = await this.db
+      .select({
+        objectKey: userUploads.objectKey,
+        contentType: userUploads.contentType,
+      })
+      .from(userUploads)
+      .where(and(eq(userUploads.id, uploadId), eq(userUploads.userId, userId)))
+      .limit(1);
+
+    if (!upload) throw new NotFoundException('Upload not found');
+
+    const object = await this.s3
+      .send(
+        new GetObjectCommand({
+          Bucket: this.privateBucket,
+          Key: upload.objectKey,
+        }),
+      )
+      .catch(() => null);
+
+    if (!object?.Body) throw new NotFoundException('Upload not found');
+
+    return {
+      body: object.Body as Readable,
+      contentType: object.ContentType ?? upload.contentType,
+      contentLength: object.ContentLength,
+    };
   }
 
   /** Best-effort immediate run; the durable task remains for later retries. */
@@ -199,7 +243,7 @@ export class UploadService implements OnModuleInit, OnModuleDestroy {
   private async deleteObject(key: string): Promise<void> {
     if (!this.s3) return;
     await this.s3.send(
-      new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
+      new DeleteObjectCommand({ Bucket: this.privateBucket, Key: key }),
     );
   }
 }
