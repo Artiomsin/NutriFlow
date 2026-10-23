@@ -66,13 +66,13 @@ const s3 = {
     process.env.AWS_ACCESS_KEY_ID ?? process.env.S3_ACCESS_KEY_ID ?? '',
   secretAccessKey:
     process.env.AWS_SECRET_ACCESS_KEY ?? process.env.S3_SECRET_ACCESS_KEY ?? '',
-  bucket: process.env.S3_BUCKET ?? 'nutriflow-uploads',
-  publicUrl: (process.env.S3_PUBLIC_URL ?? '').replace(/\/+$/, ''),
+  // Catalog art is shared and served openly, so it must never land in the
+  // private bucket that holds personal meal photos.
+  bucket: process.env.S3_PUBLIC_BUCKET ?? 'nutriflow-public',
 };
 
-const s3Ready = Boolean(
-  s3.endpoint && s3.accessKeyId && s3.secretAccessKey && s3.publicUrl,
-);
+const s3Ready = Boolean(s3.endpoint && s3.accessKeyId && s3.secretAccessKey);
+const mediaReady = Boolean(process.env.MEDIA_BASE_URL);
 
 let client: S3Client | null = null;
 
@@ -338,9 +338,9 @@ async function sourceBuffer(dish: Dish, slug: string): Promise<Buffer | null> {
 async function uploadAllImages(dishes: Dish[]): Promise<Map<string, string>> {
   const urls = new Map<string, string>();
   if (imagesMode === 'skip') return urls;
-  if (!s3Ready) {
+  if (!s3Ready || !mediaReady) {
     throw new Error(
-      'S3 is not configured (need AWS_ENDPOINT_URL_S3, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, S3_PUBLIC_URL). Use --images=skip to bypass.',
+      'Catalog image upload needs AWS_ENDPOINT_URL_S3, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and MEDIA_BASE_URL. Use --images=skip to bypass.',
     );
   }
   const active = provider();

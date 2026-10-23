@@ -17,7 +17,7 @@ const FILE_PATTERN = /^[a-z0-9][a-z0-9-]*\.webp$/;
 @Controller('media')
 export class MediaController {
   private readonly s3: S3Client | null = null;
-  private bucket = '';
+  private publicBucket = '';
 
   constructor() {
     if (env.S3_ACCESS_KEY_ID && env.S3_ENDPOINT) {
@@ -30,7 +30,7 @@ export class MediaController {
           secretAccessKey: env.S3_SECRET_ACCESS_KEY,
         },
       });
-      this.bucket = env.S3_BUCKET;
+      this.publicBucket = env.S3_PUBLIC_BUCKET;
     }
   }
 
@@ -44,7 +44,10 @@ export class MediaController {
 
     const object = await this.s3
       .send(
-        new GetObjectCommand({ Bucket: this.bucket, Key: `catalog/${file}` }),
+        new GetObjectCommand({
+          Bucket: this.publicBucket,
+          Key: `catalog/${file}`,
+        }),
       )
       .catch(() => null);
 

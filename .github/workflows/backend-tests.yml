@@ -35,8 +35,8 @@ jobs:
       AWS_SECRET_ACCESS_KEY: minioadmin
       AWS_ENDPOINT_URL_S3: http://localhost:9000
       AWS_REGION: us-east-1
-      S3_BUCKET: nutriflow-test
-      S3_PUBLIC_URL: http://localhost:9000/nutriflow-test
+      S3_PRIVATE_BUCKET: nutriflow-test
+      S3_PUBLIC_BUCKET: nutriflow-public-test
     defaults:
       run:
         working-directory: apps/api

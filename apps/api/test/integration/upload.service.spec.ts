@@ -1,9 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
+import { randomUUID } from 'node:crypto';
 import {
   CreateBucketCommand,
   DeleteObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   S3Client,
 } from '@aws-sdk/client-s3';
 
@@ -14,8 +16,6 @@ import { hasAllFixtures, readFixture } from '../utils/fixtures';
 const s3Configured = Boolean(env.S3_ACCESS_KEY_ID && env.S3_ENDPOINT);
 const shouldRun = s3Configured && hasAllFixtures();
 const run = shouldRun ? describe : describe.skip;
-
-const publicUrlPrefix = `${env.S3_PUBLIC_URL.replace(/\/$/, '')}/`;
 
 const client = new S3Client({
   region: env.S3_REGION,
@@ -38,7 +38,9 @@ const db = {
           where: () => { limit: () => Promise<Array<{ id: string }>> };
         };
       };
-      insert: () => { values: () => Promise<void> };
+      insert: () => {
+        values: () => { returning: () => Promise<Array<{ id: string }>> };
+      };
     }) => Promise<unknown>,
   ) =>
     callback({
@@ -48,24 +50,45 @@ const db = {
           where: () => ({ limit: async () => [{ id: userId }] }),
         }),
       }),
-      insert: () => ({ values: async () => undefined }),
+      insert: () => ({
+        values: () => ({
+          returning: async () => [{ id: randomUUID() }],
+        }),
+      }),
     }),
 };
 
-const keyFromUrl = (url: string) => url.slice(publicUrlPrefix.length);
-
 const head = (key: string) =>
-  client.send(new HeadObjectCommand({ Bucket: env.S3_BUCKET, Key: key }));
+  client.send(
+    new HeadObjectCommand({ Bucket: env.S3_PRIVATE_BUCKET, Key: key }),
+  );
 
 const remove = (key: string) =>
-  client.send(new DeleteObjectCommand({ Bucket: env.S3_BUCKET, Key: key }));
+  client.send(
+    new DeleteObjectCommand({ Bucket: env.S3_PRIVATE_BUCKET, Key: key }),
+  );
+
+const listKeys = async () => {
+  const result = await client.send(
+    new ListObjectsV2Command({
+      Bucket: env.S3_PRIVATE_BUCKET,
+      Prefix: `uploads/${userId}/`,
+    }),
+  );
+  return new Set(
+    result.Contents?.flatMap((object) => (object.Key ? [object.Key] : [])) ??
+      [],
+  );
+};
 
 beforeAll(async () => {
   if (!s3Configured) return;
   try {
-    await client.send(new HeadBucketCommand({ Bucket: env.S3_BUCKET }));
+    await client.send(new HeadBucketCommand({ Bucket: env.S3_PRIVATE_BUCKET }));
   } catch {
-    await client.send(new CreateBucketCommand({ Bucket: env.S3_BUCKET }));
+    await client.send(
+      new CreateBucketCommand({ Bucket: env.S3_PRIVATE_BUCKET }),
+    );
   }
 });
 
@@ -82,13 +105,16 @@ run('UploadService against real object storage', () => {
     async (name) => {
       const service = new UploadService(db as never);
 
-      const url = await service.upload(userId, readFixture(name).buffer);
-      expect(url.startsWith(publicUrlPrefix)).toBe(true);
-      expect(url).toMatch(
-        new RegExp(`/uploads/${userId}/[0-9a-f-]{36}\\.webp$`),
-      );
+      const before = await listKeys();
+      const upload = await service.upload(userId, readFixture(name).buffer);
+      expect(upload.id).toMatch(/^[0-9a-f-]{36}$/);
 
-      const key = keyFromUrl(url);
+      const after = await listKeys();
+      const key = [...after].find((candidate) => !before.has(candidate));
+      expect(key).toMatch(
+        new RegExp(`^uploads/${userId}/[0-9a-f-]{36}\\.webp$`),
+      );
+      if (!key) throw new Error('Uploaded object was not found');
       uploadedKeys.push(key);
 
       const stored = await head(key);

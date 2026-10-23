@@ -44,9 +44,11 @@ projects:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
-      - key: S3_PUBLIC_URL
+      - key: S3_PUBLIC_BUCKET
         sync: false
-      - key: S3_BUCKET
+      - key: S3_PRIVATE_BUCKET
+        sync: false
+      - key: MEDIA_BASE_URL
         sync: false
       - key: USDA_API_KEY
         sync: false

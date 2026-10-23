@@ -101,8 +101,8 @@ export class FoodController {
   ) {
     const f = this.assertImage(file);
 
-    const url = await this.uploadService.upload(user.userId, f.buffer);
-    return { url };
+    const upload = await this.uploadService.upload(user.userId, f.buffer);
+    return { uploadId: upload.id, url: `/api/uploads/${upload.id}` };
   }
 
   @Post('food/analyze')

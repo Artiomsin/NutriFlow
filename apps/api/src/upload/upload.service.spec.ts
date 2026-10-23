@@ -1,7 +1,8 @@
 import { describe, expect, it, mock } from 'bun:test';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { Readable } from 'node:stream';
 import sharp from 'sharp';
-import type { PutObjectCommand } from '@aws-sdk/client-s3';
+import type { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { UploadService } from './upload.service';
 
 const USER_ID = '00000000-0000-4000-8000-000000000001';
@@ -15,7 +16,9 @@ const db = {
           where: () => { limit: () => Promise<Array<{ id: string }>> };
         };
       };
-      insert: () => { values: () => Promise<void> };
+      insert: () => {
+        values: () => { returning: () => Promise<Array<{ id: string }>> };
+      };
     }) => Promise<unknown>,
   ) =>
     callback({
@@ -25,7 +28,9 @@ const db = {
           where: () => ({ limit: async () => [{ id: USER_ID }] }),
         }),
       }),
-      insert: () => ({ values: async () => undefined }),
+      insert: () => ({
+        values: () => ({ returning: async () => [{ id: 'upload-1' }] }),
+      }),
     }),
 };
 
@@ -43,7 +48,7 @@ const createImage = (format: 'png' | 'gif' | 'tiff' = 'png') => {
   return image.png().toBuffer();
 };
 
-type Send = (command: PutObjectCommand) => Promise<unknown>;
+type Send = (command: PutObjectCommand | GetObjectCommand) => Promise<unknown>;
 
 function setup() {
   const service = new UploadService(db as never);
@@ -55,12 +60,10 @@ function setup() {
 
   const internal = service as unknown as {
     s3: { send: Send } | null;
-    bucket: string;
-    publicUrl: string;
+    privateBucket: string;
   };
   internal.s3 = { send };
-  internal.bucket = 'test-bucket';
-  internal.publicUrl = 'https://cdn.test.local';
+  internal.privateBucket = 'test-bucket';
 
   return { service, send, sent };
 }
@@ -82,16 +85,12 @@ describe('UploadService.upload', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('uploads a png as webp and returns its public url', async () => {
+  it('uploads a png as webp and returns its private upload id', async () => {
     const { service, send, sent } = setup();
 
-    const url = await service.upload(USER_ID, await createImage('png'));
+    const upload = await service.upload(USER_ID, await createImage('png'));
 
-    expect(url).toMatch(
-      new RegExp(
-        `^https://cdn\\.test\\.local/uploads/${USER_ID}/[0-9a-f-]{36}\\.webp$`,
-      ),
-    );
+    expect(upload).toEqual({ id: 'upload-1' });
     expect(send).toHaveBeenCalledTimes(1);
     const input = sent[0]?.input;
     expect(input).toMatchObject({
@@ -125,5 +124,61 @@ describe('UploadService.upload', () => {
     expect(service.upload(USER_ID, await createImage('png'))).rejects.toThrow(
       /not configured/,
     );
+  });
+});
+
+describe('UploadService.openForUser', () => {
+  it('does not expose an upload that belongs to another user', async () => {
+    const privateDb = {
+      select: () => ({
+        from: () => ({
+          where: () => ({ limit: async () => [] }),
+        }),
+      }),
+    };
+    const service = new UploadService(privateDb as never);
+    (service as unknown as { s3: { send: Send } }).s3 = {
+      send: mock(async () => ({})),
+    };
+
+    await expect(
+      service.openForUser('another-user', 'upload-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('streams an upload only after the owner lookup succeeds', async () => {
+    const body = Readable.from(Buffer.from('private-image'));
+    const privateDb = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [
+              {
+                objectKey: 'uploads/user-1/image.webp',
+                contentType: 'image/webp',
+              },
+            ],
+          }),
+        }),
+      }),
+    };
+    const service = new UploadService(privateDb as never);
+    (service as unknown as { s3: { send: Send }; privateBucket: string }).s3 = {
+      send: mock(async () => ({
+        Body: body,
+        ContentType: 'image/webp',
+        ContentLength: 13,
+      })),
+    };
+    (service as unknown as { privateBucket: string }).privateBucket =
+      'private-bucket';
+
+    const upload = await service.openForUser('user-1', 'upload-1');
+
+    expect(upload).toEqual({
+      body,
+      contentType: 'image/webp',
+      contentLength: 13,
+    });
   });
 });
