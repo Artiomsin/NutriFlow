@@ -26,6 +26,16 @@ services:
     volumes:
       - nutriflow-test-minio:/data
 
+  valkey:
+    image: valkey/valkey:8.1.10-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   nutriflow-test-postgres:
   nutriflow-test-minio:

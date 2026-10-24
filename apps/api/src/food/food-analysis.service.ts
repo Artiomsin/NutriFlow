@@ -12,6 +12,7 @@ import { isNull } from 'drizzle-orm';
 import type { Db } from '../db/db';
 import { DB } from '../db/db.module';
 import { foodCategories } from '../db/schema/foodCategories';
+import { RedisService } from '../redis/redis.service';
 import {
   foodAnalysisItemSchema,
   type FoodAnalysisFoodItem,
@@ -27,6 +28,7 @@ import { AnalysisQuotaService } from './analysis-quota.service';
 const PROVIDER_TIMEOUT_MS = 30_000;
 const TIMEOUT_SENTINEL = 'vision-timeout';
 const CACHE_MAX_ENTRIES = 500;
+const REDIS_CACHE_PREFIX = 'nutriflow:food-analysis:';
 const MAX_ITEMS = 8;
 // Water items whose volumes differ by at most 30% describe the same container.
 const WATER_DUPLICATE_TOLERANCE = 0.3;
@@ -55,6 +57,7 @@ export class FoodAnalysisService {
     private readonly matcher: FoodMatcherService,
     private readonly analysisQuota: AnalysisQuotaService,
     @Inject(DB) private readonly db: Db,
+    private readonly redis: RedisService,
   ) {
     this.providers = buildVisionProviders();
   }
@@ -98,13 +101,10 @@ export class FoodAnalysisService {
     // The result depends on which products the caller may see, so the cache is
     // scoped to the user: a shared key would hand one user's matches to another.
     const cacheKey = `${userId}:${this.hashImage(buffer)}`;
-    const cached = this.cache.get(cacheKey);
-    if (cached && Date.now() - cached.at < this.cacheTtlMs) {
-      this.logger.log('Vision cache hit, skipping providers');
-      return cached.result;
-    }
+    const cached = await this.cacheGet(cacheKey);
     if (cached) {
-      this.cache.delete(cacheKey);
+      this.logger.log('Vision cache hit, skipping providers');
+      return cached;
     }
 
     const pending = this.inFlight.get(cacheKey);
@@ -193,7 +193,7 @@ export class FoodAnalysisService {
     );
 
     if (!withContainers.length) {
-      this.cacheSet(cacheKey, []);
+      await this.cacheSet(cacheKey, []);
       return [];
     }
 
@@ -215,7 +215,7 @@ export class FoodAnalysisService {
       return matched ?? item;
     });
 
-    this.cacheSet(cacheKey, result);
+    await this.cacheSet(cacheKey, result);
     return result;
   }
 
@@ -322,7 +322,24 @@ export class FoodAnalysisService {
     return createHash('sha256').update(buffer).digest('hex');
   }
 
-  private cacheSet(key: string, result: FoodAnalysisResult): void {
+  private async cacheSet(
+    key: string,
+    result: FoodAnalysisResult,
+  ): Promise<void> {
+    this.setLocalCache(key, result);
+
+    if (!Number.isFinite(this.cacheTtlMs) || this.cacheTtlMs <= 0) {
+      return;
+    }
+
+    await this.redis.set(
+      `${REDIS_CACHE_PREFIX}${key}`,
+      JSON.stringify(result),
+      this.cacheTtlMs,
+    );
+  }
+
+  private setLocalCache(key: string, result: FoodAnalysisResult): void {
     if (this.cache.size >= CACHE_MAX_ENTRIES) {
       const oldest = this.cache.keys().next().value;
       if (oldest !== undefined) {
@@ -330,6 +347,34 @@ export class FoodAnalysisService {
       }
     }
     this.cache.set(key, { result, at: Date.now() });
+  }
+
+  private async cacheGet(key: string): Promise<FoodAnalysisResult | null> {
+    const local = this.cache.get(key);
+    if (local) {
+      if (Date.now() - local.at < this.cacheTtlMs) return local.result;
+      this.cache.delete(key);
+    }
+
+    const redisKey = `${REDIS_CACHE_PREFIX}${key}`;
+    const serialized = await this.redis.get(redisKey);
+    if (!serialized) return null;
+
+    try {
+      const parsed = foodAnalysisItemSchema
+        .array()
+        .safeParse(JSON.parse(serialized));
+      if (!parsed.success) {
+        void this.redis.delete(redisKey);
+        return null;
+      }
+
+      this.setLocalCache(key, parsed.data);
+      return parsed.data;
+    } catch {
+      void this.redis.delete(redisKey);
+      return null;
+    }
   }
 
   private isFallbackStatus(status: number | null): boolean {

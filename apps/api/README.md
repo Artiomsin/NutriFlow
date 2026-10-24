@@ -16,8 +16,9 @@ Start Docker Desktop or OrbStack, then run:
 bun run test
 ```
 
-This starts PostgreSQL 16 on `localhost:5432` and MinIO on `localhost:9000`,
-applies migrations, and runs unit, integration, and E2E tests. All of these
+This starts PostgreSQL 16 on `localhost:5432`, MinIO on `localhost:9000`, and
+Valkey on `localhost:6379`, applies migrations, and runs unit, integration,
+and E2E tests. All of these
 commands force the Docker test database and storage URLs, so they cannot
 connect to Neon or real S3.
 
@@ -34,6 +35,9 @@ bun run test:unit
 bun run test:integration
 bun run test:e2e
 ```
+
+`test:integration` uses Valkey to verify the Redis integration. Unit tests and
+the optional real-AI evaluation do not require a running Redis server.
 
 The AI evaluation is separate because it uses real provider API quota:
 

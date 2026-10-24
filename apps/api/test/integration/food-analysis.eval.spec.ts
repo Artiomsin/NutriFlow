@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'bun:test';
-import { ServiceUnavailableException } from '@nestjs/common';
+import {
+  GatewayTimeoutException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 
 import { FoodAnalysisService } from '../../src/food/food-analysis.service';
 import type { FoodMatcherService } from '../../src/food/food-matcher.service';
@@ -49,10 +52,10 @@ const expectedFood: Partial<Record<FixtureName, RegExp>> = {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Free tier allows 5 RPM (~1 request / 12s); space calls to avoid 429.
+// Free tier allows 5 RPM (~1 request / 12s); space every attempt to avoid 429.
 const MIN_GAP_MS = Number(process.env.EVAL_MIN_GAP_MS ?? 12_000);
-// One test may need several attempts when the model returns a transient 503, so
-// the budget is generous: rate-limit gap + up to ~6 retries with backoff.
+// One test may need several attempts when the model is temporarily unavailable,
+// so the budget includes rate-limit gaps and a small number of retries.
 const TEST_TIMEOUT_MS = Number(process.env.EVAL_TEST_TIMEOUT_MS ?? 120_000);
 let nextAllowedAt = 0;
 
@@ -83,11 +86,11 @@ const isQuotaError = (error: unknown): boolean =>
 async function analyzeWithRetry(
   service: FoodAnalysisService,
   file: Parameters<FoodAnalysisService['analyzePhoto']>[1],
-  attempts = 6,
+  attempts = 3,
 ) {
-  // Throttle once per test, not per retry, so retries do not each pay the gap.
-  await respectRateLimit();
-  for (let attempt = 1; ; attempt += 1) {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    await respectRateLimit();
+
     try {
       return await service.analyzePhoto(EVAL_USER_ID, file);
     } catch (error) {
@@ -103,13 +106,17 @@ async function analyzeWithRetry(
         );
       }
 
-      const retryable = error instanceof ServiceUnavailableException;
+      const retryable =
+        error instanceof ServiceUnavailableException ||
+        error instanceof GatewayTimeoutException;
       if (!retryable || attempt >= attempts) throw error;
       const waitMs = 3_000 * attempt;
       console.log(`[eval] retrying in ${waitMs / 1000}s...`);
       await sleep(waitMs);
     }
   }
+
+  throw new Error('Evaluation retry loop ended unexpectedly');
 }
 
 run('FoodAnalysisService evaluation (real Gemini)', () => {
@@ -124,6 +131,12 @@ run('FoodAnalysisService evaluation (real Gemini)', () => {
       release: async () => {},
     } as never,
     emptyCategoriesDb,
+    {
+      isReady: false,
+      get: async () => null,
+      set: async () => {},
+      delete: async () => {},
+    } as never,
   );
 
   it.each([...FIXTURE_NAMES])(
