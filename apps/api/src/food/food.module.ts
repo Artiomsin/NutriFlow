@@ -7,9 +7,10 @@ import { FoodAnalysisService } from './food-analysis.service';
 import { AnalysisQuotaService } from './analysis-quota.service';
 import { FoodMatcherService } from './food-matcher.service';
 import { RateLimitModule } from '../rate-limit/rate-limit.module';
+import { RedisModule } from '../redis/redis.module';
 
 @Module({
-  imports: [DailySummaryModule, UploadModule, RateLimitModule],
+  imports: [DailySummaryModule, UploadModule, RateLimitModule, RedisModule],
   controllers: [FoodController],
   providers: [
     FoodService,

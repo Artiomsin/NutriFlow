@@ -44,6 +44,8 @@ projects:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+      - key: REDIS_URL
+        sync: false
       - key: S3_PUBLIC_BUCKET
         sync: false
       - key: S3_PRIVATE_BUCKET

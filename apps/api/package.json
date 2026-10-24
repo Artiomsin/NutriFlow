@@ -62,6 +62,7 @@
     "drizzle-orm": "^0.45.2",
     "google-auth-library": "^10.9.0",
     "nestjs-pino": "^4.6.1",
+    "ioredis": "^6.0.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.20.0",

@@ -18,6 +18,7 @@ import { WeightLogsModule } from './weight-logs/weight-logs.module';
 import { HealthModule } from './health/health.module';
 import { MediaModule } from './media/media.module';
 import { RateLimitModule } from './rate-limit/rate-limit.module';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { RateLimitModule } from './rate-limit/rate-limit.module';
     }),
 
     DbModule,
+    RedisModule,
     RateLimitModule,
     UsersModule,
     AuthModule,
