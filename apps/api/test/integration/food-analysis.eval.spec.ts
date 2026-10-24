@@ -131,6 +131,12 @@ run('FoodAnalysisService evaluation (real Gemini)', () => {
       release: async () => {},
     } as never,
     emptyCategoriesDb,
+    {
+      isReady: false,
+      get: async () => null,
+      set: async () => {},
+      delete: async () => {},
+    } as never,
   );
 
   it.each([...FIXTURE_NAMES])(

@@ -8,6 +8,7 @@ import {
 import { FoodAnalysisService } from './food-analysis.service';
 import type { AnalysisQuotaService } from './analysis-quota.service';
 import type { FoodMatcherService } from './food-matcher.service';
+import type { RedisService } from '../redis/redis.service';
 import type { VisionImage, VisionProvider } from './vision/vision.types';
 import type { FoodAnalysisResult } from './food.schema';
 
@@ -66,16 +67,23 @@ function setup(
     consume: mock(async () => {}),
     release: mock(async () => {}),
   };
+  const redis = {
+    isReady: false,
+    get: mock(async (): Promise<string | null> => null),
+    set: mock(async () => {}),
+    delete: mock(async () => {}),
+  };
   const service = new FoodAnalysisService(
     { matchItems } as unknown as FoodMatcherService,
     analysisQuota as unknown as AnalysisQuotaService,
     systemCategories(categories) as never,
+    redis as unknown as RedisService,
   );
 
   const list = providers ?? [okProvider()];
   (service as unknown as { providers: VisionProvider[] }).providers = list;
 
-  return { service, matchItems, providers: list, analysisQuota };
+  return { service, matchItems, providers: list, analysisQuota, redis };
 }
 
 describe('FoodAnalysisService.analyzePhoto', () => {
@@ -243,6 +251,22 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     expect(provider.analyze).toHaveBeenCalledTimes(1);
     expect(analysisQuota.tryReserve).toHaveBeenCalledTimes(1);
     expect(analysisQuota.consume).toHaveBeenCalledTimes(1);
+  });
+
+  it('serves a cached Redis result without calling providers', async () => {
+    const provider = okProvider();
+    const { service, analysisQuota, redis } = setup(undefined, [provider]);
+    redis.isReady = true;
+    redis.get = mock(async () =>
+      rawText([{ kind: 'water', amountMl: 300, confidence: 1 }]),
+    );
+
+    const result = await service.analyzePhoto(USER_ID, file);
+
+    expect(result).toEqual([{ kind: 'water', amountMl: 300, confidence: 1 }]);
+    expect(redis.get).toHaveBeenCalledTimes(1);
+    expect(provider.analyze).not.toHaveBeenCalled();
+    expect(analysisQuota.tryReserve).not.toHaveBeenCalled();
   });
 
   it('runs concurrent analyses of the same image only once', async () => {
