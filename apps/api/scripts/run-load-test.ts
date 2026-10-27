@@ -24,6 +24,10 @@ const scenarios = {
     script: 'load-tests/food-search-flow.js',
     defaultPeakVus: 5,
   },
+  'food-analysis': {
+    script: 'load-tests/food-analysis-flow.js',
+    defaultPeakVus: 5,
+  },
   write: { script: 'load-tests/write-flow.js', defaultPeakVus: 5 },
   upload: { script: 'load-tests/upload-smoke.js', defaultPeakVus: 1 },
 } as const;
@@ -109,9 +113,10 @@ async function main(): Promise<void> {
 
   const runId = requiredRunId();
   const definition = scenarios[scenario];
-  const requestedPeak = Number(
-    process.env.LOAD_PEAK_VUS ?? definition.defaultPeakVus,
-  );
+  const requestedPeak =
+    scenario === 'food-analysis'
+      ? 5
+      : Number(process.env.LOAD_PEAK_VUS ?? definition.defaultPeakVus);
   if (!Number.isInteger(requestedPeak) || requestedPeak < 1) {
     throw new Error('LOAD_PEAK_VUS must be a positive integer.');
   }

@@ -11,6 +11,12 @@ credentials, tokens, or customer data.
 
 | 2026-10-27 | 127.0.0.1:3000 | upload | 1 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Passed |
 
+| 2026-10-27 | 127.0.0.1:3000 | food-analysis | 5 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Failed (k6 99) |
+
+| 2026-10-27 | 127.0.0.1:3000 | food-analysis | 5 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Failed (k6 99) |
+
+| 2026-10-27 | 127.0.0.1:3000 | food-analysis | 5 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Failed (k6 99) |
+
 ## Release criteria
 
 - Read flow: error rate below 1%, p95 below 1.2 seconds.

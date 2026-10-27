@@ -51,6 +51,8 @@ run to provision more accounts than the peak VU count.
 bun run load:smoke   # one authenticated end-to-end read pass
 bun run load:read    # 10 → 25 virtual users, configurable with LOAD_PEAK_VUS
 bun run load:food-search # 1 → 5 virtual users; cached external USDA catalog search
+# Five concurrent cold AI analyses, then a cached repeat for each user.
+bun run load:food-analysis
 bun run load:write   # 1 → 5 virtual users; water and food-entry write/update/delete cycle
 bun run load:upload  # one upload and authorised private-file read
 bun run load:cleanup # remove accounts left by an interrupted run
@@ -60,9 +62,12 @@ bun run load:cleanup # remove accounts left by an interrupted run
 the existing backend storage cleanup queue then removes the private object.
 If k6 is interrupted, run `load:cleanup` with the same `LOAD_TEST_RUN_ID`.
 
-Food analysis is excluded from load scenarios. It calls paid external AI
-providers and has strict per-user and per-IP limits. Run it manually at most
-once as a smoke check.
+`load:food-analysis` uses five test users and five distinct fixtures. Each user
+first submits a different image (five real provider calls), then immediately
+repeats that same image to verify the per-user cache. It must run only on a
+local or dedicated staging target with `RATE_LIMIT_ANALYZE=15` or higher. It
+uses external AI quota; run it at most once per test environment and do not
+increase its VU count.
 
 ## Interpreting a run
 
@@ -81,7 +86,8 @@ database connection saturation appear.
 ## Rate limits
 
 Capacity tests intentionally create multiple users. On local or dedicated
-staging only, set high temporary values such as `RATE_LIMIT_GLOBAL=10000` and
-`RATE_LIMIT_AUTH=10000` before starting the API. Otherwise the test measures
-the intended anti-abuse limits rather than API capacity. Do not change those
-limits in production; test production rate limiting separately with 1–2 VUs.
+staging only, set high temporary values such as `RATE_LIMIT_GLOBAL=1000` and
+`RATE_LIMIT_AUTH=100` before starting the API. `load:food-analysis` also
+requires `RATE_LIMIT_ANALYZE=15`. Otherwise the test measures the intended
+anti-abuse limits rather than API capacity. Do not change those limits in
+production; test production rate limiting separately with 1–2 VUs.

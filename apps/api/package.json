@@ -23,6 +23,7 @@
     "load:smoke": "bun run scripts/run-load-test.ts smoke",
     "load:read": "bun run scripts/run-load-test.ts read",
     "load:food-search": "bun run scripts/run-load-test.ts food-search",
+    "load:food-analysis": "bun run scripts/run-load-test.ts food-analysis",
     "load:write": "bun run scripts/run-load-test.ts write",
     "load:upload": "bun run scripts/run-load-test.ts upload",
     "load:cleanup": "k6 run load-tests/cleanup.js",
