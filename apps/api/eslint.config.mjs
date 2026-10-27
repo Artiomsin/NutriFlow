@@ -26,6 +26,18 @@ export default [
   eslint.configs.recommended,
 
   {
+    files: ['load-tests/**/*.js'],
+    languageOptions: {
+      globals: {
+        __ENV: 'readonly',
+        __VU: 'readonly',
+        open: 'readonly',
+      },
+      sourceType: 'module',
+    },
+  },
+
+  {
     files: ['**/*.ts'],
     ignores: ['**/*.spec.ts', '**/*.test.ts'],
     ...baseTsConfig,

@@ -16,6 +16,14 @@ function getPositiveInteger(key: string, fallback: number): number {
   return value;
 }
 
+function getRequiredPositiveInteger(key: string): number {
+  const value = Number(getEnv(key));
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`Invalid ${key}: expected a positive integer`);
+  }
+  return value;
+}
+
 export const env = {
   DATABASE_URL: getEnv('DATABASE_URL'),
 
@@ -29,6 +37,10 @@ export const env = {
   GOOGLE_CLIENT_ID: getEnv('GOOGLE_CLIENT_ID'),
 
   USDA_API_KEY: getEnv('USDA_API_KEY'),
+  USDA_SEARCH_TIMEOUT_MS: getRequiredPositiveInteger('USDA_SEARCH_TIMEOUT_MS'),
+  USDA_SEARCH_CACHE_TTL_MS: getRequiredPositiveInteger(
+    'USDA_SEARCH_CACHE_TTL_MS',
+  ),
 
   GEMINI_API_KEY: process.env.GEMINI_API_KEY ?? '',
   GROQ_API_KEY: process.env.GROQ_API_KEY ?? '',
