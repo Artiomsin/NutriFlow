@@ -41,6 +41,7 @@ import type {
   SearchFoodQueryDto,
 } from './food.schema';
 import { currentUserDate } from '../common/time/user-date';
+import { RedisService } from '../redis/redis.service';
 
 interface OFProduct {
   id: string;
@@ -78,6 +79,7 @@ export class FoodService {
   constructor(
     private readonly dailySummaryService: DailySummaryService,
     @Inject(DB) private readonly db: Db,
+    private readonly redis: RedisService,
   ) {}
 
   private visibilityClause(userId: string) {
@@ -1140,11 +1142,10 @@ export class FoodService {
       return localRanked;
     }
 
-    // Parallel external search (USDA SR Legacy + Branded)
-    const [srLegacyRes, brandedRes] = await Promise.allSettled([
-      this.searchUSDA(cleanQuery, 25, 'SR Legacy'),
-      this.searchUSDA(cleanQuery, 25, 'Branded'),
-    ]);
+    // USDA is optional enrichment. A shared deadline covers both queueing and
+    // network work, so an unavailable third party never makes food search slow.
+    const [srLegacyRes, brandedRes] =
+      await this.searchUSDAWithinDeadline(cleanQuery);
 
     const srItems: OFProduct[] =
       srLegacyRes.status === 'fulfilled' ? srLegacyRes.value : [];
@@ -1203,33 +1204,88 @@ export class FoodService {
 
   private usdaQueue: Promise<void> = Promise.resolve();
 
-  private async rateLimitedFetch(url: string): Promise<Response> {
-    const prev = this.usdaQueue;
-    let done: () => void;
-    this.usdaQueue = new Promise((r) => {
-      done = r;
-    });
-    await prev;
-    await new Promise((r) => setTimeout(r, 250));
+  private async searchUSDAWithinDeadline(
+    query: string,
+  ): Promise<
+    [PromiseSettledResult<OFProduct[]>, PromiseSettledResult<OFProduct[]>]
+  > {
+    const signal = AbortSignal.timeout(env.USDA_SEARCH_TIMEOUT_MS);
+    const searches = Promise.allSettled([
+      this.searchUSDA(query, 25, 'SR Legacy', signal),
+      this.searchUSDA(query, 25, 'Branded', signal),
+    ]);
+
     try {
-      return await fetch(url, { signal: AbortSignal.timeout(10_000) });
-    } finally {
-      done!();
+      return await Promise.race([
+        searches,
+        new Promise<never>((_resolve, reject) => {
+          signal.addEventListener('abort', () => reject(signal.reason), {
+            once: true,
+          });
+        }),
+      ]);
+    } catch {
+      return [
+        { status: 'rejected', reason: signal.reason },
+        { status: 'rejected', reason: signal.reason },
+      ];
     }
+  }
+
+  private async rateLimitedFetch(
+    url: string,
+    signal: AbortSignal,
+  ): Promise<Response> {
+    const previous = this.usdaQueue;
+    const queued = previous.then(async () => {
+      if (signal.aborted) throw signal.reason;
+      await this.delayWithSignal(250, signal);
+      return fetch(url, { signal });
+    });
+
+    // Keep the rate-limit queue alive after an external failure or timeout.
+    this.usdaQueue = queued.then(
+      () => undefined,
+      () => undefined,
+    );
+    return queued;
+  }
+
+  private delayWithSignal(milliseconds: number, signal: AbortSignal) {
+    return new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(resolve, milliseconds);
+      signal.addEventListener(
+        'abort',
+        () => {
+          clearTimeout(timer);
+          reject(signal.reason);
+        },
+        { once: true },
+      );
+    });
   }
 
   private async searchUSDA(
     query: string,
     pageSize: number,
     dataType: string,
+    signal: AbortSignal,
   ): Promise<OFProduct[]> {
+    const cacheKey = this.usdaCacheKey(query, dataType);
+    const cached = await this.redis.get(cacheKey);
+    if (cached) {
+      const products = this.parseCachedUSDA(cached);
+      if (products) return products;
+      await this.redis.delete(cacheKey);
+    }
+
     const url = new URL('https://api.nal.usda.gov/fdc/v1/foods/search');
     url.searchParams.set('api_key', env.USDA_API_KEY);
     url.searchParams.set('query', query);
     url.searchParams.set('pageSize', String(pageSize));
     url.searchParams.set('dataType', dataType);
 
-    const res = await this.rateLimitedFetch(url.toString());
+    const res = await this.rateLimitedFetch(url.toString(), signal);
     if (!res.ok) {
       console.error(
         `[USDA] ${dataType} returned ${res.status}: ${res.statusText}`,
@@ -1254,7 +1310,7 @@ export class FoodService {
 
     if (!body.foods?.length) return [];
 
-    return body.foods
+    const products = body.foods
       .filter((f) => f.description)
       .map((f) => ({
         id: '',
@@ -1273,6 +1329,38 @@ export class FoodService {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }));
+
+    await this.redis.set(
+      cacheKey,
+      JSON.stringify(products),
+      env.USDA_SEARCH_CACHE_TTL_MS,
+    );
+    return products;
+  }
+
+  private usdaCacheKey(query: string, dataType: string) {
+    return `nutriflow:usda-search:v1:${encodeURIComponent(query)}:${encodeURIComponent(dataType)}`;
+  }
+
+  private parseCachedUSDA(value: string): OFProduct[] | null {
+    try {
+      const parsed: unknown = JSON.parse(value);
+      if (
+        !Array.isArray(parsed) ||
+        !parsed.every(
+          (item) =>
+            typeof item === 'object' &&
+            item !== null &&
+            typeof item.name === 'string' &&
+            typeof item.source === 'string',
+        )
+      ) {
+        return null;
+      }
+      return parsed as OFProduct[];
+    } catch {
+      return null;
+    }
   }
 
   private extractNutrient(

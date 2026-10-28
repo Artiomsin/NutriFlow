@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { ConfigModule } from '@nestjs/config';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 
+import { env } from '../../src/config/env';
 import { DbModule } from '../../src/db/db.module';
 import { FoodModule } from '../../src/food/food.module';
 import { FoodService } from '../../src/food/food.service';
@@ -9,6 +10,7 @@ import { createTestModule } from '../utils/app';
 import { createTestDb } from '../utils/db';
 import type { TestDb, TestTx } from '../utils/db';
 import { createCatalogFood, createCategory, createUser } from '../utils/seed';
+import type { RedisService } from '../../src/redis/redis.service';
 
 let db: TestDb;
 let tx: TestTx;
@@ -17,6 +19,32 @@ let service: FoodService;
 
 let usdaFoods: unknown[] = [];
 const originalFetch = globalThis.fetch;
+let fetchCalls = 0;
+const redisCache = new Map<string, string>();
+const redisSets: Array<{ key: string; ttlMs: number }> = [];
+const fakeRedis = {
+  get: async (key: string) => redisCache.get(key) ?? null,
+  set: async (key: string, value: string, ttlMs: number) => {
+    redisCache.set(key, value);
+    redisSets.push({ key, ttlMs });
+  },
+  delete: async (key: string) => {
+    redisCache.delete(key);
+  },
+};
+
+const defaultFetch = (async () => {
+  fetchCalls += 1;
+  return new Response(JSON.stringify({ foods: usdaFoods }));
+}) as unknown as typeof fetch;
+
+function resetUsdaTestState() {
+  usdaFoods = [];
+  fetchCalls = 0;
+  redisCache.clear();
+  redisSets.length = 0;
+  globalThis.fetch = defaultFetch;
+}
 
 beforeAll(async () => {
   db = createTestDb();
@@ -32,10 +60,9 @@ beforeAll(async () => {
   );
   service = moduleRef.get(FoodService);
 
-  globalThis.fetch = (async () =>
-    new Response(
-      JSON.stringify({ foods: usdaFoods }),
-    )) as unknown as typeof fetch;
+  (service as unknown as { redis: RedisService }).redis =
+    fakeRedis as unknown as RedisService;
+  resetUsdaTestState();
 });
 
 afterAll(async () => {
@@ -269,6 +296,7 @@ describe('FoodService.search', () => {
   });
 
   it('falls back to USDA when local results are few', async () => {
+    resetUsdaTestState();
     const user = await createUser(tx);
     usdaFoods = [
       {
@@ -294,6 +322,83 @@ describe('FoodService.search', () => {
       expect(item?.caloriesPer100g).toBe(123);
     } finally {
       usdaFoods = [];
+    }
+  });
+
+  it('serves cached USDA results without making an external request', async () => {
+    resetUsdaTestState();
+    const user = await createUser(tx);
+    const product = {
+      id: '',
+      name: 'ZqCachedRice',
+      brand: null,
+      categoryName: null,
+      categoryId: null,
+      caloriesPer100g: 130,
+      proteinPer100g: 2,
+      fatPer100g: 0,
+      carbsPer100g: 28,
+      barcode: null,
+      imageUrl: null,
+      source: 'usda',
+      createdBy: null,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    const prefix = 'nutriflow:usda-search:v1:zqcachedrice:';
+    redisCache.set(`${prefix}SR%20Legacy`, JSON.stringify([product]));
+    redisCache.set(`${prefix}Branded`, JSON.stringify([]));
+
+    const result = await service.search(
+      { q: 'zqcachedrice', limit: 20, offset: 0 },
+      user.id,
+    );
+
+    expect(result.foods.map((food) => food.name)).toContain('ZqCachedRice');
+    expect(fetchCalls).toBe(0);
+  });
+
+  it('stores USDA results in Redis after a cache miss', async () => {
+    resetUsdaTestState();
+    const user = await createUser(tx);
+    usdaFoods = [
+      {
+        fdcId: 2,
+        description: 'ZqCacheMiss',
+        foodNutrients: [],
+      },
+    ];
+
+    await service.search({ q: 'zqcachemiss', limit: 20, offset: 0 }, user.id);
+
+    expect(fetchCalls).toBe(2);
+    expect(redisSets).toHaveLength(2);
+    expect(redisSets.every((entry) => entry.ttlMs === 43_200_000)).toBe(true);
+  });
+
+  it('returns local results when USDA exceeds the shared deadline', async () => {
+    resetUsdaTestState();
+    const user = await createUser(tx);
+    await createCatalogFood(tx, { name: 'ZqLocalTimeout', source: 'system' });
+    const originalTimeout = env.USDA_SEARCH_TIMEOUT_MS;
+    env.USDA_SEARCH_TIMEOUT_MS = 1;
+    globalThis.fetch = (async (...args: never[]) =>
+      new Promise<Response>((_resolve, reject) => {
+        const options = args[1] as { signal?: AbortSignal } | undefined;
+        options?.signal?.addEventListener('abort', () =>
+          reject(options.signal?.reason),
+        );
+      })) as unknown as typeof fetch;
+
+    try {
+      const result = await service.search(
+        { q: 'zqlocaltimeout', limit: 20, offset: 0 },
+        user.id,
+      );
+      expect(result.foods.map((food) => food.name)).toContain('ZqLocalTimeout');
+    } finally {
+      env.USDA_SEARCH_TIMEOUT_MS = originalTimeout;
+      resetUsdaTestState();
     }
   });
 });

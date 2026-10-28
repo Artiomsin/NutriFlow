@@ -79,7 +79,8 @@ export class AnalysisQuotaService {
   ): Promise<void> {
     await this.db.execute(sql`
       UPDATE app.analysis_quota_reservations
-      SET status = 'consumed', expires_at = ${reservation.reservedAt} + ${QUOTA_WINDOW_MS} * interval '1 millisecond'
+      SET status = 'consumed',
+          expires_at = reserved_at + ${QUOTA_WINDOW_MS} * interval '1 millisecond'
       WHERE id = ${reservation.id}::uuid
         AND user_id = ${userId}::uuid
         AND status = 'pending'

@@ -29,6 +29,11 @@ export const env = {
   GOOGLE_CLIENT_ID: getEnv('GOOGLE_CLIENT_ID'),
 
   USDA_API_KEY: getEnv('USDA_API_KEY'),
+  USDA_SEARCH_TIMEOUT_MS: getPositiveInteger('USDA_SEARCH_TIMEOUT_MS', 1_500),
+  USDA_SEARCH_CACHE_TTL_MS: getPositiveInteger(
+    'USDA_SEARCH_CACHE_TTL_MS',
+    43_200_000,
+  ),
 
   GEMINI_API_KEY: process.env.GEMINI_API_KEY ?? '',
   GROQ_API_KEY: process.env.GROQ_API_KEY ?? '',

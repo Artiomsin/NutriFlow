@@ -67,6 +67,9 @@ redis-data/
 # =========================
 apps/api/scripts/data/images/
 
+# Raw local k6 summaries; concise run results are recorded in docs/load-testing.md.
+apps/api/load-tests/results/
+
 # =========================
 # Secrets
 # =========================

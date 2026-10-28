@@ -20,6 +20,13 @@
     "test:rate-limit:local": "bun run test:db:up && bun run test:db:migrate && bun run test:rate-limit",
     "test:ai": "sh -c 'export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/nutriflow_test TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/nutriflow_test AWS_ACCESS_KEY_ID=minioadmin AWS_SECRET_ACCESS_KEY=minioadmin AWS_ENDPOINT_URL_S3=http://localhost:9000 AWS_REGION=us-east-1 S3_PRIVATE_BUCKET=nutriflow-test S3_PUBLIC_BUCKET=nutriflow-public-test; bun test test/integration/food-analysis.eval.spec.ts'",
     "test": "bun run test:db:up && bun run test:db:migrate && bun run test:unit && bun run test:integration && bun run test:e2e && bun run test:rate-limit",
+    "load:smoke": "bun run scripts/run-load-test.ts smoke",
+    "load:read": "bun run scripts/run-load-test.ts read",
+    "load:food-search": "bun run scripts/run-load-test.ts food-search",
+    "load:food-analysis": "bun run scripts/run-load-test.ts food-analysis",
+    "load:write": "bun run scripts/run-load-test.ts write",
+    "load:upload": "bun run scripts/run-load-test.ts upload",
+    "load:cleanup": "k6 run load-tests/cleanup.js",
     "lint": "eslint .",
     "build": "tsc --noEmit"
   },
