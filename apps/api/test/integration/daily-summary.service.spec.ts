@@ -98,6 +98,32 @@ describe('DailySummaryService.adjust', () => {
     expect(row?.totalCalories).toBe(500);
   });
 
+  it('preserves tenths while accumulating nutrition deltas', async () => {
+    const user = await createUser(tx);
+    await service.adjust(user.id, {
+      calories: 100.2,
+      protein: 2.4,
+      fat: 0.3,
+      carbs: 28.2,
+      date: '2026-03-03',
+    });
+    await service.adjust(user.id, {
+      calories: 10.1,
+      protein: 0.2,
+      fat: 0.1,
+      carbs: 1.3,
+      date: '2026-03-03',
+    });
+
+    const row = await loadSummary(user.id, '2026-03-03');
+    expect(row).toMatchObject({
+      totalCalories: 110.3,
+      totalProtein: 2.6,
+      totalFat: 0.4,
+      totalCarbs: 29.5,
+    });
+  });
+
   it('applies only the provided fields', async () => {
     const user = await createUser(tx);
     await service.adjust(user.id, { waterMl: 300, date: '2026-03-04' });

@@ -176,10 +176,10 @@ describe('createFoodServingSchema', () => {
     ).toBe(false);
   });
 
-  it('rejects fractional, negative and oversized grams', () => {
+  it('accepts decimal grams and rejects invalid portions', () => {
     expect(
       createFoodServingSchema.safeParse({ name: 'cup', grams: 12.5 }).success,
-    ).toBe(false);
+    ).toBe(true);
     expect(
       createFoodServingSchema.safeParse({ name: 'cup', grams: -1 }).success,
     ).toBe(false);

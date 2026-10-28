@@ -461,7 +461,7 @@ describe('FoodService.update', () => {
       .where(eq(foods.id, updated!.foodId!));
     expect(product!.caloriesPer100g).toBe(200);
     expect(product!.proteinPer100g).toBe(10);
-    expect(product!.fatPer100g).toBe(7);
+    expect(product!.fatPer100g).toBe(6.7);
     expect(product!.carbsPer100g).toBe(20);
   });
 
