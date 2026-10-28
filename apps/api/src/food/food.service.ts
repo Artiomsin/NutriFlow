@@ -42,6 +42,10 @@ import type {
 } from './food.schema';
 import { currentUserDate } from '../common/time/user-date';
 import { RedisService } from '../redis/redis.service';
+import {
+  clampNutrition,
+  roundNutrition,
+} from '../common/nutrition/precision';
 
 interface OFProduct {
   id: string;
@@ -255,8 +259,8 @@ export class FoodService {
           const ratio = data.grams && data.grams > 0 ? 100 / data.grams : 1;
           const source = 'user';
 
-          const per100g = (v: number) =>
-            Math.min(1000, Math.max(0, Math.round(v * ratio)));
+          const per100g = (value: number, max: number) =>
+            clampNutrition(value * ratio, max);
 
           const [created] = await tx
             .insert(foods)
@@ -266,10 +270,10 @@ export class FoodService {
               categoryId,
               barcode: data.barcode,
               imageUrl: data.imageUrl,
-              caloriesPer100g: per100g(data.calories),
-              proteinPer100g: per100g(data.protein ?? 0),
-              fatPer100g: per100g(data.fat ?? 0),
-              carbsPer100g: per100g(data.carbs ?? 0),
+              caloriesPer100g: per100g(data.calories, 1000),
+              proteinPer100g: per100g(data.protein ?? 0, 100),
+              fatPer100g: per100g(data.fat ?? 0, 100),
+              carbsPer100g: per100g(data.carbs ?? 0, 100),
               source,
               createdBy: userId,
             })
@@ -470,10 +474,10 @@ export class FoodService {
       existing.grams > 0
     ) {
       const ratio = data.grams / existing.grams;
-      newCalories = Math.round(existing.calories * ratio);
-      newProtein = Math.round((existing.protein ?? 0) * ratio);
-      newFat = Math.round((existing.fat ?? 0) * ratio);
-      newCarbs = Math.round((existing.carbs ?? 0) * ratio);
+      newCalories = roundNutrition(existing.calories * ratio);
+      newProtein = roundNutrition((existing.protein ?? 0) * ratio);
+      newFat = roundNutrition((existing.fat ?? 0) * ratio);
+      newCarbs = roundNutrition((existing.carbs ?? 0) * ratio);
     }
 
     const [originalFood] =
@@ -534,12 +538,9 @@ export class FoodService {
             } else {
               const snapGrams =
                 existing.grams && existing.grams > 0 ? existing.grams : 0;
-              const per100g = (value: number) =>
+              const per100g = (value: number, max: number) =>
                 snapGrams > 0
-                  ? Math.min(
-                      1000,
-                      Math.max(0, Math.round((value * 100) / snapGrams)),
-                    )
+                  ? clampNutrition((value * 100) / snapGrams, max)
                   : 0;
 
               const [created] = await tx
@@ -548,10 +549,10 @@ export class FoodService {
                   name: data.name,
                   source: 'user',
                   createdBy: userId,
-                  caloriesPer100g: per100g(existing.calories),
-                  proteinPer100g: per100g(existing.protein ?? 0),
-                  fatPer100g: per100g(existing.fat ?? 0),
-                  carbsPer100g: per100g(existing.carbs ?? 0),
+                  caloriesPer100g: per100g(existing.calories, 1000),
+                  proteinPer100g: per100g(existing.protein ?? 0, 100),
+                  fatPer100g: per100g(existing.fat ?? 0, 100),
+                  carbsPer100g: per100g(existing.carbs ?? 0, 100),
                 })
                 .returning();
               newFoodId = created!.id;
@@ -575,22 +576,22 @@ export class FoodService {
               data.calories ??
               (createdFromSnapshot
                 ? newCalories
-                : Math.round(food.caloriesPer100g * ratio));
+                : roundNutrition(food.caloriesPer100g * ratio));
             newProtein =
               data.protein ??
               (createdFromSnapshot
                 ? newProtein
-                : Math.round((food.proteinPer100g ?? 0) * ratio));
+                : roundNutrition((food.proteinPer100g ?? 0) * ratio));
             newFat =
               data.fat ??
               (createdFromSnapshot
                 ? newFat
-                : Math.round((food.fatPer100g ?? 0) * ratio));
+                : roundNutrition((food.fatPer100g ?? 0) * ratio));
             newCarbs =
               data.carbs ??
               (createdFromSnapshot
                 ? newCarbs
-                : Math.round((food.carbsPer100g ?? 0) * ratio));
+                : roundNutrition((food.carbsPer100g ?? 0) * ratio));
 
             if (needsFork && food.source !== 'user') {
               const per100gRatio = g > 0 ? 100 / g : 1;
@@ -600,10 +601,10 @@ export class FoodService {
                 .values({
                   name: newName,
                   categoryId: food.categoryId,
-                  caloriesPer100g: Math.round(newCalories * per100gRatio),
-                  proteinPer100g: Math.round(newProtein * per100gRatio),
-                  fatPer100g: Math.round(newFat * per100gRatio),
-                  carbsPer100g: Math.round(newCarbs * per100gRatio),
+                  caloriesPer100g: clampNutrition(newCalories * per100gRatio, 1000),
+                  proteinPer100g: clampNutrition(newProtein * per100gRatio, 100),
+                  fatPer100g: clampNutrition(newFat * per100gRatio, 100),
+                  carbsPer100g: clampNutrition(newCarbs * per100gRatio, 100),
                   imageUrl: newImageUrl,
                   source: 'user',
                   createdBy: userId,
@@ -628,18 +629,24 @@ export class FoodService {
               ) {
                 const per100gRatio = g > 0 ? 100 / g : 1;
                 if (data.calories !== undefined)
-                  foodUpdates.caloriesPer100g = Math.round(
+                  foodUpdates.caloriesPer100g = clampNutrition(
                     newCalories * per100gRatio,
+                    1000,
                   );
                 if (data.protein !== undefined)
-                  foodUpdates.proteinPer100g = Math.round(
+                  foodUpdates.proteinPer100g = clampNutrition(
                     newProtein * per100gRatio,
+                    100,
                   );
                 if (data.fat !== undefined)
-                  foodUpdates.fatPer100g = Math.round(newFat * per100gRatio);
+                  foodUpdates.fatPer100g = clampNutrition(
+                    newFat * per100gRatio,
+                    100,
+                  );
                 if (data.carbs !== undefined)
-                  foodUpdates.carbsPer100g = Math.round(
+                  foodUpdates.carbsPer100g = clampNutrition(
                     newCarbs * per100gRatio,
+                    100,
                   );
               }
               if (Object.keys(foodUpdates).length > 0) {
@@ -1000,7 +1007,7 @@ export class FoodService {
 
       const conversion = unitMap[rawUnit];
       if (conversion) {
-        suggestedGrams = Math.round(value * conversion.mul);
+        suggestedGrams = roundNutrition(value * conversion.mul);
         suggestedUnit = conversion.display;
       }
     }
@@ -1367,7 +1374,9 @@ export class FoodService {
     nutrients: Array<{ nutrientId: number; value?: number }> | undefined,
     id: number,
   ): number {
-    return Math.round(nutrients?.find((n) => n.nutrientId === id)?.value ?? 0);
+    return roundNutrition(
+      nutrients?.find((n) => n.nutrientId === id)?.value ?? 0,
+    );
   }
 
   async getPopular(userId: string) {
@@ -1516,10 +1525,10 @@ export class FoodService {
         .values({
           name: data.name,
           categoryId: data.categoryId,
-          caloriesPer100g: Math.round(data.caloriesPer100g),
-          proteinPer100g: Math.round(data.proteinPer100g ?? 0),
-          fatPer100g: Math.round(data.fatPer100g ?? 0),
-          carbsPer100g: Math.round(data.carbsPer100g ?? 0),
+          caloriesPer100g: data.caloriesPer100g,
+          proteinPer100g: data.proteinPer100g ?? 0,
+          fatPer100g: data.fatPer100g ?? 0,
+          carbsPer100g: data.carbsPer100g ?? 0,
           barcode: data.barcode,
           imageUrl: data.imageUrl,
           source: 'user',

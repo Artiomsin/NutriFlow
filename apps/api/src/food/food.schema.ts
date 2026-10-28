@@ -1,7 +1,23 @@
 import { z } from 'zod';
 import { calendarDateSchema } from '../common/validation/date.schema';
+import { roundNutrition } from '../common/nutrition/precision';
 
 export const dateString = calendarDateSchema;
+
+const nutritionNumber = (max: number) =>
+  z
+    .number()
+    .finite()
+    .min(0)
+    .max(max)
+    .transform(roundNutrition);
+
+const portionNumber = z
+  .number()
+  .finite()
+  .min(0)
+  .max(10_000)
+  .transform(roundNutrition);
 
 // ── Food Entry (daily diary) ──────────────────────────────────────
 
@@ -9,12 +25,12 @@ export const createFoodEntrySchema = z.object({
   name: z.string().min(1).max(120),
 
   foodId: z.string().uuid().optional(),
-  grams: z.number().int().min(0).max(10000).optional(),
+  grams: portionNumber.optional(),
 
-  calories: z.number().int().min(0).max(5000),
-  protein: z.number().int().min(0).max(1000).optional(),
-  fat: z.number().int().min(0).max(1000).optional(),
-  carbs: z.number().int().min(0).max(1000).optional(),
+  calories: nutritionNumber(5000),
+  protein: nutritionNumber(1000).optional(),
+  fat: nutritionNumber(1000).optional(),
+  carbs: nutritionNumber(1000).optional(),
 
   unit: z.string().max(10).optional(),
 
@@ -24,7 +40,7 @@ export const createFoodEntrySchema = z.object({
   // encoded explicitly so the client never has to stay silent to say so.
   categoryName: z.string().max(100).nullable().optional(),
   barcode: z.string().max(50).optional(),
-  servingGrams: z.number().int().nonnegative().max(10000).optional(),
+  servingGrams: portionNumber.optional(),
 
   date: dateString.optional(),
 });
@@ -68,17 +84,17 @@ export type UpdateFoodCategoryDto = z.infer<typeof updateFoodCategorySchema>;
 export const createFoodSchema = z.object({
   name: z.string().min(1).max(255),
   categoryId: z.string().uuid().optional(),
-  caloriesPer100g: z.number().finite().min(0).max(1000),
-  proteinPer100g: z.number().finite().min(0).max(100).optional(),
-  fatPer100g: z.number().finite().min(0).max(100).optional(),
-  carbsPer100g: z.number().finite().min(0).max(100).optional(),
+  caloriesPer100g: nutritionNumber(1000),
+  proteinPer100g: nutritionNumber(100).optional(),
+  fatPer100g: nutritionNumber(100).optional(),
+  carbsPer100g: nutritionNumber(100).optional(),
   barcode: z.string().max(50).optional(),
   imageUrl: z.string().max(500).optional(),
   servings: z
     .array(
       z.object({
         name: z.string().min(1).max(100),
-        grams: z.number().int().nonnegative(),
+        grams: portionNumber,
       }),
     )
     .optional(),
@@ -92,7 +108,7 @@ export type CreateFoodDto = z.infer<typeof createFoodSchema>;
 // servings embedded in createFoodSchema: a 0 g portion is useless.
 export const createFoodServingSchema = z.object({
   name: z.string().trim().min(1).max(100),
-  grams: z.number().int().min(1).max(10000),
+  grams: portionNumber.refine((value) => value > 0),
 });
 
 // Omission means "leave unchanged".
@@ -113,11 +129,11 @@ export const foodAnalysisFoodItemSchema = z.object({
   kind: z.literal('food'),
   name: z.string().max(255).nullable(),
   category: z.string().max(100).nullish(),
-  grams: z.number().int().nonnegative().nullable(),
-  calories: z.number().nonnegative().nullable(),
-  protein: z.number().nonnegative().nullable(),
-  fat: z.number().nonnegative().nullable(),
-  carbs: z.number().nonnegative().nullable(),
+  grams: portionNumber.nullable(),
+  calories: nutritionNumber(5000).nullable(),
+  protein: nutritionNumber(1000).nullable(),
+  fat: nutritionNumber(1000).nullable(),
+  carbs: nutritionNumber(1000).nullable(),
   unit: z.enum(['g', 'ml']).nullish(),
   imageUrl: z.string().max(500).nullish(),
   confidence: z.number().min(0).max(1).nullable(),

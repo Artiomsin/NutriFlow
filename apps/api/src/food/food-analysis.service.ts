@@ -24,6 +24,7 @@ import { buildVisionProviders } from './vision/providers';
 import type { VisionProvider } from './vision/vision.types';
 import { env } from '../config/env';
 import { AnalysisQuotaService } from './analysis-quota.service';
+import { roundNutrition } from '../common/nutrition/precision';
 
 const PROVIDER_TIMEOUT_MS = 30_000;
 const TIMEOUT_SENTINEL = 'vision-timeout';
@@ -585,6 +586,8 @@ export class FoodAnalysisService {
       'Otherwise set containers to 1.',
       'Use kind "food" for food and calorie-containing drinks.',
       'Nutrients are for the estimated portion, not per 100g.',
+      'For grams, calories, protein, fat, and carbs, estimate to ONE decimal place.',
+      'Do not round food nutrition values to whole numbers.',
       'For "category" choose ONE value from this list, copied exactly:',
       categories.length ? categories.join(', ') : '(none available)',
       'If none of them fits, set "category" to null. Never invent a new',
@@ -656,7 +659,7 @@ export class FoodAnalysisService {
     };
     for (const k of ['grams', 'calories', 'protein', 'fat', 'carbs']) {
       const v = Number(raw[k]);
-      rounded[k] = Number.isFinite(v) ? Math.round(v) : null;
+      rounded[k] = Number.isFinite(v) ? roundNutrition(v) : null;
     }
     return rounded;
   }
