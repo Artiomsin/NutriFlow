@@ -2,9 +2,9 @@
 
 These scenarios measure API behaviour under load. They are not Bun tests and
 are never part of the regular test suite or CI: they require a running API.
-Each completed scenario automatically appends its metrics to
-`docs/load-testing.md`; its full k6 JSON summary stays in
-`load-tests/results/` locally and is not committed.
+Each scenario saves its full k6 JSON summary to `load-tests/results/` locally;
+this directory is not committed. Add only reviewed, release-relevant results to
+`docs/load-testing.md` manually.
 
 ## Install k6
 

@@ -1,41 +1,12 @@
 # Load-testing results
 
-Each completed k6 run appends one row here automatically. Do not include
+Record only reviewed, release-relevant k6 runs here manually. Raw local k6
+summaries are ignored in `apps/api/load-tests/results/`. Do not include
 credentials, tokens, or customer data.
 
 | Date | Environment | Scenario | Peak VU | RPS | p95 | p99 | Error rate | Render CPU/RAM | Neon/Valkey notes | Result |
 |---|---|---|---:|---:|---:|---:|---:|---|---|---|
-| 2026-10-27 | 127.0.0.1:3000 | write | 20 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Failed (k6 107) |
-
-| 2026-10-27 | 127.0.0.1:3000 | write | 20 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Failed (k6 99) |
-
-| 2026-10-27 | 127.0.0.1:3000 | upload | 1 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Passed |
-
-| 2026-10-27 | 127.0.0.1:3000 | food-analysis | 5 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Failed (k6 99) |
-
-| 2026-10-27 | 127.0.0.1:3000 | food-analysis | 5 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Failed (k6 99) |
-
-| 2026-10-27 | 127.0.0.1:3000 | food-analysis | 5 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Failed (k6 99) |
-
-| 2026-10-28 | 127.0.0.1:3000 | food-analysis | 5 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Passed |
-
-| 2026-10-28 | https://<имя-staging-сервиса>.onrender.com | smoke | 1 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Failed (k6 107) |
-
-| 2026-10-28 | nutriflow-api-dev.onrender.com | smoke | 1 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Passed |
-
-| 2026-10-28 | nutriflow-api-dev.onrender.com | read | 10 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Passed |
-
-| 2026-10-28 | nutriflow-api-dev.onrender.com | read | 25 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Failed (k6 100) |
-
-| 2026-10-28 | nutriflow-api-dev.onrender.com | write | 10 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Passed |
-
-| 2026-10-28 | nutriflow-api-dev.onrender.com | food-search | 10 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Failed (k6 99) |
-
-| 2026-10-28 | nutriflow-api-dev.onrender.com | food-search | 5 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Failed (k6 99) |
-
-| 2026-10-28 | nutriflow-api-dev.onrender.com | food-search | 5 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Failed (k6 99) |
-
-| 2026-10-28 | nutriflow-api-dev.onrender.com | food-search | 1 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Failed (k6 99) |
+| — | — | — | — | — | — | — | — | — | — | Not run |
 
 ## Release criteria
 

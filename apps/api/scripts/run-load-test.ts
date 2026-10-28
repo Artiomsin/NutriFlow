@@ -1,21 +1,11 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 
 type Scenario = keyof typeof scenarios;
 
-type K6Metric = {
-  values?: Record<string, number>;
-};
-
-type K6Summary = {
-  metrics?: Record<string, K6Metric>;
-};
-
 const apiRoot = resolve(import.meta.dir, '..');
-const repositoryRoot = resolve(apiRoot, '../..');
 const resultsDirectory = resolve(apiRoot, 'load-tests/results');
-const resultsDocument = resolve(repositoryRoot, 'docs/load-testing.md');
 
 const scenarios = {
   smoke: { script: 'load-tests/smoke.js', defaultPeakVus: 1 },
@@ -40,69 +30,6 @@ function requiredRunId(): string {
     );
   }
   return runId.toLowerCase();
-}
-
-function metric(
-  summary: K6Summary,
-  name: string,
-  value: string,
-): number | null {
-  const result = summary.metrics?.[name]?.values?.[value];
-  return typeof result === 'number' && Number.isFinite(result) ? result : null;
-}
-
-function formatDuration(milliseconds: number | null): string {
-  if (milliseconds === null) return '—';
-  if (milliseconds >= 1_000) return `${(milliseconds / 1_000).toFixed(2)}s`;
-  return `${milliseconds.toFixed(0)}ms`;
-}
-
-function formatRate(rate: number | null, decimals = 2): string {
-  return rate === null ? '—' : `${(rate * 100).toFixed(decimals)}%`;
-}
-
-function configuredEnvironment(): string {
-  const baseUrl = process.env.BASE_URL ?? 'http://127.0.0.1:3000';
-  try {
-    return new URL(baseUrl).host;
-  } catch {
-    return baseUrl;
-  }
-}
-
-async function recordResult(
-  summaryPath: string,
-  scenario: Scenario,
-  peakVus: number,
-  exitCode: number,
-): Promise<void> {
-  const summary = JSON.parse(await readFile(summaryPath, 'utf8')) as K6Summary;
-  const rps = metric(summary, 'http_reqs', 'rate');
-  const p95 = metric(summary, 'http_req_duration', 'p(95)');
-  const p99 = metric(summary, 'http_req_duration', 'p(99)');
-  const errorRate = metric(summary, 'http_req_failed', 'rate');
-  const result = exitCode === 0 ? 'Passed' : `Failed (k6 ${exitCode})`;
-  const row = [
-    new Date().toISOString().slice(0, 10),
-    configuredEnvironment(),
-    scenario,
-    String(peakVus),
-    rps === null ? '—' : rps.toFixed(2),
-    formatDuration(p95),
-    formatDuration(p99),
-    formatRate(errorRate),
-    'local / n/a',
-    'Auto-recorded; see raw k6 summary locally',
-    result,
-  ];
-  const markdownRow = `| ${row.join(' | ')} |`;
-  const document = await readFile(resultsDocument, 'utf8');
-  const placeholder = '| — | — | — | — | — | — | — | — | — | — | Not run |';
-  const updated = document.includes(placeholder)
-    ? document.replace(placeholder, markdownRow)
-    : document.replace(/\n(## Release criteria)/, `\n${markdownRow}\n\n$1`);
-
-  await writeFile(resultsDocument, updated);
 }
 
 async function main(): Promise<void> {
@@ -133,12 +60,7 @@ async function main(): Promise<void> {
     child.once('close', (code) => resolveExit(code ?? 1));
   });
 
-  try {
-    await recordResult(summaryPath, scenario, requestedPeak, exitCode);
-    console.log(`Recorded result in ${resultsDocument}`);
-  } catch (error) {
-    console.error(`Could not record load-test result: ${String(error)}`);
-  }
+  console.log(`Raw k6 summary saved to ${summaryPath}`);
 
   process.exit(exitCode);
 }
