@@ -17,6 +17,26 @@ credentials, tokens, or customer data.
 
 | 2026-10-27 | 127.0.0.1:3000 | food-analysis | 5 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Failed (k6 99) |
 
+| 2026-10-28 | 127.0.0.1:3000 | food-analysis | 5 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Passed |
+
+| 2026-10-28 | https://<имя-staging-сервиса>.onrender.com | smoke | 1 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Failed (k6 107) |
+
+| 2026-10-28 | nutriflow-api-dev.onrender.com | smoke | 1 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Passed |
+
+| 2026-10-28 | nutriflow-api-dev.onrender.com | read | 10 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Passed |
+
+| 2026-10-28 | nutriflow-api-dev.onrender.com | read | 25 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Failed (k6 100) |
+
+| 2026-10-28 | nutriflow-api-dev.onrender.com | write | 10 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Passed |
+
+| 2026-10-28 | nutriflow-api-dev.onrender.com | food-search | 10 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Failed (k6 99) |
+
+| 2026-10-28 | nutriflow-api-dev.onrender.com | food-search | 5 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Failed (k6 99) |
+
+| 2026-10-28 | nutriflow-api-dev.onrender.com | food-search | 5 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Failed (k6 99) |
+
+| 2026-10-28 | nutriflow-api-dev.onrender.com | food-search | 1 | — | — | — | — | local / n/a | Auto-recorded; see raw k6 summary locally | Failed (k6 99) |
+
 ## Release criteria
 
 - Read flow: error rate below 1%, p95 below 1.2 seconds.
