@@ -8,6 +8,7 @@ import { userSleep } from '../db/schema/userSleep';
 import { userWorkouts } from '../db/schema/userWorkouts';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { currentUserDate } from '../common/time/user-date';
+import { roundNutrition } from '../common/nutrition/precision';
 
 @Injectable()
 export class AnalyticsService {
@@ -85,13 +86,13 @@ export class AnalyticsService {
     ]);
     const avgCalories =
       daysTracked > 0
-        ? Math.round(
+        ? roundNutrition(
             days.reduce((s, d) => s + (d.totalCalories ?? 0), 0) / daysTracked,
           )
         : 0;
     const avgProtein =
       daysTracked > 0
-        ? Math.round(
+        ? roundNutrition(
             days.reduce((s, d) => s + (d.totalProtein ?? 0), 0) / daysTracked,
           )
         : 0;
@@ -103,13 +104,13 @@ export class AnalyticsService {
         : 0;
     const avgFat =
       daysTracked > 0
-        ? Math.round(
+        ? roundNutrition(
             days.reduce((s, d) => s + (d.totalFat ?? 0), 0) / daysTracked,
           )
         : 0;
     const avgCarbs =
       daysTracked > 0
-        ? Math.round(
+        ? roundNutrition(
             days.reduce((s, d) => s + (d.totalCarbs ?? 0), 0) / daysTracked,
           )
         : 0;

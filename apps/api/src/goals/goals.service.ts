@@ -10,6 +10,7 @@ import { userGoals } from '../db/schema/userGoals';
 import { goalRecommendations } from '../db/schema/goalRecommendations';
 import { userProfiles } from '../db/schema/userProfiles';
 import { and, desc, eq, sql } from 'drizzle-orm';
+import { roundNutrition } from '../common/nutrition/precision';
 import type { UpdateGoalsDto } from './goals.schema';
 import type { GoalMetrics } from './personalization/types';
 import {
@@ -142,10 +143,10 @@ export class GoalsService {
 
     const calculated = {
       // Nutrition
-      dailyCaloriesGoal: Math.round(goalCalories),
-      dailyProteinGoal: Math.round(protein),
-      dailyFatGoal: Math.round(fat),
-      dailyCarbsGoal: Math.round(carbs),
+      dailyCaloriesGoal: roundNutrition(goalCalories),
+      dailyProteinGoal: roundNutrition(protein),
+      dailyFatGoal: roundNutrition(fat),
+      dailyCarbsGoal: roundNutrition(carbs),
       dailyWaterGoal: Math.round(water),
 
       // Activity
@@ -375,7 +376,7 @@ export class GoalsService {
       adjusted[key] =
         baseline == null || previous == null || recommended == null
           ? baseline
-          : Math.max(0, Math.round(baseline + (recommended - previous)));
+          : Math.max(0, roundNutrition(baseline + (recommended - previous)));
     }
 
     return adjusted;
