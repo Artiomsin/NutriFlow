@@ -2,7 +2,7 @@ import {
   pgSchema,
   uuid,
   varchar,
-  integer,
+  numeric,
   timestamp,
   index,
   check,
@@ -30,7 +30,11 @@ export const foodServings = app.table(
 
     name: varchar('name', { length: 100 }).notNull(),
 
-    grams: integer('grams').notNull(),
+    grams: numeric('grams', {
+      precision: 10,
+      scale: 1,
+      mode: 'number',
+    }).notNull(),
 
     source: varchar('source', { length: 10 })
       .notNull()

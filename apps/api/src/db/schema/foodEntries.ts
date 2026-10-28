@@ -2,7 +2,7 @@ import {
   pgSchema,
   uuid,
   varchar,
-  integer,
+  numeric,
   timestamp,
   date,
   index,
@@ -31,14 +31,30 @@ export const foodEntries = app.table(
 
     name: varchar('name', { length: 120 }).notNull(),
 
-    grams: integer('grams'),
+    grams: numeric('grams', { precision: 10, scale: 1, mode: 'number' }),
 
     unit: varchar('unit', { length: 10 }).notNull().default('g'),
 
-    calories: integer('calories').notNull(),
-    protein: integer('protein').default(0),
-    fat: integer('fat').default(0),
-    carbs: integer('carbs').default(0),
+    calories: numeric('calories', {
+      precision: 10,
+      scale: 1,
+      mode: 'number',
+    }).notNull(),
+    protein: numeric('protein', {
+      precision: 10,
+      scale: 1,
+      mode: 'number',
+    }).default(0),
+    fat: numeric('fat', {
+      precision: 10,
+      scale: 1,
+      mode: 'number',
+    }).default(0),
+    carbs: numeric('carbs', {
+      precision: 10,
+      scale: 1,
+      mode: 'number',
+    }).default(0),
 
     imageUrl: varchar('image_url', { length: 500 }),
 

@@ -3,7 +3,7 @@ import {
   pgSchema,
   uuid,
   varchar,
-  integer,
+  numeric,
   timestamp,
   index,
   uniqueIndex,
@@ -28,10 +28,26 @@ export const foods = app.table(
       onDelete: 'set null',
     }),
 
-    caloriesPer100g: integer('calories_per_100g').notNull(),
-    proteinPer100g: integer('protein_per_100g').default(0),
-    fatPer100g: integer('fat_per_100g').default(0),
-    carbsPer100g: integer('carbs_per_100g').default(0),
+    caloriesPer100g: numeric('calories_per_100g', {
+      precision: 10,
+      scale: 1,
+      mode: 'number',
+    }).notNull(),
+    proteinPer100g: numeric('protein_per_100g', {
+      precision: 10,
+      scale: 1,
+      mode: 'number',
+    }).default(0),
+    fatPer100g: numeric('fat_per_100g', {
+      precision: 10,
+      scale: 1,
+      mode: 'number',
+    }).default(0),
+    carbsPer100g: numeric('carbs_per_100g', {
+      precision: 10,
+      scale: 1,
+      mode: 'number',
+    }).default(0),
 
     barcode: varchar('barcode', { length: 50 }),
 

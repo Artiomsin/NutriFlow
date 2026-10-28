@@ -2,6 +2,7 @@ import {
   pgSchema,
   uuid,
   integer,
+  numeric,
   timestamp,
   date,
   uniqueIndex,
@@ -23,10 +24,26 @@ export const dailySummary = app.table(
 
     date: date('date').notNull(),
 
-    totalCalories: integer('total_calories').default(0),
-    totalProtein: integer('total_protein').default(0),
-    totalFat: integer('total_fat').default(0),
-    totalCarbs: integer('total_carbs').default(0),
+    totalCalories: numeric('total_calories', {
+      precision: 10,
+      scale: 1,
+      mode: 'number',
+    }).default(0),
+    totalProtein: numeric('total_protein', {
+      precision: 10,
+      scale: 1,
+      mode: 'number',
+    }).default(0),
+    totalFat: numeric('total_fat', {
+      precision: 10,
+      scale: 1,
+      mode: 'number',
+    }).default(0),
+    totalCarbs: numeric('total_carbs', {
+      precision: 10,
+      scale: 1,
+      mode: 'number',
+    }).default(0),
     totalWaterMl: integer('total_water_ml').default(0),
 
     createdAt: timestamp('created_at').defaultNow().notNull(),
