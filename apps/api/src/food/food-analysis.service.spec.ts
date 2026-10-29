@@ -587,7 +587,9 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     expect(prompt).toContain('"containers": number');
     expect(prompt).toContain('volume of ONE');
     expect(prompt).toContain('ONE decimal place');
-    expect(prompt).toContain('Do not round food nutrition values to whole numbers');
+    expect(prompt).toContain(
+      'Do not round food nutrition values to whole numbers',
+    );
   });
 
   it('expands one water object into one item per identical container', async () => {

@@ -5,12 +5,7 @@ import { roundNutrition } from '../common/nutrition/precision';
 export const dateString = calendarDateSchema;
 
 const nutritionNumber = (max: number) =>
-  z
-    .number()
-    .finite()
-    .min(0)
-    .max(max)
-    .transform(roundNutrition);
+  z.number().finite().min(0).max(max).transform(roundNutrition);
 
 const portionNumber = z
   .number()

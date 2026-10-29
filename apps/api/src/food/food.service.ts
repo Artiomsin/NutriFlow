@@ -42,10 +42,7 @@ import type {
 } from './food.schema';
 import { currentUserDate } from '../common/time/user-date';
 import { RedisService } from '../redis/redis.service';
-import {
-  clampNutrition,
-  roundNutrition,
-} from '../common/nutrition/precision';
+import { clampNutrition, roundNutrition } from '../common/nutrition/precision';
 
 interface OFProduct {
   id: string;
@@ -601,8 +598,14 @@ export class FoodService {
                 .values({
                   name: newName,
                   categoryId: food.categoryId,
-                  caloriesPer100g: clampNutrition(newCalories * per100gRatio, 1000),
-                  proteinPer100g: clampNutrition(newProtein * per100gRatio, 100),
+                  caloriesPer100g: clampNutrition(
+                    newCalories * per100gRatio,
+                    1000,
+                  ),
+                  proteinPer100g: clampNutrition(
+                    newProtein * per100gRatio,
+                    100,
+                  ),
                   fatPer100g: clampNutrition(newFat * per100gRatio, 100),
                   carbsPer100g: clampNutrition(newCarbs * per100gRatio, 100),
                   imageUrl: newImageUrl,
