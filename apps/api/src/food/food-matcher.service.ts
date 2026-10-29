@@ -5,6 +5,7 @@ import { foods } from '../db/schema/foods';
 import { foodCategories } from '../db/schema/foodCategories';
 import { and, eq, or, sql } from 'drizzle-orm';
 import type { FoodAnalysisFoodItem } from './food.schema';
+import { roundNutrition } from '../common/nutrition/precision';
 
 interface CandidateRow {
   id: string;
@@ -47,7 +48,7 @@ export class FoodMatcherService {
       const grams = item.grams && item.grams > 0 ? item.grams : 100;
       const ratio = grams / 100;
 
-      const catalogCalories = Math.round(match.caloriesPer100g * ratio);
+      const catalogCalories = roundNutrition(match.caloriesPer100g * ratio);
       const aiCalories = item.calories;
 
       const replaced: FoodAnalysisFoodItem = {
@@ -58,9 +59,9 @@ export class FoodMatcherService {
         foodId: match.id,
         source: 'catalog',
         calories: catalogCalories,
-        protein: Math.round((match.proteinPer100g ?? 0) * ratio),
-        fat: Math.round((match.fatPer100g ?? 0) * ratio),
-        carbs: Math.round((match.carbsPer100g ?? 0) * ratio),
+        protein: roundNutrition((match.proteinPer100g ?? 0) * ratio),
+        fat: roundNutrition((match.fatPer100g ?? 0) * ratio),
+        carbs: roundNutrition((match.carbsPer100g ?? 0) * ratio),
         aiCalories,
         catalogCalories,
       };

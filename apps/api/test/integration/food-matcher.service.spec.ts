@@ -90,10 +90,10 @@ describe('FoodMatcherService.matchItems', () => {
     expect(result?.source).toBe('catalog');
     expect(result?.foodId).toBe(food.id);
     expect(result?.category).toBe('ZqMatcherCat');
-    expect(result?.calories).toBe(248);
-    expect(result?.protein).toBe(47);
+    expect(result?.calories).toBe(247.5);
+    expect(result?.protein).toBe(46.5);
     expect(result?.aiCalories).toBe(200);
-    expect(result?.catalogCalories).toBe(248);
+    expect(result?.catalogCalories).toBe(247.5);
   });
 
   it('uses 100g when the item has no grams', async () => {

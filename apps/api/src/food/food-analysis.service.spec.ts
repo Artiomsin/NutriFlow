@@ -418,7 +418,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     expect(result).toEqual([{ kind: 'water', amountMl: 200, confidence: 1 }]);
   });
 
-  it('rounds food fields and merges the matcher result', async () => {
+  it('keeps nutrition values at one-decimal precision and merges the matcher result', async () => {
     const provider = makeProvider(async () =>
       rawText([
         {
@@ -453,11 +453,11 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     >;
     expect(passed).toHaveLength(1);
     expect(passed[0]).toMatchObject({
-      grams: 100,
-      calories: 131,
-      protein: 2,
-      fat: 0,
-      carbs: 28,
+      grams: 100.4,
+      calories: 130.6,
+      protein: 2.4,
+      fat: 0.3,
+      carbs: 28.2,
       unit: 'ml',
       confidence: 0.91,
     });
@@ -586,6 +586,10 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     const prompt = calls(provider)[0]?.[1] as string;
     expect(prompt).toContain('"containers": number');
     expect(prompt).toContain('volume of ONE');
+    expect(prompt).toContain('ONE decimal place');
+    expect(prompt).toContain(
+      'Do not round food nutrition values to whole numbers',
+    );
   });
 
   it('expands one water object into one item per identical container', async () => {

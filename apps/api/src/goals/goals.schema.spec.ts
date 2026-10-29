@@ -10,13 +10,13 @@ describe('updateGoalsSchema', () => {
     ).toBe(true);
   });
 
-  it('rejects non-positive and non-integer values', () => {
+  it('rejects non-positive values and keeps nutrition goals at one decimal', () => {
     expect(updateGoalsSchema.safeParse({ dailyCaloriesGoal: 0 }).success).toBe(
       false,
     );
     expect(
-      updateGoalsSchema.safeParse({ dailyCaloriesGoal: 2200.5 }).success,
-    ).toBe(false);
+      updateGoalsSchema.parse({ dailyCaloriesGoal: 2200.54 }).dailyCaloriesGoal,
+    ).toBe(2200.5);
   });
 
   it('rejects a sleep min above max', () => {

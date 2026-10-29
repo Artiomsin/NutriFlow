@@ -1,11 +1,20 @@
 import { z } from 'zod';
+import { roundNutrition } from '../common/nutrition/precision';
+
+const nutritionGoal = z
+  .number()
+  .finite()
+  .positive()
+  .transform(roundNutrition)
+  .nullable()
+  .optional();
 
 export const updateGoalsSchema = z
   .object({
-    dailyCaloriesGoal: z.number().int().positive().nullable().optional(),
-    dailyProteinGoal: z.number().int().positive().nullable().optional(),
-    dailyFatGoal: z.number().int().positive().nullable().optional(),
-    dailyCarbsGoal: z.number().int().positive().nullable().optional(),
+    dailyCaloriesGoal: nutritionGoal,
+    dailyProteinGoal: nutritionGoal,
+    dailyFatGoal: nutritionGoal,
+    dailyCarbsGoal: nutritionGoal,
     dailyWaterGoal: z.number().int().positive().nullable().optional(),
     dailyStepsGoal: z.number().int().positive().nullable().optional(),
     dailyActiveCaloriesGoal: z.number().int().positive().nullable().optional(),

@@ -2,6 +2,7 @@ import {
   pgSchema,
   uuid,
   integer,
+  numeric,
   varchar,
   timestamp,
   check,
@@ -21,10 +22,26 @@ export const userGoals = app.table(
       .references(() => users.id, { onDelete: 'cascade' })
       .unique(),
     // Nutrition
-    dailyCaloriesGoal: integer('daily_calories_goal'),
-    dailyProteinGoal: integer('daily_protein_goal'),
-    dailyFatGoal: integer('daily_fat_goal'),
-    dailyCarbsGoal: integer('daily_carbs_goal'),
+    dailyCaloriesGoal: numeric('daily_calories_goal', {
+      precision: 10,
+      scale: 1,
+      mode: 'number',
+    }),
+    dailyProteinGoal: numeric('daily_protein_goal', {
+      precision: 10,
+      scale: 1,
+      mode: 'number',
+    }),
+    dailyFatGoal: numeric('daily_fat_goal', {
+      precision: 10,
+      scale: 1,
+      mode: 'number',
+    }),
+    dailyCarbsGoal: numeric('daily_carbs_goal', {
+      precision: 10,
+      scale: 1,
+      mode: 'number',
+    }),
     dailyWaterGoal: integer('daily_water_goal'),
 
     // Activity

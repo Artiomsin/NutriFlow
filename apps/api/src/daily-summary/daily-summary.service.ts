@@ -9,6 +9,7 @@ import { waterEntries } from '../db/schema/waterEntries';
 
 import { eq, and, sql } from 'drizzle-orm';
 import { currentUserDate } from '../common/time/user-date';
+import { roundNutrition } from '../common/nutrition/precision';
 
 @Injectable()
 export class DailySummaryService {
@@ -28,10 +29,10 @@ export class DailySummaryService {
     },
     executor: Db | Transaction = this.db,
   ) {
-    const c = delta.calories ?? 0;
-    const p = delta.protein ?? 0;
-    const f = delta.fat ?? 0;
-    const ca = delta.carbs ?? 0;
+    const c = roundNutrition(delta.calories ?? 0);
+    const p = roundNutrition(delta.protein ?? 0);
+    const f = roundNutrition(delta.fat ?? 0);
+    const ca = roundNutrition(delta.carbs ?? 0);
     const w = delta.waterMl ?? 0;
     const date = delta.date ?? (await currentUserDate(userId, executor));
     const dateClause = sql`${date}::date`;

@@ -9,6 +9,7 @@ import type {
   OutcomeResult,
   PrimaryGoal,
 } from './types';
+import { roundNutrition } from '../../common/nutrition/precision';
 
 export interface RulesContext {
   input: AnalysisInput;
@@ -120,9 +121,9 @@ export function applyAdjustmentRules(ctx: RulesContext): RulesResult {
         : 1200;
 
     const newCalories = clamp(
-      Math.round(current.dailyCaloriesGoal * blended),
+      roundNutrition(current.dailyCaloriesGoal * blended),
       floor,
-      Math.round(current.dailyCaloriesGoal * 1.15),
+      roundNutrition(current.dailyCaloriesGoal * 1.15),
     );
 
     if (newCalories !== current.dailyCaloriesGoal) {
@@ -130,11 +131,11 @@ export function applyAdjustmentRules(ctx: RulesContext): RulesResult {
 
       if (current.dailyProteinGoal !== null) {
         const protein = current.dailyProteinGoal;
-        const newFat = Math.max(0, Math.round((newCalories * 0.25) / 9));
+        const newFat = Math.max(0, roundNutrition((newCalories * 0.25) / 9));
         recommended.dailyFatGoal = newFat;
         recommended.dailyCarbsGoal = Math.max(
           0,
-          Math.round((newCalories - protein * 4 - newFat * 9) / 4),
+          roundNutrition((newCalories - protein * 4 - newFat * 9) / 4),
         );
       }
 

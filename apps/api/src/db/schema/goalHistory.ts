@@ -2,7 +2,7 @@ import {
   pgSchema,
   uuid,
   varchar,
-  integer,
+  numeric,
   timestamp,
   index,
 } from 'drizzle-orm/pg-core';
@@ -28,9 +28,17 @@ export const goalHistory = app.table(
 
     metric: varchar('metric', { length: 40 }).notNull(),
 
-    oldValue: integer('old_value'),
+    oldValue: numeric('old_value', {
+      precision: 10,
+      scale: 1,
+      mode: 'number',
+    }),
 
-    newValue: integer('new_value'),
+    newValue: numeric('new_value', {
+      precision: 10,
+      scale: 1,
+      mode: 'number',
+    }),
 
     source: varchar('source', { length: 20 }).$type<GoalSource>().notNull(),
 

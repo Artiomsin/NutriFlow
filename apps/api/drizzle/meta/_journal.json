@@ -57,6 +57,13 @@
       "when": 1793000000003,
       "tag": "0008_account_deletion",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793196000000,
+      "tag": "0009_decimal_nutrition",
+      "breakpoints": true
     }
   ]
 }

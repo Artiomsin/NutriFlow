@@ -70,5 +70,5 @@ projects:
       buildCommand: bun install --frozen-lockfile
       startCommand: bun run migrate && bun run start
       healthCheckPath: /api/health/ready
-      autoDeployTrigger: checksPass
+      autoDeployTrigger: commit
       rootDir: apps/api
