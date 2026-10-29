@@ -10,7 +10,7 @@ struct OnboardingView: View {
             title: "Track your nutrition",
             subtitle: "AI-powered macros",
             description: "Just snap a photo of your food — the AI will detect calories, protein, fat, and carbs automatically.",
-            statValue: "98%",
+            statValue: 0.98.formatted(.percent.precision(.fractionLength(0))),
             statLabel: "accuracy",
             feature: "Database of 2M+ foods"
         ),

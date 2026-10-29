@@ -10,6 +10,7 @@ enum AppError: Error, Equatable, Sendable {
     case notFound
     case conflict
     case rateLimited
+    case foodAnalysisQuotaExceeded
     case serverUnavailable
     case invalidRequest
     case invalidResponse

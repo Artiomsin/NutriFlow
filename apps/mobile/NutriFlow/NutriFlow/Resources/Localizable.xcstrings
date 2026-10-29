@@ -1,0 +1,1044 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "" : {
+
+    },
+    "· %@" : {
+
+    },
+    "/%@" : {
+
+    },
+    "%@ - %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ - %2$@"
+          }
+        }
+      }
+    },
+    "%@ — %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ — %2$@"
+          }
+        }
+      }
+    },
+    "%@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@"
+          }
+        }
+      }
+    },
+    "%@ efficiency" : {
+
+    },
+    "%@/%@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@/%2$@ %3$@"
+          }
+        }
+      }
+    },
+    "%lld" : {
+
+    },
+    "%lld %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld %2$@"
+          }
+        }
+      }
+    },
+    "%lld kcal" : {
+
+    },
+    "%lld ml" : {
+
+    },
+    "%lld-day streak" : {
+
+    },
+    "+%lld more goals updated" : {
+
+    },
+    "0" : {
+
+    },
+    "Account" : {
+
+    },
+    "Achievement notifications" : {
+
+    },
+    "Activity Level" : {
+
+    },
+    "Activity, sleep, and workouts will appear here once connected." : {
+
+    },
+    "Add" : {
+
+    },
+    "Add Food" : {
+
+    },
+    "Add photo" : {
+
+    },
+    "Add Portion" : {
+
+    },
+    "Add to Diary — %@" : {
+
+    },
+    "Add Water" : {
+
+    },
+    "Allow notifications for NutriFlow in iPhone Settings to receive reminders." : {
+
+    },
+    "Already have account? Sign in" : {
+
+    },
+    "Amount" : {
+
+    },
+    "Appearance" : {
+
+    },
+    "Apple Health isn't available on this device, so activity can't be tracked." : {
+
+    },
+    "Apply" : {
+
+    },
+    "Are you sure you want to delete this water entry?" : {
+
+    },
+    "Automatic calculation is off" : {
+
+    },
+    "Based on your recent activity" : {
+
+    },
+    "BPM" : {
+
+    },
+    "Calculating…" : {
+
+    },
+    "Calories" : {
+
+    },
+    "Cancel" : {
+
+    },
+    "Carbs" : {
+
+    },
+    "Change the name to save" : {
+
+    },
+    "Charts" : {
+
+    },
+    "Connect Apple Health to see sleep history" : {
+
+    },
+    "Connect Apple Health to see your sleep stages and quality." : {
+
+    },
+    "Connect Apple Health to see your steps and calories burned." : {
+
+    },
+    "Connect Apple Health to see your training history." : {
+
+    },
+    "Connect Health" : {
+
+    },
+    "Connect HealthKit" : {
+
+    },
+    "Connecting…" : {
+
+    },
+    "Couldn’t load %@ from Apple Health." : {
+
+    },
+    "Couldn’t load the latest workout from Apple Health." : {
+
+    },
+    "Create account" : {
+
+    },
+    "Create Profile" : {
+
+    },
+    "Custom amount" : {
+
+    },
+    "Date" : {
+
+    },
+    "Delete" : {
+
+    },
+    "Delete \"%@\"?" : {
+
+    },
+    "Delete Food" : {
+
+    },
+    "Delete this weight record?" : {
+
+    },
+    "Delete Water" : {
+
+    },
+    "Delete weight record" : {
+
+    },
+    "Dismiss" : {
+
+    },
+    "Done" : {
+
+    },
+    "Edit Food" : {
+
+    },
+    "Edit profile" : {
+
+    },
+    "Edit Profile" : {
+
+    },
+    "Enable it in Settings to see your activity." : {
+
+    },
+    "Enable Workouts in Settings to see your training history." : {
+
+    },
+    "End" : {
+
+    },
+    "Energy" : {
+
+    },
+    "error.analysis_quota.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try again later when a new analysis slot is available."
+          }
+        }
+      }
+    },
+    "error.analysis_quota.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Analysis limit reached"
+          }
+        }
+      }
+    },
+    "error.cancelled.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The request was cancelled."
+          }
+        }
+      }
+    },
+    "error.cancelled.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Request cancelled"
+          }
+        }
+      }
+    },
+    "error.conflict.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The data has changed. Please refresh and try again."
+          }
+        }
+      }
+    },
+    "error.conflict.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Data conflict"
+          }
+        }
+      }
+    },
+    "error.decoding.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The response format was unexpected. Please try again."
+          }
+        }
+      }
+    },
+    "error.decoding.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Data could not be loaded"
+          }
+        }
+      }
+    },
+    "error.forbidden.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You do not have access to this resource."
+          }
+        }
+      }
+    },
+    "error.forbidden.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Access denied"
+          }
+        }
+      }
+    },
+    "error.invalid_request.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check the entered data and try again."
+          }
+        }
+      }
+    },
+    "error.invalid_request.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid request"
+          }
+        }
+      }
+    },
+    "error.invalid_response.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server returned an invalid response. Please try again."
+          }
+        }
+      }
+    },
+    "error.invalid_response.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unexpected response"
+          }
+        }
+      }
+    },
+    "error.not_found.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The requested data is no longer available."
+          }
+        }
+      }
+    },
+    "error.not_found.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not found"
+          }
+        }
+      }
+    },
+    "error.offline.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check your connection and try again."
+          }
+        }
+      }
+    },
+    "error.offline.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No internet connection"
+          }
+        }
+      }
+    },
+    "error.permission_denied.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow access in Settings and try again."
+          }
+        }
+      }
+    },
+    "error.permission_denied.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permission required"
+          }
+        }
+      }
+    },
+    "error.rate_limited.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please wait a moment and try again."
+          }
+        }
+      }
+    },
+    "error.rate_limited.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Too many requests"
+          }
+        }
+      }
+    },
+    "error.secure_connection.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server identity could not be verified. Please try again later."
+          }
+        }
+      }
+    },
+    "error.secure_connection.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secure connection failed"
+          }
+        }
+      }
+    },
+    "error.server_unavailable.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The service is temporarily unavailable. Please try again later."
+          }
+        }
+      }
+    },
+    "error.server_unavailable.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server unavailable"
+          }
+        }
+      }
+    },
+    "error.session_expired.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please sign in again to continue."
+          }
+        }
+      }
+    },
+    "error.session_expired.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session expired"
+          }
+        }
+      }
+    },
+    "error.storage.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app could not access secure storage on this device."
+          }
+        }
+      }
+    },
+    "error.storage.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secure storage unavailable"
+          }
+        }
+      }
+    },
+    "error.timeout.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server took too long to respond. Please try again."
+          }
+        }
+      }
+    },
+    "error.timeout.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Request timed out"
+          }
+        }
+      }
+    },
+    "error.unauthorized.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You do not have permission to perform this action."
+          }
+        }
+      }
+    },
+    "error.unauthorized.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not authorized"
+          }
+        }
+      }
+    },
+    "error.unknown.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An unexpected error occurred. Please try again."
+          }
+        }
+      }
+    },
+    "error.unknown.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Something went wrong"
+          }
+        }
+      }
+    },
+    "error.validation.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check your input"
+          }
+        }
+      }
+    },
+    "Failed to load. Retry" : {
+
+    },
+    "Fat" : {
+
+    },
+    "Fluid Ounces" : {
+
+    },
+    "Food name" : {
+
+    },
+    "For %@" : {
+
+    },
+    "Found %lld item(s)" : {
+
+    },
+    "Gender" : {
+
+    },
+    "Get Started" : {
+
+    },
+    "Glass card" : {
+
+    },
+    "Glass Effects" : {
+
+    },
+    "Goal" : {
+
+    },
+    "Goal recommendations" : {
+
+    },
+    "Goals" : {
+
+    },
+    "Grams" : {
+
+    },
+    "Health access is off" : {
+
+    },
+    "Health data unavailable" : {
+
+    },
+    "Health data unavailable on this device" : {
+
+    },
+    "Heart Rate" : {
+
+    },
+    "History" : {
+
+    },
+    "Home" : {
+
+    },
+    "Hours" : {
+
+    },
+    "Initial weight" : {
+
+    },
+    "Keep going!" : {
+
+    },
+    "Last 7 nights" : {
+
+    },
+    "Last recorded: %@" : {
+
+    },
+    "LATEST" : {
+
+    },
+    "Loading activity..." : {
+
+    },
+    "Loading sleep..." : {
+
+    },
+    "Macros (Avg)" : {
+
+    },
+    "Manage weight records" : {
+
+    },
+    "Manage your daily targets" : {
+
+    },
+    "Manual record" : {
+
+    },
+    "Metric" : {
+
+    },
+    "Metrics" : {
+
+    },
+    "Milliliters" : {
+
+    },
+    "ml" : {
+
+    },
+    "Need at least 2 other nights to compare" : {
+
+    },
+    "Next" : {
+
+    },
+    "Next goal review" : {
+
+    },
+    "Nights" : {
+
+    },
+    "No account? Register" : {
+
+    },
+    "No changes yet" : {
+
+    },
+    "No data for this period" : {
+
+    },
+    "No food recognized" : {
+
+    },
+    "No heart rate data" : {
+
+    },
+    "No heart rate data for this workout." : {
+
+    },
+    "No meals logged today" : {
+
+    },
+    "No profile data. Please create your profile." : {
+
+    },
+    "No results found" : {
+
+    },
+    "No sleep data for last night yet" : {
+
+    },
+    "No sleep data yet" : {
+
+    },
+    "No water added today" : {
+
+    },
+    "No weight records for this period" : {
+
+    },
+    "No workouts yet" : {
+
+    },
+    "None" : {
+
+    },
+    "Notifications are disabled" : {
+
+    },
+    "NutriFlow" : {
+
+    },
+    "Open Settings" : {
+
+    },
+    "Ounces" : {
+
+    },
+    "Password" : {
+
+    },
+    "Per 100g" : {
+
+    },
+    "Personalized plan" : {
+
+    },
+    "Popular" : {
+
+    },
+    "Preset servings" : {
+
+    },
+    "Profile" : {
+
+    },
+    "Progress" : {
+
+    },
+    "Protein" : {
+
+    },
+    "Recommendation adjustments are kept while goals adapt to your profile and weight." : {
+
+    },
+    "Record" : {
+
+    },
+    "Record another day to see your change over time." : {
+
+    },
+    "Record weight" : {
+
+    },
+    "Record your weight to start tracking your trend." : {
+
+    },
+    "Register to get started" : {
+
+    },
+    "Reminder time" : {
+
+    },
+    "Reminders" : {
+
+    },
+    "Row" : {
+
+    },
+    "Save" : {
+
+    },
+    "Save Changes" : {
+
+    },
+    "Save today’s weight" : {
+
+    },
+    "Saving…" : {
+
+    },
+    "Scan" : {
+
+    },
+    "Scan Result" : {
+
+    },
+    "ScanFood" : {
+
+    },
+    "Search catalog" : {
+
+    },
+    "Search Food" : {
+
+    },
+    "Search food..." : {
+
+    },
+    "Seconds" : {
+
+    },
+    "Select Date Range" : {
+
+    },
+    "Series" : {
+
+    },
+    "Settings" : {
+
+    },
+    "Sign in to continue" : {
+
+    },
+    "Sign in with Google" : {
+
+    },
+    "Sleep" : {
+
+    },
+    "Sleep access is off. Enable Apple Health in Settings." : {
+
+    },
+    "Sleep data unavailable" : {
+
+    },
+    "Start" : {
+
+    },
+    "Start tracking to see statistics" : {
+
+    },
+    "Start typing to search" : {
+
+    },
+    "Switch to automatic goals" : {
+
+    },
+    "Take another photo" : {
+
+    },
+    "Tap to change photo" : {
+
+    },
+    "Tap to see history" : {
+
+    },
+    "Tell us about yourself" : {
+
+    },
+    "The chart and automatic goals will be updated if this is today’s current record." : {
+
+    },
+    "Theme" : {
+
+    },
+    "This text stays readable on any dynamic background thanks to the blur." : {
+
+    },
+    "This updates today’s point. Automatic goals will use the new current weight." : {
+
+    },
+    "Time" : {
+
+    },
+    "Today Summary" : {
+
+    },
+    "Today's Food" : {
+
+    },
+    "Today's Overview" : {
+
+    },
+    "TODAY’S WEIGHT" : {
+
+    },
+    "Track your activity" : {
+
+    },
+    "Track your sleep" : {
+
+    },
+    "Track your workouts" : {
+
+    },
+    "Try again" : {
+
+    },
+    "Try Again" : {
+
+    },
+    "Try again with better lighting and food clearly visible." : {
+
+    },
+    "Units" : {
+
+    },
+    "Update my goals to match my stats" : {
+
+    },
+    "Use automatic goals?" : {
+
+    },
+    "Use standard automatic goals" : {
+
+    },
+    "Use subtle glass on supported interface elements." : {
+
+    },
+    "Value" : {
+
+    },
+    "View Result" : {
+
+    },
+    "Water" : {
+
+    },
+    "Water Intake" : {
+
+    },
+    "Water reminder" : {
+
+    },
+    "Water: %@" : {
+
+    },
+    "We need a little more recent data before creating another recommendation." : {
+
+    },
+    "Weight" : {
+
+    },
+    "Weight records" : {
+
+    },
+    "Weight reminder" : {
+
+    },
+    "Welcome back" : {
+
+    },
+    "Will be added to Water Tracking" : {
+
+    },
+    "Workouts" : {
+
+    },
+    "Workouts access is off" : {
+
+    },
+    "Workouts access is off. Enable Apple Health in Settings." : {
+
+    },
+    "Your manual or personalized targets will be replaced using your current profile and weight." : {
+
+    },
+    "Your manual targets stay fixed when your weight changes." : {
+
+    },
+    "Your nutrition trends" : {
+
+    },
+    "Your workouts from Apple Health will appear here." : {
+
+    }
+  },
+  "version" : "1.0"
+}

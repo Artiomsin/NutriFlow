@@ -1,6 +1,7 @@
 import Foundation
 
 enum APIError: Error, Equatable, Sendable {
+    case remote(ProblemDetails, retryAfter: TimeInterval?)
     case invalidURL
     case invalidRequest(statusCode: Int, requestId: String?)
     case unauthorized
@@ -23,6 +24,8 @@ enum APIError: Error, Equatable, Sendable {
 extension APIError: AppErrorConvertible {
     var appError: AppError {
         switch self {
+        case .remote(let problem, _):
+            return Self.appError(for: problem)
         case .invalidURL, .invalidRequest, .encodingFailed:
             return .invalidRequest
         case .unauthorized:
@@ -56,6 +59,8 @@ extension APIError: AppErrorConvertible {
 
     var statusCode: Int? {
         switch self {
+        case .remote(let problem, _):
+            return problem.status
         case .invalidRequest(let statusCode, _):
             return statusCode
         case .unauthorized:
@@ -79,6 +84,8 @@ extension APIError: AppErrorConvertible {
 
     var requestId: String? {
         switch self {
+        case .remote(let problem, _):
+            return problem.requestId
         case .invalidRequest(_, let requestId),
              .conflict(let requestId),
              .requestTimeout(let requestId),
@@ -112,6 +119,31 @@ extension APIError: AppErrorConvertible {
             return .serverUnavailable
         default:
             return .unknown
+        }
+    }
+
+    private static func appError(for problem: ProblemDetails) -> AppError {
+        switch problem.problemType {
+        case .foodAnalysisQuotaExceeded:
+            return .foodAnalysisQuotaExceeded
+        case .validationFailed, .invalidRequest:
+            return .invalidRequest
+        case .unauthorized:
+            return .unauthorized
+        case .forbidden:
+            return .forbidden
+        case .notFound:
+            return .notFound
+        case .conflict:
+            return .conflict
+        case .requestTimeout:
+            return .timeout
+        case .rateLimited:
+            return .rateLimited
+        case .serverError:
+            return .serverUnavailable
+        case nil:
+            return appError(forHTTPStatus: problem.status)
         }
     }
 }

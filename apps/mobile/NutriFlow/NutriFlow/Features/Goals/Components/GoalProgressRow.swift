@@ -25,9 +25,12 @@ struct GoalProgressRow: View {
                         .font(.caption)
                         .foregroundColor(AppColors.textSecondary)
                     Spacer()
-                    Text("\(displayCurrent ?? "\(current)")/\(displayGoal ?? "\(goal)") \(unit) (\(Int(pct * 100))%)")
-                        .font(.caption)
-                        .foregroundColor(AppColors.textPrimary)
+                    HStack(spacing: 4) {
+                        Text("\(displayCurrent ?? "\(current)")/\(displayGoal ?? "\(goal)") \(unit)")
+                        Text(pct, format: .percent.precision(.fractionLength(0)))
+                    }
+                    .font(.caption)
+                    .foregroundColor(AppColors.textPrimary)
                 }
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
