@@ -9,7 +9,7 @@ enum WaterTrackingEndpoints {
     }
 
     static func deleteWaterTracking(id: String, date: String?) -> (path: String, query: [URLQueryItem]) {
-        let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
+        let encoded = EndpointPath.component(id)
         return (path: "/water-tracking/\(encoded)", query: date.map { [URLQueryItem(name: "date", value: $0)] } ?? [])
     }
     static func getWaterByDate(date: String) -> (path: String, query: [URLQueryItem]) {

@@ -18,10 +18,10 @@ enum GoalsEndpoints {
     static let goalHistory = "/goals/history"
 
     static func acceptRecommendation(id: String) -> String {
-        "/goals/personalization/\(id)/accept"
+        "/goals/personalization/\(EndpointPath.component(id))/accept"
     }
 
     static func dismissRecommendation(id: String) -> String {
-        "/goals/personalization/\(id)/dismiss"
+        "/goals/personalization/\(EndpointPath.component(id))/dismiss"
     }
 }

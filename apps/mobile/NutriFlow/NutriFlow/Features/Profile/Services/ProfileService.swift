@@ -64,7 +64,7 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
             query.append(URLQueryItem(name: "to", value: to))
         }
         let request = APIRequest<NeverBody>(
-            path: ProfileEndpoints.weightLogs,
+            path: WeightLogEndpoints.create,
             method: .GET,
             queryItems: query
         )
@@ -77,7 +77,7 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
         }
 
         let request = APIRequest(
-            path: ProfileEndpoints.weightLogs,
+            path: WeightLogEndpoints.list,
             method: .POST,
             body: RecordWeightRequest(weightKg: weightKg)
         )
@@ -86,7 +86,7 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
 
     func deleteWeightLog(date: String) async throws {
         let request = APIRequest<NeverBody>(
-            path: "\(ProfileEndpoints.weightLogs)/\(date)",
+            path: WeightLogEndpoints.delete(date: date),
             method: .DELETE
         )
         try await client.sendVoid(request)
