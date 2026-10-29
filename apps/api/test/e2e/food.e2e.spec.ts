@@ -68,9 +68,14 @@ describe('food-entry routes', () => {
       .set(auth(token))
       .send({ calories: 100 })
       .expect(400);
-    expect(res.body.statusCode).toBe(400);
-    expect(res.body.requestId).toBeString();
-    expect(res.body.error.fieldErrors.name).toBeArray();
+    expect(res.body.status).toBe(400);
+    expect(res.body.type).toBe(
+      'https://api.nutriflow.app/problems/validation-failed',
+    );
+    expect(res.body.instance).toStartWith('urn:uuid:');
+    expect(res.body.fieldErrors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: 'name' })]),
+    );
   });
 
   it('creates an entry and returns it from today', async () => {

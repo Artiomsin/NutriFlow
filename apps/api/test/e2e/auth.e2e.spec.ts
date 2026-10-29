@@ -67,9 +67,16 @@ describe('POST /api/auth/register', () => {
       .post('/api/auth/register')
       .send({ ...credentials(uniqueEmail()), email: 'nope' })
       .expect(400);
-    expect(res.body.statusCode).toBe(400);
-    expect(res.body.requestId).toBeString();
-    expect(res.body.error.fieldErrors.email).toBeArray();
+    expect(res.body.status).toBe(400);
+    expect(res.body.type).toBe(
+      'https://api.nutriflow.app/problems/validation-failed',
+    );
+    expect(res.body.instance).toStartWith('urn:uuid:');
+    expect(res.body.fieldErrors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: 'email', code: 'INVALID_FORMAT' }),
+      ]),
+    );
   });
 
   it('rejects a short password', async () => {
