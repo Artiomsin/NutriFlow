@@ -1,5 +1,5 @@
 import http from 'k6/http';
-import { sleep } from 'k6';
+import { check, sleep } from 'k6';
 
 import {
   authorizedParams,
@@ -60,11 +60,11 @@ export default function (data) {
     `${baseUrl}/api/food-entry`,
     JSON.stringify({
       name: `Load test meal ${__VU}`,
-      grams: 120,
-      calories: 180,
-      protein: 8,
-      fat: 4,
-      carbs: 28,
+      grams: 120.5,
+      calories: 180.4,
+      protein: 8.2,
+      fat: 4.1,
+      carbs: 28.3,
     }),
     {
       ...params,
@@ -77,7 +77,7 @@ export default function (data) {
   if (foodId) {
     const updateFood = http.patch(
       `${baseUrl}/api/food-entry/${foodId}`,
-      JSON.stringify({ calories: 190 }),
+      JSON.stringify({ calories: 190.6 }),
       {
         ...params,
         tags: { name: 'PATCH /api/food-entry/:id' },
@@ -90,6 +90,18 @@ export default function (data) {
     ...authorizedParams(accessToken, 'GET /api/daily-summary/dashboard'),
   });
   expectStatus(dashboard, 200, 'GET /api/daily-summary/dashboard');
+  check(dashboard, {
+    'daily summary keeps decimal nutrition after update': (response) => {
+      if (response.status !== 200) return false;
+      const summary = response.json('dailySummary');
+      return (
+        summary?.totalCalories === 190.6 &&
+        summary?.totalProtein === 8.2 &&
+        summary?.totalFat === 4.1 &&
+        summary?.totalCarbs === 28.3
+      );
+    },
+  });
 
   const waterId = water.status === 201 && water.body ? water.json('id') : null;
   if (waterId) {
