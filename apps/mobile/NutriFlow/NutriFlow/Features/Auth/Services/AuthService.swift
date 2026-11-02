@@ -75,4 +75,20 @@ final class AuthService: AuthServiceProtocol, Sendable {
 
         try await client.sendVoid(request)
     }
+    
+    func changePassword(currentPassword: String, newPassword: String) async throws {
+        let request = APIRequest(
+            path: AuthEndpoints.changePassword,
+            method: .POST,
+            body: ChangePasswordDTO(
+                currentPassword: currentPassword,
+                newPassword: newPassword
+            )
+        )
+
+        try await client.sendVoid(request)
+
+        try sessionService.clear()
+    }
+    
 }

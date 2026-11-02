@@ -5,6 +5,11 @@ struct LoginDTO: Encodable, Sendable {
     let password: String
 }
 
+struct ChangePasswordDTO: Encodable {
+    let currentPassword: String
+    let newPassword: String
+}
+
 struct RegisterDTO: Encodable, Sendable {
     let email: String
     let password: String

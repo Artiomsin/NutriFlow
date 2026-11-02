@@ -5,12 +5,14 @@ enum SettingsNavRoute: Hashable {
     case profile
     case editProfile
     case goals
+    case changePassword
 }
 
 struct SettingsView: View {
     @Bindable var viewModel: ProfileViewModel
     let goalsVM: GoalsViewModel
     let coordinator: AppCoordinator?
+    let authService: AuthServiceProtocol
     var tabBarState: TabBarState = TabBarState()
     let isActive: Bool
     let weightReminderScheduler: WeightReminderScheduling
@@ -22,10 +24,11 @@ struct SettingsView: View {
     @Environment(ThemeStore.self)
     private var themeStore
 
-    init(viewModel: ProfileViewModel, goalsVM: GoalsViewModel, coordinator: AppCoordinator?, weightReminderScheduler: WeightReminderScheduling, waterReminderScheduler: WaterReminderScheduling, achievementNotificationService: AchievementNotificationService, tabBarState: TabBarState = TabBarState(), isActive: Bool = true) {
+    init(viewModel: ProfileViewModel, goalsVM: GoalsViewModel, coordinator: AppCoordinator?,authService: AuthServiceProtocol, weightReminderScheduler: WeightReminderScheduling, waterReminderScheduler: WaterReminderScheduling, achievementNotificationService: AchievementNotificationService, tabBarState: TabBarState = TabBarState(), isActive: Bool = true) {
         self.viewModel = viewModel
         self.goalsVM = goalsVM
         self.coordinator = coordinator
+        self.authService = authService
         self.weightReminderScheduler = weightReminderScheduler
         self.waterReminderScheduler = waterReminderScheduler
         self.achievementNotificationService = achievementNotificationService
@@ -77,6 +80,13 @@ struct SettingsView: View {
                     EditProfileView(viewModel: viewModel)
                 case .goals:
                     GoalsManagementView(goalsVM: goalsVM)
+    
+                case .changePassword:
+                    ChangePasswordView(
+                        viewModel: ChangePasswordViewModel(
+                            authService: authService
+                        )
+                    )
                 }
             }
         }
@@ -109,16 +119,28 @@ struct SettingsView: View {
             HStack {
                 Text("Account")
                     .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(AppColors.textTertiary )
+                    .foregroundColor(AppColors.textTertiary)
+
                 Spacer()
             }
             .padding(.leading, 2)
 
             SettingsRow(icon: "person", title: "Profile")
-                .onTapGesture { navPath.append(.profile) }
+                .onTapGesture {
+                    navPath.append(.profile)
+                }
+
+            SettingsRow(icon: "lock", title: "Change Password")
+                .onTapGesture {
+                    navPath.append(.changePassword)
+                }
 
             SettingsRow(icon: "arrow.right.square", title: "Log Out", tint: .red)
-                .onTapGesture { Task { await viewModel.logout() } }
+                .onTapGesture {
+                    Task {
+                        await viewModel.logout()
+                    }
+                }
         }
     }
 
@@ -203,7 +225,7 @@ struct SettingsView: View {
             .padding(.horizontal, AppSpacing.paddingHorizontal)
             .padding(.vertical, 14)
             .appGlassSurface()
-            #endif
+            #endif // DEBUG
         }
     }
 
@@ -444,20 +466,25 @@ struct SettingsView: View {
 #Preview("Settings") {
     let container = AppDependencyContainer()
     let coordinator = AppCoordinator(container: container)
+
     let viewModel = ProfileViewModel(
         coordinator: coordinator,
         authService: MockAuthService(),
         profileService: MockProfileService(),
         userService: MockUserService()
     )
+
     SettingsView(
         viewModel: viewModel,
-        goalsVM: GoalsViewModel(coordinator: coordinator, service: MockGoalsService()),
+        goalsVM: GoalsViewModel(
+            coordinator: coordinator,
+            service: MockGoalsService()
+        ),
         coordinator: coordinator,
+        authService: MockAuthService(),
         weightReminderScheduler: container.weightReminderScheduler,
         waterReminderScheduler: container.waterReminderScheduler,
         achievementNotificationService: container.achievementNotificationService
     )
     .environment(container.themeStore)
-        
 }
