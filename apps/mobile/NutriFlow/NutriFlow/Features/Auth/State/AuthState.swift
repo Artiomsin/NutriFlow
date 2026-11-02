@@ -1,7 +1,6 @@
-import Foundation
-
-enum AuthOperation: Equatable {
-    case credentials
+enum AuthOperation {
+    case login
+    case register
     case google
     case apple
 }

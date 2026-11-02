@@ -12,7 +12,6 @@ enum AuthFactory {
     static func make(container: AppDependency, coordinator: AppCoordinator) -> some View {
         let viewModel = AuthViewModel(
             authService: container.authService,
-            profileService: container.profileService,
             googleSignInService: container.googleSignInService,
             coordinator: coordinator,
             activitySync: container.activitySync,

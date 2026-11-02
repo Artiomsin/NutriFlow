@@ -216,11 +216,19 @@ struct ServingPickerView: View {
                                         .stroke(AppColors.border, lineWidth: 1)
                                 )
                         )
-                        .onChange(of: viewModel.gramsText) { _, _ in viewModel.clearError() }
+                        .onChange(of: viewModel.gramsText) { _, _ in
+                            viewModel.clearFieldError("grams")
+                        }
                 }
                 Text(viewModel.displayUnit)
                     .font(.title3.weight(.medium))
                     .foregroundColor(AppColors.textSecondary)
+            }
+
+            if let fieldError = viewModel.fieldErrors["grams"] {
+                Text(fieldError)
+                    .font(.caption)
+                    .foregroundStyle(AppColors.error)
             }
         }
     }

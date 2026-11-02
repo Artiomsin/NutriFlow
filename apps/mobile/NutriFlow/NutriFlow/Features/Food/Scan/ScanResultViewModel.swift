@@ -175,6 +175,7 @@ final class ScanResultViewModel {
     
     var isLoading = false
     var error: AppError?
+    var fieldErrors: [UUID: FormFieldErrors] = [:]
     var categories: [FoodCategory] = []
     var categoriesError: AppError?
     @ObservationIgnored private var uploadedImageUrl: String?
@@ -188,7 +189,17 @@ final class ScanResultViewModel {
     @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
     
     var preferredUnits: PreferredUnits { prefsStore.preferredUnits }
-    
+
+    func fieldError(for itemID: UUID, field: String) -> String? {
+        fieldErrors[itemID]?[field]
+    }
+
+    private func clearFieldError(for itemID: UUID, field: String) {
+        guard var errors = fieldErrors[itemID] else { return }
+        errors.clear(field)
+        fieldErrors[itemID] = errors.isEmpty ? nil : errors
+    }
+
     func trackScreenView() {
         analyticsTracker?.track(.screenView(screen: "scan_result"))
     }
@@ -270,6 +281,7 @@ final class ScanResultViewModel {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         guard case .food(var item) = items[index] else { return }
         item.nameText = text
+        clearFieldError(for: id, field: "name")
         items[index] = .food(item)
     }
     
@@ -277,6 +289,7 @@ final class ScanResultViewModel {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         guard case .food(var item) = items[index] else { return }
         item.caloriesText = text
+        clearFieldError(for: id, field: "calories")
         items[index] = .food(item)
     }
     
@@ -291,6 +304,13 @@ final class ScanResultViewModel {
         case .carbs:
             item.carbsText = text
         }
+        let fieldName: String
+        switch field {
+        case .protein: fieldName = "protein"
+        case .fat: fieldName = "fat"
+        case .carbs: fieldName = "carbs"
+        }
+        clearFieldError(for: id, field: fieldName)
         items[index] = .food(item)
     }
     
@@ -298,6 +318,7 @@ final class ScanResultViewModel {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         guard case .food(var item) = items[index] else { return }
         item.gramsText = text
+        clearFieldError(for: id, field: "grams")
         item.recalculateMacros(preferred: preferredUnits)
         items[index] = .food(item)
     }
@@ -317,6 +338,7 @@ final class ScanResultViewModel {
     func updateWaterAmount(id: UUID, _ text: String) {
         guard let index = items.firstIndex(where: { $0.id == id }), case .water(var item) = items[index] else { return }
         item.amountMlText = text
+        clearFieldError(for: id, field: "amountMl")
         items[index] = .water(item)
     }
     
@@ -327,6 +349,9 @@ final class ScanResultViewModel {
             categories = try await service.getCategories()
         } catch {
             let mapped = ErrorMapper.map(error)
+            if mapped == .unauthorized {
+                coordinator?.goToAuth()
+            }
             categoriesError = mapped == .cancelled ? nil : mapped
         }
     }
@@ -335,13 +360,49 @@ final class ScanResultViewModel {
         Task { await loadCategories() }
     }
     
+    private func validate(_ food: EditableScanFood) -> FormFieldErrors {
+        var errors = FormFieldErrors()
+
+        if food.nameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            errors.set(FormErrorMapper.message(for: FieldErrorCode.required.rawValue), for: "name")
+        }
+        let grams = UnitConversion.parseDecimal(food.gramsText)
+        if grams == nil || grams! <= 0 {
+            errors.set(FormErrorMapper.message(for: FieldErrorCode.invalidValue.rawValue), for: "grams")
+        }
+        let calories = UnitConversion.parseDecimal(food.caloriesText)
+        if calories == nil || calories! <= 0 {
+            errors.set(FormErrorMapper.message(for: FieldErrorCode.invalidValue.rawValue), for: "calories")
+        }
+        for (field, value) in [("protein", food.proteinText), ("fat", food.fatText), ("carbs", food.carbsText)] {
+            if !value.isEmpty && UnitConversion.macroGrams(fromDisplay: value, preferred: preferredUnits) == nil {
+                errors.set(FormErrorMapper.message(for: FieldErrorCode.invalidValue.rawValue), for: field)
+            }
+        }
+        return errors
+    }
+
     func addToDiary() async -> Bool {
         guard !isLoading else { return false }
         let selected = selectedItems
         guard !selected.isEmpty else { return false }
         let foods = selectedFoodItems
         let water = selectedWaterItems
-        
+
+        fieldErrors.removeAll()
+        for food in foods {
+            let errors = validate(food)
+            if !errors.isEmpty {
+                fieldErrors[food.id] = errors
+            }
+        }
+        for waterItem in water where waterItem.amountMl == nil {
+            var errors = FormFieldErrors()
+            errors.set(FormErrorMapper.message(for: FieldErrorCode.invalidValue.rawValue), for: "amountMl")
+            fieldErrors[waterItem.id] = errors
+        }
+        guard fieldErrors.isEmpty else { return false }
+
         isLoading = true
         error = nil
         defer { isLoading = false }
@@ -375,13 +436,24 @@ final class ScanResultViewModel {
                     date: nil
                 )
             } catch {
-                let mapped = ErrorMapper.map(error)
-                if mapped == .unauthorized {
-                    self.error = mapped
-                    return false
+                switch ErrorHandler.handle(
+                    error,
+                    supportedFields: ["name", "grams", "calories", "protein", "fat", "carbs"]
+                ) {
+                case .fieldErrors(let errors):
+                    fieldErrors[item.id] = errors
+                    failedIds.append(item.id)
+                case .general(let appError):
+                    if appError == .unauthorized {
+                        coordinator?.goToAuth()
+                        self.error = appError
+                        return false
+                    }
+                    if appError != .cancelled {
+                        failed.append(item.name)
+                        failedIds.append(item.id)
+                    }
                 }
-                failed.append(item.name)
-                failedIds.append(item.id)
             }
         }
 
@@ -403,6 +475,13 @@ final class ScanResultViewModel {
             todayFoodVM.notifyDataMutated()
         }
         
+        if !fieldErrors.isEmpty && failed.isEmpty {
+            for index in items.indices where !failedIds.contains(items[index].id) {
+                items[index].isSelected = false
+            }
+            return false
+        }
+
         if failed.isEmpty {
             return true
         }

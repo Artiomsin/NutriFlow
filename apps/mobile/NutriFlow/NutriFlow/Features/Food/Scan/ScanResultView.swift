@@ -84,6 +84,20 @@ struct ScanResultView: View {
         )
     }
 
+    @ViewBuilder
+    private func fieldErrors(for itemID: UUID, fields: [String]) -> some View {
+        let messages = fields.compactMap { viewModel.fieldError(for: itemID, field: $0) }
+        if !messages.isEmpty {
+            VStack(alignment: .leading, spacing: 3) {
+                ForEach(Array(messages.enumerated()), id: \.offset) { _, message in
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(AppColors.error)
+                }
+            }
+        }
+    }
+
     private func itemRow(_ item: EditableScanFood) -> some View {
         VStack(spacing: 14) {
             HStack(spacing: 14) {
@@ -153,6 +167,11 @@ struct ScanResultView: View {
 
                 weightField(item)
             }
+
+            fieldErrors(
+                for: item.id,
+                fields: ["name", "grams", "calories", "protein", "fat", "carbs"]
+            )
         }
         .padding(16)
         .background(
@@ -163,7 +182,8 @@ struct ScanResultView: View {
     }
 
     private func waterRow(_ item: EditableScanWater) -> some View {
-        HStack(spacing: 14) {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 14) {
             Button {
                 viewModel.toggle(id: item.id)
             } label: {
@@ -210,6 +230,8 @@ struct ScanResultView: View {
                 .frame(height: 36)
                 .background(AppColors.surfaceSecondary, in: RoundedRectangle(cornerRadius: AppRadius.small))
             }
+            }
+            fieldErrors(for: item.id, fields: ["amountMl"])
         }
         .padding(16)
         .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18))

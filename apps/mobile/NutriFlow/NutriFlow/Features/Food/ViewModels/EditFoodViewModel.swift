@@ -20,6 +20,7 @@ final class EditFoodViewModel {
     var fat: String
     var carbs: String
     var grams: String
+    var fieldErrors = FormFieldErrors()
 
     var photosItem: PhotosPickerItem?
     var selectedImageData: Data?
@@ -109,7 +110,8 @@ final class EditFoodViewModel {
         Task { _ = await save() }
     }
 
-    func clearError() {
+    func clearFieldError(_ field: String) {
+        fieldErrors.clear(field)
         error = nil
     }
 
@@ -158,12 +160,23 @@ final class EditFoodViewModel {
     }
 
     private func handle(_ rawError: Error) {
-        let appError = ErrorMapper.map(rawError)
-        if appError == .unauthorized {
-            coordinator?.goToAuth()
+        switch ErrorHandler.handle(
+            rawError,
+            supportedFields: ["name", "grams", "calories", "protein", "fat", "carbs"]
+        ) {
+        case .fieldErrors(let errors):
+            fieldErrors = errors
+            error = nil
+
+        case .general(let appError):
+            fieldErrors.removeAll()
+
+            if appError == .unauthorized {
+                coordinator?.goToAuth()
+            }
+
+            error = appError == .cancelled ? nil : appError
         }
-        guard appError != .cancelled else { return }
-        error = appError
     }
 
     func loadImage(_ item: PhotosPickerItem?) {

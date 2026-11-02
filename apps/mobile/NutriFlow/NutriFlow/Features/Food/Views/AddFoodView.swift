@@ -137,27 +137,94 @@ struct AddFoodView: View {
         AppCard {
             VStack(alignment: .leading, spacing: 14) {
                 sectionLabel("Details", icon: "square.and.pencil")
-                AppTextField(title: "Food name", text: $viewModel.name, submitLabel: .return, focus: $focusedField, focusValue: .name) {
+                AppTextField(
+                    title: "Food name",
+                    text: $viewModel.name,
+                    submitLabel: .return,
+                    focus: $focusedField,
+                    focusValue: .name,
+                    errorMessage: viewModel.fieldErrors["name"]
+                ) {
                     nextField(.grams)
                 }
-                .onChange(of: viewModel.name) { _, _ in viewModel.clearError() }
-                AppTextField(title: viewModel.gramsLabel, text: $viewModel.grams, keyboardType: .decimalPad, submitLabel: .return, focus: $focusedField, focusValue: .grams) {
+                .onChange(of: viewModel.name) { _, _ in
+                    viewModel.clearFieldError("name")
+                }
+
+                AppTextField(
+                    title: viewModel.gramsLabel,
+                    text: $viewModel.grams,
+                    keyboardType: .decimalPad,
+                    submitLabel: .return,
+                    focus: $focusedField,
+                    focusValue: .grams,
+                    errorMessage: viewModel.fieldErrors["grams"]
+                ) {
                     nextField(.calories)
                 }
-                .onChange(of: viewModel.grams) { _, _ in viewModel.clearError() }
-                AppTextField(title: viewModel.caloriesLabel, text: $viewModel.calories, keyboardType: .numberPad, submitLabel: .return, focus: $focusedField, focusValue: .calories) {
+                .onChange(of: viewModel.grams) { _, _ in
+                    viewModel.clearFieldError("grams")
+                }
+
+                AppTextField(
+                    title: viewModel.caloriesLabel,
+                    text: $viewModel.calories,
+                    keyboardType: .numberPad,
+                    submitLabel: .return,
+                    focus: $focusedField,
+                    focusValue: .calories,
+                    errorMessage: viewModel.fieldErrors["calories"]
+                ) {
                     nextField(.protein)
                 }
-                .onChange(of: viewModel.calories) { _, _ in viewModel.clearError() }
+                .onChange(of: viewModel.calories) { _, _ in
+                    viewModel.clearFieldError("calories")
+                }
+
                 HStack(spacing: 12) {
-                    AppTextField(title: viewModel.proteinLabel, text: $viewModel.protein, keyboardType: .decimalPad, submitLabel: .return, focus: $focusedField, focusValue: .protein) {
+                    AppTextField(
+                        title: viewModel.proteinLabel,
+                        text: $viewModel.protein,
+                        keyboardType: .decimalPad,
+                        submitLabel: .return,
+                        focus: $focusedField,
+                        focusValue: .protein,
+                        errorMessage: viewModel.fieldErrors["protein"]
+                    ) {
                         nextField(.fat)
                     }
-                    AppTextField(title: viewModel.fatLabel, text: $viewModel.fat, keyboardType: .decimalPad, submitLabel: .return, focus: $focusedField, focusValue: .fat) {
+                    .onChange(of: viewModel.protein) { _, _ in
+                        viewModel.clearFieldError("protein")
+                    }
+
+                    AppTextField(
+                        title: viewModel.fatLabel,
+                        text: $viewModel.fat,
+                        keyboardType: .decimalPad,
+                        submitLabel: .return,
+                        focus: $focusedField,
+                        focusValue: .fat,
+                        errorMessage: viewModel.fieldErrors["fat"]
+                    ) {
                         nextField(.carbs)
                     }
-                    AppTextField(title: viewModel.carbsLabel, text: $viewModel.carbs, keyboardType: .decimalPad, submitLabel: .return, focus: $focusedField, focusValue: .carbs) {
+                    .onChange(of: viewModel.fat) { _, _ in
+                        viewModel.clearFieldError("fat")
+                    }
+
+                    AppTextField(
+                        title: viewModel.carbsLabel,
+                        text: $viewModel.carbs,
+                        keyboardType: .decimalPad,
+                        submitLabel: .return,
+                        focus: $focusedField,
+                        focusValue: .carbs,
+                        errorMessage: viewModel.fieldErrors["carbs"]
+                    ) {
                         focusedField = nil
+                    }
+                    .onChange(of: viewModel.carbs) { _, _ in
+                        viewModel.clearFieldError("carbs")
                     }
                 }
             }

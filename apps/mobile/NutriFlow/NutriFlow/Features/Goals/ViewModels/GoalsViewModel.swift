@@ -8,6 +8,7 @@ final class GoalsViewModel {
     var personalizationState: PersonalizationState?
     var personalizationError: AppError?
     var saveError: AppError?
+    var fieldErrors = FormFieldErrors()
     var historyError: AppError?
     var isProcessingPersonalization = false
     
@@ -110,6 +111,11 @@ final class GoalsViewModel {
 
     func retryGoals() {
         Task { await loadGoals(forceRefresh: true) }
+    }
+
+    func clearFieldError(_ field: String) {
+        fieldErrors.clear(field)
+        saveError = nil
     }
 
     func retryPersonalization() {
@@ -340,6 +346,7 @@ final class GoalsViewModel {
         sleepMaxMinutes: Int?
     ) async -> Bool {
         saveError = nil
+        fieldErrors.removeAll()
         do {
             let updated = try await service.updateGoals(
                 calories: calories,
@@ -363,17 +370,36 @@ final class GoalsViewModel {
             progressRefreshState?.invalidate()
             return true
         } catch {
-            let mapped = ErrorMapper.map(error)
-            routeAuth(mapped)
-            saveError = mapped == .cancelled ? nil : mapped
+            switch ErrorHandler.handle(
+                error,
+                supportedFields: [
+                    "dailyCaloriesGoal",
+                    "dailyProteinGoal",
+                    "dailyFatGoal",
+                    "dailyCarbsGoal",
+                    "dailyWaterGoal",
+                    "dailyStepsGoal",
+                    "dailyActiveCaloriesGoal",
+                    "weeklyWorkoutsGoal",
+                    "weeklyWorkoutMinutesGoal",
+                    "nightlySleepMinMinutes",
+                    "nightlySleepMaxMinutes"
+                ]
+            ) {
+            case .fieldErrors(let errors):
+                fieldErrors = errors
+            case .general(let appError):
+                routeAuth(appError)
+                saveError = appError == .cancelled ? nil : appError
+            }
             return false
         }
-    
     }
 
     @discardableResult
     func resetGoalsToAutomatic() async -> Bool {
         saveError = nil
+        fieldErrors.removeAll()
         do {
             let updated = try await service.resetGoalsToAutomatic()
             state = .loaded(updated)

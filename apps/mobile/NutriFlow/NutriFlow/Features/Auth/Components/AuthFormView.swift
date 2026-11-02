@@ -30,6 +30,7 @@ struct AuthFormView: View {
                 submitLabel: .return,
                 focus: focusedField,
                 focusValue: .email,
+                errorMessage: viewModel.fieldErrors["email"],
                 onSubmit: {
                     nextField(.password)
                 }
@@ -43,6 +44,7 @@ struct AuthFormView: View {
                 submitLabel: .return,
                 focus: focusedField,
                 focusValue: .password,
+                errorMessage: viewModel.fieldErrors["password"],
                 onSubmit: {
                     if isLogin {
                         focusedField.wrappedValue = nil
@@ -65,6 +67,7 @@ struct AuthFormView: View {
                     submitLabel: .return,
                     focus: focusedField,
                     focusValue: .firstName,
+                    errorMessage: viewModel.fieldErrors["firstName"],
                     onSubmit: {
                         nextField(.lastName)
                     }
@@ -77,6 +80,7 @@ struct AuthFormView: View {
                     submitLabel: .return,
                     focus: focusedField,
                     focusValue: .lastName,
+                    errorMessage: viewModel.fieldErrors["lastName"],
                     onSubmit: {
                         focusedField.wrappedValue = nil
 

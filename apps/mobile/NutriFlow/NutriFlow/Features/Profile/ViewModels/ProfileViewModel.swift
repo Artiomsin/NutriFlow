@@ -21,6 +21,7 @@ final class ProfileViewModel {
     var preferredUnits: PreferredUnits = .default
     var saveError: AppError?
     var unitsError: AppError?
+    var fieldErrors = FormFieldErrors()
 
     private var originalWeightKg: Double?
     private var originalWeightText: String?
@@ -183,8 +184,7 @@ final class ProfileViewModel {
         }
     }
 
-    @discardableResult
-    func updateUser() async -> AppError? {
+    private func updateUser() async -> ErrorHandlingResult? {
         do {
             let user = try await userService.updateMe(
                 email: email.isEmpty ? nil : email,
@@ -201,24 +201,51 @@ final class ProfileViewModel {
             return nil
 
         } catch {
-            let mapped = ErrorMapper.map(error)
-            routeAuth(mapped)
-            return mapped
+            let result = ErrorHandler.handle(
+                error,
+                supportedFields: ["email", "firstName", "lastName"]
+            )
+
+            if case .general(let appError) = result {
+                routeAuth(appError)
+            }
+
+            return result
         }
     }
 
     func createProfile() async {
-        state = .saving(nil)
+        fieldErrors.removeAll()
 
-        guard let weight = canonicalWeight(),
-              let height = canonicalHeight(),
-              let age = Int(age),
+        let weightValue = canonicalWeight()
+        let heightValue = canonicalHeight()
+        let ageValue = Int(age)
+
+        if weightValue == nil {
+            setValidationError(for: "weight", isMissing: isBlank(weight))
+        }
+        if heightValue == nil {
+            setValidationError(for: "height", isMissing: isBlank(height))
+        }
+        if ageValue == nil {
+            setValidationError(for: "age", isMissing: isBlank(age))
+        }
+        if gender == nil { setRequiredError(for: "gender") }
+        if goal == nil { setRequiredError(for: "goal") }
+        if activityLevel == nil { setRequiredError(for: "activityLevel") }
+
+        guard fieldErrors.isEmpty,
+              let weight = weightValue,
+              let height = heightValue,
+              let age = ageValue,
               let gender,
               let goal,
               let activityLevel else {
-            state = .error(.validation(message: "Fill in weight, height, age, gender, goal, and activity level."))
+            state = .empty
             return
         }
+
+        state = .saving(nil)
 
         do {
             let profile = try await profileService.createProfile(
@@ -241,14 +268,55 @@ final class ProfileViewModel {
             coordinator?.goToMain()
 
         } catch {
-            let mapped = ErrorMapper.map(error)
-            routeAuth(mapped)
-            state = .error(mapped)
+            switch ErrorHandler.handle(
+                error,
+                supportedFields: [
+                    "weight",
+                    "height",
+                    "age",
+                    "gender",
+                    "goal",
+                    "activityLevel"
+                ]
+            ) {
+            case .fieldErrors(let errors):
+                fieldErrors = errors
+                state = .empty
+            case .general(let appError):
+                fieldErrors.removeAll()
+                routeAuth(appError)
+                state = .error(appError)
+            }
         }
     }
 
-    @discardableResult
-    func updateProfile() async -> AppError? {
+    func clearFieldError(_ field: String) {
+        fieldErrors.clear(field)
+    }
+
+    private func setRequiredError(for field: String) {
+        fieldErrors.set(
+            FormErrorMapper.message(for: FieldErrorCode.required.rawValue),
+            for: field
+        )
+    }
+
+    private func setValidationError(for field: String, isMissing: Bool) {
+        let code = isMissing
+            ? FieldErrorCode.required
+            : FieldErrorCode.invalidValue
+
+        fieldErrors.set(
+            FormErrorMapper.message(for: code.rawValue),
+            for: field
+        )
+    }
+
+    private func isBlank(_ text: String) -> Bool {
+        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func updateProfile() async -> ErrorHandlingResult? {
         do {
             let profile = try await profileService.updateMyProfile(
                 height: canonicalHeight(),
@@ -267,25 +335,55 @@ final class ProfileViewModel {
             return nil
 
         } catch {
-            let mapped = ErrorMapper.map(error)
-            routeAuth(mapped)
-            return mapped
+            // Only fields the edit form can actually change are treated as field
+            // errors. Anything else falls back to the general error channel.
+            let result = ErrorHandler.handle(
+                error,
+                supportedFields: ["height", "age", "gender"]
+            )
+
+            if case .general(let appError) = result {
+                routeAuth(appError)
+            }
+
+            return result
         }
     }
 
     /// Saves the user block, then the profile block. Stops at the first failure so a
     /// half-applied edit never hides behind a dismissed form.
     func saveAll() async {
-        state = .saving(nil)
-        saveError = nil
+        let previousState = state
 
-        if let error = await updateUser() {
-            saveError = error
-            state = .error(error)
+        fieldErrors.removeAll()
+        saveError = nil
+        state = .saving(nil)
+
+        if let result = await updateUser() {
+            finishSave(result, restoring: previousState)
             return
         }
 
-        if let error = await updateProfile() {
+        if let result = await updateProfile() {
+            finishSave(result, restoring: previousState)
+        }
+    }
+
+    private func finishSave(
+        _ result: ErrorHandlingResult,
+        restoring previousState: ProfileState
+    ) {
+        switch result {
+        case .fieldErrors(let errors):
+            fieldErrors = errors
+            saveError = nil
+            state = previousState
+
+        case .general(.cancelled):
+            state = previousState
+
+        case .general(let error):
+            fieldErrors.removeAll()
             saveError = error
             state = .error(error)
         }

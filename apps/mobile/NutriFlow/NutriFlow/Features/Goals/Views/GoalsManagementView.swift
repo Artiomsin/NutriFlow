@@ -133,35 +133,35 @@ struct GoalsManagementView: View {
 
     private var nutritionSection: some View {
         groupedSection(title: "Nutrition") {
-            stepperRow(label: "Calories", caption: "per day", value: $calories, range: 1000...5000, step: 50, unit: UnitConversion.formatEnergyUnit(preferred: PreferencesStore.shared.preferredUnits))
+            stepperRow(label: "Calories", caption: "per day", value: $calories, range: 1000...5000, step: 50, unit: UnitConversion.formatEnergyUnit(preferred: PreferencesStore.shared.preferredUnits), field: "dailyCaloriesGoal", errorMessage: goalsVM.fieldErrors["dailyCaloriesGoal"])
             divider
-            stepperRow(label: "Protein", caption: "per day", value: $protein, range: 30...300, step: 5, unit: "g")
+            stepperRow(label: "Protein", caption: "per day", value: $protein, range: 30...300, step: 5, unit: "g", field: "dailyProteinGoal", errorMessage: goalsVM.fieldErrors["dailyProteinGoal"])
             divider
-            stepperRow(label: "Fat", caption: "per day", value: $fat, range: 20...200, step: 5, unit: "g")
+            stepperRow(label: "Fat", caption: "per day", value: $fat, range: 20...200, step: 5, unit: "g", field: "dailyFatGoal", errorMessage: goalsVM.fieldErrors["dailyFatGoal"])
             divider
-            stepperRow(label: "Carbs", caption: "per day", value: $carbs, range: 50...600, step: 5, unit: "g")
+            stepperRow(label: "Carbs", caption: "per day", value: $carbs, range: 50...600, step: 5, unit: "g", field: "dailyCarbsGoal", errorMessage: goalsVM.fieldErrors["dailyCarbsGoal"])
             divider
-            stepperRow(label: "Water", caption: "per day", value: $water, range: 500...6000, step: 100, unit: "ml")
+            stepperRow(label: "Water", caption: "per day", value: $water, range: 500...6000, step: 100, unit: "ml", field: "dailyWaterGoal", errorMessage: goalsVM.fieldErrors["dailyWaterGoal"])
         }
     }
 
     private var activitySection: some View {
         groupedSection(title: "Activity") {
-            stepperRow(label: "Steps", caption: "per day", value: $steps, range: 1000...30000, step: 500, unit: "steps")
+            stepperRow(label: "Steps", caption: "per day", value: $steps, range: 1000...30000, step: 500, unit: "steps", field: "dailyStepsGoal", errorMessage: goalsVM.fieldErrors["dailyStepsGoal"])
             divider
-            stepperRow(label: "Active calories", caption: "per day", value: $activeCalories, range: 100...3000, step: 50, unit: UnitConversion.formatEnergyUnit(preferred: PreferencesStore.shared.preferredUnits))
+            stepperRow(label: "Active calories", caption: "per day", value: $activeCalories, range: 100...3000, step: 50, unit: UnitConversion.formatEnergyUnit(preferred: PreferencesStore.shared.preferredUnits), field: "dailyActiveCaloriesGoal", errorMessage: goalsVM.fieldErrors["dailyActiveCaloriesGoal"])
             divider
-            stepperRow(label: "Workouts", caption: "per week", value: $workouts, range: 1...14, step: 1, unit: "")
+            stepperRow(label: "Workouts", caption: "per week", value: $workouts, range: 1...14, step: 1, unit: "", field: "weeklyWorkoutsGoal", errorMessage: goalsVM.fieldErrors["weeklyWorkoutsGoal"])
             divider
-            stepperRow(label: "Workout minutes", caption: "per week", value: $workoutMinutes, range: 15...900, step: 15, unit: "min")
+            stepperRow(label: "Workout minutes", caption: "per week", value: $workoutMinutes, range: 15...900, step: 15, unit: "min", field: "weeklyWorkoutMinutesGoal", errorMessage: goalsVM.fieldErrors["weeklyWorkoutMinutesGoal"])
         }
     }
 
     private var sleepSection: some View {
         groupedSection(title: "Sleep") {
-            stepperRow(label: "Min sleep", caption: "per night", value: $sleepMinMin, range: 180...720, step: 30, unit: "min")
+            stepperRow(label: "Min sleep", caption: "per night", value: $sleepMinMin, range: 180...720, step: 30, unit: "min", field: "nightlySleepMinMinutes", errorMessage: goalsVM.fieldErrors["nightlySleepMinMinutes"])
             divider
-            stepperRow(label: "Max sleep", caption: "per night", value: $sleepMaxMin, range: 360...960, step: 30, unit: "min")
+            stepperRow(label: "Max sleep", caption: "per night", value: $sleepMaxMin, range: 360...960, step: 30, unit: "min", field: "nightlySleepMaxMinutes", errorMessage: goalsVM.fieldErrors["nightlySleepMaxMinutes"])
         }
     }
 
@@ -194,9 +194,20 @@ struct GoalsManagementView: View {
         value: Binding<Int>,
         range: ClosedRange<Int>,
         step: Int,
-        unit: String
+        unit: String,
+        field: String,
+        errorMessage: String?
     ) -> some View {
-        HStack(spacing: 12) {
+        let stepperValue = Binding(
+            get: { value.wrappedValue },
+            set: { newValue in
+                value.wrappedValue = newValue
+                goalsVM.clearFieldError(field)
+            }
+        )
+
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 12) {
             Circle()
                 .fill(AppColors.accent.opacity(0.8))
                 .frame(width: 8, height: 8)
@@ -220,6 +231,7 @@ struct GoalsManagementView: View {
                     text: Binding(
                         get: { String(value.wrappedValue) },
                         set: { newValue in
+                            goalsVM.clearFieldError(field)
                             let filtered = newValue.filter { "0123456789".contains($0) }
                             if let intVal = Int(filtered) {
                                 value.wrappedValue = intVal
@@ -249,11 +261,17 @@ struct GoalsManagementView: View {
             }
             Stepper(
                 "",
-                value: value,
+                value: stepperValue,
                 in: range,
                 step: step
             )
             .labelsHidden()
+            }
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(AppColors.error)
+            }
         }
         .padding(.horizontal, AppSpacing.paddingHorizontal)
         .padding(.vertical, 8)
