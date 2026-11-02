@@ -75,7 +75,9 @@ describe('profiles routes', () => {
     );
     expect(res.body.instance).toStartWith('urn:uuid:');
     expect(res.body.fieldErrors).toEqual(
-      expect.arrayContaining([expect.objectContaining({ field: 'weight' })]),
+      expect.arrayContaining([
+        expect.objectContaining({ field: 'weight', code: 'OUT_OF_RANGE' }),
+      ]),
     );
   });
 

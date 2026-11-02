@@ -74,7 +74,9 @@ describe('food-entry routes', () => {
     );
     expect(res.body.instance).toStartWith('urn:uuid:');
     expect(res.body.fieldErrors).toEqual(
-      expect.arrayContaining([expect.objectContaining({ field: 'name' })]),
+      expect.arrayContaining([
+        expect.objectContaining({ field: 'name', code: 'REQUIRED' }),
+      ]),
     );
   });
 

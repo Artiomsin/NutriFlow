@@ -74,16 +74,22 @@ describe('POST /api/auth/register', () => {
     expect(res.body.instance).toStartWith('urn:uuid:');
     expect(res.body.fieldErrors).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ field: 'email', code: 'INVALID_FORMAT' }),
+        expect.objectContaining({ field: 'email', code: 'INVALID_EMAIL' }),
       ]),
     );
   });
 
   it('rejects a short password', async () => {
-    await http()
+    const res = await http()
       .post('/api/auth/register')
       .send({ ...credentials(uniqueEmail()), password: '123' })
       .expect(400);
+
+    expect(res.body.fieldErrors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: 'password', code: 'TOO_SHORT' }),
+      ]),
+    );
   });
 
   it('rejects a duplicate email', async () => {

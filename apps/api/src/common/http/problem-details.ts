@@ -1,4 +1,5 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
+import type { FieldErrorCodeValue } from '../validation/field-errors';
 
 const problemBaseURL = 'https://api.nutriflow.app/problems';
 
@@ -17,7 +18,7 @@ export const ProblemType = {
 
 export interface FieldProblem {
   field: string;
-  code: string;
+  code: FieldErrorCodeValue;
 }
 
 export interface ProblemDetails {

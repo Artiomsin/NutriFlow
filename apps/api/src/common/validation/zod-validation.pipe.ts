@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { PipeTransform } from '@nestjs/common';
 import type { ZodSchema } from 'zod';
 import { ProblemDetailsException, ProblemType } from '../http/problem-details';
+import { fieldErrorsFromIssues } from './field-errors';
 
 @Injectable()
 export class ZodValidationPipe implements PipeTransform {
@@ -16,10 +17,7 @@ export class ZodValidationPipe implements PipeTransform {
         title: 'Validation failed',
         status: 400,
         detail: 'One or more fields are invalid.',
-        fieldErrors: result.error.issues.map((issue) => ({
-          field: issue.path.map(String).join('.') || '$form',
-          code: issue.code.toUpperCase(),
-        })),
+        fieldErrors: fieldErrorsFromIssues(result.error.issues, value),
       });
     }
 
