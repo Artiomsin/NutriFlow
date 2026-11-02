@@ -25,4 +25,11 @@ enum AppError: Error, Equatable, Sendable {
 
 protocol AppErrorConvertible {
     var appError: AppError { get }
+    var fieldErrors: [FieldProblem] { get }
+}
+
+extension AppErrorConvertible {
+    var fieldErrors: [FieldProblem] {
+        []
+    }
 }

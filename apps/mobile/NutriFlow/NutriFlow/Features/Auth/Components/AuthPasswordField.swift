@@ -1,22 +1,25 @@
 import SwiftUI
+import UIKit
 
 struct AuthPasswordField<Field: Hashable>: View {
 
     @Binding var password: String
 
+    var title: String = "Password"
     var textContentType: UITextContentType? = .password
     var submitLabel: SubmitLabel = .return
 
     var focus: FocusState<Field?>.Binding
     var focusValue: Field
 
+    var errorMessage: String? = nil
     var onSubmit: (() -> Void)? = nil
 
     @State private var isSecure = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Password")
+            Text(title)
                 .font(.caption)
                 .foregroundColor(AppColors.textSecondary)
                 .frame(height: 16, alignment: .leading)
@@ -64,6 +67,13 @@ struct AuthPasswordField<Field: Hashable>: View {
             .padding(.horizontal, 16)
             .frame(height: 52)
             .background(fieldBackground)
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(AppColors.error)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .frame(maxWidth: .infinity)
     }
@@ -78,7 +88,9 @@ struct AuthPasswordField<Field: Hashable>: View {
                 cornerRadius: AppRadius.medium
             )
             .stroke(
-                AppColors.border,
+                errorMessage == nil
+                    ? AppColors.border
+                    : AppColors.error,
                 lineWidth: 1
             )
         )

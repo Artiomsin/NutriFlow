@@ -153,6 +153,9 @@
     "Carbs" : {
 
     },
+    "Change password" : {
+
+    },
     "Change the name to save" : {
 
     },
@@ -180,10 +183,16 @@
     "Connecting…" : {
 
     },
+    "Continue" : {
+
+    },
     "Couldn’t load %@ from Apple Health." : {
 
     },
     "Couldn’t load the latest workout from Apple Health." : {
+
+    },
+    "Create a new password" : {
 
     },
     "Create account" : {
@@ -241,6 +250,12 @@
 
     },
     "Energy" : {
+
+    },
+    "Enter your current password to continue." : {
+
+    },
+    "Enter your new password and confirm it." : {
 
     },
     "error.analysis_quota.message" : {
@@ -419,6 +434,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No internet connection"
+          }
+        }
+      }
+    },
+    "error.partial_save.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not saved: %1$@."
+          }
+        }
+      }
+    },
+    "error.partial_save.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Some items could not be saved."
+          }
+        }
+      }
+    },
+    "error.partial_save.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved %1$lld of %2$lld"
           }
         }
       }
@@ -628,6 +673,118 @@
     "For %@" : {
 
     },
+    "form.error.invalid_email" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter a valid email address."
+          }
+        }
+      }
+    },
+    "form.error.invalid_format" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter a valid value."
+          }
+        }
+      }
+    },
+    "form.error.invalid_value" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a valid option."
+          }
+        }
+      }
+    },
+    "form.error.out_of_range" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter a value within the allowed range."
+          }
+        }
+      }
+    },
+    "form.error.password_mismatch" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Passwords do not match."
+          }
+        }
+      }
+    },
+    "form.error.password_same" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "New password must differ from current password."
+          }
+        }
+      }
+    },
+    "form.error.required" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This field is required."
+          }
+        }
+      }
+    },
+    "form.error.too_long" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This value is too long."
+          }
+        }
+      }
+    },
+    "form.error.too_short" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This value is too short."
+          }
+        }
+      }
+    },
+    "form.error.unknown" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check this value and try again."
+          }
+        }
+      }
+    },
+    "form.error.unknown_field" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This field is not recognized."
+          }
+        }
+      }
+    },
     "Found %lld item(s)" : {
 
     },
@@ -790,7 +947,7 @@
     "Ounces" : {
 
     },
-    "Password" : {
+    "Password successfully changed." : {
 
     },
     "Per 100g" : {
@@ -845,6 +1002,9 @@
 
     },
     "Save Changes" : {
+
+    },
+    "Save Password" : {
 
     },
     "Save today’s weight" : {
@@ -983,6 +1143,9 @@
 
     },
     "Value" : {
+
+    },
+    "Verify your password" : {
 
     },
     "View Result" : {

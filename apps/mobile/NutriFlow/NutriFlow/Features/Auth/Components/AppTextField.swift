@@ -14,11 +14,12 @@ struct AppTextField<Field: Hashable>: View {
     var focus: FocusState<Field?>.Binding
     var focusValue: Field
 
-    var onSubmit: (() -> Void)? = nil
+    var errorMessage: String? = nil
 
+    var onSubmit: (() -> Void)? = nil
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-
             Text(title)
                 .font(.caption)
                 .foregroundColor(AppColors.textSecondary)
@@ -41,6 +42,13 @@ struct AppTextField<Field: Hashable>: View {
                 .onSubmit {
                     onSubmit?()
                 }
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundColor(AppColors.error)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .frame(maxWidth: .infinity)
     }
@@ -55,7 +63,9 @@ struct AppTextField<Field: Hashable>: View {
                 cornerRadius: AppRadius.medium
             )
             .stroke(
-                AppColors.border,
+                errorMessage == nil
+                    ? AppColors.border
+                    : AppColors.error,
                 lineWidth: 1
             )
         )

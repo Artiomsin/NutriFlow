@@ -68,11 +68,20 @@ struct ErrorPresentation: Equatable {
             self.message = message
             allowsRetry = false
         case .partialSave(let succeeded, let total, let failedNames):
-            title = "Saved \(succeeded) of \(total)"
+            title = String(
+                localized: "error.partial_save.title",
+                defaultValue: "Saved \(succeeded) of \(total)"
+            )
             if failedNames.isEmpty {
-                message = "Some items could not be saved."
+                message = String(
+                    localized: "error.partial_save.message",
+                    defaultValue: "Some items could not be saved."
+                )
             } else {
-                message = "Not saved: \(failedNames.joined(separator: ", "))."
+                message = String(
+                    localized: "error.partial_save.failed",
+                    defaultValue: "Not saved: \(failedNames.joined(separator: ", "))."
+                )
             }
             allowsRetry = false
         case .permissionDenied:
