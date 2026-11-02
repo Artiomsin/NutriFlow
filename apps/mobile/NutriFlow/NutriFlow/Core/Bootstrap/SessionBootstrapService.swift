@@ -1,9 +1,9 @@
 import Foundation
 
-enum SessionBootstrapResult: Sendable {
+enum SessionBootstrapResult: Sendable, Equatable {
     case auth
     case profileForm
-    case main
+    case main(bootstrapError: AppError?)
 }
 
 final class SessionBootstrapService: Sendable {
@@ -26,17 +26,20 @@ final class SessionBootstrapService: Sendable {
 
         do {
             _ = try await profileService.getMyProfile()
-            return .main
+            return .main(bootstrapError: nil)
         } catch APIError.notFound {
             return .profileForm
         } catch APIError.unauthorized, APIError.forbidden {
             try sessionService.clear()
             return .auth
         } catch {
-            // A transport or server failure does not prove that credentials
-            // are invalid. Preserve the session and let the main screen use
-            // its cached data or show a retryable error.
-            return .main
+            let appError = ErrorMapper.map(error)
+
+            // A temporary failure does not prove that credentials are invalid.
+            // Keep the session and surface the mapped error on the main screen.
+            return .main(
+                bootstrapError: appError == .cancelled ? nil : appError
+            )
         }
     }
 }

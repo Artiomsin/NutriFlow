@@ -58,6 +58,7 @@ struct AddWaterView: View {
         }
         .onChange(of: selectedAmount) { _, newValue in
             waterViewModel.amountMl = "\(Int(newValue))"
+            waterViewModel.addError = nil
             triggerSplash()
 
             withAnimation(.easeInOut(duration: 0.45)) {

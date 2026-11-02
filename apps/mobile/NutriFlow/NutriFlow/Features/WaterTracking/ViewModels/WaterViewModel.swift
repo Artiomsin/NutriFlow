@@ -171,10 +171,13 @@ final class WaterViewModel {
             return true
         } catch {
             let mapped = ErrorMapper.map(error)
-            routeAuth(mapped)
-            // The write failed but the list behind the sheet is still valid, so the
-            // failure is reported in addError only. Restoring the pre-write state
-            // leaves .saving and never blanks WaterSection.
+
+            if mapped == .unauthorized {
+                coordinator?.goToAuth()
+                state = stateBeforeWrite
+                return false
+            }
+
             state = stateBeforeWrite
             addError = mapped == .cancelled ? nil : mapped
             return false
@@ -262,24 +265,15 @@ final class WaterViewModel {
     func setPreviewState(_ newState: WaterState) {
         state = newState
     }
-    
-    private func routeAuth(_ appError: AppError) {
-        if appError == .unauthorized {
-            coordinator?.goToAuth()
-        }
-    }
 
     private func handle(_ error: Error) {
         let appError = ErrorMapper.map(error)
 
-        if appError == .cancelled {
-            state = .idle
-            return
-        }
+        if appError == .cancelled || appError == .unauthorized {
+            if appError == .unauthorized {
+                coordinator?.goToAuth()
+            }
 
-        routeAuth(appError)
-
-        if appError == .unauthorized {
             state = .idle
             return
         }
