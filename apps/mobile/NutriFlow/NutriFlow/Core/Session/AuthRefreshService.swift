@@ -16,11 +16,17 @@ extension Notification.Name {
 actor AuthRefreshService: Sendable {
     private let client: HTTPClient
     private let session: AuthSessionService
+    private let imageCacheService: ImageCacheServiceProtocol
     private var inFlight: Task<Void, Error>?
 
-    init(client: HTTPClient, session: AuthSessionService) {
+    init(
+        client: HTTPClient,
+        session: AuthSessionService,
+        imageCacheService: ImageCacheServiceProtocol
+    ) {
         self.client = client
         self.session = session
+        self.imageCacheService = imageCacheService
     }
 
     func refresh() async throws {
@@ -34,13 +40,13 @@ actor AuthRefreshService: Sendable {
         return try await task.value
     }
 
-    func invalidateSession() {
-        expireSession()
+    func invalidateSession() async {
+        await expireSession()
     }
 
     private func performRefresh() async throws {
         guard let refreshToken = try session.getRefreshToken() else {
-            expireSession()
+            await expireSession()
             throw AuthRefreshError.noSession
         }
 
@@ -54,20 +60,21 @@ actor AuthRefreshService: Sendable {
         do {
             response = try await client.send(request)
         } catch APIError.unauthorized {
-            expireSession()
+            await expireSession()
             throw AuthRefreshError.sessionExpired
         } catch APIError.forbidden {
-            expireSession()
+            await expireSession()
             throw AuthRefreshError.sessionExpired
         }
 
-        try session.saveSession(
+        try session.updateTokens(
             access: response.accessToken,
             refresh: response.refreshToken
         )
     }
 
-    private func expireSession() {
+    private func expireSession() async {
+        await imageCacheService.endPrivateSession()
         try? session.clear()
         NotificationCenter.default.post(name: .sessionExpired, object: nil)
     }
