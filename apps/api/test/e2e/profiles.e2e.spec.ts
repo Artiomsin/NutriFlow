@@ -69,9 +69,16 @@ describe('profiles routes', () => {
       .send({ ...profileInput(), weight: 10 })
       .expect(400);
 
-    expect(res.body.statusCode).toBe(400);
-    expect(res.body.requestId).toBeString();
-    expect(res.body.error.fieldErrors.weight).toBeArray();
+    expect(res.body.status).toBe(400);
+    expect(res.body.type).toBe(
+      'https://api.nutriflow.app/problems/validation-failed',
+    );
+    expect(res.body.instance).toStartWith('urn:uuid:');
+    expect(res.body.fieldErrors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: 'weight', code: 'OUT_OF_RANGE' }),
+      ]),
+    );
   });
 
   it('creates a profile and reads it back idempotently', async () => {

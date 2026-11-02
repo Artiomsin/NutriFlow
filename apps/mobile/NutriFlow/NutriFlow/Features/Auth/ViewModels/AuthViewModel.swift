@@ -1,61 +1,87 @@
-import AuthenticationServices
 import Foundation
 import Observation
+
 
 @Observable
 @MainActor
 final class AuthViewModel {
+
     var state: AuthState = .idle
+
     var email = ""
     var password = ""
     var firstName = ""
     var lastName = ""
 
+    
+    var fieldErrors = FormFieldErrors()
+
     var isLoading: Bool {
         state == .loading
     }
 
-    @ObservationIgnored private let authService: AuthServiceProtocol
-    @ObservationIgnored private let profileService: ProfileServiceProtocol
-    @ObservationIgnored private let googleSignInService: GoogleSignInService
-    @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
-    @ObservationIgnored private weak var coordinator: AppCoordinator?
-    @ObservationIgnored private var activitySync: ActivitySyncProtocol?
+    @ObservationIgnored
+    private let authService: AuthServiceProtocol
+
+    @ObservationIgnored
+    private let googleSignInService: GoogleSignInService
+
+    @ObservationIgnored
+    private let analyticsTracker: AnalyticsTracking?
+
+    @ObservationIgnored
+    private weak var coordinator: AppCoordinator?
+
+    @ObservationIgnored
+    private var activitySync: ActivitySyncProtocol?
 
     init(
         authService: AuthServiceProtocol,
-        profileService: ProfileServiceProtocol,
         googleSignInService: GoogleSignInService,
         coordinator: AppCoordinator,
         activitySync: ActivitySyncProtocol? = nil,
         analyticsTracker: AnalyticsTracking? = nil
     ) {
         self.authService = authService
-        self.profileService = profileService
         self.googleSignInService = googleSignInService
         self.analyticsTracker = analyticsTracker
         self.coordinator = coordinator
         self.activitySync = activitySync
     }
 
+    // MARK: - Lifecycle
+
     func onAppear() {
         analyticsTracker?.track(.screenView(screen: "auth"))
     }
 
     func login() async {
-        guard validateCredentials() else { return }
+        guard validateCredentials() else {
+            state = .idle
+            return
+        }
+
         state = .loading
 
         do {
-            try await authService.login(email: email, password: password)
-            await finishSignIn()
+            try await authService.login(
+                email: email,
+                password: password
+            )
+
+            await completeAuthentication()
+
         } catch {
-            show(error: error, for: .credentials)
+            show(error: error, for: .login)
         }
     }
 
     func register() async {
-        guard validateRegistration() else { return }
+        guard validateRegistration() else {
+            state = .idle
+            return
+        }
+
         state = .loading
 
         do {
@@ -65,21 +91,31 @@ final class AuthViewModel {
                 firstName: firstName,
                 lastName: lastName
             )
+
             state = .authenticated
+
             analyticsTracker?.track(.registered)
             coordinator?.goToProfileForm()
+
         } catch {
-            show(error: error, for: .credentials)
+            show(error: error, for: .register)
         }
     }
 
+    
     func signInWithGoogle() async {
+        fieldErrors.removeAll()
         state = .loading
 
         do {
             let idToken = try await googleSignInService.signIn()
-            try await authService.signInWithGoogle(idToken: idToken)
-            await finishSignIn()
+
+            try await authService.signInWithGoogle(
+                idToken: idToken
+            )
+
+            await completeAuthentication()
+
         } catch {
             show(error: error, for: .google)
         }
@@ -90,6 +126,7 @@ final class AuthViewModel {
         firstName: String?,
         lastName: String?
     ) async {
+        fieldErrors.removeAll()
         state = .loading
 
         do {
@@ -98,20 +135,11 @@ final class AuthViewModel {
                 firstName: firstName,
                 lastName: lastName
             )
-            await finishSignIn()
+
+            await completeAuthentication()
+
         } catch {
             show(error: error, for: .apple)
-        }
-    }
-
-    func retry(_ operation: AuthOperation) async {
-        switch operation {
-        case .credentials:
-            await login()
-        case .google:
-            await signInWithGoogle()
-        case .apple:
-            state = .idle
         }
     }
 
@@ -120,10 +148,32 @@ final class AuthViewModel {
     }
 
     func handleMissingAppleToken() {
+        fieldErrors.removeAll()
+
         state = .error(
-            .validation(message: "Apple sign-in did not return an identity token."),
+            .invalidResponse,
             operation: .apple
         )
+    }
+
+    
+
+    func retry(_ operation: AuthOperation) async {
+        switch operation {
+        case .login:
+            await login()
+
+        case .register:
+            await register()
+            
+        case .google:
+            await signInWithGoogle()
+
+        case .apple:
+            // Apple authorization must be initiated again
+            // through the system authorization flow.
+            state = .idle
+        }
     }
 
     func logout() async {
@@ -132,78 +182,146 @@ final class AuthViewModel {
         do {
             try await authService.logout()
         } catch {
-            // A local logout must still complete if the remote request fails.
+            // Local logout must complete even if
+            // the remote request fails.
         }
 
+        fieldErrors.removeAll()
         state = .unauthenticated
+
         analyticsTracker?.track(.loggedOut)
         coordinator?.goToAuth()
     }
 
-    private func finishSignIn() async {
-        do {
-            _ = try await profileService.getMyProfile()
-            coordinator?.goToMain()
-        } catch let profileError as APIError {
-            if case .notFound = profileError {
-                coordinator?.goToProfileForm()
-            } else {
-                coordinator?.goToMain()
+    private func completeAuthentication() async {
+        guard let result = await coordinator?.resolveSessionRoute() else {
+            return
+        }
+
+        switch result {
+        case .auth:
+            state = .unauthenticated
+
+        case .profileForm, .main:
+            state = .authenticated
+            analyticsTracker?.track(.loggedIn)
+        }
+    }
+
+
+    
+    private func show(
+        error: Error,
+        for operation: AuthOperation
+    ) {
+        let supportedFields: Set<String>
+
+        switch operation {
+        case .login:
+            supportedFields = ["email", "password"]
+
+        case .register:
+            supportedFields = [
+                "email",
+                "password",
+                "firstName",
+                "lastName"
+            ]
+
+        case .google, .apple:
+            supportedFields = []
+        }
+
+        switch ErrorHandler.handle(
+            error,
+            supportedFields: supportedFields
+        ) {
+
+        case .fieldErrors(let errors):
+            fieldErrors = errors
+            state = .idle
+
+        case .general(let appError):
+            fieldErrors.removeAll()
+
+            if appError == .cancelled {
+                state = .idle
+                return
             }
-        } catch {
-            coordinator?.goToMain()
+
+            state = .error(
+                appError,
+                operation: operation
+            )
         }
-
-        state = .authenticated
-        analyticsTracker?.track(.loggedIn)
     }
 
-    private func show(error: Error, for operation: AuthOperation) {
-        let appError = ErrorMapper.map(error)
-        state = appError == .cancelled
-            ? .idle
-            : .error(appError, operation: operation)
-    }
 
+    func clearFieldError(_ field: String) {
+        fieldErrors.clear(field)
+    }
+    
     private func validateCredentials() -> Bool {
-        guard email.trimmingCharacters(in: .whitespacesAndNewlines).contains("@") else {
-            state = .error(
-                .validation(message: "Enter a valid email address."),
-                operation: .credentials
+        fieldErrors.removeAll()
+
+        let normalizedEmail = email.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+
+        if normalizedEmail.isEmpty {
+            fieldErrors.set(
+                FormErrorMapper.message(
+                    for: FieldErrorCode.required.rawValue
+                ),
+                for: "email"
             )
-            return false
+
+        } else if !normalizedEmail.contains("@") {
+            fieldErrors.set(
+                FormErrorMapper.message(
+                    for: FieldErrorCode.invalidEmail.rawValue
+                ),
+                for: "email"
+            )
         }
 
-        guard !password.isEmpty else {
-            state = .error(
-                .validation(message: "Enter your password."),
-                operation: .credentials
+        if password.isEmpty {
+            fieldErrors.set(
+                FormErrorMapper.message(
+                    for: FieldErrorCode.required.rawValue
+                ),
+                for: "password"
             )
-            return false
         }
 
-        return true
+        return fieldErrors.isEmpty
     }
 
     private func validateRegistration() -> Bool {
-        guard validateCredentials() else { return false }
+        let credentialsValid = validateCredentials()
 
-        guard !firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            state = .error(
-                .validation(message: "Enter your first name."),
-                operation: .credentials
+        if firstName.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        ).isEmpty {
+            fieldErrors.set(
+                FormErrorMapper.message(
+                    for: FieldErrorCode.required.rawValue
+                ),
+                for: "firstName"
             )
-            return false
         }
 
-        guard !lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            state = .error(
-                .validation(message: "Enter your last name."),
-                operation: .credentials
+        if lastName.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        ).isEmpty {
+            fieldErrors.set(
+                FormErrorMapper.message(
+                    for: FieldErrorCode.required.rawValue
+                ),
+                for: "lastName"
             )
-            return false
         }
 
-        return true
+        return credentialsValid && fieldErrors.isEmpty
     }
 }

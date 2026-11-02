@@ -2,6 +2,9 @@ import Foundation
 
 enum FoodEndpoints {
 
+    static let uploadFoodImage = "/food/upload"
+    static let analyzeFood = "/food/analyze"
+
     static let createFoodEntry = "/food-entry"
 
     static func getTodayFood(date: String?) -> (path: String, query: [URLQueryItem]) {
@@ -9,13 +12,12 @@ enum FoodEndpoints {
     }
 
     static func deleteFoodEntry(id: String, date: String?) -> (path: String, query: [URLQueryItem]) {
-        let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
+        let encoded = EndpointPath.component(id)
         return (path: "/food-entry/\(encoded)", query: date.map { [URLQueryItem(name: "date", value: $0)] } ?? [])
     }
 
     static func updateFoodEntry(id: String) -> String {
-        let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
-        return "/food-entry/\(encoded)"
+        "/food-entry/\(EndpointPath.component(id))"
     }
 
     static func getFoodByDate(date: String) -> (path: String, query: [URLQueryItem]) {
@@ -25,6 +27,14 @@ enum FoodEndpoints {
 
     static let getCategories = "/food-categories"
     static let createCategory = "/food-categories"
+
+    static func updateCategory(id: String) -> String {
+        "/food-categories/\(EndpointPath.component(id))"
+    }
+
+    static func deleteCategory(id: String) -> String {
+        "/food-categories/\(EndpointPath.component(id))"
+    }
 
     static let getAllFoods = "/foods"
     static let createFood = "/foods"
@@ -41,20 +51,28 @@ enum FoodEndpoints {
     }
     
     static func selectFood(_ id: String) -> String {
-        "/foods/\(id)/select"
+        "/foods/\(EndpointPath.component(id))/select"
     }
 
     static let getPopularFood = "/foods/popular"
 
-    static let analyzeFood = "/food/analyze"
-
     static func getFoodByBarcode(_ barcode: String) -> String {
-        let encoded = barcode.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? barcode
-        return "/foods/barcode/\(encoded)"
+        "/foods/barcode/\(EndpointPath.component(barcode))"
     }
 
     static func getFoodById(_ id: String) -> String {
-        let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
-        return "/foods/\(encoded)"
+        "/foods/\(EndpointPath.component(id))"
+    }
+
+    static func createServing(foodID: String) -> String {
+        "/foods/\(EndpointPath.component(foodID))/servings"
+    }
+
+    static func updateServing(foodID: String, servingID: String) -> String {
+        "/foods/\(EndpointPath.component(foodID))/servings/\(EndpointPath.component(servingID))"
+    }
+
+    static func deleteServing(foodID: String, servingID: String) -> String {
+        "/foods/\(EndpointPath.component(foodID))/servings/\(EndpointPath.component(servingID))"
     }
 }

@@ -266,11 +266,6 @@ struct GoalBar: View {
         return min(rawCurrent / rawGoal, 1.0)
     }
 
-    private var pctText: String {
-        let p = Int(pct * 100)
-        return "\(p)%"
-    }
-
     var body: some View {
         VStack(spacing: 6) {
             HStack(spacing: 6) {
@@ -293,7 +288,7 @@ struct GoalBar: View {
                     }
                 }
                 .frame(height: 10)
-                Text(pctText)
+                Text(pct, format: .percent.precision(.fractionLength(0)))
                     .font(.caption2.weight(.semibold))
                     .foregroundColor(color)
                     .frame(width: 36, alignment: .trailing)

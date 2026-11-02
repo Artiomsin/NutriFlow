@@ -10,6 +10,7 @@ enum AppError: Error, Equatable, Sendable {
     case notFound
     case conflict
     case rateLimited
+    case foodAnalysisQuotaExceeded
     case serverUnavailable
     case invalidRequest
     case invalidResponse
@@ -24,4 +25,11 @@ enum AppError: Error, Equatable, Sendable {
 
 protocol AppErrorConvertible {
     var appError: AppError { get }
+    var fieldErrors: [FieldProblem] { get }
+}
+
+extension AppErrorConvertible {
+    var fieldErrors: [FieldProblem] {
+        []
+    }
 }

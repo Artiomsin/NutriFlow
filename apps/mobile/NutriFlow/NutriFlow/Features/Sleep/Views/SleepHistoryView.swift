@@ -144,7 +144,9 @@ struct SleepHistoryView: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundColor(AppColors.textPrimary)
                 if let efficiency = night.efficiency {
-                    Text("\(Int(efficiency))% efficiency")
+                    Text(
+                        "\((efficiency / 100).formatted(.percent.precision(.fractionLength(0)))) efficiency"
+                    )
                         .font(.caption)
                         .foregroundColor(AppColors.textSecondary)
                 }
@@ -206,7 +208,13 @@ private struct NightDetailView: View {
             metric("bed.double.fill", String(format: "%.1fh", night.asleepSeconds / 3600), "asleep")
             metric("moon", String(format: "%.1fh", night.timeInBedSeconds / 3600), "in bed")
             metric("heart.fill", night.heartRateAvg.map { String(format: "%.0f", $0) } ?? "–", "bpm")
-            metric("gauge.with.dots.needle.50percent", night.efficiency.map { "\(Int($0))%" } ?? "–", "efficiency")
+            metric(
+                "gauge.with.dots.needle.50percent",
+                night.efficiency.map {
+                    ($0 / 100).formatted(.percent.precision(.fractionLength(0)))
+                } ?? "–",
+                "efficiency"
+            )
         }
         .padding()
         .appGlassSurface()

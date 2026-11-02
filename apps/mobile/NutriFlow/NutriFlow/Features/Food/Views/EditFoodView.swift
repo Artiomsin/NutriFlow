@@ -78,13 +78,15 @@ struct EditFoodView: View {
             .onChange(of: viewModel.photosItem) { _, item in viewModel.loadImage(item) }
             .onChange(of: viewModel.grams) { _, newValue in
                 viewModel.recalculateMacros(from: newValue)
-                viewModel.clearError()
+                viewModel.clearFieldError("grams")
             }
             .onChange(of: viewModel.name) { _, _ in
                 viewModel.showNameWarning = false
-                viewModel.clearError()
+                viewModel.clearFieldError("name")
             }
-            .onChange(of: viewModel.calories) { _, _ in viewModel.clearError() }
+            .onChange(of: viewModel.calories) { _, _ in
+                viewModel.clearFieldError("calories")
+            }
             .onChange(of: prefsStore.preferredUnits) { old, new in viewModel.convertUnits(from: old, to: new) }
         }
         .tint(AppColors.accent)
@@ -124,10 +126,25 @@ struct EditFoodView: View {
         AppCard {
             VStack(alignment: .leading, spacing: 14) {
                 sectionLabel("Food", icon: "fork.knife")
-                AppTextField(title: "Name", text: $viewModel.name, submitLabel: .return, focus: $focusedField, focusValue: .name) {
+                AppTextField(
+                    title: "Name",
+                    text: $viewModel.name,
+                    submitLabel: .return,
+                    focus: $focusedField,
+                    focusValue: .name,
+                    errorMessage: viewModel.fieldErrors["name"]
+                ) {
                     nextField(.calories)
                 }
-                AppTextField(title: viewModel.caloriesLabel, text: $viewModel.calories, keyboardType: .numberPad, submitLabel: .return, focus: $focusedField, focusValue: .calories) {
+                AppTextField(
+                    title: viewModel.caloriesLabel,
+                    text: $viewModel.calories,
+                    keyboardType: .numberPad,
+                    submitLabel: .return,
+                    focus: $focusedField,
+                    focusValue: .calories,
+                    errorMessage: viewModel.fieldErrors["calories"]
+                ) {
                     nextField(.protein)
                 }
             }
@@ -139,14 +156,49 @@ struct EditFoodView: View {
             VStack(alignment: .leading, spacing: 14) {
                 sectionLabel("Macros", icon: "chart.pie.fill")
                 HStack(spacing: 12) {
-                    AppTextField(title: viewModel.proteinLabel, text: $viewModel.protein, keyboardType: .decimalPad, submitLabel: .return, focus: $focusedField, focusValue: .protein) {
+                    AppTextField(
+                        title: viewModel.proteinLabel,
+                        text: $viewModel.protein,
+                        keyboardType: .decimalPad,
+                        submitLabel: .return,
+                        focus: $focusedField,
+                        focusValue: .protein,
+                        errorMessage: viewModel.fieldErrors["protein"]
+                    ) {
                         nextField(.fat)
                     }
-                    AppTextField(title: viewModel.fatLabel, text: $viewModel.fat, keyboardType: .decimalPad, submitLabel: .return, focus: $focusedField, focusValue: .fat) {
+                    .onChange(of: viewModel.protein) { _, _ in
+                        viewModel.clearFieldError("protein")
+                    }
+
+                    AppTextField(
+                        title: viewModel.fatLabel,
+                        text: $viewModel.fat,
+                        keyboardType: .decimalPad,
+                        submitLabel: .return,
+                        focus: $focusedField,
+                        focusValue: .fat,
+                        errorMessage: viewModel.fieldErrors["fat"]
+                    ) {
                         nextField(.carbs)
                     }
-                    AppTextField(title: viewModel.carbsLabel, text: $viewModel.carbs, keyboardType: .decimalPad, submitLabel: .return, focus: $focusedField, focusValue: .carbs) {
+                    .onChange(of: viewModel.fat) { _, _ in
+                        viewModel.clearFieldError("fat")
+                    }
+
+                    AppTextField(
+                        title: viewModel.carbsLabel,
+                        text: $viewModel.carbs,
+                        keyboardType: .decimalPad,
+                        submitLabel: .return,
+                        focus: $focusedField,
+                        focusValue: .carbs,
+                        errorMessage: viewModel.fieldErrors["carbs"]
+                    ) {
                         nextField(.grams)
+                    }
+                    .onChange(of: viewModel.carbs) { _, _ in
+                        viewModel.clearFieldError("carbs")
                     }
                 }
             }
@@ -157,7 +209,15 @@ struct EditFoodView: View {
         AppCard {
             VStack(alignment: .leading, spacing: 14) {
                 sectionLabel("Serving", icon: "scalemass.fill")
-                AppTextField(title: viewModel.gramsLabel, text: $viewModel.grams, keyboardType: .decimalPad, submitLabel: .return, focus: $focusedField, focusValue: .grams) {
+                AppTextField(
+                    title: viewModel.gramsLabel,
+                    text: $viewModel.grams,
+                    keyboardType: .decimalPad,
+                    submitLabel: .return,
+                    focus: $focusedField,
+                    focusValue: .grams,
+                    errorMessage: viewModel.fieldErrors["grams"]
+                ) {
                     focusedField = nil
                 }
             }

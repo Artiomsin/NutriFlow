@@ -1,10 +1,6 @@
 import Foundation
 
 final class URLSessionHTTPClient: HTTPClient, Sendable {
-    private struct ErrorEnvelope: Decodable {
-        let requestId: String?
-    }
-
     private let session: URLSession
     private let interceptors: [RequestInterceptor]
     private let refreshService: AuthRefreshService?
@@ -28,7 +24,10 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
     func send<T: Decodable & Sendable, Body: Encodable & Sendable>(
         _ request: APIRequest<Body>
     ) async throws -> T {
-        let (data, response) = try await execute(request, retryOn401: true)
+        let (data, response) = try await execute(
+            request,
+            retryOn401: request.authenticationRetryPolicy == .afterTokenRefresh
+        )
         let validatedData = try validate(data: data, response: response)
 
         do {
@@ -41,7 +40,10 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
     func sendVoid<Body: Encodable & Sendable>(
         _ request: APIRequest<Body>
     ) async throws {
-        let (data, response) = try await execute(request, retryOn401: true)
+        let (data, response) = try await execute(
+            request,
+            retryOn401: request.authenticationRetryPolicy == .afterTokenRefresh
+        )
         _ = try validate(data: data, response: response)
     }
 
@@ -49,7 +51,8 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         data: Data,
         fileName: String,
         mimeType: String,
-        path: String
+        path: String,
+        authenticationRetryPolicy: AuthenticationRetryPolicy = .never
     ) async throws -> String {
         struct UploadResponse: Codable {
             let url: String
@@ -59,7 +62,8 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
             data: data,
             fileName: fileName,
             mimeType: mimeType,
-            path: path
+            path: path,
+            authenticationRetryPolicy: authenticationRetryPolicy
         )
         return response.url
     }
@@ -68,14 +72,15 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         data: Data,
         fileName: String,
         mimeType: String,
-        path: String
+        path: String,
+        authenticationRetryPolicy: AuthenticationRetryPolicy = .never
     ) async throws -> T {
         let (responseData, response) = try await executeMultipart(
             data: data,
             fileName: fileName,
             mimeType: mimeType,
             path: path,
-            retryOn401: true
+            retryOn401: authenticationRetryPolicy == .afterTokenRefresh
         )
         let validatedData = try validate(data: responseData, response: response)
 
@@ -117,9 +122,7 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
     ) async throws -> (Data, HTTPURLResponse) {
         let boundary = UUID().uuidString
 
-        guard let url = URL(string: APIConfig.baseURL + path) else {
-            throw APIError.invalidURL
-        }
+        let url = try makeURL(path: path)
 
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = HTTPMethod.POST.rawValue
@@ -217,7 +220,15 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
     }
 
     private func validate(data: Data, response: HTTPURLResponse) throws -> Data {
-        let requestId = requestId(from: data, response: response)
+        if !(200...299).contains(response.statusCode),
+           let problem = try? JSONDecoder().decode(ProblemDetails.self, from: data) {
+            throw APIError.remote(
+                problem,
+                retryAfter: retryAfter(from: response)
+            )
+        }
+
+        let requestId = response.value(forHTTPHeaderField: "X-Request-ID")
 
         switch response.statusCode {
         case 200...299:
@@ -252,29 +263,20 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         }
     }
 
-    private func requestId(from data: Data, response: HTTPURLResponse) -> String? {
-        if let envelope = try? JSONDecoder().decode(ErrorEnvelope.self, from: data),
-           let requestId = envelope.requestId {
-            return requestId
+    private func retryAfter(from response: HTTPURLResponse) -> TimeInterval? {
+        guard let value = response.value(forHTTPHeaderField: "Retry-After") else {
+            return nil
         }
-
-        return response.value(forHTTPHeaderField: "X-Request-ID")
+        return TimeInterval(value)
     }
 
     private func buildURLRequest<Body: Encodable & Sendable>(
         from request: APIRequest<Body>
     ) async throws -> URLRequest {
-        guard var components = URLComponents(string: APIConfig.baseURL + request.path) else {
-            throw APIError.invalidURL
-        }
-
-        if !request.queryItems.isEmpty {
-            components.queryItems = request.queryItems
-        }
-
-        guard let url = components.url else {
-            throw APIError.invalidURL
-        }
+        let url = try makeURL(
+            path: request.path,
+            queryItems: request.queryItems
+        )
 
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = request.method.rawValue
@@ -300,5 +302,31 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         for interceptor in interceptors {
             try await interceptor.adapt(&request)
         }
+    }
+
+    private func makeURL(
+        path: String,
+        queryItems: [URLQueryItem] = []
+    ) throws -> URL {
+        guard var components = URLComponents(
+            url: APIConfig.baseURL,
+            resolvingAgainstBaseURL: false
+        ) else {
+            throw APIError.invalidURL
+        }
+
+        let pathSuffix = path.hasPrefix("/") ? String(path.dropFirst()) : path
+        let basePath = components.percentEncodedPath.trimmingCharacters(
+            in: CharacterSet(charactersIn: "/")
+        )
+        components.percentEncodedPath = "/" + [basePath, pathSuffix]
+            .filter { !$0.isEmpty }
+            .joined(separator: "/")
+        components.queryItems = queryItems.isEmpty ? nil : queryItems
+
+        guard let url = components.url else {
+            throw APIError.invalidURL
+        }
+        return url
     }
 }

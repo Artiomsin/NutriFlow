@@ -44,6 +44,7 @@ struct ProfileFormView: View {
                             submitLabel: .return,
                             focus: $focusedField,
                             focusValue: .weight,
+                            errorMessage: viewModel.fieldErrors["weight"],
                             onSubmit: {
                                 nextField(.height)
                             }
@@ -56,6 +57,7 @@ struct ProfileFormView: View {
                             submitLabel: .return,
                             focus: $focusedField,
                             focusValue: .height,
+                            errorMessage: viewModel.fieldErrors["height"],
                             onSubmit: {
                                 nextField(.age)
                             }
@@ -68,6 +70,7 @@ struct ProfileFormView: View {
                             submitLabel: .return,
                             focus: $focusedField,
                             focusValue: .age,
+                            errorMessage: viewModel.fieldErrors["age"],
                             onSubmit: {
                                 focusedField = nil
                             }
@@ -89,6 +92,10 @@ struct ProfileFormView: View {
                                     }
                                 }
                             }
+
+                            if let message = viewModel.fieldErrors["gender"] {
+                                ErrorMessageView(text: message)
+                            }
                         }
 
                         VStack(alignment: .leading, spacing: 8) {
@@ -106,6 +113,10 @@ struct ProfileFormView: View {
                                         viewModel.goal = goal
                                     }
                                 }
+                            }
+
+                            if let message = viewModel.fieldErrors["goal"] {
+                                ErrorMessageView(text: message)
                             }
                         }
 
@@ -125,11 +136,16 @@ struct ProfileFormView: View {
                                     }
                                 }
                             }
+
+                            if let message = viewModel.fieldErrors["activityLevel"] {
+                                ErrorMessageView(text: message)
+                            }
                         }
                     }
                     .padding(.horizontal, AppSpacing.paddingHorizontal)
 
-                    if case .error(let error) = viewModel.state {
+                    if case .error(let error) = viewModel.state,
+                       viewModel.fieldErrors.isEmpty {
                         ErrorView(error: error, onRetry: nil)
                             .padding(.horizontal, AppSpacing.paddingHorizontal)
                     }
@@ -160,6 +176,24 @@ struct ProfileFormView: View {
             focusedField = nil
         }
         .onAppear { viewModel.trackScreen("profile_form") }
+        .onChange(of: viewModel.weight) { _, _ in
+            viewModel.clearFieldError("weight")
+        }
+        .onChange(of: viewModel.height) { _, _ in
+            viewModel.clearFieldError("height")
+        }
+        .onChange(of: viewModel.age) { _, _ in
+            viewModel.clearFieldError("age")
+        }
+        .onChange(of: viewModel.gender) { _, _ in
+            viewModel.clearFieldError("gender")
+        }
+        .onChange(of: viewModel.goal) { _, _ in
+            viewModel.clearFieldError("goal")
+        }
+        .onChange(of: viewModel.activityLevel) { _, _ in
+            viewModel.clearFieldError("activityLevel")
+        }
     }
 }
 

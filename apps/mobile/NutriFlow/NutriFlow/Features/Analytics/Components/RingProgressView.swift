@@ -37,7 +37,7 @@ struct RingProgressView: View {
             }
             .frame(width: 40, height: 40)
 
-            Text("\(pct)%")
+            Text(progress, format: .percent.precision(.fractionLength(0)))
                 .font(.caption2.bold())
                 .foregroundColor(color)
 
@@ -67,7 +67,7 @@ struct RingProgressView: View {
             .frame(width: 56, height: 56)
             .shadow(color: color.opacity(0.3), radius: 4)
 
-            Text("\(pct)%")
+            Text(progress, format: .percent.precision(.fractionLength(0)))
                 .font(.caption.bold())
                 .foregroundColor(color)
 

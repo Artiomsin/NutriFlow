@@ -194,7 +194,7 @@ final class MockProfileService: ProfileServiceProtocol {
                 entryDate: formatter.string(from: date),
                 source: "manual"
             )
-}
+        }
     }
     func recordWeight(weightKg: Double) async throws -> WeightLog {
         WeightLog(id: UUID().uuidString, weightKg: weightKg, entryDate: ISO8601DateFormatter().string(from: Date()), source: "manual")
@@ -213,6 +213,8 @@ final class MockUserService: UserServiceProtocol {
 
 
 final class MockAuthService: AuthServiceProtocol {
+    func changePassword(currentPassword: String, newPassword: String) async throws {
+    }
     func register(email: String, password: String, firstName: String, lastName: String) async throws { }
     func login(email: String, password: String) async throws { }
     func signInWithGoogle(idToken: String) async throws { }
@@ -295,7 +297,7 @@ final class MockGoalsService: GoalsServiceProtocol {
     
     func personalizeGoals() async throws -> PersonalizeResult {
         .insufficientData
-
+        
     }
     
     func getPersonalizationState() async throws -> PersonalizationState {
@@ -341,7 +343,7 @@ final class MockGoalsService: GoalsServiceProtocol {
     func dismissRecommendation(id: String) async throws -> DismissResult {
         DismissResult(dismissed: true)
     }
-
+    
     func acceptRecommendation(id: String) async throws -> GoalMetrics {
         GoalMetrics(
             dailyCaloriesGoal: 2200,
@@ -357,7 +359,7 @@ final class MockGoalsService: GoalsServiceProtocol {
             nightlySleepMaxMinutes: 500
         )
     }
-
+    
     func getGoalHistory() async throws -> [GoalHistoryEntry] {
         [
             GoalHistoryEntry(
@@ -395,7 +397,7 @@ final class MockGoalsService: GoalsServiceProtocol {
             )
         ]
     }
-
+    
     func getGoals() async throws -> UserGoals {
         UserGoals(
             id: "1",
@@ -443,7 +445,7 @@ final class MockWorkoutService: WorkoutServiceProtocol {
               let end = df.date(from: to) else {
             return WorkoutHistoryResponse(total: 0, workouts: [])
         }
-
+        
         let cal = Calendar.current
         var workouts: [WorkoutSyncEntry] = []
         let templates: [(type: String, hour: Int, minute: Int, minutes: Int, kcal: Double, meters: Double?)] = [

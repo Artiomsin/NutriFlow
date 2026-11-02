@@ -72,6 +72,12 @@ final class HomeViewModel {
 
     deinit { print("HomeViewModel deinit") }
 
+    private func routeAuth(_ appError: AppError) {
+        if appError == .unauthorized {
+            coordinator?.goToAuth()
+        }
+    }
+
     func onAppear() async {
         await activityVM.checkPermission()
         await sleepVM.checkPermission()
@@ -191,27 +197,18 @@ final class HomeViewModel {
             try? await cacheService?.set("summary_today", result, ttl: 300)
             print("[HomeVM] loadDashboardSummary → network OK")
             applyDashboardSummary(result, generation: generation)
-        } catch let error as APIError {
-            guard isCurrentDashboardSummaryGeneration(generation) else { return }
-            if case .unauthorized = error {
-                coordinator?.goToAuth()
-            }
-            if let cached: DailySummary = try? await cacheService?.get("summary_today", ignoreTTL: true) {
-                print("[HomeVM] loadDashboardSummary → fallback to stale cache")
-                applyDashboardSummary(cached, generation: generation)
-            } else {
-                print("[HomeVM] loadDashboardSummary → FAIL, no cache | API \(error)")
-                let appError: AppError = ErrorMapper.map(error)
-                dailySummaryState = .error(appError)
-            }
         } catch {
             guard isCurrentDashboardSummaryGeneration(generation) else { return }
+
+            let appError = ErrorMapper.map(error)
+            routeAuth(appError)
+            guard appError != .cancelled else { return }
+
             if let cached: DailySummary = try? await cacheService?.get("summary_today", ignoreTTL: true) {
                 print("[HomeVM] loadDashboardSummary → fallback to stale cache")
                 applyDashboardSummary(cached, generation: generation)
             } else {
                 print("[HomeVM] loadDashboardSummary → FAIL, no cache | \(error)")
-                let appError: AppError = ErrorMapper.map(error)
                 dailySummaryState = .error(appError)
             }
         }

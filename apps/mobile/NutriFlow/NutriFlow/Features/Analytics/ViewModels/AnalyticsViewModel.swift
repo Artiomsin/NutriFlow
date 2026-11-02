@@ -118,6 +118,7 @@ final class AnalyticsViewModel {
         } catch let error as APIError {
             if case .unauthorized = error {
                 coordinator?.goToAuth()
+                return
             }
             guard currentID == loadTaskID else { return }
             if keepLoadedData { return }

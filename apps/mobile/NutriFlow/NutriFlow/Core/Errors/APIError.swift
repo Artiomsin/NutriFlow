@@ -1,6 +1,13 @@
 import Foundation
 
+/// Transport-level failures produced by `URLSessionHTTPClient`.
+///
+/// A response that carries a Problem Details body becomes `.remote`. The
+/// status-based cases are the fallback for responses without that body (proxy
+/// HTML error pages, empty 502s, truncated JSON), so they are not duplicates
+/// of `.remote`; each one is still constructed by `validate(data:response:)`.
 enum APIError: Error, Equatable, Sendable {
+    case remote(ProblemDetails, retryAfter: TimeInterval?)
     case invalidURL
     case invalidRequest(statusCode: Int, requestId: String?)
     case unauthorized
@@ -15,14 +22,23 @@ enum APIError: Error, Equatable, Sendable {
     case requestFailed
     case encodingFailed
     case decodingFailed
-    case noData
     case cancelled
     case unknown
 }
 
 extension APIError: AppErrorConvertible {
+    /// Field-level problems are preserved from the Problem Details body so a
+    /// form can render them under the offending input instead of collapsing
+    /// them into a generic request error.
+    var fieldErrors: [FieldProblem] {
+        guard case .remote(let problem, _) = self else { return [] }
+        return problem.fieldErrors
+    }
+
     var appError: AppError {
         switch self {
+        case .remote(let problem, _):
+            return Self.appError(for: problem)
         case .invalidURL, .invalidRequest, .encodingFailed:
             return .invalidRequest
         case .unauthorized:
@@ -43,7 +59,7 @@ extension APIError: AppErrorConvertible {
             return Self.appError(forHTTPStatus: statusCode)
         case .transport(let code):
             return ErrorMapper.map(URLError(code))
-        case .requestFailed, .noData:
+        case .requestFailed:
             return .invalidResponse
         case .decodingFailed:
             return .decoding
@@ -56,6 +72,8 @@ extension APIError: AppErrorConvertible {
 
     var statusCode: Int? {
         switch self {
+        case .remote(let problem, _):
+            return problem.status
         case .invalidRequest(let statusCode, _):
             return statusCode
         case .unauthorized:
@@ -72,13 +90,15 @@ extension APIError: AppErrorConvertible {
             return 429
         case .serverError(let statusCode, _), .http(let statusCode, _):
             return statusCode
-        case .invalidURL, .transport, .requestFailed, .encodingFailed, .decodingFailed, .noData, .cancelled, .unknown:
+        case .invalidURL, .transport, .requestFailed, .encodingFailed, .decodingFailed, .cancelled, .unknown:
             return nil
         }
     }
 
     var requestId: String? {
         switch self {
+        case .remote(let problem, _):
+            return problem.requestId
         case .invalidRequest(_, let requestId),
              .conflict(let requestId),
              .requestTimeout(let requestId),
@@ -87,7 +107,7 @@ extension APIError: AppErrorConvertible {
              .http(_, let requestId):
             return requestId
         case .invalidURL, .unauthorized, .forbidden, .notFound, .transport,
-             .requestFailed, .encodingFailed, .decodingFailed, .noData, .cancelled, .unknown:
+             .requestFailed, .encodingFailed, .decodingFailed, .cancelled, .unknown:
             return nil
         }
     }
@@ -112,6 +132,31 @@ extension APIError: AppErrorConvertible {
             return .serverUnavailable
         default:
             return .unknown
+        }
+    }
+
+    private static func appError(for problem: ProblemDetails) -> AppError {
+        switch problem.problemType {
+        case .foodAnalysisQuotaExceeded:
+            return .foodAnalysisQuotaExceeded
+        case .validationFailed, .invalidRequest:
+            return .invalidRequest
+        case .unauthorized:
+            return .unauthorized
+        case .forbidden:
+            return .forbidden
+        case .notFound:
+            return .notFound
+        case .conflict:
+            return .conflict
+        case .requestTimeout:
+            return .timeout
+        case .rateLimited:
+            return .rateLimited
+        case .serverError:
+            return .serverUnavailable
+        case nil:
+            return appError(forHTTPStatus: problem.status)
         }
     }
 }

@@ -101,6 +101,12 @@ final class ProgressChartViewModel {
         print("ProgressChartViewModel deinit")
     }
 
+    private func routeAuth(_ appError: AppError) {
+        if appError == .unauthorized {
+            coordinator?.goToAuth()
+        }
+    }
+
     func loadDayDetail(date: String) async {
         selectedDateStr = date
         selectedDateFood = []
@@ -426,6 +432,7 @@ final class ProgressChartViewModel {
                 .sorted { $0.date < $1.date }
         } catch {
             let appError = ErrorMapper.map(error)
+            routeAuth(appError)
             if appError != .cancelled {
                 weightError = appError
             }
@@ -444,6 +451,7 @@ final class ProgressChartViewModel {
                     fallbackProfileWeightKg = profile.weight
                 } catch {
                     let appError = ErrorMapper.map(error)
+                    routeAuth(appError)
                     if appError != .cancelled {
                         weightError = appError
                     }
@@ -478,27 +486,37 @@ final class ProgressChartViewModel {
 
     func recordCurrentWeight(_ weightKg: Double) async throws {
         guard let profileService else { return }
-        _ = try await profileService.recordWeight(weightKg: weightKg)
-        await weightReminderScheduler?.rescheduleAfterWeightUpdate()
-        fallbackProfileWeightKg = weightKg
-        didLoadFallbackProfileWeight = true
-        await cacheService?.remove("profile")
-        await cacheService?.remove("goals")
-        await loadWeightSummary()
-        progressRefreshState?.invalidate()
+        do {
+            _ = try await profileService.recordWeight(weightKg: weightKg)
+            await weightReminderScheduler?.rescheduleAfterWeightUpdate()
+            fallbackProfileWeightKg = weightKg
+            didLoadFallbackProfileWeight = true
+            await cacheService?.remove("profile")
+            await cacheService?.remove("goals")
+            await loadWeightSummary()
+            progressRefreshState?.invalidate()
+        } catch {
+            routeAuth(ErrorMapper.map(error))
+            throw error
+        }
     }
 
     func deleteWeightEntry(date: String) async throws {
         guard let profileService else { return }
-        try await profileService.deleteWeightLog(date: date)
-        await weightReminderScheduler?.rescheduleAfterWeightUpdate()
-        fallbackProfileWeightKg = nil
-        didLoadFallbackProfileWeight = false
-        await cacheService?.remove("profile")
-        await cacheService?.remove("goals")
-        await loadWeightSummary()
-        await loadWeightHistory()
-        progressRefreshState?.invalidate()
+        do {
+            try await profileService.deleteWeightLog(date: date)
+            await weightReminderScheduler?.rescheduleAfterWeightUpdate()
+            fallbackProfileWeightKg = nil
+            didLoadFallbackProfileWeight = false
+            await cacheService?.remove("profile")
+            await cacheService?.remove("goals")
+            await loadWeightSummary()
+            await loadWeightHistory()
+            progressRefreshState?.invalidate()
+        } catch {
+            routeAuth(ErrorMapper.map(error))
+            throw error
+        }
     }
 
     func loadWeightHistory() async {
@@ -508,6 +526,7 @@ final class ProgressChartViewModel {
             weightHistoryError = nil
         } catch {
             let appError = ErrorMapper.map(error)
+            routeAuth(appError)
             if appError != .cancelled {
                 weightHistoryError = appError
             }

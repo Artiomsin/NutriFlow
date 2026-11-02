@@ -84,6 +84,7 @@ struct MainTabView: View {
                 viewModel: profileVM,
                 goalsVM: progressGoalsVM,
                 coordinator: coordinator,
+                authService: container.authService,
                 weightReminderScheduler: container.weightReminderScheduler,
                 waterReminderScheduler: container.waterReminderScheduler,
                 achievementNotificationService: container.achievementNotificationService,
@@ -98,6 +99,17 @@ struct MainTabView: View {
         }
         
         .ignoresSafeArea(.keyboard)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if let bootstrapError = coordinator.bootstrapError {
+                ErrorView(error: bootstrapError) {
+                    Task {
+                        await coordinator.retrySessionBootstrap()
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+            }
+        }
         .onReceive(
             NotificationCenter.default.publisher(
                 for: UIApplication.didBecomeActiveNotification

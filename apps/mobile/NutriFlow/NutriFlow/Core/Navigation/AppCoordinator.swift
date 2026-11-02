@@ -6,6 +6,7 @@ import Observation
 final class AppCoordinator {
     var route: AppRoute = .splash
     var pendingNotificationType: AppNotificationType?
+    var bootstrapError: AppError?
     private let container: AppDependency
 
     init(container: AppDependency) {
@@ -17,6 +18,7 @@ final class AppCoordinator {
         ) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
+                self.bootstrapError = nil
                 self.clearLocalSessionState()
                 self.route = .auth
             }
@@ -53,15 +55,30 @@ final class AppCoordinator {
             return
         }
 
+        await resolveSessionRoute()
+    }
+
+    @discardableResult
+    func resolveSessionRoute() async -> SessionBootstrapResult {
         let result: SessionBootstrapResult
+
         do {
             result = try await container.sessionBootstrapService.restoreSession()
         } catch {
             #if DEBUG
             print("[Session] Failed to restore the session: \(error)")
             #endif
+            bootstrapError = nil
+            clearLocalSessionState()
             route = .auth
-            return
+            return .auth
+        }
+
+        switch result {
+        case .auth, .profileForm:
+            bootstrapError = nil
+        case .main(let error):
+            bootstrapError = error
         }
 
         route = switch result {
@@ -70,26 +87,36 @@ final class AppCoordinator {
         case .main: .main
         }
 
-        if case .auth = route {
+        switch result {
+        case .auth:
             clearLocalSessionState()
-        }
-
-        if case .main = route {
+        case .profileForm:
+            break
+        case .main:
             container.activitySync.start()
         }
+
+        return result
+    }
+
+    func retrySessionBootstrap() async {
+        await resolveSessionRoute()
     }
 
     func goToAuth() {
         print("[Coordinator] goToAuth")
+        bootstrapError = nil
         clearLocalSessionState()
         route = .auth
     }
 
     func goToProfileForm() {
+        bootstrapError = nil
         route = .profileForm
     }
 
     func goToMain() {
+        bootstrapError = nil
         container.activitySync.start()
         route = .main
     }

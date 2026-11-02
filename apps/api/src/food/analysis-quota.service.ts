@@ -1,8 +1,12 @@
-import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { env } from '../config/env';
 import { DB } from '../db/db.module';
 import type { Db } from '../db/db';
+import {
+  ProblemDetailsException,
+  ProblemType,
+} from '../common/http/problem-details';
 
 const QUOTA_WINDOW_MS = 24 * 60 * 60 * 1_000;
 // Must outlive the complete provider chain. It is only a crash-safety lease:
@@ -45,10 +49,12 @@ export class AnalysisQuotaService {
         WHERE user_id = ${userId}::uuid AND expires_at > now()
       `);
       if (Number(active.rows[0]?.count ?? 0) >= this.limit) {
-        throw new HttpException(
-          'Food analysis limit reached. Try again when a slot becomes available.',
-          HttpStatus.TOO_MANY_REQUESTS,
-        );
+        throw new ProblemDetailsException({
+          type: ProblemType.foodAnalysisQuotaExceeded,
+          title: 'Food analysis quota exceeded',
+          status: HttpStatus.TOO_MANY_REQUESTS,
+          detail: 'A new analysis slot will become available later.',
+        });
       }
 
       const result = await tx.execute<

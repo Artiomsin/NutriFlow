@@ -15,6 +15,7 @@ final class ServingPickerViewModel {
     var selectedServing: FoodServing?
     var isLoading = false
     var error: AppError?
+    var fieldErrors = FormFieldErrors()
 
     private var pinnedGrams: Int?
 
@@ -105,13 +106,17 @@ final class ServingPickerViewModel {
 
     func save() async -> Bool {
         guard !isLoading else { return false }
+        fieldErrors.removeAll()
+        error = nil
         guard isValid else {
-            error = .validation(message: "Enter an amount greater than 0.")
+            fieldErrors.set(
+                FormErrorMapper.message(for: FieldErrorCode.invalidValue.rawValue),
+                for: "grams"
+            )
             return false
         }
 
         isLoading = true
-        error = nil
 
         let cal = calculatedCalories
         let prot = calculatedProtein
@@ -152,7 +157,8 @@ final class ServingPickerViewModel {
         gramsText = UnitConversion.convertWeightText(gramsText, from: old, to: new, baseUnit: baseUnit)
     }
 
-    func clearError() {
+    func clearFieldError(_ field: String) {
+        fieldErrors.clear(field)
         error = nil
     }
 
@@ -161,11 +167,28 @@ final class ServingPickerViewModel {
     }
 
     private func handle(_ rawError: Error) {
-        let appError = ErrorMapper.map(rawError)
-        if appError == .unauthorized {
-            coordinator?.goToAuth()
+        switch ErrorHandler.handle(
+            rawError,
+            supportedFields: ["name", "grams", "calories", "protein", "fat", "carbs"]
+        ) {
+        case .fieldErrors(let errors):
+            // This screen has a single editable input. Nutrition values are
+            // derived from grams, so their validation belongs under it.
+            var mapped = FormFieldErrors()
+
+            for field in ["grams", "calories", "protein", "fat", "carbs", "name"] {
+                if let message = errors[field] {
+                    mapped.set(message, for: "grams")
+                    break
+                }
+            }
+
+            fieldErrors = mapped
+        case .general(let appError):
+            if appError == .unauthorized {
+                coordinator?.goToAuth()
+            }
+            error = appError == .cancelled ? nil : appError
         }
-        guard appError != .cancelled else { return }
-        error = appError
     }
 }

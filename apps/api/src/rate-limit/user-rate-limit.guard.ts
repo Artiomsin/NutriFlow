@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpStatus } from '@nestjs/common';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PostgresThrottlerStorage } from './postgres-throttler.storage';
@@ -7,6 +7,10 @@ import {
   USER_RATE_LIMIT,
   type UserRateLimitOptions,
 } from './rate-limit.constants';
+import {
+  ProblemDetailsException,
+  ProblemType,
+} from '../common/http/problem-details';
 
 @Injectable()
 export class UserRateLimitGuard implements CanActivate {
@@ -49,10 +53,12 @@ export class UserRateLimitGuard implements CanActivate {
 
     if (counter.isBlocked) {
       res.setHeader('Retry-After', counter.timeToBlockExpire);
-      throw new HttpException(
-        'Too many requests. Please try again later.',
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
+      throw new ProblemDetailsException({
+        type: ProblemType.rateLimited,
+        title: 'Too many requests',
+        status: HttpStatus.TOO_MANY_REQUESTS,
+        detail: 'Please try again later.',
+      });
     }
     return true;
   }

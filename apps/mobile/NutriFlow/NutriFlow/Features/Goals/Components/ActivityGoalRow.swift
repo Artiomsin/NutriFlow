@@ -86,7 +86,7 @@ struct ActivityGoalRow: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(AppColors.textPrimary)
 
-                Text("\(Int(pct * 100))%")
+                Text(pct, format: .percent.precision(.fractionLength(0)))
                     .font(
                         .system(
                             size: 24,

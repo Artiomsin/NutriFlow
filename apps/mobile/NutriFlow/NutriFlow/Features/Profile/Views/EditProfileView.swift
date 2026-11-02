@@ -41,6 +41,7 @@ struct EditProfileView: View {
                         submitLabel: .return,
                         focus: $focusedField,
                         focusValue: .email,
+                        errorMessage: viewModel.fieldErrors["email"],
                         onSubmit: {
                             nextField(.firstName)
                         }
@@ -53,6 +54,7 @@ struct EditProfileView: View {
                         submitLabel: .return,
                         focus: $focusedField,
                         focusValue: .firstName,
+                        errorMessage: viewModel.fieldErrors["firstName"],
                         onSubmit: {
                             nextField(.lastName)
                         }
@@ -65,6 +67,7 @@ struct EditProfileView: View {
                         submitLabel: .return,
                         focus: $focusedField,
                         focusValue: .lastName,
+                        errorMessage: viewModel.fieldErrors["lastName"],
                         onSubmit: {
                             nextField(.height)
                         }
@@ -77,6 +80,7 @@ struct EditProfileView: View {
                         submitLabel: .return,
                         focus: $focusedField,
                         focusValue: .height,
+                        errorMessage: viewModel.fieldErrors["height"],
                         onSubmit: {
                             nextField(.age)
                         }
@@ -89,6 +93,7 @@ struct EditProfileView: View {
                         submitLabel: .return,
                         focus: $focusedField,
                         focusValue: .age,
+                        errorMessage: viewModel.fieldErrors["age"],
                         onSubmit: {
                             dismissKeyboard()
                         }
@@ -116,12 +121,21 @@ struct EditProfileView: View {
                                 ) {
                                     dismissKeyboard()
                                     viewModel.gender = gender
+                                    viewModel.clearFieldError("gender")
                                 }
                             }
                         }
+
+                        if let genderError = viewModel.fieldErrors["gender"] {
+                            Text(genderError)
+                                .font(.caption)
+                                .foregroundColor(AppColors.error)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
 
-                    if let saveError = viewModel.saveError {
+                    if let saveError = viewModel.saveError,
+                       viewModel.fieldErrors.isEmpty {
                         ErrorView(
                             error: saveError,
                             onRetry: { Task { await viewModel.saveAll() } }
@@ -134,7 +148,8 @@ struct EditProfileView: View {
 
                         Task {
                             await viewModel.saveAll()
-                            if viewModel.saveError == nil {
+                            if viewModel.saveError == nil,
+                               viewModel.fieldErrors.isEmpty {
                                 dismiss()
                             }
                         }
@@ -150,6 +165,21 @@ struct EditProfileView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onTapGesture {
             dismissKeyboard()
+        }
+        .onChange(of: viewModel.email) { _, _ in
+            viewModel.clearFieldError("email")
+        }
+        .onChange(of: viewModel.firstName) { _, _ in
+            viewModel.clearFieldError("firstName")
+        }
+        .onChange(of: viewModel.lastName) { _, _ in
+            viewModel.clearFieldError("lastName")
+        }
+        .onChange(of: viewModel.height) { _, _ in
+            viewModel.clearFieldError("height")
+        }
+        .onChange(of: viewModel.age) { _, _ in
+            viewModel.clearFieldError("age")
         }
         .onAppear { viewModel.trackScreen("edit_profile") }
     }

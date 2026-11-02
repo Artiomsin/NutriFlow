@@ -235,7 +235,12 @@ struct SleepCard: View {
     private func statistics(_ sleep: HealthKitSleep) -> String {
         var parts: [String] = []
         if sleep.awakenings > 0 { parts.append("\(sleep.awakenings) awakenings") }
-        if let efficiency = sleep.efficiency { parts.append("\(Int(efficiency))% efficiency") }
+        if let efficiency = sleep.efficiency {
+            let percentage = (efficiency / 100).formatted(
+                .percent.precision(.fractionLength(0))
+            )
+            parts.append("\(percentage) efficiency")
+        }
         if sleep.segmentCount > 0 { parts.append("\(sleep.segmentCount) segments") }
         return parts.joined(separator: " · ")
     }

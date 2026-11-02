@@ -22,6 +22,7 @@ final class AddFoodViewModel {
     var protein: String = ""
     var fat: String = ""
     var carbs: String = ""
+    var fieldErrors = FormFieldErrors()
 
     var categories: [FoodCategory] = []
     var categoriesError: AppError?
@@ -143,16 +144,52 @@ final class AddFoodViewModel {
     func createEntry() async -> Bool {
         guard !isBusy else { return false }
 
+        fieldErrors.removeAll()
+
+        if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            fieldErrors.set(
+                FormErrorMapper.message(for: FieldErrorCode.required.rawValue),
+                for: "name"
+            )
+        }
+
         let gramsInt = toGrams(grams) ?? 0
-        guard gramsInt > 0 else {
-            state = .error(.validation(message: "Enter a weight greater than 0."))
-            return false
+        if grams.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            fieldErrors.set(
+                FormErrorMapper.message(for: FieldErrorCode.required.rawValue),
+                for: "grams"
+            )
+        } else if gramsInt <= 0 {
+            fieldErrors.set(
+                FormErrorMapper.message(for: FieldErrorCode.invalidValue.rawValue),
+                for: "grams"
+            )
         }
+
         guard let caloriesValue = UnitConversion.parseDecimal(calories), caloriesValue > 0 else {
-            state = .error(.validation(message: "Enter calories greater than 0."))
+            fieldErrors.set(
+                FormErrorMapper.message(
+                    for: calories.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        ? FieldErrorCode.required.rawValue
+                        : FieldErrorCode.invalidValue.rawValue
+                ),
+                for: "calories"
+            )
+            state = .idle
             return false
         }
-        let caloriesInt = Int(UnitConversion.energyToKcal(caloriesValue, preferred: prefsStore.preferredUnits).rounded())
+
+        guard fieldErrors.isEmpty else {
+            state = .idle
+            return false
+        }
+
+        let caloriesInt = Int(
+            UnitConversion.energyToKcal(
+                caloriesValue,
+                preferred: prefsStore.preferredUnits
+            ).rounded()
+        )
 
         state = .uploading
 
@@ -197,7 +234,9 @@ final class AddFoodViewModel {
         }
     }
 
-    func clearError() {
+    func clearFieldError(_ field: String) {
+        fieldErrors.clear(field)
+
         if case .error = state {
             state = .idle
         }
@@ -237,11 +276,23 @@ final class AddFoodViewModel {
     }
     
     private func handle(_ error: Error) {
-        let appError = ErrorMapper.map(error)
-        if appError == .unauthorized {
-            coordinator?.goToAuth()
+        switch ErrorHandler.handle(
+            error,
+            supportedFields: ["name", "grams", "calories", "protein", "fat", "carbs"]
+        ) {
+        case .fieldErrors(let errors):
+            fieldErrors = errors
+            state = .idle
+
+        case .general(let appError):
+            fieldErrors.removeAll()
+
+            if appError == .unauthorized {
+                coordinator?.goToAuth()
+            }
+
+            state = appError == .cancelled ? .idle : .error(appError)
         }
-        state = appError == .cancelled ? .idle : .error(appError)
     }
     
 }
