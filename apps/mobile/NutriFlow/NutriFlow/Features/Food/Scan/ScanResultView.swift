@@ -354,10 +354,7 @@ struct ScanResultView: View {
             FoodImagePlaceholder(cornerRadius: 12, iconSize: 18)
 
             if let url = item.imageURL {
-                KFImage(url)
-                    .fade(duration: 0.25)
-                    .resizable()
-                    .scaledToFill()
+                NutriflowImage(url: url)
             }
         }
         .frame(width: 50, height: 50)

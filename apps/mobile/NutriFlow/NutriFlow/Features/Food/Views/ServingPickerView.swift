@@ -51,12 +51,11 @@ struct ServingPickerView: View {
                     .fill(AppColors.surface)
                     .frame(width: 72, height: 72)
 
-                if let url = viewModel.food.displayImageUrl, let imageURL = URL(string: url) {
+                if let imageURL = viewModel.food.imageUrl.flatMap(ImageURLResolver.resolve) {
                     ZStack {
                         FoodImagePlaceholder(cornerRadius: 14, iconSize: 30)
-                        KFImage(imageURL)
-                            .resizable()
-                            .scaledToFill()
+
+                        NutriflowImage(url: imageURL)
                     }
                     .frame(width: 72, height: 72)
                     .clipShape(RoundedRectangle(cornerRadius: 14))

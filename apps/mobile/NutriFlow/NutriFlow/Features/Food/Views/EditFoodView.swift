@@ -110,11 +110,11 @@ struct EditFoodView: View {
 
     private func photoSection() -> some View {
         let selectedImage = viewModel.selectedImage
-        let imageUrl = viewModel.entry.displayImageUrl
+        let imageUrl = viewModel.entry.imageUrl
         return VStack(spacing: 12) {
             sectionLabel("Photo", icon: "camera.fill")
             PhotosPicker(selection: $viewModel.photosItem, matching: .images) {
-                PhotoSectionContent(image: selectedImage, imageUrl: imageUrl)
+                PhotoSectionContent(image: selectedImage,  imageUrl: imageUrl)
             }
             .frame(height: 180)
             .frame(maxWidth: .infinity)
@@ -340,10 +340,8 @@ private struct PhotoSectionContent: View {
             Image(uiImage: image)
                 .resizable()
                 .scaledToFill()
-        } else if let url = imageUrl.flatMap({ URL(string: $0) }) {
-            KFImage(url)
-                .resizable()
-                .scaledToFill()
+        } else if let url = imageUrl.flatMap(ImageURLResolver.resolve) {
+            NutriflowImage(url: url)
         } else {
             RoundedRectangle(cornerRadius: AppRadius.medium)
                 .fill(AppColors.surfaceSecondary)

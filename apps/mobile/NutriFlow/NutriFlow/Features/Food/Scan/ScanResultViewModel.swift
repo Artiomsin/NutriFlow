@@ -70,7 +70,7 @@ struct EditableScanFood: Identifiable, Sendable {
     var categoryName: String? { categoryText.isEmpty ? nil : categoryText }
     
     var imageURL: URL? {
-        source.imageUrl.flatMap { URL(string: $0) }
+        source.imageUrl.flatMap(ImageURLResolver.resolve)
     }
     
     var baseUnit: String { source.unit ?? "g" }

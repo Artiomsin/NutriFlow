@@ -1,25 +1,5 @@
 import Foundation
 
-extension FoodEntry {
-    var displayImageUrl: String? {
-        rewriteMinioURL(imageUrl)
-    }
-}
-
-extension CatalogFood {
-    var displayImageUrl: String? {
-        rewriteMinioURL(imageUrl)
-    }
-}
-
-private func rewriteMinioURL(_ url: String?) -> String? {
-    guard let url, let apiHost = APIConfig.baseURL.host else { return url }
-    guard var components = URLComponents(string: url) else { return url }
-    guard let minioPort = components.port, minioPort == 9000 else { return url }
-    components.host = apiHost
-    return components.url?.absoluteString ?? url
-}
-
 struct CreateFoodRequest: Codable, Sendable {
     let name: String
     let calories: Int

@@ -99,12 +99,10 @@ struct FoodCard: View {
 
     @ViewBuilder
     private var imageView: some View {
-        if let url = entry.displayImageUrl.flatMap({ URL(string: $0) }) {
+        if let url = entry.imageUrl.flatMap(ImageURLResolver.resolve) {
             ZStack {
                 fallbackIcon
-                KFImage(url)
-                    .resizable()
-                    .scaledToFill()
+                NutriflowImage(url: url)
             }
             .frame(width: 56, height: 56)
             .clipShape(RoundedRectangle(cornerRadius: 12))
