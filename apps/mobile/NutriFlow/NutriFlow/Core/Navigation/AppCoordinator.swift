@@ -91,8 +91,9 @@ final class AppCoordinator {
         case .auth:
             clearLocalSessionState()
         case .profileForm:
-            break
+            await activatePrivateImageSession()
         case .main:
+            await activatePrivateImageSession()
             container.activitySync.start()
         }
 
@@ -112,11 +113,13 @@ final class AppCoordinator {
 
     func goToProfileForm() {
         bootstrapError = nil
+        Task { await activatePrivateImageSession() }
         route = .profileForm
     }
 
     func goToMain() {
         bootstrapError = nil
+        Task { await activatePrivateImageSession() }
         container.activitySync.start()
         route = .main
     }
@@ -143,7 +146,23 @@ final class AppCoordinator {
         container.activitySync.stop()
         WorkoutViewModel.resetSessionSyncState()
         SleepSyncCoordinator.resetSessionSyncState()
-        Task { await container.cacheService.clear() }
+        Task {
+            await container.imageCacheService.endPrivateSession()
+            await container.cacheService.clear()
+        }
+    }
+
+    private func activatePrivateImageSession() async {
+        do {
+            guard let sessionID = try container.sessionService.sessionID() else {
+                return
+            }
+            await container.imageCacheService.startPrivateSession(sessionId: sessionID)
+        } catch {
+            #if DEBUG
+            print("[Session] Could not activate private image cache: \(error)")
+            #endif
+        }
     }
 
     deinit {

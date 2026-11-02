@@ -21,6 +21,7 @@ final class AppDependencyContainer: AppDependency {
     let goalsService: GoalsServiceProtocol
     let analyticsService: AnalyticsServiceProtocol
     let cacheService: CacheService
+    let imageCacheService: ImageCacheServiceProtocol
     let googleSignInService: GoogleSignInService
     let activityService: ActivityServiceProtocol
     let workoutService: WorkoutServiceProtocol
@@ -59,8 +60,16 @@ final class AppDependencyContainer: AppDependency {
         let session = AuthSessionService(tokenStorage: tokenStorage)
         self.sessionService = session
         
+        self.imageCacheService = ImageCacheService(
+            sessionService: session
+        )
+        
         let interceptor = AuthTokenInterceptor(session: session)
-        let refresh = AuthRefreshService(client: URLSessionHTTPClient(interceptors: []), session: session)
+        let refresh = AuthRefreshService(
+            client: URLSessionHTTPClient(interceptors: []),
+            session: session,
+            imageCacheService: imageCacheService
+        )
         self.refreshService = refresh
         
         self.httpClient = URLSessionHTTPClient(
@@ -68,7 +77,11 @@ final class AppDependencyContainer: AppDependency {
             refreshService: refresh
         )
         
-        let auth = AuthService(client: httpClient, sessionService: session)
+        let auth = AuthService(
+            client: httpClient,
+            sessionService: session,
+            imageCacheService: imageCacheService
+        )
         self.authService = auth
         
         let profile = ProfileService(client: httpClient)

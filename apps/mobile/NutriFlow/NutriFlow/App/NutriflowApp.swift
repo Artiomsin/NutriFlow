@@ -28,6 +28,7 @@ struct NutriflowApp: App {
             }
            
             .environment(container.themeStore)
+            .environment(\.imageCacheService, container.imageCacheService)
             .glassEffectsMode(container.themeStore.glassEffectsMode)
             .preferredColorScheme(
                             container.themeStore.mode.colorScheme

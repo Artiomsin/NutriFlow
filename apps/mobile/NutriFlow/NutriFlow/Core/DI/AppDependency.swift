@@ -26,6 +26,7 @@ protocol AppDependency {
     var analyticsService: AnalyticsServiceProtocol { get }
     var analyticsTracker: AnalyticsTracking { get }
     var cacheService: CacheService { get }
+    var imageCacheService: ImageCacheServiceProtocol { get }
     var googleSignInService: GoogleSignInService { get }
     var activityHealthKitService: ActivityHealthKitServiceProtocol { get }
     var workoutHealthKitService: WorkoutHealthKitServiceProtocol { get }
