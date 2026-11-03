@@ -127,6 +127,19 @@ final class EditFoodViewModel {
         )
     }
 
+    private func macroValidationError(for field: String) -> String {
+        let fieldName: String
+
+        switch field {
+        case "protein": fieldName = "Protein"
+        case "fat": fieldName = "Fat"
+        case "carbs": fieldName = "Carbs"
+        default: fieldName = "Value"
+        }
+
+        return "\(fieldName): enter a valid number with supported precision."
+    }
+    
     private func validatedAmount(
         _ text: String,
         field: String,
@@ -146,7 +159,11 @@ final class EditFoodViewModel {
         guard UnitConversion.isValidNutritionInput(value, maximumFractionDigits: maximumFractionDigits),
               let decimal = UnitConversion.parseDecimal(value),
               requiresPositiveValue ? decimal > 0 : decimal >= 0 else {
-            fieldErrors.set("Enter a valid number with the supported precision.", for: field)
+            let message = ["protein", "fat", "carbs"].contains(field)
+                ? macroValidationError(for: field)
+                : "Enter a valid number with the supported precision."
+
+            fieldErrors.set(message, for: field)
             return nil
         }
 
@@ -191,10 +208,15 @@ final class EditFoodViewModel {
                     : (field == "calories"
                         ? UnitConversion.nutritionFractionDigits
                         : foodDisplayFractionDigits)
-            ) || (field == "grams" || field == "calories"
-                ? (UnitConversion.parseDecimal(numericText) ?? 0) <= 0
-                : (UnitConversion.parseDecimal(numericText) ?? 0) < 0)) {
-            fieldErrors.set("Enter a valid number with the supported precision.", for: field)
+           ) || (field == "grams" || field == "calories"
+               ? (UnitConversion.parseDecimal(numericText) ?? 0) <= 0
+               : (UnitConversion.parseDecimal(numericText) ?? 0) < 0)) {
+
+            let message = ["protein", "fat", "carbs"].contains(field)
+                ? macroValidationError(for: field)
+                : "Enter a valid number with the supported precision."
+
+            fieldErrors.set(message, for: field)
         } else {
             fieldErrors.clear(field)
         }

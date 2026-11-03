@@ -155,6 +155,7 @@ struct EditFoodView: View {
         AppCard {
             VStack(alignment: .leading, spacing: 14) {
                 sectionLabel("Macros", icon: "chart.pie.fill")
+
                 HStack(spacing: 12) {
                     AppTextField(
                         title: viewModel.proteinLabel,
@@ -162,8 +163,7 @@ struct EditFoodView: View {
                         keyboardType: .decimalPad,
                         submitLabel: .return,
                         focus: $focusedField,
-                        focusValue: .protein,
-                        errorMessage: viewModel.fieldErrors["protein"]
+                        focusValue: .protein
                     ) {
                         nextField(.fat)
                     }
@@ -177,8 +177,7 @@ struct EditFoodView: View {
                         keyboardType: .decimalPad,
                         submitLabel: .return,
                         focus: $focusedField,
-                        focusValue: .fat,
-                        errorMessage: viewModel.fieldErrors["fat"]
+                        focusValue: .fat
                     ) {
                         nextField(.carbs)
                     }
@@ -192,14 +191,31 @@ struct EditFoodView: View {
                         keyboardType: .decimalPad,
                         submitLabel: .return,
                         focus: $focusedField,
-                        focusValue: .carbs,
-                        errorMessage: viewModel.fieldErrors["carbs"]
+                        focusValue: .carbs
                     ) {
                         nextField(.grams)
                     }
                     .onChange(of: viewModel.carbs) { _, _ in
                         viewModel.clearFieldError("carbs")
                     }
+                }
+
+                let macroErrors = [
+                    viewModel.fieldErrors["protein"],
+                    viewModel.fieldErrors["fat"],
+                    viewModel.fieldErrors["carbs"]
+                ].compactMap { $0 }
+
+                if !macroErrors.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(Array(macroErrors.enumerated()), id: \.offset) { _, error in
+                            Text(error)
+                                .font(.caption)
+                                .foregroundColor(.red)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
