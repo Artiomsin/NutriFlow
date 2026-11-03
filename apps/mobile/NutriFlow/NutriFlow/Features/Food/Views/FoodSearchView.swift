@@ -2,12 +2,12 @@ import SwiftUI
 import Kingfisher
 
 struct FoodSearchView: View {
-    let onSelect: (CatalogFood, Int?, String?) -> Void
+    let onSelect: (CatalogFood, Double?, String?) -> Void
     
     @State private var foodSearchVM: FoodSearchViewModel
     @FocusState private var searchFocused: Bool
     
-    init(viewModel: FoodSearchViewModel, onSelect: @escaping (CatalogFood, Int?, String?) -> Void) {
+    init(viewModel: FoodSearchViewModel, onSelect: @escaping (CatalogFood, Double?, String?) -> Void) {
         self.onSelect = onSelect
         _foodSearchVM = State(initialValue: viewModel)
     }

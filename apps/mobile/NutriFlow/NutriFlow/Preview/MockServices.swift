@@ -1,7 +1,7 @@
 import Foundation
 
 final class MockFoodService: FoodServiceProtocol {
-    func createFoodEntry(name: String, calories: Int, protein: Int?, fat: Int?, carbs: Int?, foodId: String? = nil, grams: Int? = nil, unit: String? = nil, categoryName: String? = nil, imageUrl: String? = nil, date: String? = nil) async throws -> FoodEntry {
+    func createFoodEntry(name: String, calories: Double, protein: Double?, fat: Double?, carbs: Double?, foodId: String? = nil, grams: Double? = nil, unit: String? = nil, categoryName: String? = nil, imageUrl: String? = nil, date: String? = nil) async throws -> FoodEntry {
         FoodEntry(id: UUID().uuidString, userId: "1", name: name, calories: calories, protein: protein, fat: fat, carbs: carbs, foodId: foodId, grams: grams, unit: unit ?? "g", categoryName: categoryName, imageUrl: imageUrl, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil)
     }
     func getTodayFood() async throws -> [FoodEntry] {
@@ -21,11 +21,11 @@ final class MockFoodService: FoodServiceProtocol {
     func updateFoodEntry(
         id: String,
         name: String?,
-        calories: Int?,
-        protein: Int?,
-        fat: Int?,
-        carbs: Int?,
-        grams: Int?,
+        calories: Double?,
+        protein: Double?,
+        fat: Double?,
+        carbs: Double?,
+        grams: Double?,
         unit: String?,
         foodId: String?,
         date: String?,
@@ -155,10 +155,10 @@ final class MockDailySummaryService: DailySummaryServiceProtocol {
                 id: UUID().uuidString,
                 userId: "1",
                 date: fmt.string(from: current),
-                totalCalories: Int.random(in: 1500...2500),
-                totalProtein: Int.random(in: 60...120),
-                totalFat: Int.random(in: 30...70),
-                totalCarbs: Int.random(in: 100...200),
+                totalCalories: Double.random(in: 1_500...2_500),
+                totalProtein: Double.random(in: 60...120),
+                totalFat: Double.random(in: 30...70),
+                totalCarbs: Double.random(in: 100...200),
                 totalWaterMl: Int.random(in: 1500...2500),
                 createdAt: "2026-05-18T10:00:00Z",
                 updatedAt: nil

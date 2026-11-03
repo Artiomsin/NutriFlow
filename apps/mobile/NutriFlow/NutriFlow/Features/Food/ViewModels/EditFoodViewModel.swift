@@ -71,12 +71,12 @@ final class EditFoodViewModel {
         self.name = entry.name
         let prefs = PreferencesStore.shared.preferredUnits
         self.calories = "\(UnitConversion.formatEnergyValue(kcal: entry.calories, preferred: prefs))"
-        self.protein = entry.protein.map { UnitConversion.macroDisplay(grams: Double($0), preferred: prefs) } ?? ""
-        self.fat = entry.fat.map { UnitConversion.macroDisplay(grams: Double($0), preferred: prefs) } ?? ""
-        self.carbs = entry.carbs.map { UnitConversion.macroDisplay(grams: Double($0), preferred: prefs) } ?? ""
+        self.protein = entry.protein.map { UnitConversion.macroDisplay(grams: $0, preferred: prefs) } ?? ""
+        self.fat = entry.fat.map { UnitConversion.macroDisplay(grams: $0, preferred: prefs) } ?? ""
+        self.carbs = entry.carbs.map { UnitConversion.macroDisplay(grams: $0, preferred: prefs) } ?? ""
         self.grams = entry.grams.map {
             let unit = UnitConversion.displayUnit(for: entry.unit, preferred: prefs)
-            let value = UnitConversion.displayValue(fromGrams: Double($0), baseUnit: entry.unit, preferred: prefs)
+            let value = UnitConversion.displayValue(fromGrams: $0, baseUnit: entry.unit, preferred: prefs)
             return UnitConversion.formatDisplayValue(value, displayUnit: unit)
         } ?? ""
         self.selectedCategoryName = entry.categoryName
@@ -134,12 +134,12 @@ final class EditFoodViewModel {
                 uploadedImageUrl = imageUrl
             }
 
-            let gramsInG = toGrams(grams).map { Int($0.rounded()) }
+            let gramsInG = toGrams(grams)
             try await foodService.updateFoodEntry(
                 id: entry.id,
                 name: name.trimmingCharacters(in: .whitespaces),
-                calories: UnitConversion.parseDecimal(calories).flatMap {
-                    Int(UnitConversion.energyToKcal($0, preferred: prefsStore.preferredUnits).rounded())
+                calories: UnitConversion.parseDecimal(calories).map {
+                    UnitConversion.energyToKcal($0, preferred: prefsStore.preferredUnits)
                 },
                 protein: UnitConversion.macroGrams(fromDisplay: protein, preferred: prefsStore.preferredUnits),
                 fat: UnitConversion.macroGrams(fromDisplay: fat, preferred: prefsStore.preferredUnits),
@@ -205,11 +205,11 @@ final class EditFoodViewModel {
     func recalculateMacros(from gramsString: String) {
         guard let baseGrams = entry.grams, baseGrams > 0 else { return }
         guard let newGrams = toGrams(gramsString), newGrams > 0 else { return }
-        let ratio = newGrams / Double(baseGrams)
+        let ratio = newGrams / baseGrams
         let prefs = prefsStore.preferredUnits
-        calories = "\(UnitConversion.formatEnergyValue(kcal: Int((Double(entry.calories) * ratio).rounded()), preferred: prefs))"
-        if let p = entry.protein { protein = UnitConversion.macroDisplay(grams: Double(p) * ratio, preferred: prefs) }
-        if let f = entry.fat { fat = UnitConversion.macroDisplay(grams: Double(f) * ratio, preferred: prefs) }
-        if let c = entry.carbs { carbs = UnitConversion.macroDisplay(grams: Double(c) * ratio, preferred: prefs) }
+        calories = UnitConversion.formatEnergyValue(kcal: entry.calories * ratio, preferred: prefs).formatted(.number.precision(.fractionLength(0...2)))
+        if let p = entry.protein { protein = UnitConversion.macroDisplay(grams: p * ratio, preferred: prefs) }
+        if let f = entry.fat { fat = UnitConversion.macroDisplay(grams: f * ratio, preferred: prefs) }
+        if let c = entry.carbs { carbs = UnitConversion.macroDisplay(grams: c * ratio, preferred: prefs) }
     }
 }

@@ -5,7 +5,7 @@ import Observation
 @MainActor
 final class ServingPickerViewModel {
     let food: CatalogFood
-    let suggestedGrams: Int?
+    let suggestedGrams: Double?
     let suggestedUnit: String?
     let todayFoodVM: TodayFoodViewModel
 
@@ -17,14 +17,14 @@ final class ServingPickerViewModel {
     var error: AppError?
     var fieldErrors = FormFieldErrors()
 
-    private var pinnedGrams: Int?
+    private var pinnedGrams: Double?
 
     private let service: FoodServiceProtocol
     private let prefsStore = PreferencesStore.shared
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
 
-    init(food: CatalogFood, service: FoodServiceProtocol, todayFoodVM: TodayFoodViewModel, suggestedGrams: Int?, suggestedUnit: String?, coordinator: AppCoordinator?, analyticsTracker: AnalyticsTracking? = nil) {
+    init(food: CatalogFood, service: FoodServiceProtocol, todayFoodVM: TodayFoodViewModel, suggestedGrams: Double?, suggestedUnit: String?, coordinator: AppCoordinator?, analyticsTracker: AnalyticsTracking? = nil) {
         self.food = food
         self.service = service
         self.todayFoodVM = todayFoodVM
@@ -42,7 +42,7 @@ final class ServingPickerViewModel {
         }
     }
 
-    private static let defaultGrams = 100
+    private static let defaultGrams = 100.0
 
     func trackScreenView() {
         analyticsTracker?.track(.screenView(screen: "serving_picker"))
@@ -50,11 +50,11 @@ final class ServingPickerViewModel {
 
     var baseUnit: String { suggestedUnit ?? "g" }
 
-    private static func gramsToDisplay(_ grams: Int?, suggestedUnit: String?) -> String {
+    private static func gramsToDisplay(_ grams: Double?, suggestedUnit: String?) -> String {
         guard let g = grams, g > 0 else { return "" }
         let prefs = PreferencesStore.shared.preferredUnits
         let unit = UnitConversion.displayUnit(for: suggestedUnit ?? "g", preferred: prefs)
-        let value = UnitConversion.displayValue(fromGrams: Double(g), baseUnit: suggestedUnit ?? "g", preferred: prefs)
+        let value = UnitConversion.displayValue(fromGrams: g, baseUnit: suggestedUnit ?? "g", preferred: prefs)
         return UnitConversion.formatDisplayValue(value, displayUnit: unit)
     }
 
@@ -67,25 +67,25 @@ final class ServingPickerViewModel {
         setText(gramsToDisplay(serving.grams), pinned: serving.grams)
     }
 
-    func selectSuggested(_ grams: Int) {
+    func selectSuggested(_ grams: Double) {
         setText(gramsToDisplay(grams), pinned: grams)
     }
 
-    private func setText(_ text: String, pinned: Int?) {
+    private func setText(_ text: String, pinned: Double?) {
         gramsText = text
         pinnedGrams = pinned
     }
 
-    var grams: Int {
+    var grams: Double {
         if let pinned = pinnedGrams { return pinned }
         guard let value = UnitConversion.parseDecimal(gramsText), value > 0 else {
             if let serving = selectedServing { return serving.grams }
-            return 100
+            return 100.0
         }
-        return Int(UnitConversion.grams(fromDisplay: value, baseUnit: baseUnit, preferred: prefsStore.preferredUnits).rounded())
+        return UnitConversion.grams(fromDisplay: value, baseUnit: baseUnit, preferred: prefsStore.preferredUnits)
     }
 
-    var ratio: Double { Double(grams) / 100.0 }
+    var ratio: Double { grams / 100.0 }
 
     var isValid: Bool {
         if let pinned = pinnedGrams { return pinned > 0 }
@@ -94,13 +94,13 @@ final class ServingPickerViewModel {
         return value > 0
     }
 
-    var calculatedCalories: Int { Int(Double(food.caloriesPer100g) * ratio) }
-    var calculatedProtein: Int? { food.proteinPer100g.map { Int(Double($0) * ratio) } }
-    var calculatedFat: Int? { food.fatPer100g.map { Int(Double($0) * ratio) } }
-    var calculatedCarbs: Int? { food.carbsPer100g.map { Int(Double($0) * ratio) } }
+    var calculatedCalories: Double { food.caloriesPer100g * ratio }
+    var calculatedProtein: Double? { food.proteinPer100g.map { $0 * ratio } }
+    var calculatedFat: Double? { food.fatPer100g.map { $0 * ratio } }
+    var calculatedCarbs: Double? { food.carbsPer100g.map { $0 * ratio } }
 
-    func gramsToDisplay(_ g: Int) -> String {
-        let value = UnitConversion.displayValue(fromGrams: Double(g), baseUnit: baseUnit, preferred: prefsStore.preferredUnits)
+    func gramsToDisplay(_ g: Double) -> String {
+        let value = UnitConversion.displayValue(fromGrams: g, baseUnit: baseUnit, preferred: prefsStore.preferredUnits)
         return UnitConversion.formatDisplayValue(value, displayUnit: displayUnit)
     }
 

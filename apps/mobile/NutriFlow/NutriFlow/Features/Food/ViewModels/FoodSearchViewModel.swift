@@ -13,7 +13,7 @@ enum FoodSearchState {
 final class FoodSearchViewModel {
     var state: FoodSearchState = .idle
     var query: String = ""
-    var suggestedGrams: Int?
+    var suggestedGrams: Double?
     var suggestedUnit: String?
     var isLoadMore: Bool = false
     var hasMore: Bool = true

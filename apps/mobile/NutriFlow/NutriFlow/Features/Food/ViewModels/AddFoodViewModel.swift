@@ -57,9 +57,9 @@ final class AddFoodViewModel {
     var fatLabel: String { "Fat (\(macroUnit))" }
     var carbsLabel: String { "Carbs (\(macroUnit))" }
 
-    private func toGrams(_ text: String) -> Int? {
+    private func toGrams(_ text: String) -> Double? {
         guard let value = UnitConversion.parseDecimal(text), value > 0 else { return nil }
-        return Int(UnitConversion.grams(fromDisplay: value, baseUnit: "g", preferred: prefsStore.preferredUnits).rounded())
+        return UnitConversion.grams(fromDisplay: value, baseUnit: "g", preferred: prefsStore.preferredUnits)
     }
 
     var gramsValue: Double? {
@@ -153,13 +153,13 @@ final class AddFoodViewModel {
             )
         }
 
-        let gramsInt = toGrams(grams) ?? 0
+        let gramsValue = toGrams(grams) ?? 0
         if grams.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             fieldErrors.set(
                 FormErrorMapper.message(for: FieldErrorCode.required.rawValue),
                 for: "grams"
             )
-        } else if gramsInt <= 0 {
+        } else if gramsValue <= 0 {
             fieldErrors.set(
                 FormErrorMapper.message(for: FieldErrorCode.invalidValue.rawValue),
                 for: "grams"
@@ -184,11 +184,9 @@ final class AddFoodViewModel {
             return false
         }
 
-        let caloriesInt = Int(
-            UnitConversion.energyToKcal(
-                caloriesValue,
-                preferred: prefsStore.preferredUnits
-            ).rounded()
+        let caloriesInKcal = UnitConversion.energyToKcal(
+            caloriesValue,
+            preferred: prefsStore.preferredUnits
         )
 
         state = .uploading
@@ -210,12 +208,12 @@ final class AddFoodViewModel {
             print("[Network] AddFoodVM createEntry")
             try await service.createFoodEntry(
                 name: name,
-                calories: caloriesInt,
+                calories: caloriesInKcal,
                 protein: UnitConversion.macroGrams(fromDisplay: protein, preferred: prefsStore.preferredUnits),
                 fat: UnitConversion.macroGrams(fromDisplay: fat, preferred: prefsStore.preferredUnits),
                 carbs: UnitConversion.macroGrams(fromDisplay: carbs, preferred: prefsStore.preferredUnits),
                 foodId: nil,
-                grams: gramsInt,
+                grams: gramsValue,
                 unit: "g",
                 categoryName: selectedCategory?.name,
                 imageUrl: imageUrl,

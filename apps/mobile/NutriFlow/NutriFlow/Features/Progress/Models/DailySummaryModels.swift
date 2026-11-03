@@ -14,10 +14,10 @@ struct DailySummary: Codable, Identifiable, Sendable {
 
     let date: String
 
-    let totalCalories: Int
-    let totalProtein: Int
-    let totalFat: Int
-    let totalCarbs: Int
+    let totalCalories: Double
+    let totalProtein: Double
+    let totalFat: Double
+    let totalCarbs: Double
     let totalWaterMl: Int
 
     let createdAt: String?
@@ -49,7 +49,7 @@ struct ChartDataPoint: Identifiable, Sendable {
     let id = UUID()
     let date: Date
     let label: String
-    let calories: Int
+    let calories: Double
     let protein: Double
     let fat: Double
     let carbs: Double

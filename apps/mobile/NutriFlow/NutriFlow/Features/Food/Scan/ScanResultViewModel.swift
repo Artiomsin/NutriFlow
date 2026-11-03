@@ -56,7 +56,7 @@ struct EditableScanFood: Identifiable, Sendable {
         self.categoryText = item.category ?? ""
         
         let baseCalories = item.bestCalories ?? item.calories ?? 0
-        self.caloriesText = "\(UnitConversion.formatEnergyValue(kcal: Int(baseCalories.rounded()), preferred: preferred))"
+        self.caloriesText = UnitConversion.formatEnergyValue(kcal: baseCalories, preferred: preferred).formatted(.number.precision(.fractionLength(0...2)))
         self.proteinText = Self.macroText(item.protein, preferred: preferred)
         self.fatText = Self.macroText(item.fat, preferred: preferred)
         self.carbsText = Self.macroText(item.carbs, preferred: preferred)
@@ -76,40 +76,40 @@ struct EditableScanFood: Identifiable, Sendable {
     var baseUnit: String { source.unit ?? "g" }
     
     
-    var baseGrams: Int { source.grams ?? 100 }
+    var baseGrams: Double { source.grams ?? 100 }
     var baseCalories: Double { source.bestCalories ?? source.calories ?? 0 }
     
     func gramsDouble(preferred: PreferredUnits) -> Double {
         UnitConversion.grams(
             fromText: gramsText,
             baseUnit: baseUnit,
-            fallback: Double(baseGrams),
+            fallback: baseGrams,
             preferred: preferred
         )
     }
     
-    func grams(preferred: PreferredUnits) -> Int {
-        Int(gramsDouble(preferred: preferred).rounded())
+    func grams(preferred: PreferredUnits) -> Double {
+        gramsDouble(preferred: preferred)
     }
     
     func ratio(preferred: PreferredUnits) -> Double {
-        gramsDouble(preferred: preferred) / Double(baseGrams)
+        gramsDouble(preferred: preferred) / baseGrams
     }
     
-    func calories(preferred: PreferredUnits) -> Int {
-        guard let value = UnitConversion.parseDecimal(caloriesText) else { return Int(baseCalories.rounded()) }
-        return Int(UnitConversion.energyToKcal(value, preferred: preferred).rounded())
+    func calories(preferred: PreferredUnits) -> Double {
+        guard let value = UnitConversion.parseDecimal(caloriesText) else { return baseCalories }
+        return UnitConversion.energyToKcal(value, preferred: preferred)
     }
     
-    func protein(preferred: PreferredUnits) -> Int? {
+    func protein(preferred: PreferredUnits) -> Double? {
         UnitConversion.macroGrams(fromDisplay: proteinText, preferred: preferred)
     }
     
-    func fat(preferred: PreferredUnits) -> Int? {
+    func fat(preferred: PreferredUnits) -> Double? {
         UnitConversion.macroGrams(fromDisplay: fatText, preferred: preferred)
     }
     
-    func carbs(preferred: PreferredUnits) -> Int? {
+    func carbs(preferred: PreferredUnits) -> Double? {
         UnitConversion.macroGrams(fromDisplay: carbsText, preferred: preferred)
     }
     
@@ -118,7 +118,7 @@ struct EditableScanFood: Identifiable, Sendable {
         guard baseGrams > 0 else { return }
         let ratioValue = ratio(preferred: preferred)
         
-        caloriesText = "\(UnitConversion.formatEnergyValue(kcal: Int((baseCalories * ratioValue).rounded()), preferred: preferred))"
+        caloriesText = UnitConversion.formatEnergyValue(kcal: baseCalories * ratioValue, preferred: preferred).formatted(.number.precision(.fractionLength(0...2)))
         if let base = source.protein {
             proteinText = Self.macroText(base * ratioValue, preferred: preferred)
         }
@@ -255,16 +255,16 @@ final class ScanResultViewModel {
     }
     
     var totalCalories: Double {
-        selectedFoodItems.map { Double($0.calories(preferred: preferredUnits)) }.reduce(0, +)
+        selectedFoodItems.map { $0.calories(preferred: preferredUnits) }.reduce(0, +)
     }
     
-    var totalGrams: Int {
+    var totalGrams: Double {
         selectedFoodItems.map { $0.grams(preferred: preferredUnits) }.reduce(0, +)
     }
     
     var totalCaloriesText: String {
         UnitConversion.formatEnergy(
-            kcal: Int(totalCalories.rounded()),
+            kcal: totalCalories,
             preferred: preferredUnits
         )
     }

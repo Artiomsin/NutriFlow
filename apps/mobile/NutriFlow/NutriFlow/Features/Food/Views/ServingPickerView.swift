@@ -270,7 +270,7 @@ struct ServingPickerView: View {
 
     /// A missing macro is unknown data, not a zero amount — showing "0 g" here would
     /// claim the food contains none, while the payload stores nil.
-    private func macroText(_ grams: Int?) -> String {
+    private func macroText(_ grams: Double?) -> String {
         guard let grams else { return "—" }
         return UnitConversion.formatMacro(grams: grams, preferred: prefsStore.preferredUnits)
     }

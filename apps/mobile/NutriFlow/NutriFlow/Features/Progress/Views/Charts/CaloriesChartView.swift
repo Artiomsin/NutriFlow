@@ -65,7 +65,7 @@ struct CaloriesChartView: View {
         .appGlassSurface()
     }
 
-    private var totalCalories: Int {
+    private var totalCalories: Double {
         data.reduce(0) { $0 + $1.calories }
     }
 
@@ -76,9 +76,9 @@ struct CaloriesChartView: View {
     }
     
     
-    private var maxYValue: Int {
-        let max = data.map { $0.calories }.max() ?? 0
-        if max == 0 { return 1000 }
-        return max + (max * 45 / 100)
+    private var maxYValue: Double {
+        let max = data.map(\.calories).max() ?? 0
+        if max == 0 { return 1_000 }
+        return max * 1.45
     }
 }

@@ -214,9 +214,14 @@ struct DayDetailSheet: View {
         }
     }
 
-    private var foodTotals: (cal: Int, protein: Int, fat: Int, carbs: Int) {
-        food.reduce((0, 0, 0, 0)) { acc, entry in
-            (acc.0 + entry.calories, acc.1 + (entry.protein ?? 0), acc.2 + (entry.fat ?? 0), acc.3 + (entry.carbs ?? 0))
+    private var foodTotals: (cal: Double, protein: Double, fat: Double, carbs: Double) {
+        food.reduce((cal: 0.0, protein: 0.0, fat: 0.0, carbs: 0.0)) { totals, entry in
+            (
+                cal: totals.cal + entry.calories,
+                protein: totals.protein + (entry.protein ?? 0),
+                fat: totals.fat + (entry.fat ?? 0),
+                carbs: totals.carbs + (entry.carbs ?? 0)
+            )
         }
     }
 }

@@ -28,7 +28,7 @@ struct ActivityChartView: View {
         let label: String
         let series: String
         let color: Color
-        let value: Int
+        let value: Double
     }
 
     var body: some View {
@@ -62,7 +62,7 @@ struct ActivityChartView: View {
                 .symbolSize(30)
             }
             .frame(height: 180)
-            .chartYScale(domain: 0 ... Double(maxYValue))
+            .chartYScale(domain: 0 ... maxYValue)
             .chartYAxis {
                 AxisMarks(position: .leading, values: .automatic(desiredCount: 5)) { _ in
                     AxisGridLine().foregroundStyle(AppColors.textTertiary .opacity(0.3))
@@ -104,16 +104,16 @@ struct ActivityChartView: View {
         filteredData.flatMap { pt in
             [
                 FlattenedPoint(label: pt.label, series: "Eaten", color: .orange, value: pt.calories),
-                FlattenedPoint(label: pt.label, series: "Burned", color: .green, value: pt.activeCalories),
-                FlattenedPoint(label: pt.label, series: "Rest", color: .blue, value: pt.basalCalories)
+                FlattenedPoint(label: pt.label, series: "Burned", color: .green, value: Double(pt.activeCalories)),
+                FlattenedPoint(label: pt.label, series: "Rest", color: .blue, value: Double(pt.basalCalories))
             ]
         }
     }
 
-    private var maxYValue: Int {
-        let max = filteredData.flatMap { [$0.calories, $0.activeCalories, $0.basalCalories] }.max() ?? 0
-        if max == 0 { return 1000 }
-        return max + (max * 25 / 100)
+    private var maxYValue: Double {
+        let max = filteredData.flatMap { [$0.calories, Double($0.activeCalories), Double($0.basalCalories)] }.max() ?? 0
+        if max == 0 { return 1_000 }
+        return max * 1.25
     }
 }
 
@@ -121,7 +121,7 @@ struct ActivityChartView: View {
 #Preview {
     let data: [ChartDataPoint] = (0..<14).map { offset in
         let day = Calendar.current.date(byAdding: .day, value: offset - 7, to: Date())!
-        let base = Int.random(in: 1600...2400)
+        let base = Double.random(in: 1_600...2_400)
         let burned = Int.random(in: 300...800)
         let formatter = DateFormatter()
         formatter.dateFormat = "d MMM"
@@ -137,7 +137,7 @@ struct ActivityChartView: View {
             activeCalories: burned,
             basalCalories: Int.random(in: 1300...1900),
             distanceMeters: Double(Int.random(in: 2000...9000)),
-            netCalories: base - burned
+            netCalories: Int((base - Double(burned)).rounded())
         )
     }
     return ActivityChartView(data: data)

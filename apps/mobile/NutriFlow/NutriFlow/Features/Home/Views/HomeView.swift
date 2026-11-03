@@ -3,7 +3,7 @@ import SwiftUI
 enum HomeNavRoute: Hashable {
     case addFood
     case foodSearch
-    case servingPicker(CatalogFood, Int?, String?)
+    case servingPicker(CatalogFood, Double?, String?)
     case addWater
     case scanFood
     case scanResult([ScanAnalysisItem], Data?)

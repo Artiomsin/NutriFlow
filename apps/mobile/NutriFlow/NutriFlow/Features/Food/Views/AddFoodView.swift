@@ -432,7 +432,7 @@ private struct PopularCard: View {
         .clipped()
     }
 
-    private func macroPill(color: Color, label: String, grams: Int?) -> some View {
+    private func macroPill(color: Color, label: String, grams: Double?) -> some View {
         let unit = preferred.weight == .imperial ? "oz" : "g"
         return HStack(spacing: 2) {
             Circle()
@@ -441,7 +441,7 @@ private struct PopularCard: View {
             Text(label)
                 .font(.system(size: 9, weight: .bold))
                 .foregroundColor(color)
-            Text("\(UnitConversion.macroDisplay(grams: Double(grams ?? 0), preferred: preferred)) \(unit)")
+            Text("\(UnitConversion.macroDisplay(grams: grams ?? 0, preferred: preferred)) \(unit)")
                 .font(.system(size: 9, weight: .medium))
                 .foregroundColor(hasImage ? .white.opacity(0.95) : AppColors.textSecondary)
                 .lineLimit(1)

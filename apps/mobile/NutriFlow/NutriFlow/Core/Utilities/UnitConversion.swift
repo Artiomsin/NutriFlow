@@ -22,24 +22,24 @@ struct UnitConversion {
     }
 
 
-    static func formatAmount(grams: Int, unit: String, preferred: PreferredUnits) -> String {
+    static func formatAmount(grams: Double, unit: String, preferred: PreferredUnits) -> String {
         if isVolumeUnit(unit) {
             switch preferred.volume {
             case .imperial:
-                let flOz = Double(grams) / mlPerFluidOunce
+                let flOz = grams / mlPerFluidOunce
                 return "\(String(format: "%.1f", flOz)) fl oz"
             case .metric:
                 if grams >= 1000 {
-                    let liters = Double(grams) / 1000.0
+                    let liters = grams / 1000.0
                     return "\(String(format: "%.1f", liters)) l"
                 }
-                return "\(grams) ml"
+                return "\(grams.formatted(.number.precision(.fractionLength(0...2)))) ml"
             }
         }
 
         switch preferred.weight {
         case .imperial:
-            let oz = Double(grams) / gramsPerOunce
+            let oz = grams / gramsPerOunce
             if oz >= 16 {
                 let lb = oz / 16
                 return "\(String(format: "%.1f", lb)) lb"
@@ -47,34 +47,45 @@ struct UnitConversion {
             return "\(String(format: "%.1f", oz)) oz"
         case .metric:
             if grams >= 1000 {
-                let kg = Double(grams) / 1000.0
+                let kg = grams / 1000.0
                 return "\(String(format: "%.1f", kg)) kg"
             }
-            return "\(grams) g"
+            return "\(grams.formatted(.number.precision(.fractionLength(0...2)))) g"
         }
     }
 
-    static func formatMacro(grams: Int, preferred: PreferredUnits) -> String {
+    static func formatAmount(grams: Int, unit: String, preferred: PreferredUnits) -> String {
+        formatAmount(grams: Double(grams), unit: unit, preferred: preferred)
+    }
+
+    static func formatMacro(grams: Double, preferred: PreferredUnits) -> String {
         formatAmount(grams: grams, unit: "g", preferred: preferred)
     }
 
-    static func formatEnergy(kcal: Int, preferred: PreferredUnits) -> String {
+    static func formatMacro(grams: Int, preferred: PreferredUnits) -> String {
+        formatMacro(grams: Double(grams), preferred: preferred)
+    }
+
+    static func formatEnergy(kcal: Double, preferred: PreferredUnits) -> String {
+        let value = formatEnergyValue(kcal: kcal, preferred: preferred)
+        return "\(value.formatted(.number.precision(.fractionLength(0...2)))) \(formatEnergyUnit(preferred: preferred))"
+    }
+
+    static func formatEnergyValue(kcal: Double, preferred: PreferredUnits) -> Double {
         switch preferred.energy {
         case .kj:
-            let kj = Int(Double(kcal) * kjPerKcal)
-            return "\(kj) kJ"
+            kcal * kjPerKcal
         case .kcal:
-            return "\(kcal) kcal"
+            kcal
         }
     }
 
+    static func formatEnergy(kcal: Int, preferred: PreferredUnits) -> String {
+        formatEnergy(kcal: Double(kcal), preferred: preferred)
+    }
+
     static func formatEnergyValue(kcal: Int, preferred: PreferredUnits) -> Int {
-        switch preferred.energy {
-        case .kj:
-            return Int(Double(kcal) * kjPerKcal)
-        case .kcal:
-            return kcal
-        }
+        Int(formatEnergyValue(kcal: Double(kcal), preferred: preferred).rounded())
     }
 
     static func formatEnergyUnit(preferred: PreferredUnits) -> String {
@@ -154,9 +165,9 @@ struct UnitConversion {
     }
 
     /// Macro amount in the display unit -> canonical grams (or ml).
-    static func macroGrams(fromDisplay text: String, preferred: PreferredUnits) -> Int? {
+    static func macroGrams(fromDisplay text: String, preferred: PreferredUnits) -> Double? {
         guard let value = parseDecimal(text) else { return nil }
-        return preferred.weight == .imperial ? Int((value * gramsPerOunce).rounded()) : Int(value.rounded())
+        return preferred.weight == .imperial ? value * gramsPerOunce : value
     }
 
     /// Macro grams -> smart display value (whole numbers without decimals,

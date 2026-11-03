@@ -434,7 +434,7 @@ struct ScanResultView: View {
                         aiCalories: 130,
                         catalogCalories: nil
                     )),
-                    .water(WaterAnalysisItem(amountMl: 250, confidence: 0.95))
+                    .water(WaterAnalysisItem(amountMl: 250, containers: nil, confidence: 0.95))
                 ],
                 imageData: SamplePhoto.data,
                 service: MockFoodService(),
