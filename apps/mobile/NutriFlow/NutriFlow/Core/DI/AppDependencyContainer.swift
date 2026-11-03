@@ -71,6 +71,7 @@ final class AppDependencyContainer: AppDependency {
             imageCacheService: imageCacheService
         )
         self.refreshService = refresh
+        imageCacheService.configure(refreshService: refresh)
         
         self.httpClient = URLSessionHTTPClient(
             interceptors: [interceptor],

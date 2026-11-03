@@ -5,6 +5,7 @@ struct ImageLoadingConfiguration {
     let cache: ImageCache
     let downloader: ImageDownloader
     let requestModifier: (any ImageDownloadRequestModifier)?
+    let retryStrategy: (any RetryStrategy)?
 }
 
 @MainActor
@@ -15,12 +16,14 @@ final class ImageCacheService: ImageCacheServiceProtocol {
         let cache: ImageCache
         let downloader: ImageDownloader
         let requestModifier: PrivateImageRequestModifier
+        let retryStrategy: PrivateImageRetryStrategy?
     }
 
     private let sessionService: AuthSessionService
     private let apiBaseURL: URL
     private let publicCache = ImageCache(name: "nutriflow.public")
     private let publicDownloader = ImageDownloader(name: "nutriflow.public.downloader")
+    private var refreshService: AuthRefreshService?
     private var privateSession: PrivateSession?
 
     init(
@@ -31,11 +34,16 @@ final class ImageCacheService: ImageCacheServiceProtocol {
         self.apiBaseURL = apiBaseURL
     }
 
+    func configure(refreshService: AuthRefreshService) {
+        self.refreshService = refreshService
+    }
+
     func publicConfiguration() -> ImageLoadingConfiguration {
         ImageLoadingConfiguration(
             cache: publicCache,
             downloader: publicDownloader,
-            requestModifier: nil
+            requestModifier: nil,
+            retryStrategy: nil
         )
     }
 
@@ -46,8 +54,8 @@ final class ImageCacheService: ImageCacheServiceProtocol {
 
         await endPrivateSession()
 
-        let cache = ImageCache(name: "nutriflow.private.\(sessionId.uuidString)")
-        let downloader = ImageDownloader(name: "nutriflow.private.downloader.\(sessionId.uuidString)")
+        let cache = ImageCache(name: "nutriflow.private.(sessionId.uuidString)")
+        let downloader = ImageDownloader(name: "nutriflow.private.downloader.(sessionId.uuidString)")
         downloader.downloadTimeout = 30
 
         privateSession = PrivateSession(
@@ -57,7 +65,8 @@ final class ImageCacheService: ImageCacheServiceProtocol {
             requestModifier: PrivateImageRequestModifier(
                 session: sessionService,
                 apiBaseURL: apiBaseURL
-            )
+            ),
+            retryStrategy: refreshService.map(PrivateImageRetryStrategy.init)
         )
     }
 
@@ -69,7 +78,8 @@ final class ImageCacheService: ImageCacheServiceProtocol {
         return ImageLoadingConfiguration(
             cache: session.cache,
             downloader: session.downloader,
-            requestModifier: session.requestModifier
+            requestModifier: session.requestModifier,
+            retryStrategy: session.retryStrategy
         )
     }
 
@@ -78,7 +88,6 @@ final class ImageCacheService: ImageCacheServiceProtocol {
             return
         }
 
-        // Make stale view instances unable to acquire this configuration first.
         privateSession = nil
         oldSession.downloader.cancelAll()
         oldSession.cache.clearMemoryCache()

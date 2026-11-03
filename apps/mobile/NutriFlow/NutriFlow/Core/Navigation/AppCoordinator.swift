@@ -8,6 +8,7 @@ final class AppCoordinator {
     var pendingNotificationType: AppNotificationType?
     var bootstrapError: AppError?
     private let container: AppDependency
+    private var cacheCleanupTask: Task<Void, Never>?
 
     init(container: AppDependency) {
         self.container = container
@@ -81,20 +82,21 @@ final class AppCoordinator {
             bootstrapError = error
         }
 
-        route = switch result {
-        case .auth: .auth
-        case .profileForm: .profileForm
-        case .main: .main
-        }
-
         switch result {
         case .auth:
+            await container.imageCacheService.endPrivateSession()
             clearLocalSessionState()
         case .profileForm:
             await activatePrivateImageSession()
         case .main:
             await activatePrivateImageSession()
             container.activitySync.start()
+        }
+
+        route = switch result {
+        case .auth: .auth
+        case .profileForm: .profileForm
+        case .main: .main
         }
 
         return result
@@ -146,14 +148,16 @@ final class AppCoordinator {
         container.activitySync.stop()
         WorkoutViewModel.resetSessionSyncState()
         SleepSyncCoordinator.resetSessionSyncState()
-        Task {
-            await container.imageCacheService.endPrivateSession()
+        let previousCleanup = cacheCleanupTask
+        cacheCleanupTask = Task {
+            await previousCleanup?.value
             await container.cacheService.clear()
         }
     }
 
     private func activatePrivateImageSession() async {
         do {
+            await cacheCleanupTask?.value
             guard let sessionID = try container.sessionService.sessionID() else {
                 return
             }

@@ -36,6 +36,10 @@ struct NutriflowImage: View {
             image = image.requestModifier(requestModifier)
         }
 
+        if let retryStrategy = configuration.retryStrategy {
+            image = image.retry(retryStrategy)
+        }
+
         return image
             .fade(duration: 0.25)
             .resizable()
