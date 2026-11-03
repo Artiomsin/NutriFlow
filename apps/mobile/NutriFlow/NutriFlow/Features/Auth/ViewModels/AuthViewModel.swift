@@ -92,10 +92,9 @@ final class AuthViewModel {
                 lastName: lastName
             )
 
-            state = .authenticated
+            await completeAuthentication()
 
             analyticsTracker?.track(.registered)
-            coordinator?.goToProfileForm()
 
         } catch {
             show(error: error, for: .register)

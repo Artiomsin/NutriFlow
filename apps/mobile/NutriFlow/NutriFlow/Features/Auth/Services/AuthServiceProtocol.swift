@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 protocol AuthServiceProtocol: Sendable {
     
     func register(

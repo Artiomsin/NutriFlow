@@ -26,32 +26,42 @@ struct FoodSearchView: View {
     }
     
     private var searchBar: some View {
-        HStack {
+        HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .font(.subheadline)
+                .font(.system(size: 16))
                 .foregroundColor(AppColors.textSecondary)
-            
+                .frame(width: 20)
+
             TextField("Search food...", text: $foodSearchVM.query)
+                .font(.system(size: 16))
                 .focused($searchFocused)
                 .foregroundColor(AppColors.textPrimary)
                 .autocorrectionDisabled()
-                .onChange(of: foodSearchVM.query) { _, _ in foodSearchVM.search() }
-                .onSubmit { searchFocused = false }
-            
-            if !foodSearchVM.query.isEmpty {
-                Button {
-                    foodSearchVM.query = ""
-                    foodSearchVM.reset()
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.subheadline)
-                        .foregroundColor(AppColors.textTertiary)
+                .textInputAutocapitalization(.never)
+                .submitLabel(.search)
+                .frame(maxWidth: .infinity)
+                .frame(height: 24)
+                .layoutPriority(1)
+                .onChange(of: foodSearchVM.query) { _, _ in
+                    foodSearchVM.search()
                 }
-                .transition(.scale.combined(with: .opacity))
+                .onSubmit {
+                    searchFocused = false
+                }
+
+            Button {
+                foodSearchVM.reset()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(AppColors.textTertiary)
             }
+            .frame(width: 24, height: 24)
+            .opacity(foodSearchVM.query.isEmpty ? 0 : 1)
+            .disabled(foodSearchVM.query.isEmpty)
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .frame(height: 48)
         .background(
             RoundedRectangle(cornerRadius: 14)
                 .fill(AppColors.surface)
@@ -59,7 +69,6 @@ struct FoodSearchView: View {
         )
         .padding(.horizontal, 16)
         .padding(.top, 12)
-        .animation(.easeInOut(duration: 0.2), value: foodSearchVM.query.isEmpty)
     }
     
     @ViewBuilder
@@ -216,7 +225,7 @@ struct FoodCardSearch: View {
     }
     
     private var imageSection: some View {
-        let showImage = food.displayImageUrl.flatMap { URL(string: $0) }
+        let showImage = food.imageUrl.flatMap(ImageURLResolver.resolve)
         
         return Color.clear
             .frame(height: 120)
@@ -226,9 +235,7 @@ struct FoodCardSearch: View {
                     if let imageURL = showImage {
                         ZStack {
                             fallbackImage
-                            KFImage(imageURL)
-                                .resizable()
-                                .scaledToFill()
+                            NutriflowImage(url: imageURL)
                         }
                     } else {
                         fallbackImage
@@ -440,4 +447,3 @@ struct SourceBadge: View {
     .background(AppColors.background)
     
 }
-

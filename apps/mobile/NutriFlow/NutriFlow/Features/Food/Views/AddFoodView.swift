@@ -425,11 +425,8 @@ private struct PopularCard: View {
                 iconSize: 30,
                 usesTintedBackground: true
             )
-            if let url = food.imageUrl.flatMap({ URL(string: $0) }) {
-                KFImage(url)
-                    .fade(duration: 0.25)
-                    .resizable()
-                    .scaledToFill()
+            if let url = food.imageUrl.flatMap(ImageURLResolver.resolve) {
+                NutriflowImage(url: url)
             }
         }
         .clipped()

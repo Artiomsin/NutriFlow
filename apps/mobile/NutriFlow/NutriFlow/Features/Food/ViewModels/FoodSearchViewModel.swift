@@ -60,7 +60,7 @@ final class FoodSearchViewModel {
 
         searchTask = Task { [weak self] in
             guard let self else { return }
-            try? await Task.sleep(nanoseconds: 300_000_000)
+            try? await Task.sleep(nanoseconds: 200_000_000)
 
             guard !Task.isCancelled else { return }
 

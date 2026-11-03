@@ -28,11 +28,23 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
             request,
             retryOn401: request.authenticationRetryPolicy == .afterTokenRefresh
         )
+
         let validatedData = try validate(data: data, response: response)
 
         do {
             return try JSONDecoder().decode(T.self, from: validatedData)
         } catch {
+            #if DEBUG
+            print("========== API DECODING ERROR ==========")
+            print("Expected type: \(T.self)")
+            print("URL: \(response.url?.absoluteString ?? "unknown")")
+            print("Status code: \(response.statusCode)")
+            print("Decoder error: \(error)")
+            print("Response body:")
+            print(String(decoding: validatedData, as: UTF8.self))
+            print("========================================")
+            #endif
+
             throw APIError.decodingFailed
         }
     }
