@@ -46,8 +46,8 @@ final class ImageCacheService: ImageCacheServiceProtocol {
 
         await endPrivateSession()
 
-        let cache = ImageCache(name: "nutriflow.private.(sessionId.uuidString)")
-        let downloader = ImageDownloader(name: "nutriflow.private.downloader.(sessionId.uuidString)")
+        let cache = ImageCache(name: "nutriflow.private.\(sessionId.uuidString)")
+        let downloader = ImageDownloader(name: "nutriflow.private.downloader.\(sessionId.uuidString)")
         downloader.downloadTimeout = 30
 
         privateSession = PrivateSession(
