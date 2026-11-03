@@ -8,8 +8,9 @@ struct UnitConversion {
     static let cmPerInch = 2.54
     static let kjPerKcal = 4.184
     static let nutritionFractionDigits = 1
+    static let portionFractionDigits = 3
 
-    /// Values persisted by food and goal APIs use PostgreSQL numeric(10, 1).
+    /// Nutrition values persisted by food and goal APIs use PostgreSQL numeric(10, 1).
     static func roundedForNutritionStorage(_ value: Double) -> Double {
         let multiplier = pow(10, Double(nutritionFractionDigits))
         return (value * multiplier).rounded() / multiplier
@@ -56,6 +57,14 @@ struct UnitConversion {
 
     static func formatMetricValue(_ value: Double) -> String {
         formatNutritionValue(value)
+    }
+
+    static func grams(fromOunces ounces: Double) -> Double {
+        ounces * gramsPerOunce
+    }
+
+    static func ounces(fromGrams grams: Double) -> Double {
+        grams / gramsPerOunce
     }
 
     /// Formats kilogram values with up to three fractional digits.
@@ -152,7 +161,7 @@ struct UnitConversion {
             return preferred.volume == .imperial ? value * mlPerFluidOunce : value
         }
 
-        return preferred.weight == .imperial ? value * gramsPerOunce : value
+        return preferred.weight == .imperial ? grams(fromOunces: value) : value
     }
 
     /// Canonical grams (or ml) -> value in the display unit.
@@ -161,7 +170,7 @@ struct UnitConversion {
             return preferred.volume == .imperial ? grams / mlPerFluidOunce : grams
         }
 
-        return preferred.weight == .imperial ? grams / gramsPerOunce : grams
+        return preferred.weight == .imperial ? ounces(fromGrams: grams) : grams
     }
 
     /// Keeps converted display values precise enough to round-trip to stored grams.
@@ -229,7 +238,7 @@ struct UnitConversion {
     /// Macro amount in the display unit -> canonical grams (or ml).
     static func macroGrams(fromDisplay text: String, preferred: PreferredUnits) -> Double? {
         guard let value = parseDecimal(text) else { return nil }
-        return preferred.weight == .imperial ? value * gramsPerOunce : value
+        return preferred.weight == .imperial ? grams(fromOunces: value) : value
     }
 
     /// Macro grams -> display value.

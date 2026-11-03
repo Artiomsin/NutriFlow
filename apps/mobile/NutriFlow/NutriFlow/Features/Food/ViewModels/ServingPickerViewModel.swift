@@ -80,15 +80,17 @@ final class ServingPickerViewModel {
         if let pinned = pinnedGrams { return pinned }
         guard UnitConversion.isValidNutritionInput(
             gramsText,
-            maximumFractionDigits: prefsStore.preferredUnits.weight == .imperial ? 3 : UnitConversion.nutritionFractionDigits
+            maximumFractionDigits: UnitConversion.portionFractionDigits
         ),
               let value = UnitConversion.parseDecimal(gramsText),
               value > 0 else {
             if let serving = selectedServing { return serving.grams }
             return 100.0
         }
-        return UnitConversion.roundedForNutritionStorage(
-            UnitConversion.grams(fromDisplay: value, baseUnit: baseUnit, preferred: prefsStore.preferredUnits)
+        return UnitConversion.grams(
+            fromDisplay: value,
+            baseUnit: baseUnit,
+            preferred: prefsStore.preferredUnits
         )
     }
 
@@ -99,7 +101,7 @@ final class ServingPickerViewModel {
         if let serving = selectedServing { return serving.grams > 0 }
         guard UnitConversion.isValidNutritionInput(
             gramsText,
-            maximumFractionDigits: prefsStore.preferredUnits.weight == .imperial ? 3 : UnitConversion.nutritionFractionDigits
+            maximumFractionDigits: UnitConversion.portionFractionDigits
         ),
               let value = UnitConversion.parseDecimal(gramsText) else {
             return false

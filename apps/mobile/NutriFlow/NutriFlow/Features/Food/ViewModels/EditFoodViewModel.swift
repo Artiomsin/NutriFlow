@@ -90,20 +90,40 @@ final class EditFoodViewModel {
         prefsStore.preferredUnits.weight == .imperial ? 3 : UnitConversion.nutritionFractionDigits
     }
 
+    private let portionInputFractionDigits = UnitConversion.portionFractionDigits
+
+    private var originalGramsText: String {
+        guard let grams = entry.grams else { return "" }
+        let value = UnitConversion.displayValue(
+            fromGrams: grams,
+            baseUnit: entry.unit,
+            preferred: prefsStore.preferredUnits
+        )
+        return UnitConversion.formatDisplayValue(value, displayUnit: displayUnit)
+    }
+
     private func toGrams(_ value: String) -> Double? {
         let valueText = value.trimmingCharacters(in: .whitespacesAndNewlines)
 
+        // Metric gram display intentionally uses one decimal. Keep the persisted
+        // value unless the person actually changes the displayed amount.
+        if valueText == originalGramsText, let grams = entry.grams {
+            return grams
+        }
+
         guard UnitConversion.isValidNutritionInput(
             valueText,
-            maximumFractionDigits: foodDisplayFractionDigits
+            maximumFractionDigits: portionInputFractionDigits
         ),
               let displayValue = UnitConversion.parseDecimal(valueText),
               displayValue > 0 else {
             return nil
         }
 
-        return UnitConversion.roundedForNutritionStorage(
-            UnitConversion.grams(fromDisplay: displayValue, baseUnit: entry.unit, preferred: prefsStore.preferredUnits)
+        return UnitConversion.grams(
+            fromDisplay: displayValue,
+            baseUnit: entry.unit,
+            preferred: prefsStore.preferredUnits
         )
     }
 
@@ -166,9 +186,11 @@ final class EditFoodViewModel {
            !numericText.isEmpty,
            (!UnitConversion.isValidNutritionInput(
                 numericText,
-                maximumFractionDigits: field == "calories"
-                    ? UnitConversion.nutritionFractionDigits
-                    : foodDisplayFractionDigits
+                maximumFractionDigits: field == "grams"
+                    ? portionInputFractionDigits
+                    : (field == "calories"
+                        ? UnitConversion.nutritionFractionDigits
+                        : foodDisplayFractionDigits)
             ) || (field == "grams" || field == "calories"
                 ? (UnitConversion.parseDecimal(numericText) ?? 0) <= 0
                 : (UnitConversion.parseDecimal(numericText) ?? 0) < 0)) {
