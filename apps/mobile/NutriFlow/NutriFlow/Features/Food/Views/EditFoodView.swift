@@ -341,20 +341,27 @@ private struct PhotoSectionContent: View {
                 .resizable()
                 .scaledToFill()
         } else if let url = imageUrl.flatMap(ImageURLResolver.resolve) {
-            NutriflowImage(url: url)
+            ZStack {
+                photoPlaceholder
+                NutriflowImage(url: url)
+            }
         } else {
-            RoundedRectangle(cornerRadius: AppRadius.medium)
-                .fill(AppColors.surfaceSecondary)
-                .overlay {
-                    VStack(spacing: 8) {
-                        Image(systemName: "camera.fill")
-                            .font(.title2)
-                            .foregroundColor(AppColors.accent)
-                        Text("Tap to change photo")
-                            .font(.subheadline)
-                            .foregroundColor(AppColors.textSecondary)
-                    }
-                }
+            photoPlaceholder
         }
+    }
+
+    private var photoPlaceholder: some View {
+        RoundedRectangle(cornerRadius: AppRadius.medium)
+            .fill(AppColors.surfaceSecondary)
+            .overlay {
+                VStack(spacing: 8) {
+                    Image(systemName: "camera.fill")
+                        .font(.title2)
+                        .foregroundColor(AppColors.accent)
+                    Text("Tap to change photo")
+                        .font(.subheadline)
+                        .foregroundColor(AppColors.textSecondary)
+                }
+            }
     }
 }
