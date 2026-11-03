@@ -56,7 +56,7 @@ struct EditableScanFood: Identifiable, Sendable {
         self.categoryText = item.category ?? ""
         
         let baseCalories = item.bestCalories ?? item.calories ?? 0
-        self.caloriesText = UnitConversion.formatEnergyValue(kcal: baseCalories, preferred: preferred).formatted(.number.precision(.fractionLength(0...2)))
+        self.caloriesText = UnitConversion.formatEnergyValueText(kcal: baseCalories, preferred: preferred)
         self.proteinText = Self.macroText(item.protein, preferred: preferred)
         self.fatText = Self.macroText(item.fat, preferred: preferred)
         self.carbsText = Self.macroText(item.carbs, preferred: preferred)
@@ -118,7 +118,7 @@ struct EditableScanFood: Identifiable, Sendable {
         guard baseGrams > 0 else { return }
         let ratioValue = ratio(preferred: preferred)
         
-        caloriesText = UnitConversion.formatEnergyValue(kcal: baseCalories * ratioValue, preferred: preferred).formatted(.number.precision(.fractionLength(0...2)))
+        caloriesText = UnitConversion.formatEnergyValueText(kcal: baseCalories * ratioValue, preferred: preferred)
         if let base = source.protein {
             proteinText = Self.macroText(base * ratioValue, preferred: preferred)
         }

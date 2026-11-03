@@ -149,11 +149,17 @@ struct GoalRecommendationCard: View {
         let r = recommendation.recommendedGoals
         let prefs = prefsStore.preferredUnits
 
-        func energy(_ v: Int?) -> String {
+        func energy(_ v: Double?) -> String {
             guard let v else { return "" }
-            return "\(UnitConversion.formatEnergyValue(kcal: v, preferred: prefs)) \(UnitConversion.formatEnergyUnit(preferred: prefs))"
+            return UnitConversion.formatEnergy(kcal: v, preferred: prefs)
         }
-        func grams(_ v: Int?) -> String { v.map { "\($0) g" } ?? "" }
+        func energyInt(_ v: Int?) -> String {
+            guard let v else { return "" }
+            return UnitConversion.formatEnergy(kcal: v, preferred: prefs)
+        }
+        func grams(_ v: Double?) -> String {
+            v.map { "\($0.formatted(.number.precision(.fractionLength(0...1)))) g" } ?? ""
+        }
         func plain(_ v: Int?) -> String { v.map { "\(number($0))" } ?? "" }
         func minutes(_ v: Int?) -> String { v.map { "\($0) min" } ?? "" }
         func sleep(_ v: Int?) -> String {
@@ -162,7 +168,7 @@ struct GoalRecommendationCard: View {
         }
 
         var rows: [DiffRow] = []
-        func add(_ id: String, _ label: String, _ color: Color, _ bv: Int?, _ rv: Int?, _ fmt: (Int?) -> String) {
+        func add<V: Equatable>(_ id: String, _ label: String, _ color: Color, _ bv: V?, _ rv: V?, _ fmt: (V?) -> String) {
             guard let rv, rv != bv else { return }
             rows.append(DiffRow(id: id, label: label, color: color, from: fmt(bv), to: fmt(rv)))
         }
@@ -173,7 +179,7 @@ struct GoalRecommendationCard: View {
         add("carbs", "Carbs", .blue, b.dailyCarbsGoal, r.dailyCarbsGoal, grams)
         add("water", "Water", .cyan, b.dailyWaterGoal, r.dailyWaterGoal, { $0.map { "\($0) ml" } ?? "" })
         add("steps", "Steps", .green, b.dailyStepsGoal, r.dailyStepsGoal, plain)
-        add("activeCalories", "Active calories", .orange, b.dailyActiveCaloriesGoal, r.dailyActiveCaloriesGoal, energy)
+        add("activeCalories", "Active calories", .orange, b.dailyActiveCaloriesGoal, r.dailyActiveCaloriesGoal, energyInt)
         add("workouts", "Workouts / week", .pink, b.weeklyWorkoutsGoal, r.weeklyWorkoutsGoal, plain)
         add("workoutMinutes", "Workout minutes / week", .indigo, b.weeklyWorkoutMinutesGoal, r.weeklyWorkoutMinutesGoal, minutes)
         add("sleep", "Sleep / night", .purple, b.nightlySleepMinMinutes, r.nightlySleepMinMinutes, sleep)

@@ -3,10 +3,10 @@ import Foundation
 struct UserGoals: Codable, Sendable, Equatable {
     let id: String?
     let userId: String?
-    let dailyCaloriesGoal: Int?
-    let dailyProteinGoal: Int?
-    let dailyFatGoal: Int?
-    let dailyCarbsGoal: Int?
+    let dailyCaloriesGoal: Double?
+    let dailyProteinGoal: Double?
+    let dailyFatGoal: Double?
+    let dailyCarbsGoal: Double?
     let dailyWaterGoal: Int?
     
     let dailyStepsGoal: Int?
@@ -24,10 +24,10 @@ struct UserGoals: Codable, Sendable, Equatable {
 }
 
 struct UpdateGoalsRequest: Codable, Sendable {
-    let dailyCaloriesGoal: Int?
-    let dailyProteinGoal: Int?
-    let dailyFatGoal: Int?
-    let dailyCarbsGoal: Int?
+    let dailyCaloriesGoal: Double?
+    let dailyProteinGoal: Double?
+    let dailyFatGoal: Double?
+    let dailyCarbsGoal: Double?
     let dailyWaterGoal: Int?
     let dailyStepsGoal: Int?
     let dailyActiveCaloriesGoal: Int?
@@ -38,10 +38,10 @@ struct UpdateGoalsRequest: Codable, Sendable {
 }
 
 struct GoalMetrics: Codable, Sendable {
-    let dailyCaloriesGoal: Int?
-    let dailyProteinGoal: Int?
-    let dailyFatGoal: Int?
-    let dailyCarbsGoal: Int?
+    let dailyCaloriesGoal: Double?
+    let dailyProteinGoal: Double?
+    let dailyFatGoal: Double?
+    let dailyCarbsGoal: Double?
     let dailyWaterGoal: Int?
 
     let dailyStepsGoal: Int?
@@ -97,8 +97,8 @@ struct GoalHistoryEntry: Codable, Sendable {
     let userId: String?
     let goalType: String
     let metric: String
-    let oldValue: Int?
-    let newValue: Int?
+    let oldValue: Double?
+    let newValue: Double?
     let source: String
     let reason: String?
     let createdAt: String

@@ -333,10 +333,10 @@ final class GoalsViewModel {
 
     @discardableResult
     func updateGoals(
-        calories: Int?,
-        protein: Int?,
-        fat: Int?,
-        carbs: Int?,
+        calories: Double?,
+        protein: Double?,
+        fat: Double?,
+        carbs: Double?,
         water: Int?,
         steps: Int?,
         activeCalories: Int?,

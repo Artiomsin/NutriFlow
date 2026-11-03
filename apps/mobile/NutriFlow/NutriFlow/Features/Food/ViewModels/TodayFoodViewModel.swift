@@ -211,7 +211,7 @@ final class TodayFoodViewModel {
         let consumed = entries.reduce(0) { $0 + $1.calories }
         let items = achievementService.checkCalories(
             consumed: Int(consumed.rounded()),
-            goal: calorieGoal
+            goal: Int(calorieGoal.rounded())
         )
         #if DEBUG
         print("[AchievementNotification] calories total=\(consumed) goal=\(calorieGoal)")

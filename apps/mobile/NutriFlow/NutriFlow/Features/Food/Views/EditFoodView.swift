@@ -139,7 +139,7 @@ struct EditFoodView: View {
                 AppTextField(
                     title: viewModel.caloriesLabel,
                     text: $viewModel.calories,
-                    keyboardType: .numberPad,
+                    keyboardType: .decimalPad,
                     submitLabel: .return,
                     focus: $focusedField,
                     focusValue: .calories,

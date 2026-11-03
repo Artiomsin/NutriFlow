@@ -99,8 +99,8 @@ struct ServingPickerView: View {
             HStack(spacing: 8) {
                 MacroCard(
                     label: "Calories",
-                    per100: "\(viewModel.food.caloriesPer100g)",
-                    total: "\(UnitConversion.formatEnergyValue(kcal: viewModel.calculatedCalories, preferred: prefsStore.preferredUnits))",
+                    per100: UnitConversion.formatEnergyValueText(kcal: viewModel.food.caloriesPer100g, preferred: prefsStore.preferredUnits),
+                    total: UnitConversion.formatEnergyValueText(kcal: viewModel.calculatedCalories, preferred: prefsStore.preferredUnits),
                     color: .orange,
                     unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits)
                 )

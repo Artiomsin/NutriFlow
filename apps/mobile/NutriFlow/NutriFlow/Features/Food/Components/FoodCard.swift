@@ -24,7 +24,7 @@ struct FoodCard: View {
                     Spacer(minLength: 4)
 
                     HStack(spacing: 2) {
-                        Text("\(UnitConversion.formatEnergyValue(kcal: entry.calories, preferred: prefsStore.preferredUnits))")
+                        Text(UnitConversion.formatEnergyValueText(kcal: entry.calories, preferred: prefsStore.preferredUnits))
                             .font(.system(size: 12, weight: .bold))
                             .foregroundColor(AppColors.accent)
                         Text(UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits))

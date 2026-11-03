@@ -78,11 +78,18 @@ final class ServingPickerViewModel {
 
     var grams: Double {
         if let pinned = pinnedGrams { return pinned }
-        guard let value = UnitConversion.parseDecimal(gramsText), value > 0 else {
+        guard UnitConversion.isValidNutritionInput(
+            gramsText,
+            maximumFractionDigits: prefsStore.preferredUnits.weight == .imperial ? 3 : UnitConversion.nutritionFractionDigits
+        ),
+              let value = UnitConversion.parseDecimal(gramsText),
+              value > 0 else {
             if let serving = selectedServing { return serving.grams }
             return 100.0
         }
-        return UnitConversion.grams(fromDisplay: value, baseUnit: baseUnit, preferred: prefsStore.preferredUnits)
+        return UnitConversion.roundedForNutritionStorage(
+            UnitConversion.grams(fromDisplay: value, baseUnit: baseUnit, preferred: prefsStore.preferredUnits)
+        )
     }
 
     var ratio: Double { grams / 100.0 }
@@ -90,7 +97,13 @@ final class ServingPickerViewModel {
     var isValid: Bool {
         if let pinned = pinnedGrams { return pinned > 0 }
         if let serving = selectedServing { return serving.grams > 0 }
-        guard let value = UnitConversion.parseDecimal(gramsText) else { return false }
+        guard UnitConversion.isValidNutritionInput(
+            gramsText,
+            maximumFractionDigits: prefsStore.preferredUnits.weight == .imperial ? 3 : UnitConversion.nutritionFractionDigits
+        ),
+              let value = UnitConversion.parseDecimal(gramsText) else {
+            return false
+        }
         return value > 0
     }
 
@@ -110,7 +123,7 @@ final class ServingPickerViewModel {
         error = nil
         guard isValid else {
             fieldErrors.set(
-                FormErrorMapper.message(for: FieldErrorCode.invalidValue.rawValue),
+                "Enter a positive number with the supported precision.",
                 for: "grams"
             )
             return false
@@ -118,10 +131,10 @@ final class ServingPickerViewModel {
 
         isLoading = true
 
-        let cal = calculatedCalories
-        let prot = calculatedProtein
-        let ft = calculatedFat
-        let crb = calculatedCarbs
+        let cal = UnitConversion.roundedForNutritionStorage(calculatedCalories)
+        let prot = calculatedProtein.map(UnitConversion.roundedForNutritionStorage)
+        let ft = calculatedFat.map(UnitConversion.roundedForNutritionStorage)
+        let crb = calculatedCarbs.map(UnitConversion.roundedForNutritionStorage)
 
         do {
             try await service.createFoodEntry(

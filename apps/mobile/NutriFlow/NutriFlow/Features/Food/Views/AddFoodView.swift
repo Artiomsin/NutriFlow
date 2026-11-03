@@ -169,7 +169,7 @@ struct AddFoodView: View {
                 AppTextField(
                     title: viewModel.caloriesLabel,
                     text: $viewModel.calories,
-                    keyboardType: .numberPad,
+                    keyboardType: .decimalPad,
                     submitLabel: .return,
                     focus: $focusedField,
                     focusValue: .calories,
@@ -372,9 +372,9 @@ private struct PopularCard: View {
                     HStack(spacing: 5) {
                         Image(systemName: "flame.fill")
                             .font(.system(size: 9))
-                        Text("\(UnitConversion.formatEnergyValue(kcal: food.caloriesPer100g, preferred: preferred))")
+                        Text(UnitConversion.formatEnergyValueText(kcal: food.caloriesPer100g, preferred: preferred))
                             .font(.system(size: 12, weight: .bold))
-                        Text("/\(UnitConversion.formatEnergyUnit(preferred: preferred))")
+                        Text("\(UnitConversion.formatEnergyUnit(preferred: preferred)) / 100 g")
                             .font(.system(size: 9))
                         Spacer()
                     }

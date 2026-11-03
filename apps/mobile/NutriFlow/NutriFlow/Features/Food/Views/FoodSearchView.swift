@@ -299,7 +299,7 @@ struct FoodCardSearch: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             HStack {
-                Text("\(UnitConversion.formatEnergyValue(kcal: food.caloriesPer100g, preferred: prefsStore.preferredUnits)) \(UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits))")
+                Text("\(UnitConversion.formatEnergyValueText(kcal: food.caloriesPer100g, preferred: prefsStore.preferredUnits)) \(UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits)) / 100 g")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(AppColors.textTertiary)
                     .lineLimit(1)
