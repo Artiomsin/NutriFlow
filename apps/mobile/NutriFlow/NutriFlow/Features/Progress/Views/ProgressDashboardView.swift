@@ -243,6 +243,52 @@ struct ProgressDashboardView: View {
         }
     }
 
+    private func weightRecordRow(_ entry: WeightLog) -> some View {
+        let isInitial = entry.source == "initial"
+        let tint = isInitial ? AppColors.textSecondary : AppColors.accent
+        let weightText = UnitConversion.formatBodyWeight(
+            kg: entry.weightKg,
+            preferred: prefsStore.preferredUnits
+        )
+        let unitLabel = UnitConversion.bodyWeightUnitLabel(preferred: prefsStore.preferredUnits)
+        let dateText = formattedWeightDate(entry.entryDate)
+
+        return HStack {
+            Image(systemName: isInitial ? "flag.fill" : "scalemass.fill")
+                .font(.footnote.weight(.semibold))
+                .foregroundColor(tint)
+                .frame(width: 30, height: 30)
+                .background(tint.opacity(0.12))
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(dateText)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(AppColors.textPrimary)
+                Text(isInitial ? "Initial weight" : "Manual record")
+                    .font(.caption)
+                    .foregroundColor(AppColors.textSecondary)
+            }
+
+            Spacer()
+
+            Text("\(weightText) \(unitLabel)")
+                .font(.subheadline.weight(.semibold))
+                .monospacedDigit()
+                .foregroundColor(AppColors.textPrimary)
+
+            if !isInitial {
+                Button(role: .destructive) {
+                    pendingWeightDeletion = entry
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .disabled(isDeletingWeight)
+                .accessibilityLabel("Delete weight record")
+            }
+        }
+    }
+
     private var weightHistorySheet: some View {
         NavigationStack {
             List {
@@ -253,44 +299,7 @@ struct ProgressDashboardView: View {
                 }
 
                 ForEach(chartVM.weightEntries.reversed()) { entry in
-                    HStack {
-                        Image(systemName: entry.source == "initial" ? "flag.fill" : "scalemass.fill")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundColor(entry.source == "initial" ? AppColors.textSecondary : AppColors.accent)
-                            .frame(width: 30, height: 30)
-                            .background((entry.source == "initial" ? AppColors.textSecondary : AppColors.accent).opacity(0.12))
-                            .clipShape(Circle())
-
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(formattedWeightDate(entry.entryDate))
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundColor(AppColors.textPrimary)
-                            Text(entry.source == "initial" ? "Initial weight" : "Manual record")
-                                .font(.caption)
-                                .foregroundColor(AppColors.textSecondary)
-                        }
-
-                        Spacer()
-
-                        let displayWeight = UnitConversion.bodyWeightToDisplay(
-                            kg: entry.weightKg,
-                            preferred: prefsStore.preferredUnits
-                        )
-                        Text("\(displayWeight.formatted(.number.precision(.fractionLength(0...1)))) \(UnitConversion.bodyWeightUnitLabel(preferred: prefsStore.preferredUnits))")
-                            .font(.subheadline.weight(.semibold))
-                            .monospacedDigit()
-                            .foregroundColor(AppColors.textPrimary)
-
-                        if entry.source != "initial" {
-                            Button(role: .destructive) {
-                                pendingWeightDeletion = entry
-                            } label: {
-                                Image(systemName: "trash")
-                            }
-                            .disabled(isDeletingWeight)
-                            .accessibilityLabel("Delete weight record")
-                        }
-                    }
+                    weightRecordRow(entry)
                 }
             }
             .scrollContentBackground(.hidden)
@@ -505,8 +514,8 @@ private struct WeightEntrySheet: View {
 
     private var lastWeightText: String? {
         guard let latestWeightKg else { return nil }
-        let value = UnitConversion.bodyWeightToDisplay(kg: latestWeightKg, preferred: preferredUnits)
-        return "\(value.formatted(.number.precision(.fractionLength(0...1)))) \(unit)"
+        let value = UnitConversion.formatBodyWeight(kg: latestWeightKg, preferred: preferredUnits)
+        return "\(value) \(unit)"
     }
 
     var body: some View {

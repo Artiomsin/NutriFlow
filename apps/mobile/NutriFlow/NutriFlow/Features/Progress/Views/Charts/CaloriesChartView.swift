@@ -29,7 +29,7 @@ struct CaloriesChartView: View {
                 Image(systemName: "flame.fill").foregroundColor(.orange)
                 Text("Calories").font(.headline).foregroundColor(AppColors.textPrimary)
                 Spacer()
-                Text("\(UnitConversion.formatEnergyValue(kcal: totalCalories, preferred: prefsStore.preferredUnits)) \(UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits))").font(.subheadline).foregroundColor(AppColors.textSecondary)
+                Text(UnitConversion.formatEnergy(kcal: totalCalories, preferred: prefsStore.preferredUnits)).font(.subheadline).foregroundColor(AppColors.textSecondary)
             }
             
             Chart(filteredData) { point in

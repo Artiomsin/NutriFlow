@@ -22,20 +22,22 @@ struct DailySummaryCard: View {
                 .font(.headline)
                 .foregroundColor(AppColors.textPrimary)
 
-            Text("\(UnitConversion.formatEnergyValue(kcal: summary.totalCalories, preferred: prefsStore.preferredUnits)) \(UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits))")
+            Text(UnitConversion.formatEnergy(kcal: summary.totalCalories, preferred: prefsStore.preferredUnits))
                 .font(AppTypography.displayLarge)
                 .foregroundColor(AppColors.accent)
 
             if let goals = goals {
                 GoalProgressRow(
-                    current: Int(UnitConversion.formatEnergyValue(kcal: summary.totalCalories, preferred: prefsStore.preferredUnits).rounded()),
-                    goal: goals.dailyCaloriesGoal.flatMap { UnitConversion.formatEnergyValue(kcal: $0, preferred: prefsStore.preferredUnits) },
+                    current: UnitConversion.formatEnergyValue(kcal: summary.totalCalories, preferred: prefsStore.preferredUnits),
+                    goal: goals.dailyCaloriesGoal.map { UnitConversion.formatEnergyValue(kcal: $0, preferred: prefsStore.preferredUnits) },
                     label: "Calories",
                     color: .orange,
-                    unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits)
+                    unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits),
+                    displayCurrent: UnitConversion.formatEnergyValueText(kcal: summary.totalCalories, preferred: prefsStore.preferredUnits),
+                    displayGoal: goals.dailyCaloriesGoal.map { UnitConversion.formatEnergyValueText(kcal: $0, preferred: prefsStore.preferredUnits) }
                 )
                 GoalProgressRow(
-                    current: Int(summary.totalProtein.rounded()),
+                    current: summary.totalProtein,
                     goal: goals.dailyProteinGoal,
                     label: "Protein",
                     color: .blue,
@@ -44,7 +46,7 @@ struct DailySummaryCard: View {
                     displayGoal: goals.dailyProteinGoal.map { UnitConversion.formatMacro(grams: $0, preferred: prefsStore.preferredUnits) }
                 )
                 GoalProgressRow(
-                    current: Int(summary.totalFat.rounded()),
+                    current: summary.totalFat,
                     goal: goals.dailyFatGoal,
                     label: "Fat",
                     color: .green,
@@ -53,7 +55,7 @@ struct DailySummaryCard: View {
                     displayGoal: goals.dailyFatGoal.map { UnitConversion.formatMacro(grams: $0, preferred: prefsStore.preferredUnits) }
                 )
                 GoalProgressRow(
-                    current: Int(summary.totalCarbs.rounded()),
+                    current: summary.totalCarbs,
                     goal: goals.dailyCarbsGoal,
                     label: "Carbs",
                     color: .purple,
@@ -62,8 +64,8 @@ struct DailySummaryCard: View {
                     displayGoal: goals.dailyCarbsGoal.map { UnitConversion.formatMacro(grams: $0, preferred: prefsStore.preferredUnits) }
                 )
                 GoalProgressRow(
-                    current: summary.totalWaterMl,
-                    goal: goals.dailyWaterGoal,
+                    current: Double(summary.totalWaterMl),
+                    goal: goals.dailyWaterGoal.map(Double.init),
                     label: "Water",
                     color: .cyan,
                     unit: "",

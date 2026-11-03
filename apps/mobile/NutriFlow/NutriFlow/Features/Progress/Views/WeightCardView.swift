@@ -10,25 +10,20 @@ struct WeightCardView: View {
     let onRecordWeight: () -> Void
     let onManageWeights: () -> Void
 
-    @State private var units = PreferencesStore.shared.preferredUnits
+    @State private var preferencesStore = PreferencesStore.shared
 
     private var targetUnit: String {
-        units.weight == .imperial ? "lb" : "kg"
+        UnitConversion.bodyWeightUnitLabel(preferred: preferencesStore.preferredUnits)
     }
 
     private var latestText: String {
         guard let kg = latestKg else { return "—" }
-        let value = UnitConversion.bodyWeightToDisplay(kg: kg, preferred: units)
-        if units.weight == .imperial {
-            return String(format: "%.1f", value)
-        }
-        return String(Int(value.rounded()))
+        return UnitConversion.formatBodyWeight(kg: kg, preferred: preferencesStore.preferredUnits)
     }
 
     private var deltaText: String? {
         guard let delta = deltaKg else { return nil }
-        let value = UnitConversion.bodyWeightToDisplay(kg: abs(delta), preferred: units)
-        let formatted = String(format: "%.1f", value)
+        let formatted = UnitConversion.formatBodyWeight(kg: abs(delta), preferred: preferencesStore.preferredUnits)
         if delta > 0 { return "+\(formatted)" }
         if delta < 0 { return "−\(formatted)" }
         return "±0.0"
@@ -36,8 +31,7 @@ struct WeightCardView: View {
 
     private var rateText: String? {
         guard let rate = weeklyRateKg else { return nil }
-        let value = UnitConversion.bodyWeightToDisplay(kg: abs(rate), preferred: units)
-        let formatted = String(format: "%.1f", value)
+        let formatted = UnitConversion.formatBodyWeight(kg: abs(rate), preferred: preferencesStore.preferredUnits)
         if rate > 0 { return "+\(formatted)" }
         if rate < 0 { return "−\(formatted)" }
         return "±0.0"

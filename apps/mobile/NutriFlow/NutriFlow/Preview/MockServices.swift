@@ -242,10 +242,10 @@ final class MockAnalyticsService: AnalyticsServiceProtocol {
             let d = Calendar.current.date(byAdding: .day, value: -i, to: Date())!
             return AnalyticsDay(
                 date: fmt.string(from: d),
-                calories: Int.random(in: 1500...2500),
-                protein: Int.random(in: 60...120),
-                fat: Int.random(in: 30...70),
-                carbs: Int.random(in: 100...200),
+                calories: Double.random(in: 1_500...2_500),
+                protein: Double.random(in: 60...120),
+                fat: Double.random(in: 30...70),
+                carbs: Double.random(in: 100...200),
                 water: Int.random(in: 1500...2500),
                 caloriesPct: Int.random(in: 60...110),
                 proteinPct: Int.random(in: 40...100),
@@ -258,10 +258,10 @@ final class MockAnalyticsService: AnalyticsServiceProtocol {
             period: period,
             fromDate: today,
             toDate: today,
-            averageCalories: 1950,
-            averageProtein: 90,
-            averageFat: 50,
-            averageCarbs: 150,
+            averageCalories: 1_950.4,
+            averageProtein: 90.2,
+            averageFat: 50.5,
+            averageCarbs: 150.1,
             averageWater: 2000,
             goalCalories: 2200,
             goalCaloriesPct: 89,
@@ -418,7 +418,7 @@ final class MockGoalsService: GoalsServiceProtocol {
             updatedAt: nil
         )
     }
-    func updateGoals(calories: Int?, protein: Int?, fat: Int?, carbs: Int?, water: Int?, steps: Int?,activeCalories: Int?,workouts: Int?,workoutMinutes: Int?,sleepMinMinutes: Int?,sleepMaxMinutes: Int?) async throws -> UserGoals {
+    func updateGoals(calories: Double?, protein: Double?, fat: Double?, carbs: Double?, water: Int?, steps: Int?,activeCalories: Int?,workouts: Int?,workoutMinutes: Int?,sleepMinMinutes: Int?,sleepMaxMinutes: Int?) async throws -> UserGoals {
         try await getGoals()
     }
     func calculateGoals() async throws -> UserGoals {
