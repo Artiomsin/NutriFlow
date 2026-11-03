@@ -24,7 +24,7 @@ import { buildVisionProviders } from './vision/providers';
 import type { VisionProvider } from './vision/vision.types';
 import { env } from '../config/env';
 import { AnalysisQuotaService } from './analysis-quota.service';
-import { roundNutrition } from '../common/nutrition/precision';
+import { roundGrams, roundNutrition } from '../common/nutrition/precision';
 
 const PROVIDER_TIMEOUT_MS = 30_000;
 const TIMEOUT_SENTINEL = 'vision-timeout';
@@ -586,7 +586,8 @@ export class FoodAnalysisService {
       'Otherwise set containers to 1.',
       'Use kind "food" for food and calorie-containing drinks.',
       'Nutrients are for the estimated portion, not per 100g.',
-      'For grams, calories, protein, fat, and carbs, estimate to ONE decimal place.',
+      'For grams, estimate with up to THREE decimal places.',
+      'For calories, protein, fat, and carbs, estimate to ONE decimal place.',
       'Do not round food nutrition values to whole numbers.',
       'For "category" choose ONE value from this list, copied exactly:',
       categories.length ? categories.join(', ') : '(none available)',
@@ -657,7 +658,10 @@ export class FoodAnalysisService {
       unit: raw.unit === 'ml' ? 'ml' : 'g',
       confidence: roundedConfidence,
     };
-    for (const k of ['grams', 'calories', 'protein', 'fat', 'carbs']) {
+    const grams = Number(raw.grams);
+    rounded.grams = Number.isFinite(grams) ? roundGrams(grams) : null;
+
+    for (const k of ['calories', 'protein', 'fat', 'carbs']) {
       const v = Number(raw[k]);
       rounded[k] = Number.isFinite(v) ? roundNutrition(v) : null;
     }

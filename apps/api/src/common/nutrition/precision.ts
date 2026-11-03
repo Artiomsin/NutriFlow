@@ -10,3 +10,7 @@ export function roundNutrition(value: number): number {
 export function clampNutrition(value: number, max: number): number {
   return Math.min(max, Math.max(0, roundNutrition(value)));
 }
+
+export function roundGrams(value: number): number {
+  return Math.round((value + Number.EPSILON) * 1000) / 1000;
+}

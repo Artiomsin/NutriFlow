@@ -5,7 +5,7 @@ import { foods } from '../db/schema/foods';
 import { foodCategories } from '../db/schema/foodCategories';
 import { and, eq, or, sql } from 'drizzle-orm';
 import type { FoodAnalysisFoodItem } from './food.schema';
-import { roundNutrition } from '../common/nutrition/precision';
+import { roundGrams, roundNutrition } from '../common/nutrition/precision';
 
 interface CandidateRow {
   id: string;
@@ -45,7 +45,9 @@ export class FoodMatcherService {
       const match = matches.get(name.toLowerCase());
       if (!match) return { ...item, source: 'ai' };
 
-      const grams = item.grams && item.grams > 0 ? item.grams : 100;
+      // Matching can also be called independently of analysis validation, so
+      // normalize the portion here before deriving catalog nutrition.
+      const grams = item.grams && item.grams > 0 ? roundGrams(item.grams) : 100;
       const ratio = grams / 100;
 
       const catalogCalories = roundNutrition(match.caloriesPer100g * ratio);
@@ -56,6 +58,7 @@ export class FoodMatcherService {
         kind: 'food',
         name: match.name,
         category: match.category ?? item.category,
+        grams,
         foodId: match.id,
         source: 'catalog',
         calories: catalogCalories,
