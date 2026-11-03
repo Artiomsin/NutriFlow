@@ -2,13 +2,40 @@ import Foundation
 
 struct UnitConversion {
 
-
     static let gramsPerOunce = 28.35
     static let mlPerFluidOunce = 29.5735
     static let kgPerPound = 0.45359237
     static let cmPerInch = 2.54
     static let kjPerKcal = 4.184
+    static let nutritionFractionDigits = 1
 
+    /// Values persisted by food and goal APIs use PostgreSQL numeric(10, 1).
+    static func roundedForNutritionStorage(_ value: Double) -> Double {
+        let multiplier = pow(10, Double(nutritionFractionDigits))
+        return (value * multiplier).rounded() / multiplier
+    }
+
+    /// Accepts only the decimal precision and range that numeric(10, 1) can store.
+    static func isValidNutritionInput(
+        _ text: String,
+        maximumFractionDigits: Int = nutritionFractionDigits
+    ) -> Bool {
+        let normalized = text.replacingOccurrences(of: ",", with: ".")
+        let parts = normalized.split(separator: ".", omittingEmptySubsequences: false)
+
+        guard parts.count <= 2,
+              let integerPart = parts.first,
+              integerPart.count <= 9,
+              integerPart.allSatisfy(\.isNumber) else {
+            return false
+        }
+
+        guard parts.count == 2 else { return true }
+
+        let fractionalPart = parts[1]
+        return fractionalPart.count <= maximumFractionDigits
+            && fractionalPart.allSatisfy(\.isNumber)
+    }
 
     static func isVolumeUnit(_ unit: String?) -> Bool {
         unit == "ml" || unit == "l"
@@ -18,39 +45,60 @@ struct UnitConversion {
         if isVolumeUnit(baseUnit) {
             return preferred.volume == .imperial ? "fl oz" : "ml"
         }
+
         return preferred.weight == .imperial ? "oz" : "g"
     }
 
+    /// Formats values stored by food APIs with up to one fractional digit.
+    static func formatNutritionValue(_ value: Double) -> String {
+        value.formatted(.number.precision(.fractionLength(0...nutritionFractionDigits)))
+    }
+
+    static func formatMetricValue(_ value: Double) -> String {
+        formatNutritionValue(value)
+    }
+
+    /// Formats kilogram values with up to three fractional digits.
+    static func formatKilogramValue(_ value: Double) -> String {
+        value.formatted(.number.precision(.fractionLength(0...3)))
+    }
+
+    /// Formats imperial values with up to three fractional digits.
+    static func formatImperialValue(_ value: Double) -> String {
+        value.formatted(.number.precision(.fractionLength(0...3)))
+    }
 
     static func formatAmount(grams: Double, unit: String, preferred: PreferredUnits) -> String {
         if isVolumeUnit(unit) {
             switch preferred.volume {
             case .imperial:
-                let flOz = grams / mlPerFluidOunce
-                return "\(String(format: "%.1f", flOz)) fl oz"
+                return "\(formatImperialValue(grams / mlPerFluidOunce)) fl oz"
+
             case .metric:
                 if grams >= 1000 {
-                    let liters = grams / 1000.0
-                    return "\(String(format: "%.1f", liters)) l"
+                    return "\(formatMetricValue(grams / 1000)) l"
                 }
-                return "\(grams.formatted(.number.precision(.fractionLength(0...2)))) ml"
+
+                return "\(formatMetricValue(grams)) ml"
             }
         }
 
         switch preferred.weight {
         case .imperial:
-            let oz = grams / gramsPerOunce
-            if oz >= 16 {
-                let lb = oz / 16
-                return "\(String(format: "%.1f", lb)) lb"
+            let ounces = grams / gramsPerOunce
+
+            if ounces >= 16 {
+                return "\(formatImperialValue(ounces / 16)) lb"
             }
-            return "\(String(format: "%.1f", oz)) oz"
+
+            return "\(formatImperialValue(ounces)) oz"
+
         case .metric:
             if grams >= 1000 {
-                let kg = grams / 1000.0
-                return "\(String(format: "%.1f", kg)) kg"
+                return "\(formatKilogramValue(grams / 1000)) kg"
             }
-            return "\(grams.formatted(.number.precision(.fractionLength(0...2)))) g"
+
+            return "\(formatMetricValue(grams)) g"
         }
     }
 
@@ -67,8 +115,11 @@ struct UnitConversion {
     }
 
     static func formatEnergy(kcal: Double, preferred: PreferredUnits) -> String {
-        let value = formatEnergyValue(kcal: kcal, preferred: preferred)
-        return "\(value.formatted(.number.precision(.fractionLength(0...2)))) \(formatEnergyUnit(preferred: preferred))"
+        "\(formatEnergyValueText(kcal: kcal, preferred: preferred)) \(formatEnergyUnit(preferred: preferred))"
+    }
+
+    static func formatEnergyValueText(kcal: Double, preferred: PreferredUnits) -> String {
+        formatMetricValue(formatEnergyValue(kcal: kcal, preferred: preferred))
     }
 
     static func formatEnergyValue(kcal: Double, preferred: PreferredUnits) -> Double {
@@ -95,12 +146,12 @@ struct UnitConversion {
         }
     }
 
-
     /// User-entered value in the display unit -> canonical grams (or ml).
     static func grams(fromDisplay value: Double, baseUnit: String, preferred: PreferredUnits) -> Double {
         if isVolumeUnit(baseUnit) {
             return preferred.volume == .imperial ? value * mlPerFluidOunce : value
         }
+
         return preferred.weight == .imperial ? value * gramsPerOunce : value
     }
 
@@ -109,18 +160,21 @@ struct UnitConversion {
         if isVolumeUnit(baseUnit) {
             return preferred.volume == .imperial ? grams / mlPerFluidOunce : grams
         }
+
         return preferred.weight == .imperial ? grams / gramsPerOunce : grams
     }
 
+    /// Keeps converted display values precise enough to round-trip to stored grams.
     static func formatDisplayValue(_ value: Double, displayUnit: String) -> String {
         switch displayUnit {
-        case "fl oz", "oz":
-            return String(format: "%.2f", value)
+        case "oz", "lb", "fl oz":
+            formatImperialValue(value)
+        case "kg":
+            formatKilogramValue(value)
         default:
-            return String(Int(value.rounded()))
+            formatNutritionValue(value)
         }
     }
-
 
     static func bodyWeightUnitLabel(preferred: PreferredUnits) -> String {
         preferred.weight == .imperial ? "lb" : "kg"
@@ -130,8 +184,18 @@ struct UnitConversion {
         preferred.weight == .imperial ? kg / kgPerPound : kg
     }
 
+    /// Converts a displayed body weight to the backend's canonical kilograms.
     static func bodyWeightToKg(_ value: Double, preferred: PreferredUnits) -> Double {
-        preferred.weight == .imperial ? value * kgPerPound : value
+        let kilograms = preferred.weight == .imperial ? value * kgPerPound : value
+        return (kilograms * 100).rounded() / 100
+    }
+
+    static func formatBodyWeight(kg: Double, preferred: PreferredUnits) -> String {
+        let value = bodyWeightToDisplay(kg: kg, preferred: preferred)
+
+        return preferred.weight == .imperial
+            ? formatImperialValue(value)
+            : formatKilogramValue(value)
     }
 
     static func heightUnitLabel(preferred: PreferredUnits) -> String {
@@ -146,11 +210,9 @@ struct UnitConversion {
         preferred.weight == .imperial ? value * cmPerInch : value
     }
 
-
     static func energyToKcal(_ value: Double, preferred: PreferredUnits) -> Double {
         preferred.energy == .kj ? value / kjPerKcal : value
     }
-
 
     /// Parses user-entered decimal text, tolerating comma as decimal separator.
     static func parseDecimal(_ text: String) -> Double? {
@@ -170,30 +232,55 @@ struct UnitConversion {
         return preferred.weight == .imperial ? value * gramsPerOunce : value
     }
 
-    /// Macro grams -> smart display value (whole numbers without decimals,
-    /// otherwise up to 2 fractional digits with trailing zeros trimmed).
+    /// Macro grams -> display value.
     static func macroDisplay(grams: Double, preferred: PreferredUnits) -> String {
-        let value = preferred.weight == .imperial ? grams / gramsPerOunce : grams
-        return value.formatted(.number.precision(.fractionLength(0...2)))
+        let value = preferred.weight == .imperial
+            ? grams / gramsPerOunce
+            : grams
+
+        return preferred.weight == .imperial
+            ? formatImperialValue(value)
+            : formatNutritionValue(value)
     }
 
-    /// Re-expresses a user-entered amount when the preferred unit system changes,
-    /// keeping the physical amount identical. Returns the input untouched when the
-    /// relevant dimension did not change, or when the text cannot be parsed — so a
-    /// volume-only switch never rounds a weight field the user is still editing.
-    static func convertWeightText(_ text: String, from old: PreferredUnits, to new: PreferredUnits, baseUnit: String = "g") -> String {
-        let dimensionChanged = isVolumeUnit(baseUnit) ? old.volume != new.volume : old.weight != new.weight
-        guard dimensionChanged, let value = parseDecimal(text) else { return text }
+    /// Re-expresses a user-entered amount when the preferred unit system changes.
+    static func convertWeightText(
+        _ text: String,
+        from old: PreferredUnits,
+        to new: PreferredUnits,
+        baseUnit: String = "g"
+    ) -> String {
+        let dimensionChanged = isVolumeUnit(baseUnit)
+            ? old.volume != new.volume
+            : old.weight != new.weight
+
+        guard dimensionChanged, let value = parseDecimal(text) else {
+            return text
+        }
+
         let canonical = grams(fromDisplay: value, baseUnit: baseUnit, preferred: old)
         let display = displayValue(fromGrams: canonical, baseUnit: baseUnit, preferred: new)
-        return formatDisplayValue(display, displayUnit: displayUnit(for: baseUnit, preferred: new))
+
+        return formatDisplayValue(
+            display,
+            displayUnit: displayUnit(for: baseUnit, preferred: new)
+        )
     }
 
-    /// Same as `convertWeightText`, for an energy value moving between kcal and kJ.
-    static func convertEnergyText(_ text: String, from old: PreferredUnits, to new: PreferredUnits) -> String {
-        guard old.energy != new.energy, let value = parseDecimal(text) else { return text }
+    /// Same as convertWeightText, for an energy value moving between kcal and kJ.
+    static func convertEnergyText(
+        _ text: String,
+        from old: PreferredUnits,
+        to new: PreferredUnits
+    ) -> String {
+        guard old.energy != new.energy, let value = parseDecimal(text) else {
+            return text
+        }
+
         let kcal = energyToKcal(value, preferred: old)
         let display = new.energy == .kj ? kcal * kjPerKcal : kcal
-        return display.formatted(.number.precision(.fractionLength(0...2)))
+
+        return formatMetricValue(display)
     }
 }
+
