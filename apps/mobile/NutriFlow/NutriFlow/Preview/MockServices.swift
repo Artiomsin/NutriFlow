@@ -2,17 +2,17 @@ import Foundation
 
 final class MockFoodService: FoodServiceProtocol {
     func createFoodEntry(name: String, calories: Double, protein: Double?, fat: Double?, carbs: Double?, foodId: String? = nil, grams: Double? = nil, unit: String? = nil, categoryName: String? = nil, imageUrl: String? = nil, date: String? = nil) async throws -> FoodEntry {
-        FoodEntry(id: UUID().uuidString, userId: "1", name: name, calories: calories, protein: protein, fat: fat, carbs: carbs, foodId: foodId, grams: grams, unit: unit ?? "g", categoryName: categoryName, imageUrl: imageUrl, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil)
+        FoodEntry(id: UUID().uuidString, userId: "1", name: name, calories: calories, protein: protein, fat: fat, carbs: carbs, foodId: foodId, grams: grams, unit: unit ?? "g", categoryName: categoryName, categoryIcon: nil,imageUrl: imageUrl, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil)
     }
     func getTodayFood() async throws -> [FoodEntry] {
         [
-            FoodEntry(id: "1", userId: "1", name: "Oatmeal", calories: 320, protein: 12, fat: 6, carbs: 56, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T08:00:00Z", updatedAt: nil),
-            FoodEntry(id: "2", userId: "1", name: "Chicken breast", calories: 165, protein: 31, fat: 4, carbs: 0, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
-            FoodEntry(id: "3", userId: "1", name: "Rice", calories: 200, protein: 4, fat: 1, carbs: 45, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil),
-            FoodEntry(id: "4", userId: "1", name: "Apple", calories: 95, protein: 0, fat: 0, carbs: 25, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil),
-            FoodEntry(id: "5", userId: "1", name: "Salmon", calories: 367, protein: 34, fat: 22, carbs: 0, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T14:00:00Z", updatedAt: nil),
-            FoodEntry(id: "6", userId: "1", name: "Broccoli", calories: 55, protein: 4, fat: 1, carbs: 11, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T14:00:00Z", updatedAt: nil),
-            FoodEntry(id: "7", userId: "1", name: "Greek yogurt", calories: 150, protein: 15, fat: 4, carbs: 10, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T19:00:00Z", updatedAt: nil)
+            FoodEntry(id: "1", userId: "1", name: "Oatmeal", calories: 320, protein: 12, fat: 6, carbs: 56, foodId: nil, grams: nil, unit: "g", categoryName: nil, categoryIcon: nil,imageUrl: nil, createdAt: "2026-05-18T08:00:00Z", updatedAt: nil),
+            FoodEntry(id: "2", userId: "1", name: "Chicken breast", calories: 165, protein: 31, fat: 4, carbs: 0, foodId: nil, grams: nil, unit: "g", categoryName: nil,categoryIcon: nil, imageUrl: nil, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
+            FoodEntry(id: "3", userId: "1", name: "Rice", calories: 200, protein: 4, fat: 1, carbs: 45, foodId: nil, grams: nil, unit: "g", categoryName: nil, categoryIcon: nil,imageUrl: nil, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil),
+            FoodEntry(id: "4", userId: "1", name: "Apple", calories: 95, protein: 0, fat: 0, carbs: 25, foodId: nil, grams: nil, unit: "g", categoryName: nil, categoryIcon: nil,imageUrl: nil, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil),
+            FoodEntry(id: "5", userId: "1", name: "Salmon", calories: 367, protein: 34, fat: 22, carbs: 0, foodId: nil, grams: nil, unit: "g", categoryName: nil,categoryIcon: nil, imageUrl: nil, createdAt: "2026-05-18T14:00:00Z", updatedAt: nil),
+            FoodEntry(id: "6", userId: "1", name: "Broccoli", calories: 55, protein: 4, fat: 1, carbs: 11, foodId: nil, grams: nil, unit: "g", categoryName: nil,categoryIcon: nil, imageUrl: nil, createdAt: "2026-05-18T14:00:00Z", updatedAt: nil),
+            FoodEntry(id: "7", userId: "1", name: "Greek yogurt", calories: 150, protein: 15, fat: 4, carbs: 10, foodId: nil, grams: nil, unit: "g", categoryName: nil,categoryIcon: nil, imageUrl: nil, createdAt: "2026-05-18T19:00:00Z", updatedAt: nil)
         ]
     }
     func getFoodByDate(date: String) async throws -> [FoodEntry] {
@@ -32,7 +32,7 @@ final class MockFoodService: FoodServiceProtocol {
         imageUrl: String?,
         categoryName: String?
     ) async throws -> FoodEntry {
-        FoodEntry(id: id, userId: "1", name: name ?? "Updated", calories: calories ?? 100, protein: protein, fat: fat, carbs: carbs, foodId: foodId, grams: grams, unit: unit ?? "g", categoryName: categoryName, imageUrl: nil, createdAt: "2026-05-18T10:00:00Z", updatedAt: "2026-05-18T11:00:00Z")
+        FoodEntry(id: id, userId: "1", name: name ?? "Updated", calories: calories ?? 100, protein: protein, fat: fat, carbs: carbs, foodId: foodId, grams: grams, unit: unit ?? "g", categoryName: categoryName,categoryIcon: nil, imageUrl: nil, createdAt: "2026-05-18T10:00:00Z", updatedAt: "2026-05-18T11:00:00Z")
     }
     func deleteFoodEntry(id: String, date: String? = nil) async throws { }
     

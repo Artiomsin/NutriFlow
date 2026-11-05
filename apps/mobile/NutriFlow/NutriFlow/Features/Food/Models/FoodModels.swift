@@ -86,6 +86,7 @@ struct FoodEntry: Codable, Identifiable, Sendable {
     let grams: Double?
     let unit: String
     let categoryName: String?
+    let categoryIcon: String?
     let imageUrl: String?
     let createdAt: String
     let updatedAt: String?

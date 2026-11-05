@@ -42,10 +42,14 @@ struct FoodCard: View {
                     .foregroundColor(AppColors.textTertiary)
 
                 if let categoryName = entry.categoryName, !categoryName.isEmpty {
-                    Label(categoryName, systemImage: "tag.fill")
-                        .font(.caption)
-                        .foregroundStyle(AppColors.textSecondary)
-                        .lineLimit(1)
+                    Label {
+                        Text(categoryName)
+                    } icon: {
+                        Image(systemName: entry.categoryIcon ?? "tag.fill")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+                    .lineLimit(1)
                 }
 
                 HStack(spacing: 12) {

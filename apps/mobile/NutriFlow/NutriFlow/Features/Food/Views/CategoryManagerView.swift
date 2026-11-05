@@ -23,18 +23,25 @@ struct CategoryManagerView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     introductionCard
-                    createCategoryCard
 
-                    if !personalCategories.isEmpty {
-                        categorySection(
-                            title: "Your Categories",
-                            subtitle: "Only you can edit or delete these.",
-                            categories: personalCategories,
-                            showsDeleteAction: true
-                        )
+                    if viewModel.isLoadingCategories && viewModel.categories.isEmpty {
+                        loadingCard
+                    } else if let error = viewModel.categoriesError {
+                        ErrorView(error: error) { viewModel.retryCategories() }
+                    } else {
+                        createCategoryCard
+
+                        if !personalCategories.isEmpty {
+                            categorySection(
+                                title: "Your Categories",
+                                subtitle: "Only you can edit or delete these.",
+                                categories: personalCategories,
+                                showsDeleteAction: true
+                            )
+                        }
+
+                        systemCategoriesSection
                     }
-
-                    systemCategoriesSection
                 }
                 .padding()
             }
@@ -59,7 +66,7 @@ struct CategoryManagerView: View {
                     Task { await viewModel.deleteCategory(category) }
                 }
             } message: { category in
-                Text("\(category.name) can be deleted only when no products use it.")
+                Text("The category will be removed from your foods. Your foods will remain without a category.")
             }
             .sheet(item: $categoryToEdit) { category in
                 CategoryEditorView(category: category, viewModel: viewModel)
@@ -86,6 +93,21 @@ struct CategoryManagerView: View {
                         .foregroundStyle(AppColors.textSecondary)
                 }
             }
+        }
+    }
+
+    private var loadingCard: some View {
+        AppCard {
+            HStack(spacing: 12) {
+                ProgressView()
+                    .tint(AppColors.accent)
+                Text("Loading categories…")
+                    .font(.subheadline)
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 8)
+            .accessibilityElement(children: .combine)
         }
     }
 

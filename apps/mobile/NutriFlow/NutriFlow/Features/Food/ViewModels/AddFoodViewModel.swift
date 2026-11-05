@@ -26,6 +26,7 @@ final class AddFoodViewModel {
 
     var categories: [FoodCategory] = []
     var categoriesError: AppError?
+    var isLoadingCategories = false
     var selectedCategory: FoodCategory?
     var photosItem: PhotosPickerItem?
     var selectedImageData: Data?
@@ -149,7 +150,10 @@ final class AddFoodViewModel {
     }
 
     func loadCategories() async {
-        guard categories.isEmpty else { return }
+        guard categories.isEmpty, !isLoadingCategories else { return }
+
+        isLoadingCategories = true
+        defer { isLoadingCategories = false }
         categoriesError = nil
         do {
             categories = try await service.getCategories()

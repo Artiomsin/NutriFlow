@@ -50,9 +50,6 @@
         }
       }
     },
-    "%@ can be deleted only when no products use it." : {
-
-    },
     "%@ efficiency" : {
 
     },
@@ -890,6 +887,9 @@
     "Loading activity..." : {
 
     },
+    "Loading categories…" : {
+
+    },
     "Loading sleep..." : {
 
     },
@@ -1143,6 +1143,9 @@
 
     },
     "Tell us about yourself" : {
+
+    },
+    "The category will be removed from your foods. Your foods will remain without a category." : {
 
     },
     "The chart and automatic goals will be updated if this is today’s current record." : {

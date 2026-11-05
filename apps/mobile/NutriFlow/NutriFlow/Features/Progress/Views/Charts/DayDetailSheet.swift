@@ -313,13 +313,25 @@ struct FoodRow: View {
                 .frame(width: 36, height: 36)
                 .overlay(Image(systemName: "fork.knife").font(.caption2).foregroundColor(.orange))
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(entry.name)
                     .font(.body.weight(.medium))
                     .foregroundColor(AppColors.textPrimary)
+
+                if let categoryName = entry.categoryName, !categoryName.isEmpty {
+                    Label {
+                        Text(categoryName)
+                    } icon: {
+                        Image(systemName: entry.categoryIcon ?? "tag.fill")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+                    .lineLimit(1)
+                }
+
                 Text(formatTime(entry.createdAt))
                     .font(.caption)
-                    .foregroundColor(AppColors.textTertiary )
+                    .foregroundColor(AppColors.textTertiary)
             }
 
             Spacer()
@@ -434,8 +446,8 @@ func formatTime(_ iso: String) -> String {
     DayDetailSheet(
         dateStr: "2026-09-09",
         food: [
-            FoodEntry(id: "1", userId: "1", name: "Oatmeal", calories: 320, protein: 12, fat: 6, carbs: 56, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-09-09T08:00:00Z", updatedAt: nil),
-            FoodEntry(id: "2", userId: "1", name: "Chicken Breast", calories: 450, protein: 40, fat: 10, carbs: 0, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-09-09T13:00:00Z", updatedAt: nil),
+            FoodEntry(id: "1", userId: "1", name: "Oatmeal", calories: 320, protein: 12, fat: 6, carbs: 56, foodId: nil, grams: nil, unit: "g", categoryName: "Breakfast",categoryIcon: "sunrise.fill", imageUrl: nil, createdAt: "2026-09-09T08:00:00Z", updatedAt: nil),
+            FoodEntry(id: "2", userId: "1", name: "Chicken Breast", calories: 450, protein: 40, fat: 10, carbs: 0, foodId: nil, grams: nil, unit: "g", categoryName: nil,categoryIcon: nil, imageUrl: nil, createdAt: "2026-09-09T13:00:00Z", updatedAt: nil),
         ],
         water: [
             WaterEntry(id: "1", userId: "1", amountMl: 500, createdAt: "2026-09-09T10:00:00Z", updatedAt: nil),

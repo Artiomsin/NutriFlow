@@ -28,11 +28,11 @@ enum FoodEndpoints {
     static let getCategories = "/food-categories"
     static let createCategory = "/food-categories"
 
-    static func updateCategory(id: String) -> String {
+    static func updateFoodCategory(id: String) -> String {
         "/food-categories/\(EndpointPath.component(id))"
     }
 
-    static func deleteCategory(id: String) -> String {
+    static func deleteFoodCategory(id: String) -> String {
         "/food-categories/\(EndpointPath.component(id))"
     }
 

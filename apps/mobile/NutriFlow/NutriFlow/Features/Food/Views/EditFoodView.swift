@@ -398,7 +398,8 @@ struct EditFoodView: View {
                 foodId: nil,
                 grams: 200,
                 unit: "g",
-                categoryName: "Meat",
+                categoryName: "Meat", 
+                categoryIcon: "fork.knife",
                 imageUrl: nil,
                 createdAt: "2026-07-13T10:00:00Z",
                 updatedAt: nil

@@ -349,8 +349,8 @@ extension HomeFactory {
         let coordinator = AppCoordinator(container: AppDependencyContainer())
         let todayFoodVM = TodayFoodViewModel(service: MockFoodService(), coordinator: coordinator)
         todayFoodVM.setPreviewState(.loaded([
-            FoodEntry(id: "1", userId: "1", name: "Chicken", calories: 165, protein: 31, fat: 4, carbs: 0, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
-            FoodEntry(id: "2", userId: "1", name: "Rice", calories: 200, protein: 4, fat: 1, carbs: 45, foodId: nil, grams: nil, unit: "g", categoryName: nil, imageUrl: nil, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil)
+            FoodEntry(id: "1", userId: "1", name: "Chicken", calories: 165, protein: 31, fat: 4, carbs: 0, foodId: nil, grams: nil, unit: "g", categoryName: nil, categoryIcon: nil,imageUrl: nil, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
+            FoodEntry(id: "2", userId: "1", name: "Rice", calories: 200, protein: 4, fat: 1, carbs: 45, foodId: nil, grams: nil, unit: "g", categoryName: nil,categoryIcon: nil, imageUrl: nil, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil)
         ]))
         
         let waterVM = WaterViewModel(coordinator: coordinator, service: MockWaterService())
