@@ -38,6 +38,8 @@ import type {
   CreateFoodServingDto,
   UpdateFoodServingDto,
   SearchFoodQueryDto,
+  BulkUpdateFoodCategoryDto,
+  GetFoodsQueryDto,
 } from './food.schema';
 import { currentUserDate } from '../common/time/user-date';
 import { RedisService } from '../redis/redis.service';
@@ -846,14 +848,17 @@ export class FoodService {
     return updated;
   }
 
-  async getAll(limit = 50, offset = 0, userId?: string) {
-    const whereClause = userId
-      ? or(
-          sql`${foods.source} IN ('usda', 'system')`,
-          and(eq(foods.source, 'user'), eq(foods.createdBy, userId)),
-        )
-      : sql`${foods.source} IN ('usda', 'system')`;
-
+  async getAll(query: GetFoodsQueryDto, userId: string) {
+    const { categoryId, limit, offset } = query;
+  
+    const conditions: SQL[] = [this.visibilityClause(userId)!];
+  
+    if (categoryId === 'null') {
+      conditions.push(isNull(foods.categoryId));
+    } else if (categoryId !== undefined) {
+      conditions.push(eq(foods.categoryId, categoryId));
+    }
+  
     const rows = await this.db
       .select({
         food: foods,
@@ -863,11 +868,11 @@ export class FoodService {
       })
       .from(foods)
       .leftJoin(foodCategories, eq(foods.categoryId, foodCategories.id))
-      .where(whereClause)
+      .where(and(...conditions))
       .orderBy(foods.name)
       .limit(limit)
       .offset(offset);
-
+  
     const catMap = new Map<
       string,
       {
@@ -877,10 +882,11 @@ export class FoodService {
         foods: (typeof foods.$inferSelect)[];
       }
     >();
-
+  
     for (const row of rows) {
       const key = row.categoryId ?? '';
       let group = catMap.get(key);
+  
       if (!group) {
         group = {
           id: row.categoryId ?? '',
@@ -888,23 +894,97 @@ export class FoodService {
           icon: row.categoryIcon ?? null,
           foods: [],
         };
+  
         catMap.set(key, group);
       }
+  
       group.foods.push({ ...row.food });
     }
-
+  
     return Array.from(catMap.values());
+  }
+
+  async bulkUpdateCategory(
+    userId: string,
+    data: BulkUpdateFoodCategoryDto,
+  ) {
+    return this.db.transaction(async (tx) => {
+      const { foodIds, categoryId } = data;
+  
+      // Only personal foods can be modified.
+      const ownedFoods = await tx
+        .select({ id: foods.id })
+        .from(foods)
+        .where(
+          and(
+            inArray(foods.id, foodIds),
+            eq(foods.source, 'user'),
+            eq(foods.createdBy, userId),
+          ),
+        );
+  
+      if (ownedFoods.length !== foodIds.length) {
+        throw new NotFoundException('One or more foods not found');
+      }
+  
+      // A shared category or the user's own category is allowed.
+      if (categoryId !== null) {
+        await this.assertVisibleCategory(tx, userId, categoryId);
+      }
+  
+      const updated = await tx
+        .update(foods)
+        .set({
+          categoryId,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            inArray(foods.id, foodIds),
+            eq(foods.source, 'user'),
+            eq(foods.createdBy, userId),
+          ),
+        )
+        .returning({ id: foods.id });
+  
+      if (updated.length !== foodIds.length) {
+        throw new NotFoundException('One or more foods not found');
+      }
+  
+      return {
+        updatedCount: updated.length,
+        foodIds: updated.map((food) => food.id),
+        categoryId,
+      };
+    });
   }
 
   // ── Food Categories ──────────────────────────────────────────
 
   /** Shared catalog categories plus the ones owned by the caller. */
+  /** Shared catalog categories plus the ones owned by the caller, with visible food counts. */
   async getCategories(userId: string) {
-    return this.db
-      .select()
+    const rows = await this.db
+      .select({
+        category: foodCategories,
+        foodCount: sql<number>`count(${foods.id})::int`,
+      })
       .from(foodCategories)
+      .leftJoin(
+        foods,
+        and(
+          eq(foods.categoryId, foodCategories.id),
+          this.visibilityClause(userId),
+        ),
+      )
       .where(this.categoryVisibilityClause(userId))
+      .groupBy(foodCategories.id)
       .orderBy(foodCategories.name);
+  
+    return rows.map(({ category, foodCount }) => ({
+      ...category,
+      foodCount,
+    }));
   }
 
   async createCategory(userId: string, data: CreateFoodCategoryDto) {

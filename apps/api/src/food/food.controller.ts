@@ -37,6 +37,8 @@ import {
   searchFoodQuerySchema,
   optionalDateQuerySchema,
   requiredDateQuerySchema,
+  bulkUpdateFoodCategorySchema,
+  getFoodsQuerySchema,
 } from './food.schema';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
 import type {
@@ -50,6 +52,8 @@ import type {
   SearchFoodQueryDto,
   OptionalDateQueryDto,
   RequiredDateQueryDto,
+  BulkUpdateFoodCategoryDto,
+  GetFoodsQueryDto,
 } from './food.schema';
 
 @Controller()
@@ -213,17 +217,22 @@ export class FoodController {
 
   // ── Food Catalog Routes ──────────────────────────────────────
 
+  @Patch('foods/bulk/category')
+  bulkUpdateCategory(
+    @User() user: AuthPayload,
+    @Body(new ZodValidationPipe(bulkUpdateFoodCategorySchema))
+    data: BulkUpdateFoodCategoryDto,
+  ) {
+    return this.foodService.bulkUpdateCategory(user.userId, data);
+  }
+  
   @Get('foods')
   getAll(
     @User() user: AuthPayload,
-    @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
+    @Query(new ZodValidationPipe(getFoodsQuerySchema))
+    query: GetFoodsQueryDto,
   ) {
-    return this.foodService.getAll(
-      limit ? Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200) : 50,
-      offset ? Math.max(parseInt(offset, 10) || 0, 0) : 0,
-      user.userId,
-    );
+    return this.foodService.getAll(query, user.userId);
   }
 
   @Get('foods/search')

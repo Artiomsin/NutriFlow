@@ -74,7 +74,31 @@ export const updateFoodCategorySchema = createFoodCategorySchema
 
 export type UpdateFoodCategoryDto = z.infer<typeof updateFoodCategorySchema>;
 
+
+export const bulkUpdateFoodCategorySchema = z.object({
+  foodIds: z
+    .array(z.string().uuid())
+    .min(1)
+    .max(100)
+    .refine((ids) => new Set(ids).size === ids.length, {
+      message: 'Food IDs must be unique',
+    }),
+  categoryId: z.string().uuid().nullable(),
+});
+
+export type BulkUpdateFoodCategoryDto = z.infer<
+  typeof bulkUpdateFoodCategorySchema
+  >;
+
 // ── Food Catalog ──────────────────────────────────────────────────
+
+export const getFoodsQuerySchema = z.object({
+  categoryId: z.union([z.string().uuid(), z.literal('null')]).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(50),
+  offset: z.coerce.number().int().min(0).max(10_000).optional().default(0),
+});
+
+export type GetFoodsQueryDto = z.infer<typeof getFoodsQuerySchema>;
 
 export const createFoodSchema = z.object({
   name: z.string().min(1).max(255),
