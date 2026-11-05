@@ -23,7 +23,6 @@ import {
   or,
   ne,
   isNull,
-  count,
   inArray,
   type SQL,
 } from 'drizzle-orm';
@@ -408,6 +407,7 @@ export class FoodService {
         createdAt: foodEntries.createdAt,
         updatedAt: foodEntries.updatedAt,
         categoryName: foodCategories.name,
+        categoryIcon: foodCategories.icon,
         imageUrl: sql`COALESCE(${foodEntries.imageUrl}, ${foods.imageUrl})`,
         foodSource: foods.source,
       })
@@ -990,8 +990,7 @@ export class FoodService {
 
   async removeCategory(userId: string, id: string) {
     // Ownership is checked first so a system category and someone else's look
-    // exactly like a missing one: the reference count must not leak that the
-    // row exists and is in use.
+    // exactly like a missing one.
     const [owned] = await this.db
       .select({ id: foodCategories.id })
       .from(foodCategories)
@@ -1000,22 +999,9 @@ export class FoodService {
 
     if (!owned) throw new NotFoundException('Category not found');
 
-    // Products point at the category without a cascade, so the reference count
-    // is checked before the delete: letting the foreign key fail would surface
-    // as a 500 instead of an explainable conflict.
-    const [usage] = await this.db
-      .select({ products: count() })
-      .from(foods)
-      .where(eq(foods.categoryId, id));
-
-    const products = usage?.products ?? 0;
-
-    if (products > 0) {
-      throw new ConflictException(
-        `Category is used by ${products} product${products === 1 ? '' : 's'}`,
-      );
-    }
-
+    // foods.categoryId is declared with ON DELETE SET NULL. Deleting a
+    // personal category therefore keeps the user's foods and nutrition data,
+    // while making those foods uncategorized.
     const [deleted] = await this.db
       .delete(foodCategories)
       .where(this.categoryOwnershipClause(userId, id))

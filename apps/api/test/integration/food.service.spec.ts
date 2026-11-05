@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { DbModule } from '../../src/db/db.module';
 import { dailySummary } from '../../src/db/schema/dailySummary';
 import { foodEntries } from '../../src/db/schema/foodEntries';
+import { foodCategories } from '../../src/db/schema/foodCategories';
 import { foods } from '../../src/db/schema/foods';
 import { foodServings } from '../../src/db/schema/foodServings';
 import { userFoodStats } from '../../src/db/schema/userFoodStats';
@@ -266,6 +267,10 @@ describe('FoodService reads', () => {
   it('getToday returns entries with the joined category name', async () => {
     const user = await createUser(tx);
     const category = await createCategory(tx, 'Fruit');
+    await tx
+      .update(foodCategories)
+      .set({ icon: 'apple.logo' })
+      .where(eq(foodCategories.id, category.id));
     const food = await createCatalogFood(tx, {
       name: 'Pear',
       source: 'system',
@@ -281,6 +286,7 @@ describe('FoodService reads', () => {
     const rows = await service.getToday(user.id, '2026-01-09');
     expect(rows).toHaveLength(1);
     expect(rows[0]?.categoryName).toBe('Fruit');
+    expect(rows[0]?.categoryIcon).toBe('apple.logo');
   });
 
   it('getByDate returns the raw entries', async () => {
@@ -294,6 +300,33 @@ describe('FoodService reads', () => {
     const rows = await service.getByDate(user.id, '2026-01-10');
     expect(rows).toHaveLength(1);
     expect(rows[0]?.name).toBe('Rice');
+  });
+});
+
+describe('FoodService categories', () => {
+  it('deletes an owned category and leaves its foods uncategorized', async () => {
+    const user = await createUser(tx);
+    const category = await createCategory(tx, 'Personal meals', user.id);
+    const food = await createCatalogFood(tx, {
+      name: 'My pasta',
+      source: 'user',
+      createdBy: user.id,
+      categoryId: category.id,
+    });
+
+    await service.removeCategory(user.id, category.id);
+
+    const [remainingCategory] = await tx
+      .select()
+      .from(foodCategories)
+      .where(eq(foodCategories.id, category.id));
+    const [updatedFood] = await tx
+      .select()
+      .from(foods)
+      .where(eq(foods.id, food.id));
+
+    expect(remainingCategory).toBeUndefined();
+    expect(updatedFood?.categoryId).toBeNull();
   });
 });
 
