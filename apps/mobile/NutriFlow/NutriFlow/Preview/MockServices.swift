@@ -63,7 +63,22 @@ final class MockFoodService: FoodServiceProtocol {
     func createCatalogFood(_ request: CreateCatalogFoodRequest) async throws -> CatalogFood {
         CatalogFood(id: UUID().uuidString, name: request.name, categoryId: request.categoryId, categoryName: nil, brand: nil, caloriesPer100g: request.caloriesPer100g, proteinPer100g: request.proteinPer100g, fatPer100g: request.fatPer100g, carbsPer100g: request.carbsPer100g, barcode: request.barcode, imageUrl: request.imageUrl, source: "user", createdBy: nil, createdAt: "", updatedAt: "", servings: request.servings?.map { FoodServing(id: UUID().uuidString, foodId: "", name: $0.name, grams: $0.grams, createdAt: nil) })
     }
-    func getCategories() async throws -> [FoodCategory] { [] }
+    func getCategories() async throws -> [FoodCategory] {
+        [
+            FoodCategory(id: "system-fruits", name: "Fruits", icon: "leaf.fill", createdBy: nil, createdAt: "2026-01-01T00:00:00Z"),
+            FoodCategory(id: "system-protein", name: "Protein", icon: "fish.fill", createdBy: nil, createdAt: "2026-01-01T00:00:00Z"),
+            FoodCategory(id: "system-dairy", name: "Dairy", icon: "cup.and.saucer.fill", createdBy: nil, createdAt: "2026-01-01T00:00:00Z"),
+            FoodCategory(id: "personal-breakfast", name: "Breakfast", icon: "sunrise.fill", createdBy: "1", createdAt: "2026-05-18T08:00:00Z"),
+            FoodCategory(id: "personal-home", name: "Home Cooking", icon: "house.fill", createdBy: "1", createdAt: "2026-05-18T08:00:00Z")
+        ]
+    }
+    func createCategory(name: String, icon: String?) async throws -> FoodCategory {
+        FoodCategory(id: UUID().uuidString, name: name, icon: icon, createdBy: "1", createdAt: "")
+    }
+    func updateCategory(id: String, name: String?, icon: String?) async throws -> FoodCategory {
+        FoodCategory(id: id, name: name ?? "Category", icon: icon, createdBy: "1", createdAt: "")
+    }
+    func deleteCategory(id: String) async throws { }
     func uploadImage(_ data: Data) async throws -> String { "https://example.com/mock.jpg" }
     func analyzePhoto(_ data: Data) async throws -> [ScanAnalysisItem] { [] }
 }

@@ -163,6 +163,32 @@ final class FoodService: FoodServiceProtocol, Sendable {
         return try await client.send(request)
     }
 
+    func createCategory(name: String, icon: String?) async throws -> FoodCategory {
+        let request = APIRequest(
+            path: FoodEndpoints.createCategory,
+            method: .POST,
+            body: CreateFoodCategoryRequest(name: name, icon: icon)
+        )
+        return try await client.send(request)
+    }
+
+    func updateCategory(id: String, name: String?, icon: String?) async throws -> FoodCategory {
+        let request = APIRequest(
+            path: FoodEndpoints.updateFoodCategory(id: id),
+            method: .PATCH,
+            body: UpdateFoodCategoryRequest(name: name, icon: icon)
+        )
+        return try await client.send(request)
+    }
+
+    func deleteCategory(id: String) async throws {
+        let request = APIRequest<NeverBody>(
+            path: FoodEndpoints.deleteFoodCategory(id: id),
+            method: .DELETE
+        )
+        try await client.sendVoid(request)
+    }
+
     // ── Upload ──────────────────────────────────────────────────
 
     func uploadImage(_ data: Data) async throws -> String {

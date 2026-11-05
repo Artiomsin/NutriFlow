@@ -163,6 +163,56 @@ final class AddFoodViewModel {
         Task { await loadCategories() }
     }
 
+    func createCategory(named name: String, icon: String? = nil) async -> FoodCategory? {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return nil }
+
+        do {
+            let category = try await service.createCategory(name: trimmedName, icon: icon)
+            categories.append(category)
+            categories.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            selectedCategory = category
+            return category
+        } catch {
+            categoriesError = ErrorMapper.map(error)
+            return nil
+        }
+    }
+
+    func updateCategory(_ category: FoodCategory, name: String, icon: String?) async -> Bool {
+        guard category.isPersonal else { return false }
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return false }
+
+        do {
+            let updated = try await service.updateCategory(id: category.id, name: trimmedName, icon: icon)
+            guard let index = categories.firstIndex(where: { $0.id == updated.id }) else { return false }
+            categories[index] = updated
+            categories.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            if selectedCategory?.id == updated.id { selectedCategory = updated }
+            return true
+        } catch {
+            categoriesError = ErrorMapper.map(error)
+            return false
+        }
+    }
+
+    func deleteCategory(_ category: FoodCategory) async -> Bool {
+        guard category.isPersonal else { return false }
+
+        do {
+            try await service.deleteCategory(id: category.id)
+            categories.removeAll { $0.id == category.id }
+            if selectedCategory?.id == category.id {
+                selectedCategory = nil
+            }
+            return true
+        } catch {
+            categoriesError = ErrorMapper.map(error)
+            return false
+        }
+    }
+
     func loadPopular() async {
         guard !isLoadingPopular else { return }
         isLoadingPopular = true

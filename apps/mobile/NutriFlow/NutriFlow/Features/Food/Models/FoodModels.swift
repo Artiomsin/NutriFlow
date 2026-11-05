@@ -163,7 +163,20 @@ struct FoodCategory: Codable, Identifiable, Hashable, Sendable {
     let id: String
     let name: String
     let icon: String?
+    let createdBy: String?
     let createdAt: String
+
+    var isPersonal: Bool { createdBy != nil }
+}
+
+struct CreateFoodCategoryRequest: Codable, Sendable {
+    let name: String
+    let icon: String?
+}
+
+struct UpdateFoodCategoryRequest: Codable, Sendable {
+    let name: String?
+    let icon: String?
 }
 
 struct CategoryWithFoods: Codable, Sendable {
