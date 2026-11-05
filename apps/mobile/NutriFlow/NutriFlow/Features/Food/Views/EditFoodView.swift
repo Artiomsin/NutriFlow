@@ -32,7 +32,11 @@ struct EditFoodView: View {
                         ErrorView(error: categoriesError) { viewModel.retryCategories() }
                     }
 
-                    if viewModel.source == "user" { categorySection() }
+                    if viewModel.source == "user" {
+                        categorySection()
+                    } else if viewModel.isCatalogFood {
+                        readOnlyCategorySection()
+                    }
 
                     if viewModel.showNameWarning {
                         HStack(spacing: 6) {
@@ -246,8 +250,25 @@ struct EditFoodView: View {
                 sectionLabel("Category", icon: "tag.fill")
                 Menu {
                     Button("None") { viewModel.selectedCategoryName = nil }
-                    ForEach(viewModel.categories) { cat in
-                        Button(cat.name) { viewModel.selectedCategoryName = cat.name }
+
+                    Section("My Categories") {
+                        ForEach(viewModel.categories.filter(\.isPersonal)) { category in
+                            Button {
+                                viewModel.selectedCategoryName = category.name
+                            } label: {
+                                Label(category.name, systemImage: category.icon ?? "tag.fill")
+                            }
+                        }
+                    }
+
+                    Section("System Categories") {
+                        ForEach(viewModel.categories.filter { !$0.isPersonal }) { category in
+                            Button {
+                                viewModel.selectedCategoryName = category.name
+                            } label: {
+                                Label(category.name, systemImage: category.icon ?? "tag.fill")
+                            }
+                        }
                     }
                 } label: {
                     HStack {
@@ -264,6 +285,49 @@ struct EditFoodView: View {
                 }
             }
         }
+    }
+
+    private func readOnlyCategorySection() -> some View {
+        AppCard {
+            VStack(alignment: .leading, spacing: 12) {
+                sectionLabel("Category", icon: "tag.fill")
+
+                HStack(spacing: 12) {
+                    Image(systemName: categoryIcon)
+                        .font(.title3)
+                        .foregroundStyle(AppColors.accent)
+                        .frame(width: 40, height: 40)
+                        .background(AppColors.accent.opacity(0.12))
+                        .clipShape(.circle)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(viewModel.entry.categoryName ?? "No category")
+                            .font(.body.weight(.medium))
+                            .foregroundStyle(AppColors.textPrimary)
+                        Text("System food category")
+                            .font(.subheadline)
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "lock.fill")
+                        .foregroundStyle(AppColors.textTertiary)
+                        .accessibilityHidden(true)
+                }
+                .padding(12)
+                .background(AppColors.surfaceSecondary)
+                .clipShape(.rect(cornerRadius: AppRadius.medium))
+
+                Text("Categories for system foods are managed by Nutriflow and cannot be changed here.")
+                    .font(.subheadline)
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+        }
+    }
+
+    private var categoryIcon: String {
+        viewModel.categories.first { $0.name == viewModel.entry.categoryName }?.icon ?? "tag.fill"
     }
 
     private func sectionLabel(_ text: String, icon: String) -> some View {

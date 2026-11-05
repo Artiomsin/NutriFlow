@@ -50,6 +50,9 @@
         }
       }
     },
+    "%@ can be deleted only when no products use it." : {
+
+    },
     "%@ efficiency" : {
 
     },
@@ -64,6 +67,9 @@
       }
     },
     "%lld" : {
+
+    },
+    "%lld available to everyone" : {
 
     },
     "%lld kcal" : {
@@ -94,6 +100,9 @@
 
     },
     "Add" : {
+
+    },
+    "Add Category" : {
 
     },
     "Add Food" : {
@@ -132,6 +141,9 @@
     "Are you sure you want to delete this water entry?" : {
 
     },
+    "Assign a category while adding a food. System categories are shared; yours stay private." : {
+
+    },
     "Automatic calculation is off" : {
 
     },
@@ -151,6 +163,15 @@
 
     },
     "Carbs" : {
+
+    },
+    "Categories" : {
+
+    },
+    "Categories for system foods are managed by Nutriflow and cannot be changed here." : {
+
+    },
+    "Category" : {
 
     },
     "Change password" : {
@@ -192,6 +213,9 @@
     "Couldn’t load the latest workout from Apple Health." : {
 
     },
+    "Create a Category" : {
+
+    },
     "Create a new password" : {
 
     },
@@ -213,6 +237,12 @@
     "Delete \"%@\"?" : {
 
     },
+    "Delete %@" : {
+
+    },
+    "Delete category?" : {
+
+    },
     "Delete Food" : {
 
     },
@@ -229,6 +259,9 @@
 
     },
     "Done" : {
+
+    },
+    "Edit Category" : {
 
     },
     "Edit Food" : {
@@ -673,6 +706,9 @@
     "For %@" : {
 
     },
+    "For example, Homemade meals" : {
+
+    },
     "form.error.invalid_email" : {
       "localizations" : {
         "en" : {
@@ -833,6 +869,9 @@
     "Hours" : {
 
     },
+    "Icon" : {
+
+    },
     "Initial weight" : {
 
     },
@@ -857,6 +896,9 @@
     "Macros (Avg)" : {
 
     },
+    "Manage Categories" : {
+
+    },
     "Manage weight records" : {
 
     },
@@ -878,6 +920,12 @@
     "ml" : {
 
     },
+    "My Categories" : {
+
+    },
+    "Name" : {
+
+    },
     "Need at least 2 other nights to compare" : {
 
     },
@@ -891,6 +939,9 @@
 
     },
     "No account? Register" : {
+
+    },
+    "No categories yet." : {
 
     },
     "No changes yet" : {
@@ -942,6 +993,9 @@
 
     },
     "Open Settings" : {
+
+    },
+    "Organize your foods" : {
 
     },
     "Ounces" : {
@@ -1068,6 +1122,15 @@
 
     },
     "Switch to automatic goals" : {
+
+    },
+    "System" : {
+
+    },
+    "System Categories" : {
+
+    },
+    "System food category" : {
 
     },
     "Take another photo" : {

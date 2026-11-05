@@ -41,6 +41,13 @@ struct FoodCard: View {
                     .font(.caption)
                     .foregroundColor(AppColors.textTertiary)
 
+                if let categoryName = entry.categoryName, !categoryName.isEmpty {
+                    Label(categoryName, systemImage: "tag.fill")
+                        .font(.caption)
+                        .foregroundStyle(AppColors.textSecondary)
+                        .lineLimit(1)
+                }
+
                 HStack(spacing: 12) {
                     MacroDot(color: Color(red: 0.22, green: 0.6, blue: 0.99),
                               label: "P", value: UnitConversion.formatMacro(grams: entry.protein ?? 0, preferred: prefsStore.preferredUnits))
