@@ -136,6 +136,10 @@ export const foodAnalysisFoodItemSchema = z.object({
   source: z.enum(['ai', 'catalog']).nullish(),
   aiCalories: z.number().nonnegative().nullish(),
   catalogCalories: z.number().nonnegative().nullish(),
+  catalogCaloriesPer100g: z.number().nonnegative().nullish(),
+  catalogProteinPer100g: z.number().nonnegative().nullish(),
+  catalogFatPer100g: z.number().nonnegative().nullish(),
+  catalogCarbsPer100g: z.number().nonnegative().nullish(),
 });
 
 export const foodAnalysisWaterItemSchema = z.object({

@@ -67,6 +67,10 @@ export class FoodMatcherService {
         carbs: roundNutrition((match.carbsPer100g ?? 0) * ratio),
         aiCalories,
         catalogCalories,
+        catalogCaloriesPer100g: match.caloriesPer100g,
+        catalogProteinPer100g: match.proteinPer100g,
+        catalogFatPer100g: match.fatPer100g,
+        catalogCarbsPer100g: match.carbsPer100g,
       };
 
       const divergent =
