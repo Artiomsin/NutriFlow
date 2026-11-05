@@ -24,6 +24,8 @@ struct HomeView: View {
     @State private var foodSearchVM: FoodSearchViewModel?
     @State private var isConnectingHealth = false
     @State private var hasLoaded = false
+    @State private var isManagingCategories = false
+    @State private var categoryManagerVM: AddFoodViewModel?
     
     
     init(homeViewModel: HomeViewModel, foodService: FoodServiceProtocol, coordinator: AppCoordinator? = nil, tabBarState: TabBarState = TabBarState(), analyticsTracker: AnalyticsTracking? = nil) {
@@ -50,6 +52,11 @@ struct HomeView: View {
     var body: some View {
         NavigationStack(path: $navPath) {
             content
+                .sheet(isPresented: $isManagingCategories) {
+                    if let categoryManagerVM {
+                        CategoryManagerView(viewModel: categoryManagerVM)
+                    }
+                }
                 .navigationDestination(for: HomeNavRoute.self) { route in
                     let _ = print("[Nav] destination -> \(route)")
                     switch route {
@@ -196,6 +203,15 @@ struct HomeView: View {
                     },
                     onDeleteFood: { id in
                         Task { await homeViewModel.deleteFood(id: id) }
+                    },
+                    onManageCategories: {
+                        categoryManagerVM = AddFoodViewModel(
+                            service: foodService,
+                            coordinator: coordinator,
+                            analyticsTracker: analyticsTracker,
+                            todayFoodVM: homeViewModel.todayFoodVM
+                        )
+                        isManagingCategories = true
                     }
                 )
                 WaterSectionView(
@@ -271,6 +287,7 @@ private struct FoodSectionView: View {
     let onScan: () -> Void
     let onEditFood: (FoodEntry) -> Void
     let onDeleteFood: (String) -> Void
+    let onManageCategories: () -> Void
     
     var body: some View {
         FoodSection(
@@ -278,7 +295,8 @@ private struct FoodSectionView: View {
             onAddFood: onAddFood,
             onScan: onScan,
             onEditFood: onEditFood,
-            onDeleteFood: onDeleteFood
+            onDeleteFood: onDeleteFood,
+            onManageCategories: onManageCategories
         )
         .padding(.horizontal, AppSpacing.paddingHorizontal)
     }

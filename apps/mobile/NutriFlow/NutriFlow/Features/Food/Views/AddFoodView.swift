@@ -21,6 +21,7 @@ struct AddFoodView: View {
 
     @FocusState private var focusedField: Field?
     @State private var isActive = true
+    @State private var isManagingCategories = false
 
     init(onSave: @escaping () -> Void, viewModel: AddFoodViewModel, onSearchCatalog: (() -> Void)? = nil, onSelectPopular: ((CatalogFood) -> Void)? = nil) {
         self.onSave = onSave
@@ -64,6 +65,9 @@ struct AddFoodView: View {
         }
         .onChange(of: viewModel.photosItem) { _, item in viewModel.loadImage(item) }
         .onChange(of: prefsStore.preferredUnits) { old, new in viewModel.convertUnits(from: old, to: new) }
+        .sheet(isPresented: $isManagingCategories) {
+            CategoryManagerView(viewModel: viewModel)
+        }
         .onAppear { isActive = true }
         .onDisappear { isActive = false }
     }
@@ -237,9 +241,29 @@ struct AddFoodView: View {
                 sectionLabel("Category", icon: "tag.fill")
                 Menu {
                     Button("None") { viewModel.selectedCategory = nil }
-                    ForEach(viewModel.categories) { cat in
-                        Button(cat.name) { viewModel.selectedCategory = cat }
+
+                    Section("My Categories") {
+                        ForEach(viewModel.categories.filter(\.isPersonal)) { category in
+                            Button {
+                                viewModel.selectedCategory = category
+                            } label: {
+                                Label(category.name, systemImage: category.icon ?? "tag.fill")
+                            }
+                        }
                     }
+
+                    Section("System Categories") {
+                        ForEach(viewModel.categories.filter { !$0.isPersonal }) { category in
+                            Button {
+                                viewModel.selectedCategory = category
+                            } label: {
+                                Label(category.name, systemImage: category.icon ?? "tag.fill")
+                            }
+                        }
+                    }
+
+                    Divider()
+                    Button("Manage Categories") { isManagingCategories = true }
                 } label: {
                     HStack {
                         Text(viewModel.selectedCategory?.name ?? "Select category")

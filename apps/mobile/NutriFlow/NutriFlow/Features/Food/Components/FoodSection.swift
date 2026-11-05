@@ -7,6 +7,7 @@ struct FoodSection: View {
     var onScan: (() -> Void)?
     var onEditFood: ((FoodEntry) -> Void)?
     var onDeleteFood: ((String) -> Void)?
+    var onManageCategories: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -25,6 +26,16 @@ struct FoodSection: View {
                 .foregroundColor(AppColors.textPrimary)
 
             Spacer()
+
+            Button {
+                onManageCategories?()
+            } label: {
+                Image(systemName: "tag.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(AppColors.accent)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Manage Categories")
 
             Button {
                 onScan?()
