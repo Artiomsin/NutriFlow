@@ -53,6 +53,9 @@
     "%@ efficiency" : {
 
     },
+    "%@ kcal per 100 g" : {
+
+    },
     "%@/%@ %@" : {
       "localizations" : {
         "en" : {
@@ -67,6 +70,12 @@
 
     },
     "%lld available to everyone" : {
+
+    },
+    "%lld foods" : {
+
+    },
+    "%lld foods in this category" : {
 
     },
     "%lld kcal" : {
@@ -171,6 +180,12 @@
     "Category" : {
 
     },
+    "Category icon" : {
+
+    },
+    "Change Category" : {
+
+    },
     "Change password" : {
 
     },
@@ -178,6 +193,18 @@
 
     },
     "Charts" : {
+
+    },
+    "Choose an icon that makes this category easy to spot." : {
+
+    },
+    "Choose category icon" : {
+
+    },
+    "Choose icon" : {
+
+    },
+    "Choose the category for the selected foods." : {
 
     },
     "Connect Apple Health to see sleep history" : {
@@ -700,6 +727,9 @@
     "Food name" : {
 
     },
+    "Foods assigned to this category will appear here." : {
+
+    },
     "For %@" : {
 
     },
@@ -857,6 +887,12 @@
     "Heart Rate" : {
 
     },
+    "Hide" : {
+
+    },
+    "Hide icons" : {
+
+    },
     "History" : {
 
     },
@@ -864,9 +900,6 @@
 
     },
     "Hours" : {
-
-    },
-    "Icon" : {
 
     },
     "Initial weight" : {
@@ -899,6 +932,12 @@
     "Manage Categories" : {
 
     },
+    "Manage foods" : {
+
+    },
+    "Manage foods in %@" : {
+
+    },
     "Manage weight records" : {
 
     },
@@ -918,6 +957,9 @@
 
     },
     "ml" : {
+
+    },
+    "Move %lld foods" : {
 
     },
     "My Categories" : {
@@ -951,6 +993,9 @@
 
     },
     "No food recognized" : {
+
+    },
+    "No foods" : {
 
     },
     "No heart rate data" : {
@@ -1049,6 +1094,9 @@
     "Reminders" : {
 
     },
+    "Remove Category" : {
+
+    },
     "Row" : {
 
     },
@@ -1088,7 +1136,13 @@
     "Seconds" : {
 
     },
+    "Select" : {
+
+    },
     "Select Date Range" : {
+
+    },
+    "Select this food to change its category." : {
 
     },
     "Series" : {
@@ -1131,6 +1185,9 @@
 
     },
     "System food category" : {
+
+    },
+    "System foods can’t be moved." : {
 
     },
     "Take another photo" : {
