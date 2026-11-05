@@ -139,8 +139,25 @@ struct ScanResultView: View {
 
                     Menu {
                         Button("None") { viewModel.setCategory(id: item.id, nil) }
-                        ForEach(viewModel.categories) { cat in
-                            Button(cat.name) { viewModel.setCategory(id: item.id, cat.name) }
+
+                        Section("My Categories") {
+                            ForEach(viewModel.categories.filter(\.isPersonal)) { category in
+                                Button {
+                                    viewModel.setCategory(id: item.id, category.name)
+                                } label: {
+                                    Label(category.name, systemImage: category.icon ?? "tag.fill")
+                                }
+                            }
+                        }
+
+                        Section("System Categories") {
+                            ForEach(viewModel.categories.filter { !$0.isPersonal }) { category in
+                                Button {
+                                    viewModel.setCategory(id: item.id, category.name)
+                                } label: {
+                                    Label(category.name, systemImage: category.icon ?? "tag.fill")
+                                }
+                            }
                         }
                     } label: {
                         HStack(spacing: 5) {

@@ -86,6 +86,7 @@ struct FoodEntry: Codable, Identifiable, Sendable {
     let grams: Double?
     let unit: String
     let categoryName: String?
+    let categoryIcon: String?
     let imageUrl: String?
     let createdAt: String
     let updatedAt: String?
@@ -163,12 +164,82 @@ struct FoodCategory: Codable, Identifiable, Hashable, Sendable {
     let id: String
     let name: String
     let icon: String?
+    let createdBy: String?
     let createdAt: String
+    let foodCount: Int
+
+    var isPersonal: Bool {
+        createdBy != nil
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case icon
+        case createdBy
+        case createdAt
+        case foodCount
+    }
+
+    init(
+        id: String,
+        name: String,
+        icon: String?,
+        createdBy: String?,
+        createdAt: String,
+        foodCount: Int
+    ) {
+        self.id = id
+        self.name = name
+        self.icon = icon
+        self.createdBy = createdBy
+        self.createdAt = createdAt
+        self.foodCount = foodCount
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        icon = try container.decodeIfPresent(String.self, forKey: .icon)
+        createdBy = try container.decodeIfPresent(String.self, forKey: .createdBy)
+        createdAt = try container.decode(String.self, forKey: .createdAt)
+        foodCount = try container.decodeIfPresent(Int.self, forKey: .foodCount) ?? 0
+    }
+}
+
+struct CreateFoodCategoryRequest: Codable, Sendable {
+    let name: String
+    let icon: String?
+}
+
+struct UpdateFoodCategoryRequest: Codable, Sendable {
+    let name: String?
+    let icon: String?
 }
 
 struct CategoryWithFoods: Codable, Sendable {
     let category: FoodCategory
     let foods: [CatalogFood]
+}
+
+struct CatalogFoodCategoryGroup: Codable, Sendable {
+    let id: String
+    let name: String
+    let icon: String?
+    let foods: [CatalogFood]
+}
+
+struct BulkUpdateFoodCategoryRequest: Codable, Sendable {
+    let foodIds: [String]
+    let categoryId: String?
+}
+
+struct BulkUpdateFoodCategoryResponse: Codable, Sendable {
+    let updatedCount: Int
+    let foodIds: [String]
+    let categoryId: String?
 }
 
 struct CreateCatalogFoodRequest: Codable, Sendable {

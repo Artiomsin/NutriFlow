@@ -23,7 +23,6 @@ import {
   or,
   ne,
   isNull,
-  count,
   inArray,
   type SQL,
 } from 'drizzle-orm';
@@ -39,6 +38,8 @@ import type {
   CreateFoodServingDto,
   UpdateFoodServingDto,
   SearchFoodQueryDto,
+  BulkUpdateFoodCategoryDto,
+  GetFoodsQueryDto,
 } from './food.schema';
 import { currentUserDate } from '../common/time/user-date';
 import { RedisService } from '../redis/redis.service';
@@ -375,10 +376,10 @@ export class FoodService {
       await this.dailySummaryService.adjust(
         userId,
         {
-          calories: data.calories,
-          protein: data.protein ?? 0,
-          fat: data.fat ?? 0,
-          carbs: data.carbs ?? 0,
+          calories: entryNutrition.calories,
+          protein: entryNutrition.protein,
+          fat: entryNutrition.fat,
+          carbs: entryNutrition.carbs,
           date: entryDate,
         },
         tx,
@@ -408,6 +409,7 @@ export class FoodService {
         createdAt: foodEntries.createdAt,
         updatedAt: foodEntries.updatedAt,
         categoryName: foodCategories.name,
+        categoryIcon: foodCategories.icon,
         imageUrl: sql`COALESCE(${foodEntries.imageUrl}, ${foods.imageUrl})`,
         foodSource: foods.source,
       })
@@ -846,13 +848,16 @@ export class FoodService {
     return updated;
   }
 
-  async getAll(limit = 50, offset = 0, userId?: string) {
-    const whereClause = userId
-      ? or(
-          sql`${foods.source} IN ('usda', 'system')`,
-          and(eq(foods.source, 'user'), eq(foods.createdBy, userId)),
-        )
-      : sql`${foods.source} IN ('usda', 'system')`;
+  async getAll(query: GetFoodsQueryDto, userId: string) {
+    const { categoryId, limit, offset } = query;
+
+    const conditions: SQL[] = [this.visibilityClause(userId)!];
+
+    if (categoryId === 'null') {
+      conditions.push(isNull(foods.categoryId));
+    } else if (categoryId !== undefined) {
+      conditions.push(eq(foods.categoryId, categoryId));
+    }
 
     const rows = await this.db
       .select({
@@ -863,7 +868,7 @@ export class FoodService {
       })
       .from(foods)
       .leftJoin(foodCategories, eq(foods.categoryId, foodCategories.id))
-      .where(whereClause)
+      .where(and(...conditions))
       .orderBy(foods.name)
       .limit(limit)
       .offset(offset);
@@ -881,6 +886,7 @@ export class FoodService {
     for (const row of rows) {
       const key = row.categoryId ?? '';
       let group = catMap.get(key);
+
       if (!group) {
         group = {
           id: row.categoryId ?? '',
@@ -888,23 +894,94 @@ export class FoodService {
           icon: row.categoryIcon ?? null,
           foods: [],
         };
+
         catMap.set(key, group);
       }
+
       group.foods.push({ ...row.food });
     }
 
     return Array.from(catMap.values());
   }
 
+  async bulkUpdateCategory(userId: string, data: BulkUpdateFoodCategoryDto) {
+    return this.db.transaction(async (tx) => {
+      const { foodIds, categoryId } = data;
+
+      // Only personal foods can be modified.
+      const ownedFoods = await tx
+        .select({ id: foods.id })
+        .from(foods)
+        .where(
+          and(
+            inArray(foods.id, foodIds),
+            eq(foods.source, 'user'),
+            eq(foods.createdBy, userId),
+          ),
+        );
+
+      if (ownedFoods.length !== foodIds.length) {
+        throw new NotFoundException('One or more foods not found');
+      }
+
+      // A shared category or the user's own category is allowed.
+      if (categoryId !== null) {
+        await this.assertVisibleCategory(tx, userId, categoryId);
+      }
+
+      const updated = await tx
+        .update(foods)
+        .set({
+          categoryId,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            inArray(foods.id, foodIds),
+            eq(foods.source, 'user'),
+            eq(foods.createdBy, userId),
+          ),
+        )
+        .returning({ id: foods.id });
+
+      if (updated.length !== foodIds.length) {
+        throw new NotFoundException('One or more foods not found');
+      }
+
+      return {
+        updatedCount: updated.length,
+        foodIds: updated.map((food) => food.id),
+        categoryId,
+      };
+    });
+  }
+
   // ── Food Categories ──────────────────────────────────────────
 
   /** Shared catalog categories plus the ones owned by the caller. */
+  /** Shared catalog categories plus the ones owned by the caller, with visible food counts. */
   async getCategories(userId: string) {
-    return this.db
-      .select()
+    const rows = await this.db
+      .select({
+        category: foodCategories,
+        foodCount: sql<number>`count(${foods.id})::int`,
+      })
       .from(foodCategories)
+      .leftJoin(
+        foods,
+        and(
+          eq(foods.categoryId, foodCategories.id),
+          this.visibilityClause(userId),
+        ),
+      )
       .where(this.categoryVisibilityClause(userId))
+      .groupBy(foodCategories.id)
       .orderBy(foodCategories.name);
+
+    return rows.map(({ category, foodCount }) => ({
+      ...category,
+      foodCount,
+    }));
   }
 
   async createCategory(userId: string, data: CreateFoodCategoryDto) {
@@ -990,8 +1067,7 @@ export class FoodService {
 
   async removeCategory(userId: string, id: string) {
     // Ownership is checked first so a system category and someone else's look
-    // exactly like a missing one: the reference count must not leak that the
-    // row exists and is in use.
+    // exactly like a missing one.
     const [owned] = await this.db
       .select({ id: foodCategories.id })
       .from(foodCategories)
@@ -1000,22 +1076,9 @@ export class FoodService {
 
     if (!owned) throw new NotFoundException('Category not found');
 
-    // Products point at the category without a cascade, so the reference count
-    // is checked before the delete: letting the foreign key fail would surface
-    // as a 500 instead of an explainable conflict.
-    const [usage] = await this.db
-      .select({ products: count() })
-      .from(foods)
-      .where(eq(foods.categoryId, id));
-
-    const products = usage?.products ?? 0;
-
-    if (products > 0) {
-      throw new ConflictException(
-        `Category is used by ${products} product${products === 1 ? '' : 's'}`,
-      );
-    }
-
+    // foods.categoryId is declared with ON DELETE SET NULL. Deleting a
+    // personal category therefore keeps the user's foods and nutrition data,
+    // while making those foods uncategorized.
     const [deleted] = await this.db
       .delete(foodCategories)
       .where(this.categoryOwnershipClause(userId, id))

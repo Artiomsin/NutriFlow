@@ -155,6 +155,7 @@ export class DailySummaryService {
           createdAt: foodEntries.createdAt,
           updatedAt: foodEntries.updatedAt,
           categoryName: foodCategories.name,
+          categoryIcon: foodCategories.icon,
           imageUrl: sql`COALESCE(${foodEntries.imageUrl}, ${foods.imageUrl})`,
         })
         .from(foodEntries)

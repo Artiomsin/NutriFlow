@@ -121,6 +121,39 @@ final class FoodService: FoodServiceProtocol, Sendable {
         )
         return try await client.send(request)
     }
+
+    func getFoods(
+        categoryId: String?,
+        limit: Int,
+        offset: Int
+    ) async throws -> [CatalogFoodCategoryGroup] {
+        let endpoint = FoodEndpoints.getFoods(
+            categoryId: categoryId,
+            limit: limit,
+            offset: offset
+        )
+        let request = APIRequest<NeverBody>(
+            path: endpoint.path,
+            method: .GET,
+            queryItems: endpoint.query
+        )
+        return try await client.send(request)
+    }
+
+    func bulkUpdateFoodCategory(
+        foodIds: [String],
+        categoryId: String?
+    ) async throws -> BulkUpdateFoodCategoryResponse {
+        let request = APIRequest(
+            path: FoodEndpoints.bulkUpdateFoodCategory,
+            method: .PATCH,
+            body: BulkUpdateFoodCategoryRequest(
+                foodIds: foodIds,
+                categoryId: categoryId
+            )
+        )
+        return try await client.send(request)
+    }
     
     func selectFood(id: String) async throws {
         let request = APIRequest<NeverBody>(
@@ -161,6 +194,32 @@ final class FoodService: FoodServiceProtocol, Sendable {
             method: .GET
         )
         return try await client.send(request)
+    }
+
+    func createCategory(name: String, icon: String?) async throws -> FoodCategory {
+        let request = APIRequest(
+            path: FoodEndpoints.createCategory,
+            method: .POST,
+            body: CreateFoodCategoryRequest(name: name, icon: icon)
+        )
+        return try await client.send(request)
+    }
+
+    func updateCategory(id: String, name: String?, icon: String?) async throws -> FoodCategory {
+        let request = APIRequest(
+            path: FoodEndpoints.updateFoodCategory(id: id),
+            method: .PATCH,
+            body: UpdateFoodCategoryRequest(name: name, icon: icon)
+        )
+        return try await client.send(request)
+    }
+
+    func deleteCategory(id: String) async throws {
+        let request = APIRequest<NeverBody>(
+            path: FoodEndpoints.deleteFoodCategory(id: id),
+            method: .DELETE
+        )
+        try await client.sendVoid(request)
     }
 
     // ── Upload ──────────────────────────────────────────────────

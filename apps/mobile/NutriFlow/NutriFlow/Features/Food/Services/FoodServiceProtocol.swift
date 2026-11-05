@@ -47,6 +47,17 @@ protocol FoodServiceProtocol: Sendable {
     // ── Food Catalog ────────────────────────────────────────────
 
     func searchFood(query: String, limit: Int, offset: Int) async throws -> FoodSearchResponse
+
+    func getFoods(
+        categoryId: String?,
+        limit: Int,
+        offset: Int
+    ) async throws -> [CatalogFoodCategoryGroup]
+
+    func bulkUpdateFoodCategory(
+        foodIds: [String],
+        categoryId: String?
+    ) async throws -> BulkUpdateFoodCategoryResponse
     
     func selectFood(id: String) async throws
     
@@ -57,6 +68,12 @@ protocol FoodServiceProtocol: Sendable {
     func createCatalogFood(_ request: CreateCatalogFoodRequest) async throws -> CatalogFood
 
     func getCategories() async throws -> [FoodCategory]
+
+    func createCategory(name: String, icon: String?) async throws -> FoodCategory
+
+    func updateCategory(id: String, name: String?, icon: String?) async throws -> FoodCategory
+
+    func deleteCategory(id: String) async throws
 
     // ── Upload ──────────────────────────────────────────────────
 

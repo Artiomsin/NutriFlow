@@ -7,6 +7,7 @@ struct FoodSection: View {
     var onScan: (() -> Void)?
     var onEditFood: ((FoodEntry) -> Void)?
     var onDeleteFood: ((String) -> Void)?
+    var onManageCategories: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -25,6 +26,16 @@ struct FoodSection: View {
                 .foregroundColor(AppColors.textPrimary)
 
             Spacer()
+
+            Button {
+                onManageCategories?()
+            } label: {
+                Image(systemName: "tag.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(AppColors.accent)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Manage Categories")
 
             Button {
                 onScan?()
@@ -124,9 +135,9 @@ struct FoodSectionPreview: View {
             coordinator: AppCoordinator(container: AppDependencyContainer())
         )
         todayFoodVM.setPreviewState(.loaded([
-            FoodEntry(id: "1", userId: "1", name: "Chicken breast", calories: 165, protein: 31, fat: 4, carbs: 0, foodId: nil, grams: 200, unit: "g", categoryName: "Meat", imageUrl: nil, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
-            FoodEntry(id: "2", userId: "1", name: "Brown rice", calories: 200, protein: 4, fat: 1, carbs: 45, foodId: nil, grams: 150, unit: "g", categoryName: "Grains", imageUrl: nil, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil),
-            FoodEntry(id: "3", userId: "1", name: "Greek salad", calories: 185, protein: 6, fat: 12, carbs: 8, foodId: nil, grams: 250, unit: "g", categoryName: "Salad", imageUrl: nil, createdAt: "2026-05-18T14:00:00Z", updatedAt: nil)
+            FoodEntry(id: "1", userId: "1", name: "Chicken breast", calories: 165, protein: 31, fat: 4, carbs: 0, foodId: nil, grams: 200, unit: "g", categoryName: "Meat", categoryIcon: "fork.knife",imageUrl: nil, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil),
+            FoodEntry(id: "2", userId: "1", name: "Brown rice", calories: 200, protein: 4, fat: 1, carbs: 45, foodId: nil, grams: 150, unit: "g", categoryName: "Grains",categoryIcon: "fork.knife", imageUrl: nil, createdAt: "2026-05-18T12:00:00Z", updatedAt: nil),
+            FoodEntry(id: "3", userId: "1", name: "Greek salad", calories: 185, protein: 6, fat: 12, carbs: 8, foodId: nil, grams: 250, unit: "g", categoryName: "Salad",categoryIcon: "fork.knife", imageUrl: nil, createdAt: "2026-05-18T14:00:00Z", updatedAt: nil)
         ]))
 
         return FoodSection(

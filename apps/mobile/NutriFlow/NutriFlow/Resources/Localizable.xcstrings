@@ -53,6 +53,9 @@
     "%@ efficiency" : {
 
     },
+    "%@ kcal per 100 g" : {
+
+    },
     "%@/%@ %@" : {
       "localizations" : {
         "en" : {
@@ -64,6 +67,15 @@
       }
     },
     "%lld" : {
+
+    },
+    "%lld available to everyone" : {
+
+    },
+    "%lld foods" : {
+
+    },
+    "%lld foods in this category" : {
 
     },
     "%lld kcal" : {
@@ -94,6 +106,9 @@
 
     },
     "Add" : {
+
+    },
+    "Add Category" : {
 
     },
     "Add Food" : {
@@ -132,6 +147,9 @@
     "Are you sure you want to delete this water entry?" : {
 
     },
+    "Assign a category while adding a food. System categories are shared; yours stay private." : {
+
+    },
     "Automatic calculation is off" : {
 
     },
@@ -153,6 +171,21 @@
     "Carbs" : {
 
     },
+    "Categories" : {
+
+    },
+    "Categories for system foods are managed by Nutriflow and cannot be changed here." : {
+
+    },
+    "Category" : {
+
+    },
+    "Category icon" : {
+
+    },
+    "Change Category" : {
+
+    },
     "Change password" : {
 
     },
@@ -160,6 +193,18 @@
 
     },
     "Charts" : {
+
+    },
+    "Choose an icon that makes this category easy to spot." : {
+
+    },
+    "Choose category icon" : {
+
+    },
+    "Choose icon" : {
+
+    },
+    "Choose the category for the selected foods." : {
 
     },
     "Connect Apple Health to see sleep history" : {
@@ -192,6 +237,9 @@
     "Couldn’t load the latest workout from Apple Health." : {
 
     },
+    "Create a Category" : {
+
+    },
     "Create a new password" : {
 
     },
@@ -213,6 +261,12 @@
     "Delete \"%@\"?" : {
 
     },
+    "Delete %@" : {
+
+    },
+    "Delete category?" : {
+
+    },
     "Delete Food" : {
 
     },
@@ -229,6 +283,9 @@
 
     },
     "Done" : {
+
+    },
+    "Edit Category" : {
 
     },
     "Edit Food" : {
@@ -670,7 +727,13 @@
     "Food name" : {
 
     },
+    "Foods assigned to this category will appear here." : {
+
+    },
     "For %@" : {
+
+    },
+    "For example, Homemade meals" : {
 
     },
     "form.error.invalid_email" : {
@@ -824,6 +887,12 @@
     "Heart Rate" : {
 
     },
+    "Hide" : {
+
+    },
+    "Hide icons" : {
+
+    },
     "History" : {
 
     },
@@ -851,10 +920,22 @@
     "Loading activity..." : {
 
     },
+    "Loading categories…" : {
+
+    },
     "Loading sleep..." : {
 
     },
     "Macros (Avg)" : {
+
+    },
+    "Manage Categories" : {
+
+    },
+    "Manage foods" : {
+
+    },
+    "Manage foods in %@" : {
 
     },
     "Manage weight records" : {
@@ -878,6 +959,15 @@
     "ml" : {
 
     },
+    "Move %lld foods" : {
+
+    },
+    "My Categories" : {
+
+    },
+    "Name" : {
+
+    },
     "Need at least 2 other nights to compare" : {
 
     },
@@ -893,6 +983,9 @@
     "No account? Register" : {
 
     },
+    "No categories yet." : {
+
+    },
     "No changes yet" : {
 
     },
@@ -900,6 +993,9 @@
 
     },
     "No food recognized" : {
+
+    },
+    "No foods" : {
 
     },
     "No heart rate data" : {
@@ -942,6 +1038,9 @@
 
     },
     "Open Settings" : {
+
+    },
+    "Organize your foods" : {
 
     },
     "Ounces" : {
@@ -995,6 +1094,9 @@
     "Reminders" : {
 
     },
+    "Remove Category" : {
+
+    },
     "Row" : {
 
     },
@@ -1034,7 +1136,13 @@
     "Seconds" : {
 
     },
+    "Select" : {
+
+    },
     "Select Date Range" : {
+
+    },
+    "Select this food to change its category." : {
 
     },
     "Series" : {
@@ -1070,6 +1178,18 @@
     "Switch to automatic goals" : {
 
     },
+    "System" : {
+
+    },
+    "System Categories" : {
+
+    },
+    "System food category" : {
+
+    },
+    "System foods can’t be moved." : {
+
+    },
     "Take another photo" : {
 
     },
@@ -1080,6 +1200,9 @@
 
     },
     "Tell us about yourself" : {
+
+    },
+    "The category will be removed from your foods. Your foods will remain without a category." : {
 
     },
     "The chart and automatic goals will be updated if this is today’s current record." : {
