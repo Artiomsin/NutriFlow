@@ -91,7 +91,7 @@ struct ServingPickerView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundColor(AppColors.textSecondary)
                 Spacer()
-                Text("For \(UnitConversion.formatAmount(grams: viewModel.grams, unit: viewModel.suggestedUnit ?? "g", preferred: prefsStore.preferredUnits))")
+                Text("For \(UnitConversion.formatPortionAmount(grams: viewModel.grams, unit: viewModel.suggestedUnit ?? "g", preferred: prefsStore.preferredUnits))")
                     .font(.caption.weight(.semibold))
                     .foregroundColor(AppColors.accent)
             }

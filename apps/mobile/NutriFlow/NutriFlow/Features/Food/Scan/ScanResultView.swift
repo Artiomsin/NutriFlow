@@ -416,7 +416,11 @@ struct ScanResultView: View {
                         foodId: nil,
                         source: "ai",
                         aiCalories: 165,
-                        catalogCalories: nil
+                        catalogCalories: nil,
+                        catalogCaloriesPer100g: nil,
+                        catalogProteinPer100g: nil,
+                        catalogFatPer100g: nil,
+                        catalogCarbsPer100g: nil
                     )),
                     .food(FoodAnalysisItem(
                         name: "Rice",
@@ -432,7 +436,11 @@ struct ScanResultView: View {
                         foodId: nil,
                         source: "ai",
                         aiCalories: 130,
-                        catalogCalories: nil
+                        catalogCalories: nil,
+                        catalogCaloriesPer100g: nil,
+                        catalogProteinPer100g: nil,
+                        catalogFatPer100g: nil,
+                        catalogCarbsPer100g: nil
                     )),
                     .water(WaterAnalysisItem(amountMl: 250, containers: nil, confidence: 0.95))
                 ],

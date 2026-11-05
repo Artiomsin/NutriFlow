@@ -96,37 +96,91 @@ struct EditableScanFood: Identifiable, Sendable {
         gramsDouble(preferred: preferred) / baseGrams
     }
     
+    /// Matched catalogue items are always derived from their unrounded per-100 g values.
+    /// This matches the backend even after the portion has been edited.
+    private func catalogNutrition(
+        _ per100g: Double?,
+        preferred: PreferredUnits
+    ) -> Double? {
+        guard source.catalogCaloriesPer100g != nil else { return nil }
+        return UnitConversion.roundedForNutritionStorage(
+            (per100g ?? 0) * gramsDouble(preferred: preferred) / 100
+        )
+    }
+
     func calories(preferred: PreferredUnits) -> Double {
+        if let calories = catalogNutrition(
+            source.catalogCaloriesPer100g,
+            preferred: preferred
+        ) {
+            return calories
+        }
+
         guard let value = UnitConversion.parseDecimal(caloriesText) else { return baseCalories }
         return UnitConversion.energyToKcal(value, preferred: preferred)
     }
     
     func protein(preferred: PreferredUnits) -> Double? {
-        UnitConversion.macroGrams(fromDisplay: proteinText, preferred: preferred)
+        catalogNutrition(source.catalogProteinPer100g, preferred: preferred)
+            ?? UnitConversion.macroGrams(fromDisplay: proteinText, preferred: preferred)
     }
     
     func fat(preferred: PreferredUnits) -> Double? {
-        UnitConversion.macroGrams(fromDisplay: fatText, preferred: preferred)
+        catalogNutrition(source.catalogFatPer100g, preferred: preferred)
+            ?? UnitConversion.macroGrams(fromDisplay: fatText, preferred: preferred)
     }
     
     func carbs(preferred: PreferredUnits) -> Double? {
-        UnitConversion.macroGrams(fromDisplay: carbsText, preferred: preferred)
+        catalogNutrition(source.catalogCarbsPer100g, preferred: preferred)
+            ?? UnitConversion.macroGrams(fromDisplay: carbsText, preferred: preferred)
     }
     
     
     mutating func recalculateMacros(preferred: PreferredUnits) {
+        if let calories = catalogNutrition(
+            source.catalogCaloriesPer100g,
+            preferred: preferred
+        ) {
+            caloriesText = UnitConversion.formatEnergyValueText(
+                kcal: calories,
+                preferred: preferred
+            )
+            proteinText = Self.macroText(
+                catalogNutrition(source.catalogProteinPer100g, preferred: preferred),
+                preferred: preferred
+            )
+            fatText = Self.macroText(
+                catalogNutrition(source.catalogFatPer100g, preferred: preferred),
+                preferred: preferred
+            )
+            carbsText = Self.macroText(
+                catalogNutrition(source.catalogCarbsPer100g, preferred: preferred),
+                preferred: preferred
+            )
+            return
+        }
+
         guard baseGrams > 0 else { return }
         let ratioValue = ratio(preferred: preferred)
         
         caloriesText = UnitConversion.formatEnergyValueText(kcal: baseCalories * ratioValue, preferred: preferred)
         if let base = source.protein {
-            proteinText = Self.macroText(base * ratioValue, preferred: preferred)
+            proteinText = Self.macroText(
+                UnitConversion.roundedForNutritionStorage(base * ratioValue),
+                preferred: preferred
+            )
         }
         if let base = source.fat {
-            fatText = Self.macroText(base * ratioValue, preferred: preferred)
+            fatText = Self.macroText(
+                UnitConversion.roundedForNutritionStorage(base * ratioValue),
+                preferred: preferred
+            )
         }
         if let base = source.carbs {
-            carbsText = Self.macroText(base * ratioValue, preferred: preferred)
+            carbsText = Self.macroText(
+                UnitConversion.roundedForNutritionStorage(base * ratioValue),
+                preferred: preferred
+            )
         }
     }
     

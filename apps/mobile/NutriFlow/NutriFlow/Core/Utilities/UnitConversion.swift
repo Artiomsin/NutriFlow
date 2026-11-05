@@ -13,7 +13,13 @@ struct UnitConversion {
     /// Nutrition values persisted by food and goal APIs use PostgreSQL numeric(10, 1).
     static func roundedForNutritionStorage(_ value: Double) -> Double {
         let multiplier = pow(10, Double(nutritionFractionDigits))
-        return (value * multiplier).rounded() / multiplier
+        return ((value + Double.ulpOfOne) * multiplier).rounded() / multiplier
+    }
+
+    /// Canonical food portions use the same three-decimal rule as the API.
+    static func roundedForGramStorage(_ value: Double) -> Double {
+        let multiplier = pow(10, Double(portionFractionDigits))
+        return ((value + Double.ulpOfOne) * multiplier).rounded() / multiplier
     }
 
     /// Accepts only the decimal precision and range that numeric(10, 1) can store.
@@ -57,6 +63,11 @@ struct UnitConversion {
 
     static func formatMetricValue(_ value: Double) -> String {
         formatNutritionValue(value)
+    }
+
+    /// Formats a food portion in grams using the same precision as storage.
+    static func formatGramValue(_ value: Double) -> String {
+        value.formatted(.number.precision(.fractionLength(0...portionFractionDigits)))
     }
 
     static func grams(fromOunces ounces: Double) -> Double {
@@ -115,6 +126,19 @@ struct UnitConversion {
         formatAmount(grams: Double(grams), unit: unit, preferred: preferred)
     }
 
+    /// Formats a food portion without reducing metric grams to nutrition precision.
+    static func formatPortionAmount(grams: Double, unit: String, preferred: PreferredUnits) -> String {
+        guard !isVolumeUnit(unit), preferred.weight == .metric else {
+            return formatAmount(grams: grams, unit: unit, preferred: preferred)
+        }
+
+        if grams >= 1000 {
+            return "\(formatKilogramValue(grams / 1000)) kg"
+        }
+
+        return "\(formatGramValue(grams)) g"
+    }
+
     static func formatMacro(grams: Double, preferred: PreferredUnits) -> String {
         formatAmount(grams: grams, unit: "g", preferred: preferred)
     }
@@ -157,11 +181,15 @@ struct UnitConversion {
 
     /// User-entered value in the display unit -> canonical grams (or ml).
     static func grams(fromDisplay value: Double, baseUnit: String, preferred: PreferredUnits) -> Double {
+        let canonicalValue: Double
+
         if isVolumeUnit(baseUnit) {
-            return preferred.volume == .imperial ? value * mlPerFluidOunce : value
+            canonicalValue = preferred.volume == .imperial ? value * mlPerFluidOunce : value
+        } else {
+            canonicalValue = preferred.weight == .imperial ? grams(fromOunces: value) : value
         }
 
-        return preferred.weight == .imperial ? grams(fromOunces: value) : value
+        return roundedForGramStorage(canonicalValue)
     }
 
     /// Canonical grams (or ml) -> value in the display unit.
@@ -180,6 +208,8 @@ struct UnitConversion {
             formatImperialValue(value)
         case "kg":
             formatKilogramValue(value)
+        case "g":
+            formatGramValue(value)
         default:
             formatNutritionValue(value)
         }

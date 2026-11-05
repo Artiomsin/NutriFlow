@@ -79,7 +79,7 @@ struct FoodCard: View {
                 .buttonStyle(.plain)
 
                 if let grams = entry.grams, grams > 0 {
-                    Text(UnitConversion.formatAmount(grams: grams, unit: entry.unit, preferred: prefsStore.preferredUnits))
+                    Text(UnitConversion.formatPortionAmount(grams: grams, unit: entry.unit, preferred: prefsStore.preferredUnits))
                         .font(.caption)
                         .foregroundColor(AppColors.textSecondary)
                 }

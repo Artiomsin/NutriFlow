@@ -235,6 +235,10 @@ struct FoodAnalysisItem: Codable, Identifiable, Hashable, Sendable {
     let source: String?
     let aiCalories: Double?
     let catalogCalories: Double?
+    let catalogCaloriesPer100g: Double?
+    let catalogProteinPer100g: Double?
+    let catalogFatPer100g: Double?
+    let catalogCarbsPer100g: Double?
 
     var id: String {
         name ?? UUID().uuidString
