@@ -96,6 +96,30 @@ describe('FoodMatcherService.matchItems', () => {
     expect(result?.catalogCalories).toBe(247.5);
   });
 
+  it('normalizes a matched portion to three decimals before calculating nutrition', async () => {
+    await createCatalogFood(tx, {
+      name: 'ZqPreciseChicken',
+      caloriesPer100g: 165,
+      proteinPer100g: 31,
+      fatPer100g: 4,
+      carbsPer100g: 0,
+      source: 'system',
+    });
+
+    const [result] = await matcher.matchItems([
+      foodItem({ name: 'ZqPreciseChicken', grams: 1.55925 }),
+    ]);
+
+    expect(result).toMatchObject({
+      source: 'catalog',
+      grams: 1.559,
+      calories: 2.6,
+      protein: 0.5,
+      fat: 0.1,
+      carbs: 0,
+    });
+  });
+
   it('uses 100g when the item has no grams', async () => {
     await createCatalogFood(tx, {
       name: 'ZqRice',

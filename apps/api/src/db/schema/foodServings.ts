@@ -32,7 +32,7 @@ export const foodServings = app.table(
 
     grams: numeric('grams', {
       precision: 10,
-      scale: 1,
+      scale: 3,
       mode: 'number',
     }).notNull(),
 

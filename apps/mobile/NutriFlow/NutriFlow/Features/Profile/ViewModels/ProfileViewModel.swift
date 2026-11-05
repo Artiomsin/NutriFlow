@@ -25,6 +25,7 @@ final class ProfileViewModel {
 
     private var originalWeightKg: Double?
     private var originalWeightText: String?
+    private var originalHeightCm: Int?
     @ObservationIgnored private var lastSavedUnits: PreferredUnits = .default
 
     @ObservationIgnored private let authService: AuthServiceProtocol
@@ -391,7 +392,9 @@ final class ProfileViewModel {
 
     func updatePreferredUnits() async {
         let newPrefs = preferredUnits
+        let previousPrefs = lastSavedUnits
         unitsError = nil
+        reformatMeasurements(from: previousPrefs, to: newPrefs)
         do {
             _ = try await profileService.updateMyProfile(
                 height: nil,
@@ -410,6 +413,7 @@ final class ProfileViewModel {
             // rollback has to cover both places or the toggle snaps back on next launch.
             preferredUnits = lastSavedUnits
             PreferencesStore.shared.preferredUnits = lastSavedUnits
+            reformatMeasurements(from: newPrefs, to: lastSavedUnits)
             unitsError = mapped
         }
     }
@@ -458,6 +462,7 @@ final class ProfileViewModel {
         weight = formattedWeight
         originalWeightKg = profile.weight
         originalWeightText = formattedWeight
+        originalHeightCm = profile.height
         height = profile.height.map { Self.formatBodyHeight(cm: Double($0), units: units) } ?? ""
         age = profile.age.map { String($0) } ?? ""
         gender = profile.gender
@@ -486,10 +491,7 @@ final class ProfileViewModel {
     }
 
     private static func formatBodyWeight(kg: Double, units: PreferredUnits) -> String {
-        if units.weight == .imperial {
-            return String(format: "%.1f", UnitConversion.bodyWeightToDisplay(kg: kg, preferred: units))
-        }
-        return String(Int(kg.rounded()))
+        UnitConversion.formatBodyWeight(kg: kg, preferred: units)
     }
 
     private static func formatBodyHeight(cm: Double, units: PreferredUnits) -> String {
@@ -497,6 +499,21 @@ final class ProfileViewModel {
             return String(format: "%.1f", UnitConversion.heightToDisplay(cm: cm, preferred: units))
         }
         return String(Int(cm.rounded()))
+    }
+
+    /// Keeps fields expressed in the selected unit system while retaining their canonical value.
+    private func reformatMeasurements(from oldUnits: PreferredUnits, to newUnits: PreferredUnits) {
+        guard oldUnits != newUnits else { return }
+
+        if let originalWeightKg {
+            let formattedWeight = Self.formatBodyWeight(kg: originalWeightKg, units: newUnits)
+            weight = formattedWeight
+            originalWeightText = formattedWeight
+        }
+
+        if let originalHeightCm {
+            height = Self.formatBodyHeight(cm: Double(originalHeightCm), units: newUnits)
+        }
     }
 
     private func clearForm() {
@@ -508,6 +525,7 @@ final class ProfileViewModel {
         activityLevel = nil
         originalWeightKg = nil
         originalWeightText = nil
+        originalHeightCm = nil
     }
     
     func setPreviewState(_ newState: ProfileState) {

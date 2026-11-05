@@ -63,9 +63,14 @@ struct NutritionChartView: View {
         .padding().appGlassSurface()
     }
 
-    private var avgProtein: Int { guard !data.isEmpty else { return 0 }; return Int(data.reduce(0) { $0 + $1.protein } / Double(data.count)) }
-    private var avgFat: Int { guard !data.isEmpty else { return 0 }; return Int(data.reduce(0) { $0 + $1.fat } / Double(data.count)) }
-    private var avgCarbs: Int { guard !data.isEmpty else { return 0 }; return Int(data.reduce(0) { $0 + $1.carbs } / Double(data.count)) }
+    private var avgProtein: Double { average(of: \.protein) }
+    private var avgFat: Double { average(of: \.fat) }
+    private var avgCarbs: Double { average(of: \.carbs) }
+
+    private func average(of keyPath: KeyPath<ChartDataPoint, Double>) -> Double {
+        guard !data.isEmpty else { return 0 }
+        return data.reduce(0) { $0 + $1[keyPath: keyPath] } / Double(data.count)
+    }
 
     /// Show only points that actually have macro data, so deleted-food hours
     /// don't leave ghost bars on the x-axis. Display-only.
@@ -73,14 +78,13 @@ struct NutritionChartView: View {
         data.filter { $0.protein > 0 || $0.fat > 0 || $0.carbs > 0 }
     }
 
-    private var maxMacroValue: Int {
-        let maxVal = data.map { Swift.max($0.protein, Swift.max($0.fat, $0.carbs)) }.max() ?? 0.0
-        if maxVal == 0 { return 100 }
-        return Int(maxVal + (maxVal * 20 / 100))
+    private var maxMacroValue: Double {
+        let maxValue = data.map { Swift.max($0.protein, Swift.max($0.fat, $0.carbs)) }.max() ?? 0
+        return maxValue == 0 ? 100 : maxValue * 1.2
     }
 }
 struct MacroSummaryItem: View {
-    let title: String; let value: Int; let color: Color
+    let title: String; let value: Double; let color: Color
     @State private var prefsStore = PreferencesStore.shared
     var body: some View {
         VStack(spacing: 4) {

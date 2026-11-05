@@ -2,25 +2,27 @@ import Foundation
 
 struct CreateFoodRequest: Codable, Sendable {
     let name: String
-    let calories: Int
-    let protein: Int?
-    let fat: Int?
-    let carbs: Int?
+    let calories: Double
+    let protein: Double?
+    let fat: Double?
+    let carbs: Double?
     let foodId: String?
-    let grams: Int?
+    let grams: Double?
     let unit: String?
     let categoryName: String?
     let imageUrl: String?
     let date: String?
 
     enum CodingKeys: String, CodingKey {
-        case name, calories, protein, fat, carbs, foodId, grams, unit, imageUrl, date, categoryName
+        case name, calories, protein, fat, carbs
+        case foodId, grams, unit, imageUrl, date, categoryName
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encodeIfPresent(name, forKey: .name)
-        try container.encodeIfPresent(calories, forKey: .calories)
+
+        try container.encode(name, forKey: .name)
+        try container.encode(calories, forKey: .calories)
         try container.encodeIfPresent(protein, forKey: .protein)
         try container.encodeIfPresent(fat, forKey: .fat)
         try container.encodeIfPresent(carbs, forKey: .carbs)
@@ -29,19 +31,19 @@ struct CreateFoodRequest: Codable, Sendable {
         try container.encodeIfPresent(foodId, forKey: .foodId)
         try container.encodeIfPresent(date, forKey: .date)
         try container.encodeIfPresent(imageUrl, forKey: .imageUrl)
-        // Matches UpdateFoodEntryRequest: an explicit null states "no category"
-        // instead of leaving the field out of the payload.
+
+        // Explicit null means that no category is selected.
         try container.encode(categoryName, forKey: .categoryName)
     }
 }
 
 struct UpdateFoodEntryRequest: Codable, Sendable {
     let name: String?
-    let calories: Int?
-    let protein: Int?
-    let fat: Int?
-    let carbs: Int?
-    let grams: Int?
+    let calories: Double?
+    let protein: Double?
+    let fat: Double?
+    let carbs: Double?
+    let grams: Double?
     let unit: String?
     let foodId: String?
     let date: String?
@@ -49,11 +51,13 @@ struct UpdateFoodEntryRequest: Codable, Sendable {
     let categoryName: String?
 
     enum CodingKeys: String, CodingKey {
-        case name, calories, protein, fat, carbs, grams, unit, foodId, date, imageUrl, categoryName
+        case name, calories, protein, fat, carbs
+        case grams, unit, foodId, date, imageUrl, categoryName
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+
         try container.encodeIfPresent(name, forKey: .name)
         try container.encodeIfPresent(calories, forKey: .calories)
         try container.encodeIfPresent(protein, forKey: .protein)
@@ -64,8 +68,8 @@ struct UpdateFoodEntryRequest: Codable, Sendable {
         try container.encodeIfPresent(foodId, forKey: .foodId)
         try container.encodeIfPresent(date, forKey: .date)
         try container.encodeIfPresent(imageUrl, forKey: .imageUrl)
-        // PATCH uses an omitted key for "leave unchanged". This field is
-        // intentionally encoded as null when the user selects "None".
+
+        // Explicit null clears the category; omission leaves it unchanged.
         try container.encode(categoryName, forKey: .categoryName)
     }
 }
@@ -74,12 +78,12 @@ struct FoodEntry: Codable, Identifiable, Sendable {
     let id: String
     let userId: String
     let name: String
-    let calories: Int
-    let protein: Int?
-    let fat: Int?
-    let carbs: Int?
+    let calories: Double
+    let protein: Double?
+    let fat: Double?
+    let carbs: Double?
     let foodId: String?
-    let grams: Int?
+    let grams: Double?
     let unit: String
     let categoryName: String?
     let imageUrl: String?
@@ -88,17 +92,16 @@ struct FoodEntry: Codable, Identifiable, Sendable {
     var foodSource: String?
 }
 
-
 struct CatalogFood: Codable, Identifiable, Hashable, Sendable {
     let id: String
     let name: String
     let categoryId: String?
     let categoryName: String?
     let brand: String?
-    let caloriesPer100g: Int
-    let proteinPer100g: Int?
-    let fatPer100g: Int?
-    let carbsPer100g: Int?
+    let caloriesPer100g: Double
+    let proteinPer100g: Double?
+    let fatPer100g: Double?
+    let carbsPer100g: Double?
     let barcode: String?
     let imageUrl: String?
     let source: String
@@ -113,17 +116,18 @@ extension CatalogFood {
         if !id.isEmpty {
             return id
         }
+
         if let barcode, !barcode.isEmpty {
             return barcode
         }
+
         return name
     }
 }
 
-
 struct FoodSearchResponse: Codable, Sendable {
     let foods: [CatalogFood]
-    let suggestedGrams: Int?
+    let suggestedGrams: Double?
     let suggestedUnit: String?
     let hasMore: Bool
     let total: Int
@@ -132,7 +136,11 @@ struct FoodSearchResponse: Codable, Sendable {
 }
 
 extension FoodSearchResponse {
-    init(foods: [CatalogFood], suggestedGrams: Int?, suggestedUnit: String?) {
+    init(
+        foods: [CatalogFood],
+        suggestedGrams: Double?,
+        suggestedUnit: String?
+    ) {
         self.foods = foods
         self.suggestedGrams = suggestedGrams
         self.suggestedUnit = suggestedUnit
@@ -147,7 +155,7 @@ struct FoodServing: Codable, Identifiable, Hashable, Sendable {
     let id: String
     let foodId: String
     let name: String
-    let grams: Int
+    let grams: Double
     let createdAt: String?
 }
 
@@ -166,10 +174,10 @@ struct CategoryWithFoods: Codable, Sendable {
 struct CreateCatalogFoodRequest: Codable, Sendable {
     let name: String
     let categoryId: String?
-    let caloriesPer100g: Int
-    let proteinPer100g: Int?
-    let fatPer100g: Int?
-    let carbsPer100g: Int?
+    let caloriesPer100g: Double
+    let proteinPer100g: Double?
+    let fatPer100g: Double?
+    let carbsPer100g: Double?
     let barcode: String?
     let imageUrl: String?
     let servings: [CreateServingRequest]?
@@ -177,9 +185,8 @@ struct CreateCatalogFoodRequest: Codable, Sendable {
 
 struct CreateServingRequest: Codable, Sendable {
     let name: String
-    let grams: Int
+    let grams: Double
 }
-
 
 enum ScanAnalysisItem: Decodable, Hashable, Sendable {
     case food(FoodAnalysisItem)
@@ -197,8 +204,7 @@ enum ScanAnalysisItem: Decodable, Hashable, Sendable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
-        // Treat responses from a server that has not yet been deployed with the
-        // water discriminator as food, so an app update remains backward compatible.
+        // Backward compatibility with responses without the discriminator.
         switch try container.decodeIfPresent(Kind.self, forKey: .kind) {
         case .water:
             self = .water(try WaterAnalysisItem(from: decoder))
@@ -210,13 +216,14 @@ enum ScanAnalysisItem: Decodable, Hashable, Sendable {
 
 struct WaterAnalysisItem: Codable, Hashable, Sendable {
     let amountMl: Int
+    let containers: Int?
     let confidence: Double?
 }
 
 struct FoodAnalysisItem: Codable, Identifiable, Hashable, Sendable {
     let name: String?
     let category: String?
-    let grams: Int?
+    let grams: Double?
     let calories: Double?
     let protein: Double?
     let fat: Double?
@@ -228,6 +235,10 @@ struct FoodAnalysisItem: Codable, Identifiable, Hashable, Sendable {
     let source: String?
     let aiCalories: Double?
     let catalogCalories: Double?
+    let catalogCaloriesPer100g: Double?
+    let catalogProteinPer100g: Double?
+    let catalogFatPer100g: Double?
+    let catalogCarbsPer100g: Double?
 
     var id: String {
         name ?? UUID().uuidString
@@ -238,7 +249,10 @@ struct FoodAnalysisItem: Codable, Identifiable, Hashable, Sendable {
     }
 
     var bestCalories: Double? {
-        if source == "catalog" { return catalogCalories ?? calories }
+        if source == "catalog" {
+            return catalogCalories ?? calories
+        }
+
         return aiCalories ?? calories
     }
 }

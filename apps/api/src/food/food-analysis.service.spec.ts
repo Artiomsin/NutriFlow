@@ -418,13 +418,13 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     expect(result).toEqual([{ kind: 'water', amountMl: 200, confidence: 1 }]);
   });
 
-  it('keeps nutrition values at one-decimal precision and merges the matcher result', async () => {
+  it('keeps grams at three-decimal precision, nutrition at one decimal, and merges the matcher result', async () => {
     const provider = makeProvider(async () =>
       rawText([
         {
           kind: 'food',
           name: 'Rice',
-          grams: 100.4,
+          grams: 1.55925,
           calories: 130.6,
           protein: 2.4,
           fat: 0.3,
@@ -453,7 +453,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     >;
     expect(passed).toHaveLength(1);
     expect(passed[0]).toMatchObject({
-      grams: 100.4,
+      grams: 1.559,
       calories: 130.6,
       protein: 2.4,
       fat: 0.3,
@@ -586,6 +586,7 @@ describe('FoodAnalysisService.analyzePhoto', () => {
     const prompt = calls(provider)[0]?.[1] as string;
     expect(prompt).toContain('"containers": number');
     expect(prompt).toContain('volume of ONE');
+    expect(prompt).toContain('up to THREE decimal places');
     expect(prompt).toContain('ONE decimal place');
     expect(prompt).toContain(
       'Do not round food nutrition values to whole numbers',

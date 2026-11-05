@@ -57,9 +57,55 @@ final class AddFoodViewModel {
     var fatLabel: String { "Fat (\(macroUnit))" }
     var carbsLabel: String { "Carbs (\(macroUnit))" }
 
-    private func toGrams(_ text: String) -> Int? {
-        guard let value = UnitConversion.parseDecimal(text), value > 0 else { return nil }
-        return Int(UnitConversion.grams(fromDisplay: value, baseUnit: "g", preferred: prefsStore.preferredUnits).rounded())
+    private var foodDisplayFractionDigits: Int {
+        prefsStore.preferredUnits.weight == .imperial ? 3 : UnitConversion.nutritionFractionDigits
+    }
+
+    private let portionInputFractionDigits = UnitConversion.portionFractionDigits
+
+    private func toGrams(_ text: String) -> Double? {
+        let valueText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard UnitConversion.isValidNutritionInput(
+            valueText,
+            maximumFractionDigits: portionInputFractionDigits
+        ),
+              let value = UnitConversion.parseDecimal(valueText),
+              value > 0 else {
+            return nil
+        }
+
+        return UnitConversion.grams(
+            fromDisplay: value,
+            baseUnit: "g",
+            preferred: prefsStore.preferredUnits
+        )
+    }
+
+    private func validatedAmount(
+        _ text: String,
+        field: String,
+        required: Bool,
+        requiresPositiveValue: Bool = true,
+        maximumFractionDigits: Int = UnitConversion.nutritionFractionDigits
+    ) -> Double? {
+        let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !value.isEmpty else {
+            if required {
+                fieldErrors.set(FormErrorMapper.message(for: FieldErrorCode.required.rawValue), for: field)
+            }
+            return nil
+        }
+
+        guard UnitConversion.isValidNutritionInput(value, maximumFractionDigits: maximumFractionDigits),
+              let decimal = UnitConversion.parseDecimal(value),
+              requiresPositiveValue ? decimal > 0 : decimal >= 0 else {
+            fieldErrors.set("Enter a valid number with the supported precision.", for: field)
+            return nil
+        }
+
+        return decimal
     }
 
     var gramsValue: Double? {
@@ -72,7 +118,12 @@ final class AddFoodViewModel {
 
     var isFormValid: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && UnitConversion.isValidNutritionInput(
+                grams,
+                maximumFractionDigits: portionInputFractionDigits
+            )
             && (gramsValue ?? 0) > 0
+            && UnitConversion.isValidNutritionInput(calories)
             && (caloriesValue ?? 0) > 0
     }
 
@@ -153,42 +204,43 @@ final class AddFoodViewModel {
             )
         }
 
-        let gramsInt = toGrams(grams) ?? 0
-        if grams.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            fieldErrors.set(
-                FormErrorMapper.message(for: FieldErrorCode.required.rawValue),
-                for: "grams"
-            )
-        } else if gramsInt <= 0 {
-            fieldErrors.set(
-                FormErrorMapper.message(for: FieldErrorCode.invalidValue.rawValue),
-                for: "grams"
-            )
+        let gramsValue = toGrams(grams)
+        let caloriesValue = validatedAmount(calories, field: "calories", required: true)
+        let proteinValue = validatedAmount(
+            protein,
+            field: "protein",
+            required: false,
+            requiresPositiveValue: false,
+            maximumFractionDigits: foodDisplayFractionDigits
+        )
+        let fatValue = validatedAmount(
+            fat,
+            field: "fat",
+            required: false,
+            requiresPositiveValue: false,
+            maximumFractionDigits: foodDisplayFractionDigits
+        )
+        let carbsValue = validatedAmount(
+            carbs,
+            field: "carbs",
+            required: false,
+            requiresPositiveValue: false,
+            maximumFractionDigits: foodDisplayFractionDigits
+        )
+
+        if gramsValue == nil {
+            _ = validatedAmount(grams, field: "grams", required: true)
         }
 
-        guard let caloriesValue = UnitConversion.parseDecimal(calories), caloriesValue > 0 else {
-            fieldErrors.set(
-                FormErrorMapper.message(
-                    for: calories.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        ? FieldErrorCode.required.rawValue
-                        : FieldErrorCode.invalidValue.rawValue
-                ),
-                for: "calories"
-            )
+        guard fieldErrors.isEmpty,
+              let gramsValue,
+              let caloriesValue else {
             state = .idle
             return false
         }
 
-        guard fieldErrors.isEmpty else {
-            state = .idle
-            return false
-        }
-
-        let caloriesInt = Int(
-            UnitConversion.energyToKcal(
-                caloriesValue,
-                preferred: prefsStore.preferredUnits
-            ).rounded()
+        let caloriesInKcal = UnitConversion.roundedForNutritionStorage(
+            UnitConversion.energyToKcal(caloriesValue, preferred: prefsStore.preferredUnits)
         )
 
         state = .uploading
@@ -210,12 +262,21 @@ final class AddFoodViewModel {
             print("[Network] AddFoodVM createEntry")
             try await service.createFoodEntry(
                 name: name,
-                calories: caloriesInt,
-                protein: UnitConversion.macroGrams(fromDisplay: protein, preferred: prefsStore.preferredUnits),
-                fat: UnitConversion.macroGrams(fromDisplay: fat, preferred: prefsStore.preferredUnits),
-                carbs: UnitConversion.macroGrams(fromDisplay: carbs, preferred: prefsStore.preferredUnits),
+                calories: caloriesInKcal,
+                protein: proteinValue.flatMap { _ in
+                    UnitConversion.macroGrams(fromDisplay: protein, preferred: prefsStore.preferredUnits)
+                        .map(UnitConversion.roundedForNutritionStorage)
+                },
+                fat: fatValue.flatMap { _ in
+                    UnitConversion.macroGrams(fromDisplay: fat, preferred: prefsStore.preferredUnits)
+                        .map(UnitConversion.roundedForNutritionStorage)
+                },
+                carbs: carbsValue.flatMap { _ in
+                    UnitConversion.macroGrams(fromDisplay: carbs, preferred: prefsStore.preferredUnits)
+                        .map(UnitConversion.roundedForNutritionStorage)
+                },
                 foodId: nil,
-                grams: gramsInt,
+                grams: gramsValue,
                 unit: "g",
                 categoryName: selectedCategory?.name,
                 imageUrl: imageUrl,
@@ -235,7 +296,31 @@ final class AddFoodViewModel {
     }
 
     func clearFieldError(_ field: String) {
-        fieldErrors.clear(field)
+        let numericText: String? = switch field {
+        case "grams": grams
+        case "calories": calories
+        case "protein": protein
+        case "fat": fat
+        case "carbs": carbs
+        default: nil
+        }
+
+        if let numericText,
+           !numericText.isEmpty,
+           (!UnitConversion.isValidNutritionInput(
+                numericText,
+                maximumFractionDigits: field == "grams"
+                    ? portionInputFractionDigits
+                    : (field == "calories"
+                        ? UnitConversion.nutritionFractionDigits
+                        : foodDisplayFractionDigits)
+            ) || (field == "grams" || field == "calories"
+                ? (UnitConversion.parseDecimal(numericText) ?? 0) <= 0
+                : (UnitConversion.parseDecimal(numericText) ?? 0) < 0)) {
+            fieldErrors.set("Enter a valid number with the supported precision.", for: field)
+        } else {
+            fieldErrors.clear(field)
+        }
 
         if case .error = state {
             state = .idle

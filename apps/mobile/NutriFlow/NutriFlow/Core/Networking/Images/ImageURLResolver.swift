@@ -13,21 +13,7 @@ enum ImageURLResolver {
         }
 
         guard rawValue.hasPrefix("/") else { return nil }
-
-        guard
-            let scheme = APIConfig.baseURL.scheme,
-            let host = APIConfig.baseURL.host
-        else {
-            return nil
-        }
-
-        var components = URLComponents()
-        components.scheme = scheme
-        components.host = host
-        components.port = APIConfig.baseURL.port
-        components.path = rawValue
-
-        return components.url
+        return apiURL(for: rawValue)
     }
 
     static func isPrivateUploadURL(
@@ -39,11 +25,50 @@ enum ImageURLResolver {
             let imageHost = url.host,
             imageHost.caseInsensitiveCompare(apiHost) == .orderedSame,
             url.scheme?.caseInsensitiveCompare(apiBaseURL.scheme ?? "") == .orderedSame,
-            url.port == apiBaseURL.port
+            effectivePort(for: url) == effectivePort(for: apiBaseURL)
         else {
             return false
         }
 
-        return url.path.hasPrefix("/api/uploads/")
+        let uploadPath = apiPath(for: "/uploads", apiBaseURL: apiBaseURL)
+        return url.path == uploadPath || url.path.hasPrefix(uploadPath + "/")
+    }
+
+    private static func apiURL(for path: String) -> URL? {
+        guard var components = URLComponents(
+            url: APIConfig.baseURL,
+            resolvingAgainstBaseURL: false
+        ) else {
+            return nil
+        }
+
+        components.percentEncodedPath = apiPath(for: path, apiBaseURL: APIConfig.baseURL)
+        return components.url
+    }
+
+    private static func apiPath(for path: String, apiBaseURL: URL) -> String {
+        let basePath = apiBaseURL.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let suffix = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+
+        if basePath.isEmpty || suffix == basePath || suffix.hasPrefix(basePath + "/") {
+            return "/" + suffix
+        }
+
+        return "/" + [basePath, suffix].joined(separator: "/")
+    }
+
+    private static func effectivePort(for url: URL) -> Int? {
+        if let port = url.port {
+            return port
+        }
+
+        switch url.scheme?.lowercased() {
+        case "https":
+            return 443
+        case "http":
+            return 80
+        default:
+            return nil
+        }
     }
 }

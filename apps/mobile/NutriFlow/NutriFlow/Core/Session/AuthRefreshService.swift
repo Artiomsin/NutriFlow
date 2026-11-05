@@ -67,10 +67,15 @@ actor AuthRefreshService: Sendable {
             throw AuthRefreshError.sessionExpired
         }
 
-        try session.updateTokens(
-            access: response.accessToken,
-            refresh: response.refreshToken
-        )
+        do {
+            try session.updateTokens(
+                access: response.accessToken,
+                refresh: response.refreshToken
+            )
+        } catch {
+            await expireSession()
+            throw AuthRefreshError.sessionExpired
+        }
     }
 
     private func expireSession() async {

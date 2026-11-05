@@ -93,6 +93,38 @@ describe('FoodService.create', () => {
     expect((await statsFor(user.id, food.id))?.frequency).toBe(1);
   });
 
+  it('recalculates catalog nutrition from a three-decimal portion on create', async () => {
+    const user = await createUser(tx);
+    const food = await createCatalogFood(tx, {
+      name: 'Precise chicken',
+      caloriesPer100g: 165,
+      proteinPer100g: 31,
+      fatPer100g: 4,
+      carbsPer100g: 0,
+      source: 'system',
+    });
+
+    const entry = await service.create(user.id, {
+      name: 'Precise chicken',
+      foodId: food.id,
+      grams: 1.559,
+      // These deliberately stale values must never become persisted totals.
+      calories: 999,
+      protein: 999,
+      fat: 999,
+      carbs: 999,
+      date: '2026-01-01',
+    });
+
+    expect(entry).toMatchObject({
+      grams: 1.559,
+      calories: 2.6,
+      protein: 0.5,
+      fat: 0.1,
+      carbs: 0,
+    });
+  });
+
   it("rejects another user's private food", async () => {
     const owner = await createUser(tx);
     const intruder = await createUser(tx);

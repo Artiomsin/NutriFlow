@@ -31,7 +31,7 @@ export const foodEntries = app.table(
 
     name: varchar('name', { length: 120 }).notNull(),
 
-    grams: numeric('grams', { precision: 10, scale: 1, mode: 'number' }),
+    grams: numeric('grams', { precision: 10, scale: 3, mode: 'number' }),
 
     unit: varchar('unit', { length: 10 }).notNull().default('g'),
 

@@ -64,6 +64,13 @@
       "when": 1793196000000,
       "tag": "0009_decimal_nutrition",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793756800000,
+      "tag": "0010_grams_precision",
+      "breakpoints": true
     }
   ]
 }

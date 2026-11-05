@@ -42,7 +42,11 @@ import type {
 } from './food.schema';
 import { currentUserDate } from '../common/time/user-date';
 import { RedisService } from '../redis/redis.service';
-import { clampNutrition, roundNutrition } from '../common/nutrition/precision';
+import {
+  clampNutrition,
+  roundGrams,
+  roundNutrition,
+} from '../common/nutrition/precision';
 
 interface OFProduct {
   id: string;
@@ -291,6 +295,36 @@ export class FoodService {
         }
       }
 
+      const entryNutrition = {
+        calories: data.calories,
+        protein: data.protein ?? 0,
+        fat: data.fat ?? 0,
+        carbs: data.carbs ?? 0,
+      };
+
+      // A catalog-backed entry always derives its nutrition from the product
+      // and the validated portion. This keeps Food Analysis, the iOS preview,
+      // and persisted totals from drifting when a person changes the weight.
+      if (data.foodId && data.grams !== undefined) {
+        const [food] = await tx
+          .select()
+          .from(foods)
+          .where(eq(foods.id, data.foodId))
+          .limit(1);
+
+        if (!food) {
+          throw new NotFoundException('Food not found');
+        }
+
+        const ratio = data.grams / 100;
+        entryNutrition.calories = roundNutrition(food.caloriesPer100g * ratio);
+        entryNutrition.protein = roundNutrition(
+          (food.proteinPer100g ?? 0) * ratio,
+        );
+        entryNutrition.fat = roundNutrition((food.fatPer100g ?? 0) * ratio);
+        entryNutrition.carbs = roundNutrition((food.carbsPer100g ?? 0) * ratio);
+      }
+
       const [entry] = await tx
         .insert(foodEntries)
         .values({
@@ -299,10 +333,10 @@ export class FoodService {
           grams: data.grams,
           unit: data.unit ?? 'g',
           name: data.name,
-          calories: data.calories,
-          protein: data.protein ?? 0,
-          fat: data.fat ?? 0,
-          carbs: data.carbs ?? 0,
+          calories: entryNutrition.calories,
+          protein: entryNutrition.protein,
+          fat: entryNutrition.fat,
+          carbs: entryNutrition.carbs,
           imageUrl: data.imageUrl,
           entryDate,
         })
@@ -466,7 +500,6 @@ export class FoodService {
     if (
       !existing.foodId &&
       data.grams !== undefined &&
-      data.calories === undefined &&
       existing.grams &&
       existing.grams > 0
     ) {
@@ -569,26 +602,34 @@ export class FoodService {
           if (food) {
             const g = newGrams ?? 100;
             const ratio = g > 0 ? g / 100 : 1;
-            newCalories =
-              data.calories ??
-              (createdFromSnapshot
-                ? newCalories
-                : roundNutrition(food.caloriesPer100g * ratio));
-            newProtein =
-              data.protein ??
-              (createdFromSnapshot
-                ? newProtein
-                : roundNutrition((food.proteinPer100g ?? 0) * ratio));
-            newFat =
-              data.fat ??
-              (createdFromSnapshot
-                ? newFat
-                : roundNutrition((food.fatPer100g ?? 0) * ratio));
-            newCarbs =
-              data.carbs ??
-              (createdFromSnapshot
-                ? newCarbs
-                : roundNutrition((food.carbsPer100g ?? 0) * ratio));
+            // A changed portion is authoritative. Recalculate from the
+            // catalog's per-100g values using the validated three-decimal
+            // amount, instead of accepting stale client-side totals.
+            const weightChanged = data.grams !== undefined;
+            newCalories = weightChanged
+              ? roundNutrition(food.caloriesPer100g * ratio)
+              : (data.calories ??
+                (createdFromSnapshot
+                  ? newCalories
+                  : roundNutrition(food.caloriesPer100g * ratio)));
+            newProtein = weightChanged
+              ? roundNutrition((food.proteinPer100g ?? 0) * ratio)
+              : (data.protein ??
+                (createdFromSnapshot
+                  ? newProtein
+                  : roundNutrition((food.proteinPer100g ?? 0) * ratio)));
+            newFat = weightChanged
+              ? roundNutrition((food.fatPer100g ?? 0) * ratio)
+              : (data.fat ??
+                (createdFromSnapshot
+                  ? newFat
+                  : roundNutrition((food.fatPer100g ?? 0) * ratio)));
+            newCarbs = weightChanged
+              ? roundNutrition((food.carbsPer100g ?? 0) * ratio)
+              : (data.carbs ??
+                (createdFromSnapshot
+                  ? newCarbs
+                  : roundNutrition((food.carbsPer100g ?? 0) * ratio)));
 
             if (needsFork && food.source !== 'user') {
               const per100gRatio = g > 0 ? 100 / g : 1;
@@ -1010,7 +1051,7 @@ export class FoodService {
 
       const conversion = unitMap[rawUnit];
       if (conversion) {
-        suggestedGrams = roundNutrition(value * conversion.mul);
+        suggestedGrams = roundGrams(value * conversion.mul);
         suggestedUnit = conversion.display;
       }
     }

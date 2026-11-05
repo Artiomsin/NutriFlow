@@ -12,19 +12,19 @@ struct AnalyticsResponse: Codable, Sendable {
     let fromDate: String
     let toDate: String
 
-    let averageCalories: Int
-    let averageProtein: Int
-    let averageFat: Int
-    let averageCarbs: Int
+    let averageCalories: Double
+    let averageProtein: Double
+    let averageFat: Double
+    let averageCarbs: Double
     let averageWater: Int
 
-    let goalCalories: Int?
+    let goalCalories: Double?
     let goalCaloriesPct: Int?
-    let goalProtein: Int?
+    let goalProtein: Double?
     let goalProteinPct: Int?
-    let goalFat: Int?
+    let goalFat: Double?
     let goalFatPct: Int?
-    let goalCarbs: Int?
+    let goalCarbs: Double?
     let goalCarbsPct: Int?
     let goalWater: Int?
     let goalWaterPct: Int?
@@ -52,10 +52,10 @@ struct AnalyticsResponse: Codable, Sendable {
 
 struct AnalyticsDay: Codable, Sendable {
     let date: String
-    let calories: Int
-    let protein: Int
-    let fat: Int
-    let carbs: Int
+    let calories: Double
+    let protein: Double
+    let fat: Double
+    let carbs: Double
     let water: Int
 
     let caloriesPct: Int?

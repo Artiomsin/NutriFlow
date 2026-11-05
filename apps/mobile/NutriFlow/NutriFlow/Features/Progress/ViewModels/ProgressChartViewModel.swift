@@ -17,7 +17,7 @@ final class ProgressChartViewModel {
 
     var selectedDate: Date = Date()
 
-    var totalCaloriesSum: Int = 0
+    var totalCaloriesSum: Double = 0
     var totalWaterSum: Int = 0
     var avgProtein: Double = 0
     var avgFat: Double = 0
@@ -173,7 +173,7 @@ final class ProgressChartViewModel {
     }
 
     private func aggregateHourly(food: [FoodEntry], water: [WaterEntry]) -> [ChartDataPoint] {
-        var calByHour: [Int: Int] = [:]
+        var calByHour: [Int: Double] = [:]
         var protByHour: [Int: Double] = [:]
         var fatByHour: [Int: Double] = [:]
         var carbsByHour: [Int: Double] = [:]
@@ -185,9 +185,9 @@ final class ProgressChartViewModel {
             guard let date = parseDate(entry.createdAt) else { continue }
             let hour = cal.component(.hour, from: date)
             calByHour[hour, default: 0] += entry.calories
-            protByHour[hour, default: 0] += Double(entry.protein ?? 0)
-            fatByHour[hour, default: 0] += Double(entry.fat ?? 0)
-            carbsByHour[hour, default: 0] += Double(entry.carbs ?? 0)
+            protByHour[hour, default: 0] += entry.protein ?? 0
+            fatByHour[hour, default: 0] += entry.fat ?? 0
+            carbsByHour[hour, default: 0] += entry.carbs ?? 0
         }
 
         for entry in water {
@@ -315,7 +315,7 @@ final class ProgressChartViewModel {
                 return ChartDataPoint(
                     date: start,
                     label: "\(Self.labelFormatter.string(from: start))-\(Self.labelFormatter.string(from: end))",
-                    calories: pts.reduce(0) { $0 + $1.calories } / pts.count,
+                    calories: pts.reduce(0.0) { $0 + $1.calories } / Double(pts.count),
                     protein: pts.reduce(0.0) { $0 + $1.protein } / Double(pts.count),
                     fat: pts.reduce(0.0) { $0 + $1.fat } / Double(pts.count),
                     carbs: pts.reduce(0.0) { $0 + $1.carbs } / Double(pts.count),
@@ -340,7 +340,7 @@ final class ProgressChartViewModel {
                 return ChartDataPoint(
                     date: start,
                     label: Self.monthFormatter.string(from: start).capitalized,
-                    calories: pts.reduce(0) { $0 + $1.calories } / pts.count,
+                    calories: pts.reduce(0.0) { $0 + $1.calories } / Double(pts.count),
                     protein: pts.reduce(0.0) { $0 + $1.protein } / Double(pts.count),
                     fat: pts.reduce(0.0) { $0 + $1.fat } / Double(pts.count),
                     carbs: pts.reduce(0.0) { $0 + $1.carbs } / Double(pts.count),
@@ -735,7 +735,7 @@ final class ProgressChartViewModel {
         }
         daysCount = chartData.count
         let sums = chartData.reduce(
-            (cal: 0, water: 0, prot: 0.0, fat: 0.0, carbs: 0.0)
+            (cal: 0.0, water: 0, prot: 0.0, fat: 0.0, carbs: 0.0)
         ) { acc, pt in
             (acc.cal + pt.calories,
              acc.water + pt.waterMl,

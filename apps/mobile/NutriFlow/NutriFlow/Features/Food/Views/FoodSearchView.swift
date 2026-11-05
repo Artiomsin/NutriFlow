@@ -2,12 +2,12 @@ import SwiftUI
 import Kingfisher
 
 struct FoodSearchView: View {
-    let onSelect: (CatalogFood, Int?, String?) -> Void
+    let onSelect: (CatalogFood, Double?, String?) -> Void
     
     @State private var foodSearchVM: FoodSearchViewModel
     @FocusState private var searchFocused: Bool
     
-    init(viewModel: FoodSearchViewModel, onSelect: @escaping (CatalogFood, Int?, String?) -> Void) {
+    init(viewModel: FoodSearchViewModel, onSelect: @escaping (CatalogFood, Double?, String?) -> Void) {
         self.onSelect = onSelect
         _foodSearchVM = State(initialValue: viewModel)
     }
@@ -299,7 +299,7 @@ struct FoodCardSearch: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             HStack {
-                Text("\(UnitConversion.formatEnergyValue(kcal: food.caloriesPer100g, preferred: prefsStore.preferredUnits)) \(UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits))")
+                Text("\(UnitConversion.formatEnergyValueText(kcal: food.caloriesPer100g, preferred: prefsStore.preferredUnits)) \(UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits)) / 100 g")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(AppColors.textTertiary)
                     .lineLimit(1)

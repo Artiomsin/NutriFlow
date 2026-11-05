@@ -1,18 +1,18 @@
 import { z } from 'zod';
 import { calendarDateSchema } from '../common/validation/date.schema';
-import { roundNutrition } from '../common/nutrition/precision';
+import { roundGrams, roundNutrition } from '../common/nutrition/precision';
 
 export const dateString = calendarDateSchema;
 
 const nutritionNumber = (max: number) =>
   z.number().finite().min(0).max(max).transform(roundNutrition);
 
-const portionNumber = z
+const gramsNumber = z
   .number()
   .finite()
   .min(0)
   .max(10_000)
-  .transform(roundNutrition);
+  .transform(roundGrams);
 
 // ── Food Entry (daily diary) ──────────────────────────────────────
 
@@ -20,7 +20,7 @@ export const createFoodEntrySchema = z.object({
   name: z.string().min(1).max(120),
 
   foodId: z.string().uuid().optional(),
-  grams: portionNumber.optional(),
+  grams: gramsNumber.optional(),
 
   calories: nutritionNumber(5000),
   protein: nutritionNumber(1000).optional(),
@@ -35,7 +35,7 @@ export const createFoodEntrySchema = z.object({
   // encoded explicitly so the client never has to stay silent to say so.
   categoryName: z.string().max(100).nullable().optional(),
   barcode: z.string().max(50).optional(),
-  servingGrams: portionNumber.optional(),
+  servingGrams: gramsNumber.optional(),
 
   date: dateString.optional(),
 });
@@ -89,7 +89,7 @@ export const createFoodSchema = z.object({
     .array(
       z.object({
         name: z.string().min(1).max(100),
-        grams: portionNumber,
+        grams: gramsNumber,
       }),
     )
     .optional(),
@@ -103,7 +103,7 @@ export type CreateFoodDto = z.infer<typeof createFoodSchema>;
 // servings embedded in createFoodSchema: a 0 g portion is useless.
 export const createFoodServingSchema = z.object({
   name: z.string().trim().min(1).max(100),
-  grams: portionNumber.refine((value) => value > 0),
+  grams: gramsNumber.refine((value) => value > 0),
 });
 
 // Omission means "leave unchanged".
@@ -124,7 +124,7 @@ export const foodAnalysisFoodItemSchema = z.object({
   kind: z.literal('food'),
   name: z.string().max(255).nullable(),
   category: z.string().max(100).nullish(),
-  grams: portionNumber.nullable(),
+  grams: gramsNumber.nullable(),
   calories: nutritionNumber(5000).nullable(),
   protein: nutritionNumber(1000).nullable(),
   fat: nutritionNumber(1000).nullable(),
@@ -136,6 +136,10 @@ export const foodAnalysisFoodItemSchema = z.object({
   source: z.enum(['ai', 'catalog']).nullish(),
   aiCalories: z.number().nonnegative().nullish(),
   catalogCalories: z.number().nonnegative().nullish(),
+  catalogCaloriesPer100g: z.number().nonnegative().nullish(),
+  catalogProteinPer100g: z.number().nonnegative().nullish(),
+  catalogFatPer100g: z.number().nonnegative().nullish(),
+  catalogCarbsPer100g: z.number().nonnegative().nullish(),
 });
 
 export const foodAnalysisWaterItemSchema = z.object({

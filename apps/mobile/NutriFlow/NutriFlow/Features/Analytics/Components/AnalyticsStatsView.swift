@@ -1,10 +1,10 @@
 import SwiftUI
 
 struct AnalyticsStatsView: View {
-    let avgCalories: Int
-    let avgProtein: Int
-    let avgFat: Int
-    let avgCarbs: Int
+    let avgCalories: Double
+    let avgProtein: Double
+    let avgFat: Double
+    let avgCarbs: Double
     let avgWater: Int
     let daysTracked: Int
     let totalDays: Int
@@ -20,7 +20,7 @@ struct AnalyticsStatsView: View {
                 icon: "flame.fill",
                 iconColor: .orange,
                 title: "Avg Calories",
-                value: "\(UnitConversion.formatEnergyValue(kcal: avgCalories, preferred: prefsStore.preferredUnits))",
+                value: UnitConversion.formatEnergyValueText(kcal: avgCalories, preferred: prefsStore.preferredUnits),
                 unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits)
             )
             StatCard(

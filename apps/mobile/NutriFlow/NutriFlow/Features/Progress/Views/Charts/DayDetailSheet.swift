@@ -77,7 +77,7 @@ struct DayDetailSheet: View {
         let totals = foodTotals
         let totalWater = water.reduce(0) { $0 + $1.amountMl }
         return HStack(spacing: 24) {
-            DetailStatCard(icon: "flame.fill", color: .orange, value: "\(UnitConversion.formatEnergyValue(kcal: totals.cal, preferred: prefsStore.preferredUnits))", unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits))
+            DetailStatCard(icon: "flame.fill", color: .orange, value: UnitConversion.formatEnergyValueText(kcal: totals.cal, preferred: prefsStore.preferredUnits), unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits))
             DetailStatCard(icon: "drop.fill", color: .cyan, value: UnitConversion.formatAmount(grams: totalWater, unit: "ml", preferred: prefsStore.preferredUnits), unit: "")
             DetailStatCard(icon: "fork.knife", color: .green, value: "\(food.count)", unit: "meals")
         }
@@ -90,7 +90,7 @@ struct DayDetailSheet: View {
             sectionLabel("Daily Goals", icon: "target")
 
             VStack(spacing: 14) {
-                GoalBar(title: "Calories", current: String(UnitConversion.formatEnergyValue(kcal: foodTotals.cal, preferred: prefsStore.preferredUnits)), goal: String(UnitConversion.formatEnergyValue(kcal: goals.dailyCaloriesGoal ?? 0, preferred: prefsStore.preferredUnits)), unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits), color: .orange, icon: "flame.fill")
+                GoalBar(title: "Calories", current: UnitConversion.formatEnergyValueText(kcal: foodTotals.cal, preferred: prefsStore.preferredUnits), goal: UnitConversion.formatEnergyValueText(kcal: goals.dailyCaloriesGoal ?? 0, preferred: prefsStore.preferredUnits), unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits), color: .orange, icon: "flame.fill")
                 GoalBar(title: "Protein", current: UnitConversion.formatMacro(grams: foodTotals.protein, preferred: prefsStore.preferredUnits), goal: UnitConversion.formatMacro(grams: goals.dailyProteinGoal ?? 0, preferred: prefsStore.preferredUnits), unit: "", color: .indigo, icon: "bolt.fill")
                 GoalBar(title: "Fat", current: UnitConversion.formatMacro(grams: foodTotals.fat, preferred: prefsStore.preferredUnits), goal: UnitConversion.formatMacro(grams: goals.dailyFatGoal ?? 0, preferred: prefsStore.preferredUnits), unit: "", color: .green, icon: "drop.degreesign.fill")
                 GoalBar(title: "Carbs", current: UnitConversion.formatMacro(grams: foodTotals.carbs, preferred: prefsStore.preferredUnits), goal: UnitConversion.formatMacro(grams: goals.dailyCarbsGoal ?? 0, preferred: prefsStore.preferredUnits), unit: "", color: .purple, icon: "leaf.arrow.circlepath")
@@ -214,9 +214,14 @@ struct DayDetailSheet: View {
         }
     }
 
-    private var foodTotals: (cal: Int, protein: Int, fat: Int, carbs: Int) {
-        food.reduce((0, 0, 0, 0)) { acc, entry in
-            (acc.0 + entry.calories, acc.1 + (entry.protein ?? 0), acc.2 + (entry.fat ?? 0), acc.3 + (entry.carbs ?? 0))
+    private var foodTotals: (cal: Double, protein: Double, fat: Double, carbs: Double) {
+        food.reduce((cal: 0.0, protein: 0.0, fat: 0.0, carbs: 0.0)) { totals, entry in
+            (
+                cal: totals.cal + entry.calories,
+                protein: totals.protein + (entry.protein ?? 0),
+                fat: totals.fat + (entry.fat ?? 0),
+                carbs: totals.carbs + (entry.carbs ?? 0)
+            )
         }
     }
 }
@@ -320,7 +325,7 @@ struct FoodRow: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: 2) {
-                Text("\(UnitConversion.formatEnergyValue(kcal: entry.calories, preferred: prefsStore.preferredUnits))")
+                Text(UnitConversion.formatEnergyValueText(kcal: entry.calories, preferred: prefsStore.preferredUnits))
                     .font(.subheadline.weight(.semibold))
                     .foregroundColor(.orange)
                 Text(UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits))

@@ -129,7 +129,7 @@ struct ActivityCard: View {
                 ActivityMetric(icon: "figure.walk", value: "\(activity.steps)", unit: "steps")
                 ActivityMetric(
                     icon: "flame.fill",
-                    value: "\(UnitConversion.formatEnergyValue(kcal: activity.activeCalories, preferred: prefsStore.preferredUnits))",
+                    value: UnitConversion.formatEnergyValueText(kcal: Double(activity.activeCalories), preferred: prefsStore.preferredUnits),
                     unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits)
                 )
                 ActivityMetric(

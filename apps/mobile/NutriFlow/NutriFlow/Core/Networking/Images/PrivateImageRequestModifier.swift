@@ -27,7 +27,7 @@ struct PrivateImageRequestModifier: ImageDownloadRequestModifier {
                 return nil
             }
 
-            request.setValue("Bearer (token)", forHTTPHeaderField: "Authorization")
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             return request
         } catch {
             return nil

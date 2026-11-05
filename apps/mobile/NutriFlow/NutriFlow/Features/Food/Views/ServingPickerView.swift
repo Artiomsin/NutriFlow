@@ -91,7 +91,7 @@ struct ServingPickerView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundColor(AppColors.textSecondary)
                 Spacer()
-                Text("For \(UnitConversion.formatAmount(grams: viewModel.grams, unit: viewModel.suggestedUnit ?? "g", preferred: prefsStore.preferredUnits))")
+                Text("For \(UnitConversion.formatPortionAmount(grams: viewModel.grams, unit: viewModel.suggestedUnit ?? "g", preferred: prefsStore.preferredUnits))")
                     .font(.caption.weight(.semibold))
                     .foregroundColor(AppColors.accent)
             }
@@ -99,8 +99,8 @@ struct ServingPickerView: View {
             HStack(spacing: 8) {
                 MacroCard(
                     label: "Calories",
-                    per100: "\(viewModel.food.caloriesPer100g)",
-                    total: "\(UnitConversion.formatEnergyValue(kcal: viewModel.calculatedCalories, preferred: prefsStore.preferredUnits))",
+                    per100: UnitConversion.formatEnergyValueText(kcal: viewModel.food.caloriesPer100g, preferred: prefsStore.preferredUnits),
+                    total: UnitConversion.formatEnergyValueText(kcal: viewModel.calculatedCalories, preferred: prefsStore.preferredUnits),
                     color: .orange,
                     unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits)
                 )
@@ -270,7 +270,7 @@ struct ServingPickerView: View {
 
     /// A missing macro is unknown data, not a zero amount — showing "0 g" here would
     /// claim the food contains none, while the payload stores nil.
-    private func macroText(_ grams: Int?) -> String {
+    private func macroText(_ grams: Double?) -> String {
         guard let grams else { return "—" }
         return UnitConversion.formatMacro(grams: grams, preferred: prefsStore.preferredUnits)
     }

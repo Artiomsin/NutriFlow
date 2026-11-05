@@ -16,10 +16,10 @@ struct GoalsManagementView: View {
     @State private var history: [GoalHistoryEntry] = []
     @State private var lastSeededGoals: UserGoals?
 
-    @State private var calories = 2200
-    @State private var protein = 150
-    @State private var fat = 65
-    @State private var carbs = 250
+    @State private var calories = 2200.0
+    @State private var protein = 150.0
+    @State private var fat = 65.0
+    @State private var carbs = 250.0
     @State private var water = 3000
     @State private var steps = 8000
     @State private var activeCalories = 500
@@ -133,13 +133,13 @@ struct GoalsManagementView: View {
 
     private var nutritionSection: some View {
         groupedSection(title: "Nutrition") {
-            stepperRow(label: "Calories", caption: "per day", value: $calories, range: 1000...5000, step: 50, unit: UnitConversion.formatEnergyUnit(preferred: PreferencesStore.shared.preferredUnits), field: "dailyCaloriesGoal", errorMessage: goalsVM.fieldErrors["dailyCaloriesGoal"])
+            nutritionStepperRow(label: "Calories", caption: "per day", value: $calories, range: 1_000...5_000, step: 0.1, unit: UnitConversion.formatEnergyUnit(preferred: PreferencesStore.shared.preferredUnits), field: "dailyCaloriesGoal", errorMessage: goalsVM.fieldErrors["dailyCaloriesGoal"])
             divider
-            stepperRow(label: "Protein", caption: "per day", value: $protein, range: 30...300, step: 5, unit: "g", field: "dailyProteinGoal", errorMessage: goalsVM.fieldErrors["dailyProteinGoal"])
+            nutritionStepperRow(label: "Protein", caption: "per day", value: $protein, range: 30...300, step: 0.1, unit: "g", field: "dailyProteinGoal", errorMessage: goalsVM.fieldErrors["dailyProteinGoal"])
             divider
-            stepperRow(label: "Fat", caption: "per day", value: $fat, range: 20...200, step: 5, unit: "g", field: "dailyFatGoal", errorMessage: goalsVM.fieldErrors["dailyFatGoal"])
+            nutritionStepperRow(label: "Fat", caption: "per day", value: $fat, range: 20...200, step: 0.1, unit: "g", field: "dailyFatGoal", errorMessage: goalsVM.fieldErrors["dailyFatGoal"])
             divider
-            stepperRow(label: "Carbs", caption: "per day", value: $carbs, range: 50...600, step: 5, unit: "g", field: "dailyCarbsGoal", errorMessage: goalsVM.fieldErrors["dailyCarbsGoal"])
+            nutritionStepperRow(label: "Carbs", caption: "per day", value: $carbs, range: 50...600, step: 0.1, unit: "g", field: "dailyCarbsGoal", errorMessage: goalsVM.fieldErrors["dailyCarbsGoal"])
             divider
             stepperRow(label: "Water", caption: "per day", value: $water, range: 500...6000, step: 100, unit: "ml", field: "dailyWaterGoal", errorMessage: goalsVM.fieldErrors["dailyWaterGoal"])
         }
@@ -186,6 +186,85 @@ struct GoalsManagementView: View {
         Divider()
             .padding(.leading, AppSpacing.paddingHorizontal + 20)
             .opacity(0.3)
+    }
+
+    private static func roundNutrition(_ value: Double) -> Double {
+        (value * 10).rounded() / 10
+    }
+
+    private func nutritionStepperRow(
+        label: String,
+        caption: String? = nil,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        step: Double,
+        unit: String,
+        field: String,
+        errorMessage: String?
+    ) -> some View {
+        let stepperValue = Binding(
+            get: { value.wrappedValue },
+            set: { newValue in
+                value.wrappedValue = Self.roundNutrition(newValue)
+                goalsVM.clearFieldError(field)
+            }
+        )
+
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(AppColors.accent.opacity(0.8))
+                    .frame(width: 8, height: 8)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(label)
+                        .font(.system(size: 15))
+                        .foregroundColor(AppColors.textPrimary)
+                    if let caption {
+                        Text(caption)
+                            .font(.system(size: 11))
+                            .foregroundColor(AppColors.textTertiary)
+                    }
+                }
+                Spacer(minLength: 12)
+                HStack(spacing: 4) {
+                    TextField(
+                        "",
+                        text: Binding(
+                            get: { value.wrappedValue.formatted(.number.precision(.fractionLength(0...1))) },
+                            set: { newValue in
+                                goalsVM.clearFieldError(field)
+                                guard let parsed = UnitConversion.parseDecimal(newValue) else { return }
+                                value.wrappedValue = Self.roundNutrition(parsed)
+                            }
+                        )
+                    )
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundColor(AppColors.textPrimary)
+                    .tint(AppColors.accent)
+                    .frame(width: 75)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
+                    .background(AppColors.surfaceSecondary)
+                    .cornerRadius(6)
+
+                    Text(unit)
+                        .font(.system(size: 13))
+                        .foregroundColor(AppColors.textSecondary)
+                }
+                Stepper("", value: stepperValue, in: range, step: step)
+                    .labelsHidden()
+            }
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(AppColors.error)
+            }
+        }
+        .padding(.horizontal, AppSpacing.paddingHorizontal)
+        .padding(.vertical, 8)
     }
 
     private func stepperRow(
@@ -447,9 +526,13 @@ struct GoalsManagementView: View {
     }
 
     private func valueText(_ entry: GoalHistoryEntry) -> String {
-        let from = entry.oldValue.map(String.init) ?? "—"
-        let to = entry.newValue.map(String.init) ?? "—"
+        let from = entry.oldValue.map(Self.formatHistoryValue) ?? "—"
+        let to = entry.newValue.map(Self.formatHistoryValue) ?? "—"
         return "\(from) → \(to)"
+    }
+
+    private static func formatHistoryValue(_ value: Double) -> String {
+        value.formatted(.number.precision(.fractionLength(0...1)))
     }
 
     private func save() async {
