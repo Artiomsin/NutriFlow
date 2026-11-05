@@ -850,15 +850,15 @@ export class FoodService {
 
   async getAll(query: GetFoodsQueryDto, userId: string) {
     const { categoryId, limit, offset } = query;
-  
+
     const conditions: SQL[] = [this.visibilityClause(userId)!];
-  
+
     if (categoryId === 'null') {
       conditions.push(isNull(foods.categoryId));
     } else if (categoryId !== undefined) {
       conditions.push(eq(foods.categoryId, categoryId));
     }
-  
+
     const rows = await this.db
       .select({
         food: foods,
@@ -872,7 +872,7 @@ export class FoodService {
       .orderBy(foods.name)
       .limit(limit)
       .offset(offset);
-  
+
     const catMap = new Map<
       string,
       {
@@ -882,11 +882,11 @@ export class FoodService {
         foods: (typeof foods.$inferSelect)[];
       }
     >();
-  
+
     for (const row of rows) {
       const key = row.categoryId ?? '';
       let group = catMap.get(key);
-  
+
       if (!group) {
         group = {
           id: row.categoryId ?? '',
@@ -894,23 +894,20 @@ export class FoodService {
           icon: row.categoryIcon ?? null,
           foods: [],
         };
-  
+
         catMap.set(key, group);
       }
-  
+
       group.foods.push({ ...row.food });
     }
-  
+
     return Array.from(catMap.values());
   }
 
-  async bulkUpdateCategory(
-    userId: string,
-    data: BulkUpdateFoodCategoryDto,
-  ) {
+  async bulkUpdateCategory(userId: string, data: BulkUpdateFoodCategoryDto) {
     return this.db.transaction(async (tx) => {
       const { foodIds, categoryId } = data;
-  
+
       // Only personal foods can be modified.
       const ownedFoods = await tx
         .select({ id: foods.id })
@@ -922,16 +919,16 @@ export class FoodService {
             eq(foods.createdBy, userId),
           ),
         );
-  
+
       if (ownedFoods.length !== foodIds.length) {
         throw new NotFoundException('One or more foods not found');
       }
-  
+
       // A shared category or the user's own category is allowed.
       if (categoryId !== null) {
         await this.assertVisibleCategory(tx, userId, categoryId);
       }
-  
+
       const updated = await tx
         .update(foods)
         .set({
@@ -946,11 +943,11 @@ export class FoodService {
           ),
         )
         .returning({ id: foods.id });
-  
+
       if (updated.length !== foodIds.length) {
         throw new NotFoundException('One or more foods not found');
       }
-  
+
       return {
         updatedCount: updated.length,
         foodIds: updated.map((food) => food.id),
@@ -980,7 +977,7 @@ export class FoodService {
       .where(this.categoryVisibilityClause(userId))
       .groupBy(foodCategories.id)
       .orderBy(foodCategories.name);
-  
+
     return rows.map(({ category, foodCount }) => ({
       ...category,
       foodCount,

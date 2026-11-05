@@ -74,7 +74,6 @@ export const updateFoodCategorySchema = createFoodCategorySchema
 
 export type UpdateFoodCategoryDto = z.infer<typeof updateFoodCategorySchema>;
 
-
 export const bulkUpdateFoodCategorySchema = z.object({
   foodIds: z
     .array(z.string().uuid())
@@ -88,7 +87,7 @@ export const bulkUpdateFoodCategorySchema = z.object({
 
 export type BulkUpdateFoodCategoryDto = z.infer<
   typeof bulkUpdateFoodCategorySchema
-  >;
+>;
 
 // ── Food Catalog ──────────────────────────────────────────────────
 

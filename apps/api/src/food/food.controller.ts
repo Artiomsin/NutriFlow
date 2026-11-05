@@ -225,7 +225,7 @@ export class FoodController {
   ) {
     return this.foodService.bulkUpdateCategory(user.userId, data);
   }
-  
+
   @Get('foods')
   getAll(
     @User() user: AuthPayload,
