@@ -295,6 +295,36 @@ export class FoodService {
         }
       }
 
+      const entryNutrition = {
+        calories: data.calories,
+        protein: data.protein ?? 0,
+        fat: data.fat ?? 0,
+        carbs: data.carbs ?? 0,
+      };
+
+      // A catalog-backed entry always derives its nutrition from the product
+      // and the validated portion. This keeps Food Analysis, the iOS preview,
+      // and persisted totals from drifting when a person changes the weight.
+      if (data.foodId && data.grams !== undefined) {
+        const [food] = await tx
+          .select()
+          .from(foods)
+          .where(eq(foods.id, data.foodId))
+          .limit(1);
+
+        if (!food) {
+          throw new NotFoundException('Food not found');
+        }
+
+        const ratio = data.grams / 100;
+        entryNutrition.calories = roundNutrition(food.caloriesPer100g * ratio);
+        entryNutrition.protein = roundNutrition(
+          (food.proteinPer100g ?? 0) * ratio,
+        );
+        entryNutrition.fat = roundNutrition((food.fatPer100g ?? 0) * ratio);
+        entryNutrition.carbs = roundNutrition((food.carbsPer100g ?? 0) * ratio);
+      }
+
       const [entry] = await tx
         .insert(foodEntries)
         .values({
@@ -303,10 +333,10 @@ export class FoodService {
           grams: data.grams,
           unit: data.unit ?? 'g',
           name: data.name,
-          calories: data.calories,
-          protein: data.protein ?? 0,
-          fat: data.fat ?? 0,
-          carbs: data.carbs ?? 0,
+          calories: entryNutrition.calories,
+          protein: entryNutrition.protein,
+          fat: entryNutrition.fat,
+          carbs: entryNutrition.carbs,
           imageUrl: data.imageUrl,
           entryDate,
         })
