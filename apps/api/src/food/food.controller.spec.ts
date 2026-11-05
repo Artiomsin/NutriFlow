@@ -172,28 +172,29 @@ describe('FoodController categories', () => {
 });
 
 describe('FoodController catalog', () => {
-  it('uses default limit and offset for getAll', async () => {
+  it('forwards pagination for getAll', async () => {
     const { controller, foodService } = setup();
-    await controller.getAll(user);
-    expect(foodService.getAll).toHaveBeenCalledWith(50, 0, 'user-1');
+    const query = { limit: 50, offset: 0 };
+    await controller.getAll(user, query);
+    expect(foodService.getAll).toHaveBeenCalledWith(query, 'user-1');
   });
 
-  it('clamps an oversized limit to 200', async () => {
+  it('forwards a category filter for getAll', async () => {
     const { controller, foodService } = setup();
-    await controller.getAll(user, '500');
-    expect(foodService.getAll).toHaveBeenCalledWith(200, 0, 'user-1');
+    const query = {
+      categoryId: '4cf8c276-1f4d-4b6e-8994-f42b94a181ac',
+      limit: 20,
+      offset: 0,
+    };
+    await controller.getAll(user, query);
+    expect(foodService.getAll).toHaveBeenCalledWith(query, 'user-1');
   });
 
-  it('falls back to 50 on an unparsable limit', async () => {
+  it('forwards the uncategorized filter for getAll', async () => {
     const { controller, foodService } = setup();
-    await controller.getAll(user, 'abc');
-    expect(foodService.getAll).toHaveBeenCalledWith(50, 0, 'user-1');
-  });
-
-  it('clamps a negative offset to 0', async () => {
-    const { controller, foodService } = setup();
-    await controller.getAll(user, '10', '-5');
-    expect(foodService.getAll).toHaveBeenCalledWith(10, 0, 'user-1');
+    const query = { categoryId: 'null', limit: 20, offset: 10 };
+    await controller.getAll(user, query);
+    expect(foodService.getAll).toHaveBeenCalledWith(query, 'user-1');
   });
 
   it('searches with the current user', async () => {
