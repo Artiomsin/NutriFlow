@@ -47,6 +47,37 @@ final class MockFoodService: FoodServiceProtocol {
             limit: limit
         )
     }
+    func getFoods(
+        categoryId: String?,
+        limit: Int,
+        offset: Int
+    ) async throws -> [CatalogFoodCategoryGroup] {
+        let foods = try await getPopularFood()
+        let filteredFoods = categoryId.map { id in
+            foods.filter { $0.categoryId == id }
+        } ?? foods
+
+        return [
+            CatalogFoodCategoryGroup(
+                id: categoryId ?? "",
+                name: categoryId == nil ? "All Foods" : "Category",
+                icon: nil,
+                foods: Array(filteredFoods.dropFirst(offset).prefix(limit))
+            )
+        ]
+    }
+
+    func bulkUpdateFoodCategory(
+        foodIds: [String],
+        categoryId: String?
+    ) async throws -> BulkUpdateFoodCategoryResponse {
+        BulkUpdateFoodCategoryResponse(
+            updatedCount: foodIds.count,
+            foodIds: foodIds,
+            categoryId: categoryId
+        )
+    }
+
     func selectFood(id: String) async throws { }
     func getPopularFood() async throws -> [CatalogFood] {
         [
@@ -65,18 +96,18 @@ final class MockFoodService: FoodServiceProtocol {
     }
     func getCategories() async throws -> [FoodCategory] {
         [
-            FoodCategory(id: "system-fruits", name: "Fruits", icon: "leaf.fill", createdBy: nil, createdAt: "2026-01-01T00:00:00Z"),
-            FoodCategory(id: "system-protein", name: "Protein", icon: "fish.fill", createdBy: nil, createdAt: "2026-01-01T00:00:00Z"),
-            FoodCategory(id: "system-dairy", name: "Dairy", icon: "cup.and.saucer.fill", createdBy: nil, createdAt: "2026-01-01T00:00:00Z"),
-            FoodCategory(id: "personal-breakfast", name: "Breakfast", icon: "sunrise.fill", createdBy: "1", createdAt: "2026-05-18T08:00:00Z"),
-            FoodCategory(id: "personal-home", name: "Home Cooking", icon: "house.fill", createdBy: "1", createdAt: "2026-05-18T08:00:00Z")
+            FoodCategory(id: "system-fruits", name: "Fruits", icon: "leaf.fill", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 2),
+            FoodCategory(id: "system-protein", name: "Protein", icon: "fish.fill", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 1),
+            FoodCategory(id: "system-dairy", name: "Dairy", icon: "cup.and.saucer.fill", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 1),
+            FoodCategory(id: "personal-breakfast", name: "Breakfast", icon: "sunrise.fill", createdBy: "1", createdAt: "2026-05-18T08:00:00Z", foodCount: 0),
+            FoodCategory(id: "personal-home", name: "Home Cooking", icon: "house.fill", createdBy: "1", createdAt: "2026-05-18T08:00:00Z", foodCount: 0)
         ]
     }
     func createCategory(name: String, icon: String?) async throws -> FoodCategory {
-        FoodCategory(id: UUID().uuidString, name: name, icon: icon, createdBy: "1", createdAt: "")
+        FoodCategory(id: UUID().uuidString, name: name, icon: icon, createdBy: "1", createdAt: "", foodCount: 0)
     }
     func updateCategory(id: String, name: String?, icon: String?) async throws -> FoodCategory {
-        FoodCategory(id: id, name: name ?? "Category", icon: icon, createdBy: "1", createdAt: "")
+        FoodCategory(id: id, name: name ?? "Category", icon: icon, createdBy: "1", createdAt: "", foodCount: 0)
     }
     func deleteCategory(id: String) async throws { }
     func uploadImage(_ data: Data) async throws -> String { "https://example.com/mock.jpg" }

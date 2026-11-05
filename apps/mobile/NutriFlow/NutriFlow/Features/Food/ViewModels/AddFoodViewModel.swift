@@ -13,7 +13,7 @@ enum AddFoodState {
 
 @Observable
 @MainActor
-final class AddFoodViewModel {
+final class AddFoodViewModel: Identifiable {
     var state: AddFoodState = .idle
 
     var name: String = ""
@@ -165,6 +165,25 @@ final class AddFoodViewModel {
 
     func retryCategories() {
         Task { await loadCategories() }
+    }
+
+    func reloadCategories() async {
+        isLoadingCategories = true
+        defer { isLoadingCategories = false }
+        categoriesError = nil
+
+        do {
+            categories = try await service.getCategories()
+        } catch {
+            let mapped = ErrorMapper.map(error)
+            categoriesError = mapped == .cancelled ? nil : mapped
+        }
+    }
+
+    func makeCategoryFoodsViewModel(
+        for category: FoodCategory
+    ) -> CategoryFoodsViewModel {
+        CategoryFoodsViewModel(category: category, service: service)
     }
 
     func createCategory(named name: String, icon: String? = nil) async -> FoodCategory? {

@@ -121,6 +121,39 @@ final class FoodService: FoodServiceProtocol, Sendable {
         )
         return try await client.send(request)
     }
+
+    func getFoods(
+        categoryId: String?,
+        limit: Int,
+        offset: Int
+    ) async throws -> [CatalogFoodCategoryGroup] {
+        let endpoint = FoodEndpoints.getFoods(
+            categoryId: categoryId,
+            limit: limit,
+            offset: offset
+        )
+        let request = APIRequest<NeverBody>(
+            path: endpoint.path,
+            method: .GET,
+            queryItems: endpoint.query
+        )
+        return try await client.send(request)
+    }
+
+    func bulkUpdateFoodCategory(
+        foodIds: [String],
+        categoryId: String?
+    ) async throws -> BulkUpdateFoodCategoryResponse {
+        let request = APIRequest(
+            path: FoodEndpoints.bulkUpdateFoodCategory,
+            method: .PATCH,
+            body: BulkUpdateFoodCategoryRequest(
+                foodIds: foodIds,
+                categoryId: categoryId
+            )
+        )
+        return try await client.send(request)
+    }
     
     func selectFood(id: String) async throws {
         let request = APIRequest<NeverBody>(

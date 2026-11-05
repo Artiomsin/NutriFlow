@@ -1,59 +1,102 @@
 import SwiftUI
 
 struct CategoryIconPicker: View {
-    struct IconOption: Identifiable {
-        let symbol: String
-        let title: String
-
-        var id: String { symbol }
-    }
-
-    static let options = [
-        IconOption(symbol: "tag.fill", title: "Tag"),
-        IconOption(symbol: "fork.knife", title: "Meal"),
-        IconOption(symbol: "sunrise.fill", title: "Breakfast"),
-        IconOption(symbol: "sun.max.fill", title: "Snack"),
-        IconOption(symbol: "moon.stars.fill", title: "Dinner"),
-        IconOption(symbol: "house.fill", title: "Home"),
-        IconOption(symbol: "leaf.fill", title: "Vegetables"),
-        IconOption(symbol: "carrot.fill", title: "Carrots"),
-        IconOption(symbol: "apple.logo", title: "Fruit"),
-        IconOption(symbol: "fish.fill", title: "Fish"),
-        IconOption(symbol: "drumstick.fill", title: "Meat"),
-        IconOption(symbol: "takeoutbag.and.cup.and.straw.fill", title: "Takeout"),
-        IconOption(symbol: "cup.and.saucer.fill", title: "Drinks"),
-        IconOption(symbol: "mug.fill", title: "Coffee"),
-        IconOption(symbol: "wineglass.fill", title: "Beverages"),
-        IconOption(symbol: "birthday.cake.fill", title: "Dessert"),
-        IconOption(symbol: "frying.pan.fill", title: "Fast food"),
-        IconOption(symbol: "flame.fill", title: "Favorites"),
-        IconOption(symbol: "basket.fill", title: "Groceries"),
-        IconOption(symbol: "pills.fill", title: "Supplements")
-    ]
-
     @Binding var selection: String
 
-    private let columns = [GridItem(.adaptive(minimum: 48), spacing: 8)]
+    let icons: [String]
+
+    @State private var isExpanded = false
+
+    private let columns = [
+        GridItem(.adaptive(minimum: 56, maximum: 72), spacing: 10)
+    ]
 
     var body: some View {
-        LazyVGrid(columns: columns, spacing: 8) {
-            ForEach(Self.options) { option in
-                Button {
-                    selection = option.symbol
-                } label: {
-                    Image(systemName: option.symbol)
-                        .font(.title3)
-                        .frame(maxWidth: .infinity, minHeight: 48)
-                        .foregroundStyle(selection == option.symbol ? AppColors.accentOnPrimary : AppColors.accent)
-                        .background {
-                            RoundedRectangle(cornerRadius: AppRadius.small)
-                                .fill(selection == option.symbol ? AppColors.accent : AppColors.surfaceSecondary)
-                        }
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                Image(systemName: selection)
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(AppColors.accent)
+                    .frame(width: 48, height: 48)
+                    .background(AppColors.accent.opacity(0.12), in: .circle)
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Category icon")
+                        .font(.headline)
+                        .foregroundStyle(AppColors.textPrimary)
+
+                    Text("Choose an icon that makes this category easy to spot.")
+                        .font(.subheadline)
+                        .foregroundStyle(AppColors.textSecondary)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(option.title)
-                .accessibilityAddTraits(selection == option.symbol ? .isSelected : [])
+
+                Spacer(minLength: 8)
+
+                Button(
+                    isExpanded ? "Hide" : "Choose icon",
+                    systemImage: isExpanded ? "chevron.up" : "chevron.down",
+                    action: toggleExpansion
+                )
+                .labelStyle(.iconOnly)
+                .foregroundStyle(AppColors.accent)
+                .frame(width: 44, height: 44)
+                .accessibilityLabel(isExpanded ? "Hide icons" : "Choose category icon")
             }
+
+            if isExpanded {
+                LazyVGrid(columns: columns, spacing: 10) {
+                    ForEach(icons, id: \.self) { icon in
+                        iconButton(icon)
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(AppColors.surfaceSecondary, in: .rect(cornerRadius: AppRadius.medium))
+        .accessibilityElement(children: .contain)
+    }
+
+    private func iconButton(_ icon: String) -> some View {
+        let isSelected = selection == icon
+
+        return Button {
+            select(icon)
+        } label: {
+            Image(systemName: icon)
+                .font(.title3.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .frame(height: 52)
+                .foregroundStyle(
+                    isSelected ? AppColors.accent : AppColors.accent.opacity(0.7)
+                )
+                .background(
+                    isSelected ? AppColors.accent.opacity(0.18) : AppColors.surface,
+                    in: .rect(cornerRadius: AppRadius.small)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: AppRadius.small)
+                        .stroke(
+                            isSelected ? AppColors.accent : AppColors.accent.opacity(0.16),
+                            lineWidth: isSelected ? 2 : 1
+                        )
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(icon.replacingOccurrences(of: ".", with: " "))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private func toggleExpansion() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isExpanded.toggle()
+        }
+    }
+
+    private func select(_ icon: String) {
+        selection = icon
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isExpanded = false
         }
     }
 }

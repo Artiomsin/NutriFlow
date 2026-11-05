@@ -24,7 +24,6 @@ struct HomeView: View {
     @State private var foodSearchVM: FoodSearchViewModel?
     @State private var isConnectingHealth = false
     @State private var hasLoaded = false
-    @State private var isManagingCategories = false
     @State private var categoryManagerVM: AddFoodViewModel?
     
     
@@ -52,10 +51,8 @@ struct HomeView: View {
     var body: some View {
         NavigationStack(path: $navPath) {
             content
-                .sheet(isPresented: $isManagingCategories) {
-                    if let categoryManagerVM {
-                        CategoryManagerView(viewModel: categoryManagerVM)
-                    }
+                .sheet(item: $categoryManagerVM) { viewModel in
+                    CategoryManagerView(viewModel: viewModel)
                 }
                 .navigationDestination(for: HomeNavRoute.self) { route in
                     let _ = print("[Nav] destination -> \(route)")
@@ -211,7 +208,6 @@ struct HomeView: View {
                             analyticsTracker: analyticsTracker,
                             todayFoodVM: homeViewModel.todayFoodVM
                         )
-                        isManagingCategories = true
                     }
                 )
                 WaterSectionView(

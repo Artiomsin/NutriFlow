@@ -47,6 +47,17 @@ protocol FoodServiceProtocol: Sendable {
     // ── Food Catalog ────────────────────────────────────────────
 
     func searchFood(query: String, limit: Int, offset: Int) async throws -> FoodSearchResponse
+
+    func getFoods(
+        categoryId: String?,
+        limit: Int,
+        offset: Int
+    ) async throws -> [CatalogFoodCategoryGroup]
+
+    func bulkUpdateFoodCategory(
+        foodIds: [String],
+        categoryId: String?
+    ) async throws -> BulkUpdateFoodCategoryResponse
     
     func selectFood(id: String) async throws
     
