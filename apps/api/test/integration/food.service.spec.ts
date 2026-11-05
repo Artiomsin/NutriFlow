@@ -108,7 +108,7 @@ describe('FoodService.create', () => {
       name: 'Precise chicken',
       foodId: food.id,
       grams: 1.559,
-      // These deliberately stale values must never become persisted totals.
+      // These deliberately stale values must never become persisted values.
       calories: 999,
       protein: 999,
       fat: 999,
@@ -123,6 +123,7 @@ describe('FoodService.create', () => {
       fat: 0.1,
       carbs: 0,
     });
+    expect(await summaryCalories(user.id, '2026-01-01')).toBe(2.6);
   });
 
   it("rejects another user's private food", async () => {

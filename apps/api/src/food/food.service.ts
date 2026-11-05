@@ -375,10 +375,10 @@ export class FoodService {
       await this.dailySummaryService.adjust(
         userId,
         {
-          calories: data.calories,
-          protein: data.protein ?? 0,
-          fat: data.fat ?? 0,
-          carbs: data.carbs ?? 0,
+          calories: entryNutrition.calories,
+          protein: entryNutrition.protein,
+          fat: entryNutrition.fat,
+          carbs: entryNutrition.carbs,
           date: entryDate,
         },
         tx,
