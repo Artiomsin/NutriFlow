@@ -704,6 +704,7 @@ final class MockHealthKit: ActivityHealthKitServiceProtocol, WorkoutHealthKitSer
     func enableBackgroundDelivery() async throws {}
     func startObserving() {}
     func stopObserving() {}
+    func completePendingObservations() {}
     func permissionState() async -> HealthKitAuthorization { .authorized }
     func fetchHeartRateWorkout(for workout: HealthKitWorkout) async throws -> [HeartRatePoint] {
         stride(from: workout.startDate, through: workout.endDate, by: 60).map { date in

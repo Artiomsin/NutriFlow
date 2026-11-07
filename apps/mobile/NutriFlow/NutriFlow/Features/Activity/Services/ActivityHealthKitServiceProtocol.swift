@@ -10,4 +10,5 @@ protocol ActivityHealthKitServiceProtocol: AnyObject {
     func enableBackgroundDelivery() async throws
     func startObserving()
     func stopObserving()
+    func completePendingObservations()
 }

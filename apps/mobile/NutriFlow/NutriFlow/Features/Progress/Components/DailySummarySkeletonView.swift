@@ -48,7 +48,6 @@ struct DailySummarySkeletonView: View {
         .accessibilityLabel("Loading daily summary")
     }
 
-    // MARK: - Goal Progress
 
     private var goalProgressSkeleton: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -65,7 +64,6 @@ struct DailySummarySkeletonView: View {
         }
     }
 
-    // MARK: - Macro Badge
 
     private var macroBadgeSkeleton: some View {
         RoundedRectangle(cornerRadius: 10)
@@ -73,7 +71,6 @@ struct DailySummarySkeletonView: View {
             .frame(width: 58, height: 30)
     }
 
-    // MARK: - Placeholder
 
     private func placeholder(
         width: CGFloat,
@@ -84,7 +81,6 @@ struct DailySummarySkeletonView: View {
             .frame(width: width, height: height)
     }
 
-    // MARK: - Shimmer
 
     private var shimmerOverlay: some View {
         GeometryReader { geometry in

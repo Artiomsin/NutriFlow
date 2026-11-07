@@ -27,11 +27,18 @@ final class ActivityService: ActivityServiceProtocol, Sendable {
         payloads.forEach { queue.enqueue($0) }
         queue.trimToMaxEntries()
         
-        try await send(entries: entries)
-        
-        // Success: remove sent entries from the queue and cleanup old records.
-        entries.forEach { queue.remove($0.date) }
-        queue.removeOlderThan(days: 30)
+        do {
+            try await send(entries: entries)
+            
+            // Success: remove sent entries from the queue and cleanup old records.
+            entries.forEach { queue.remove($0.date) }
+            queue.removeOlderThan(days: 30)
+            
+            print("[ActivityService] synced \(entries.count) entries")
+        } catch {
+            print("[ActivityService] sync failed for \(entries.count) entries: \(error.localizedDescription)")
+            throw error
+        }
     }
     
     /// Low-level send without local enqueue. Used by the coordinator when

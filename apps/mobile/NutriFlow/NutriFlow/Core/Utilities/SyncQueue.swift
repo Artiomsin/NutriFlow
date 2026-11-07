@@ -25,7 +25,7 @@ final class SyncQueue: @unchecked Sendable {
 
     private init() {}
 
-    // MARK: - Public API
+   
 
     /// All pending entries.
     var all: [[String: Any]] {
@@ -63,6 +63,7 @@ final class SyncQueue: @unchecked Sendable {
         // Duplicate check by date
         if let date = entry["date"] as? String,
            array.contains(where: { $0["date"] as? String == date }) {
+            print("[SyncQueue] skip duplicate entry for date \(date)")
             return
         }
 
@@ -72,6 +73,7 @@ final class SyncQueue: @unchecked Sendable {
 
         array.append(newEntry)
         save(array)
+        print("[SyncQueue] enqueued entry for date \(newEntry["date"] ?? "?")")
     }
 
     /// Removes a single entry by date (called after successful sync).
@@ -121,7 +123,7 @@ final class SyncQueue: @unchecked Sendable {
         }
     }
 
-    // MARK: - Private
+ 
 
     private func save(_ array: [[String: Any]]) {
         guard let data = try? JSONSerialization.data(withJSONObject: array) else { return }

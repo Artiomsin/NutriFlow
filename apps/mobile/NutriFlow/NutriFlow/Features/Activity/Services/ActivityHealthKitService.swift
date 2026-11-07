@@ -19,6 +19,13 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
 
     var onActivityChanged: (() -> Void)?
 
+    /// Completion handlers from HKObserverQuery that must be called only after
+    /// the full async flow (fetchToday + syncToBackend) has finished.
+    /// This prevents HealthKit from considering the delivery "done" before we
+    /// have actually persisted the data (either to backend or to local sync queue).
+    private var pendingCompletions: [(() -> Void)] = []
+    private let completionLock = NSLock()
+
 
     private var dateFormatter: DateFormatter {
         let f = DateFormatter()
@@ -241,7 +248,13 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
 
                 self?.onActivityChanged?()
 
-                completionHandler()
+                // Store the completion handler and call it only after the full
+                // async flow (fetchToday + syncToBackend) has finished.
+                // This prevents HealthKit from considering the delivery done
+                // before we have persisted the data.
+                self?.completionLock.lock()
+                self?.pendingCompletions.append(completionHandler)
+                self?.completionLock.unlock()
             }
 
             store.execute(query)
@@ -255,6 +268,24 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
         }
 
         observers.removeAll()
+
+        // Complete any pending observations on stop to avoid leaking
+        // completion handlers that will never be called.
+        completePendingObservations()
+    }
+
+    /// Call all stored HealthKit observer completion handlers.
+    /// Must be called only after the full async flow (fetchToday + syncToBackend)
+    /// has finished, so HealthKit knows the data has been persisted.
+    func completePendingObservations() {
+        completionLock.lock()
+        let completions = pendingCompletions
+        pendingCompletions.removeAll()
+        completionLock.unlock()
+
+        for completion in completions {
+            completion()
+        }
     }
 
 

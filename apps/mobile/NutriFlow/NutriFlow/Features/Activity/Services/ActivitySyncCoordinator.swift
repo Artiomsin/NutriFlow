@@ -261,6 +261,12 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
 
             await self.syncToBackend(activity)
 
+            // Complete the HealthKit observer callback only after the data has
+            // been persisted (synced to backend or queued locally). This
+            // prevents HealthKit from considering the delivery done before we
+            // have actually saved the data.
+            self.healthKitService.completePendingObservations()
+
             guard self.isActive, !Task.isCancelled else {
                 return
             }
@@ -307,7 +313,6 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
         }
     }
 
-    // MARK: - Retry configuration (exponential backoff)
 
     private let baseRetryDelay: TimeInterval = 1.0
     private let maxRetryDelay: TimeInterval = 300.0
@@ -319,10 +324,6 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
         let pending = SyncQueue.shared.readyForRetry
         guard !pending.isEmpty else { return }
 
-        print(
-            "[ActivitySyncCoordinator] processing \(pending.count) queued entries"
-        )
-
         let entries: [DailyActivity] = pending.compactMap { dict in
             guard
                 let date = dict["date"] as? String,
@@ -331,7 +332,6 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
                 let basalCalories = dict["basalCalories"] as? Double,
                 let distanceMeters = dict["distanceMeters"] as? Double
             else {
-                print("[ActivitySyncCoordinator] skipping malformed queue entry")
                 return nil
             }
             return DailyActivity(
@@ -344,24 +344,16 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
         }
 
         guard !entries.isEmpty else {
-            // All entries were malformed; clear the queue to avoid retrying forever.
             SyncQueue.shared.removeAll()
             return
         }
 
         do {
-            // Use low-level send (no re-enqueue) since entries are already in the queue.
             try await activityService.send(entries: entries)
 
-            // Success: remove sent entries from the queue and cleanup old records.
             entries.forEach { SyncQueue.shared.remove($0.date) }
             SyncQueue.shared.removeOlderThan(days: 30)
-
-            print(
-                "[ActivitySyncCoordinator] queue processed: \(entries.count) entries sent"
-            )
         } catch {
-            // Failure: bump retryCount and schedule next retry with exponential backoff.
             for entry in entries {
                 var updated = SyncQueue.shared.all.first { $0["date"] as? String == entry.date } ?? [:]
                 var retryCount = (updated["retryCount"] as? Int) ?? 0
@@ -377,7 +369,6 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
 
                 SyncQueue.shared.update(updated)
             }
-            print("[ActivitySyncCoordinator] queue retry failed: \(error)")
         }
     }
 
