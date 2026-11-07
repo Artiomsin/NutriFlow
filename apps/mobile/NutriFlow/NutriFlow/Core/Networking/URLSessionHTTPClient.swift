@@ -1,9 +1,17 @@
+
 import Foundation
+import OSLog
 
 final class URLSessionHTTPClient: HTTPClient, Sendable {
+
     private let session: URLSession
     private let interceptors: [RequestInterceptor]
     private let refreshService: AuthRefreshService?
+
+    private let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "NutriFlow",
+        category: "HTTPClient"
+    )
 
     init(
         interceptors: [RequestInterceptor] = [],
@@ -35,14 +43,14 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
             return try JSONDecoder().decode(T.self, from: validatedData)
         } catch {
             #if DEBUG
-            print("========== API DECODING ERROR ==========")
-            print("Expected type: \(T.self)")
-            print("URL: \(response.url?.absoluteString ?? "unknown")")
-            print("Status code: \(response.statusCode)")
-            print("Decoder error: \(error)")
-            print("Response body:")
-            print(String(decoding: validatedData, as: UTF8.self))
-            print("========================================")
+            logger.error("""
+            API DECODING ERROR
+            Expected type: \(String(describing: T.self), privacy: .public)
+            URL: \(response.url?.path ?? "unknown", privacy: .public)
+            Status code: \(response.statusCode)
+            Error: \(error.localizedDescription, privacy: .public)
+            Response body: \(String(decoding: validatedData, as: UTF8.self), privacy: .private)
+            """)
             #endif
 
             throw APIError.decodingFailed
@@ -56,6 +64,7 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
             request,
             retryOn401: request.authenticationRetryPolicy == .afterTokenRefresh
         )
+
         _ = try validate(data: data, response: response)
     }
 
@@ -77,6 +86,7 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
             path: path,
             authenticationRetryPolicy: authenticationRetryPolicy
         )
+
         return response.url
     }
 
@@ -94,11 +104,23 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
             path: path,
             retryOn401: authenticationRetryPolicy == .afterTokenRefresh
         )
+
         let validatedData = try validate(data: responseData, response: response)
 
         do {
             return try JSONDecoder().decode(T.self, from: validatedData)
         } catch {
+            #if DEBUG
+            logger.error("""
+            MULTIPART DECODING ERROR
+            Expected type: \(String(describing: T.self), privacy: .public)
+            URL: \(response.url?.path ?? "unknown", privacy: .public)
+            Status code: \(response.statusCode)
+            Error: \(error.localizedDescription, privacy: .public)
+            Response body: \(String(decoding: validatedData, as: UTF8.self), privacy: .private)
+            """)
+            #endif
+
             throw APIError.decodingFailed
         }
     }
@@ -108,11 +130,13 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         retryOn401: Bool
     ) async throws -> (Data, HTTPURLResponse) {
         let urlRequest = try await buildURLRequest(from: request)
+
         let (data, response) = try await perform(urlRequest)
 
         if retryOn401,
            response.statusCode == 401,
            try await shouldRetryAfter401(path: request.path) {
+
             let result = try await execute(request, retryOn401: false)
 
             if result.1.statusCode == 401, let refreshService {
@@ -133,17 +157,18 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         retryOn401: Bool
     ) async throws -> (Data, HTTPURLResponse) {
         let boundary = UUID().uuidString
-
         let url = try makeURL(path: path)
 
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = HTTPMethod.POST.rawValue
+
         urlRequest.setValue(
             "multipart/form-data; boundary=\(boundary)",
             forHTTPHeaderField: "Content-Type"
         )
 
         var body = Data()
+
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append(
             "Content-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\r\n"
@@ -152,6 +177,7 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
         body.append(data)
         body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+
         urlRequest.httpBody = body
 
         try await adapt(&urlRequest)
@@ -161,6 +187,7 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         if retryOn401,
            response.statusCode == 401,
            try await shouldRetryAfter401(path: path) {
+
             let result = try await executeMultipart(
                 data: data,
                 fileName: fileName,
@@ -179,38 +206,115 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         return (responseData, response)
     }
 
-    private func perform(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+    private func perform(
+        _ request: URLRequest
+    ) async throws -> (Data, HTTPURLResponse) {
+        let startedAt = Date()
+
+        let method = request.httpMethod ?? "UNKNOWN"
+        let url = request.url
+
         do {
+            #if DEBUG
+            logger.debug("""
+            HTTP REQUEST
+            Method: \(method, privacy: .public)
+            URL: \(url?.absoluteString ?? "unknown", privacy: .public)
+            """)
+            #endif
+
             let (data, response) = try await session.data(for: request)
 
             guard let httpResponse = response as? HTTPURLResponse else {
+                #if DEBUG
+                logger.error("Invalid HTTP response")
+                #endif
                 throw APIError.requestFailed
             }
 
+            let duration = Int(Date().timeIntervalSince(startedAt) * 1000)
+
+            #if DEBUG
+            let requestId = httpResponse.value(
+                forHTTPHeaderField: "X-Request-ID"
+            ) ?? "none"
+
+            if (200...299).contains(httpResponse.statusCode) {
+                logger.info("""
+                HTTP RESPONSE
+                Method: \(method, privacy: .public)
+                URL: \(url?.absoluteString ?? "unknown", privacy: .public)
+                Status: \(httpResponse.statusCode)
+                Bytes: \(data.count)
+                Duration: \(duration) ms
+                Request ID: \(requestId, privacy: .public)
+                """)
+            } else {
+                logger.error("""
+                HTTP RESPONSE ERROR
+                Method: \(method, privacy: .public)
+                URL: \(url?.absoluteString ?? "unknown", privacy: .public)
+                Status: \(httpResponse.statusCode)
+                Bytes: \(data.count)
+                Duration: \(duration) ms
+                Request ID: \(requestId, privacy: .public)
+                """)
+            }
+            #endif
+
             return (data, httpResponse)
+
         } catch is CancellationError {
+            #if DEBUG
+            logger.debug("Request cancelled: \(url?.path ?? "unknown", privacy: .public)")
+            #endif
+
             throw Self.mapCancellation()
+
         } catch let error as URLError where error.code == .cancelled {
+            #if DEBUG
+            logger.debug("URL request cancelled: \(url?.path ?? "unknown", privacy: .public)")
+            #endif
+
             throw Self.mapCancellation()
+
         } catch let error as URLError {
+            #if DEBUG
+            logger.error("""
+            NETWORK ERROR
+            URL: \(url?.path ?? "unknown", privacy: .public)
+            Code: \(error.code.rawValue)
+            Description: \(error.localizedDescription, privacy: .public)
+            """)
+            #endif
+
             throw APIError.transport(code: error.code)
+
         } catch let error as APIError {
             throw error
+
         } catch {
+            #if DEBUG
+            logger.error("""
+            UNKNOWN HTTP ERROR
+            URL: \(url?.path ?? "unknown", privacy: .public)
+            Error: \(error.localizedDescription, privacy: .public)
+            """)
+            #endif
+
             throw APIError.unknown
         }
     }
 
-    // iOS returns URLError.cancelled in two different cases: the Task was
-    // cancelled intentionally (screen change, new request) or the connection
-    // dropped (network loss, app switch, UI change). They can only be told
-    // apart via Task.isCancelled: a system drop was never requested.
     private static func mapCancellation() -> APIError {
-        Task.isCancelled ? .cancelled : .transport(code: .networkConnectionLost)
+        Task.isCancelled
+            ? .cancelled
+            : .transport(code: .networkConnectionLost)
     }
 
     private func shouldRetryAfter401(path: String) async throws -> Bool {
-        guard Self.shouldRefreshToken(for: path), let refreshService else {
+        guard Self.shouldRefreshToken(for: path),
+              let refreshService else {
             return false
         }
 
@@ -226,12 +330,16 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
              AuthEndpoints.google,
              AuthEndpoints.apple:
             return false
+
         default:
             return true
         }
     }
 
-    private func validate(data: Data, response: HTTPURLResponse) throws -> Data {
+    private func validate(
+        data: Data,
+        response: HTTPURLResponse
+    ) throws -> Data {
         if !(200...299).contains(response.statusCode),
            let problem = try? JSONDecoder().decode(ProblemDetails.self, from: data) {
             throw APIError.remote(
@@ -245,28 +353,37 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         switch response.statusCode {
         case 200...299:
             return data
+
         case 400, 422:
             throw APIError.invalidRequest(
                 statusCode: response.statusCode,
                 requestId: requestId
             )
+
         case 401:
             throw APIError.unauthorized
+
         case 403:
             throw APIError.forbidden
+
         case 404:
             throw APIError.notFound
+
         case 408:
             throw APIError.requestTimeout(requestId: requestId)
+
         case 409:
             throw APIError.conflict(requestId: requestId)
+
         case 429:
             throw APIError.rateLimited(requestId: requestId)
+
         case 500...599:
             throw APIError.serverError(
                 statusCode: response.statusCode,
                 requestId: requestId
             )
+
         default:
             throw APIError.http(
                 statusCode: response.statusCode,
@@ -275,10 +392,15 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         }
     }
 
-    private func retryAfter(from response: HTTPURLResponse) -> TimeInterval? {
-        guard let value = response.value(forHTTPHeaderField: "Retry-After") else {
+    private func retryAfter(
+        from response: HTTPURLResponse
+    ) -> TimeInterval? {
+        guard let value = response.value(
+            forHTTPHeaderField: "Retry-After"
+        ) else {
             return nil
         }
+
         return TimeInterval(value)
     }
 
@@ -294,7 +416,10 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         urlRequest.httpMethod = request.method.rawValue
 
         request.headers.forEach {
-            urlRequest.setValue($0.value, forHTTPHeaderField: $0.key)
+            urlRequest.setValue(
+                $0.value,
+                forHTTPHeaderField: $0.key
+            )
         }
 
         if let body = request.body {
@@ -303,10 +428,15 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
             } catch {
                 throw APIError.encodingFailed
             }
-            urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+            urlRequest.setValue(
+                "application/json",
+                forHTTPHeaderField: "Content-Type"
+            )
         }
 
         try await adapt(&urlRequest)
+
         return urlRequest
     }
 
@@ -327,18 +457,25 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
             throw APIError.invalidURL
         }
 
-        let pathSuffix = path.hasPrefix("/") ? String(path.dropFirst()) : path
+        let pathSuffix = path.hasPrefix("/")
+            ? String(path.dropFirst())
+            : path
+
         let basePath = components.percentEncodedPath.trimmingCharacters(
             in: CharacterSet(charactersIn: "/")
         )
+
         components.percentEncodedPath = "/" + [basePath, pathSuffix]
             .filter { !$0.isEmpty }
             .joined(separator: "/")
+
         components.queryItems = queryItems.isEmpty ? nil : queryItems
 
         guard let url = components.url else {
             throw APIError.invalidURL
         }
+
         return url
     }
 }
+
