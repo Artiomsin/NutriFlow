@@ -239,9 +239,11 @@ export class GoalsService {
       );
     }
 
-    const reason = forceAutomatic
-      ? 'manual_reset_to_automatic'
-      : 'profile_recalculation';
+    const reason = !existing
+      ? 'initial_calculation'
+      : forceAutomatic
+        ? 'manual_reset_to_automatic'
+        : 'profile_recalculation';
 
     return this.replaceCurrentGoals(
       userId,
