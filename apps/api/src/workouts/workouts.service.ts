@@ -119,12 +119,10 @@ export class WorkoutsService {
   ) {
     const conds = [eq(userWorkouts.userId, userId)];
     if (from) {
-      conds.push(
-        gte(userWorkouts.startDate, new Date(`${from}T00:00:00.000Z`)),
-      );
+      conds.push(gte(userWorkouts.localDate, from));
     }
     if (to) {
-      conds.push(lte(userWorkouts.startDate, new Date(`${to}T23:59:59.999Z`)));
+      conds.push(lte(userWorkouts.localDate, to));
     }
 
     const where = and(...conds);
