@@ -22,8 +22,20 @@ export const dailyActivity = app.table(
       .references(() => users.id, { onDelete: 'cascade' }),
     date: date('date').notNull(),
     steps: integer('steps').default(0).notNull(),
-    activeCalories: integer('active_calories').default(0).notNull(),
-    basalCalories: integer('basal_calories').default(0).notNull(),
+    activeCalories: numeric('active_calories', {
+      precision: 10,
+      scale: 1,
+      mode: 'number',
+    })
+      .default(0)
+      .notNull(),
+    basalCalories: numeric('basal_calories', {
+      precision: 10,
+      scale: 1,
+      mode: 'number',
+    })
+      .default(0)
+      .notNull(),
     distanceMeters: numeric('distance_meters', {
       precision: 10,
       scale: 2,

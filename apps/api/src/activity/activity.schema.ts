@@ -4,8 +4,8 @@ import { calendarDateSchema } from '../common/validation/date.schema';
 export const syncEntrySchema = z.object({
   date: calendarDateSchema,
   steps: z.number().int().min(0).max(200_000).optional(),
-  activeCalories: z.number().int().min(0).max(20_000).optional(),
-  basalCalories: z.number().int().min(0).max(20_000).optional(),
+  activeCalories: z.number().min(0).max(20_000).optional(),
+  basalCalories: z.number().min(0).max(20_000).optional(),
   distanceMeters: z.number().min(0).max(1_000_000).optional(),
 });
 
