@@ -445,7 +445,7 @@ final class MockGoalsService: GoalsServiceProtocol {
         ]
     }
     
-    func getGoals() async throws -> UserGoals {
+    func getGoals(date: String? = nil) async throws -> UserGoals {
         UserGoals(
             id: "1",
             userId: "1",
