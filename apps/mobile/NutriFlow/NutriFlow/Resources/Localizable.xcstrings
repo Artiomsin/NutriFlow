@@ -139,6 +139,9 @@
     "Added %@" : {
 
     },
+    "All Time Zones" : {
+
+    },
     "Allow notifications for NutriFlow in iPhone Settings to receive reminders." : {
 
     },
@@ -164,6 +167,9 @@
 
     },
     "Automatic calculation is off" : {
+
+    },
+    "Automatic Time Zone" : {
 
     },
     "Based on your recent activity" : {
@@ -260,6 +266,9 @@
 
     },
     "Create Profile" : {
+
+    },
+    "Current Time Zone" : {
 
     },
     "Custom amount" : {
@@ -921,6 +930,9 @@
     "Keep going!" : {
 
     },
+    "Keep your time zone fixed." : {
+
+    },
     "Last 7 nights" : {
 
     },
@@ -1152,6 +1164,9 @@
     "Search categories" : {
 
     },
+    "Search city or region" : {
+
+    },
     "Search Food" : {
 
     },
@@ -1171,6 +1186,9 @@
 
     },
     "Select this food to change its category." : {
+
+    },
+    "Select Time Zone" : {
 
     },
     "Select your foods to assign or remove a category." : {
@@ -1288,6 +1306,9 @@
 
     },
     "Update my goals to match my stats" : {
+
+    },
+    "Updates automatically when you travel." : {
 
     },
     "Use automatic goals?" : {

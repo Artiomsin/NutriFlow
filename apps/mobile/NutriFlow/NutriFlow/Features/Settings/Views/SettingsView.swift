@@ -21,10 +21,11 @@ struct SettingsView: View {
     @State private var isNotificationPermissionDenied = false
     @State private var navPath: [SettingsNavRoute] = []
     @State private var hasLoadedSettings = false
+    @State private var showingTimeZoneList = false
     @Environment(ThemeStore.self)
     private var themeStore
 
-    init(viewModel: ProfileViewModel, goalsVM: GoalsViewModel, coordinator: AppCoordinator?,authService: AuthServiceProtocol, weightReminderScheduler: WeightReminderScheduling, waterReminderScheduler: WaterReminderScheduling, achievementNotificationService: AchievementNotificationService, tabBarState: TabBarState = TabBarState(), isActive: Bool = true) {
+    init(viewModel: ProfileViewModel, goalsVM: GoalsViewModel, coordinator: AppCoordinator?, authService: AuthServiceProtocol, weightReminderScheduler: WeightReminderScheduling, waterReminderScheduler: WaterReminderScheduling, achievementNotificationService: AchievementNotificationService, tabBarState: TabBarState = TabBarState(), isActive: Bool = true) {
         self.viewModel = viewModel
         self.goalsVM = goalsVM
         self.coordinator = coordinator
@@ -39,9 +40,8 @@ struct SettingsView: View {
     var body: some View {
         let _ = print("SettingsView body")
         NavigationStack(path: $navPath) {
-            ScrollView(showsIndicators: false) {
+            ScrollView {
                 VStack(spacing: 24) {
-
                     header
                         .padding(.top, 30)
 
@@ -51,11 +51,13 @@ struct SettingsView: View {
                         unitsSection
                         notificationsSection
                         appearanceSection
+                        timeZoneSection
                     }
                     .padding(.horizontal, AppSpacing.paddingHorizontal)
                 }
                 .padding(.bottom, 100)
             }
+            .scrollIndicators(.hidden)
             .minimizeTabBarOnScroll(
                 tabBarState: tabBarState,
                 isActive: { navPath.isEmpty }
@@ -80,7 +82,6 @@ struct SettingsView: View {
                     EditProfileView(viewModel: viewModel)
                 case .goals:
                     GoalsManagementView(goalsVM: goalsVM)
-    
                 case .changePassword:
                     ChangePasswordView(
                         viewModel: ChangePasswordViewModel(
@@ -101,6 +102,22 @@ struct SettingsView: View {
         } message: {
             Text("Allow notifications for NutriFlow in iPhone Settings to receive reminders.")
         }
+        .sheet(isPresented: $showingTimeZoneList) {
+            TimeZoneListView(
+                selectedTimeZone: Binding(
+                    get: { PreferencesStore.shared.timeZone },
+                    set: { newValue in
+                        PreferencesStore.shared.timeZone = newValue
+                        Task {
+                            await viewModel.updateTimeZone(newValue)
+                        }
+                    }
+                ),
+                onDismiss: {
+                    showingTimeZoneList = false
+                }
+            )
+        }
         .onChange(of: navPath) { _, newPath in
             tabBarState.isTabBarHidden = !newPath.isEmpty
         }
@@ -109,18 +126,16 @@ struct SettingsView: View {
     private var header: some View {
         Text("Settings")
             .font(AppTypography.heading1)
-            .foregroundColor(AppColors.textPrimary)
+            .foregroundStyle(AppColors.textPrimary)
             .frame(maxWidth: .infinity)
     }
-
 
     private var accountSection: some View {
         VStack(spacing: 10) {
             HStack {
                 Text("Account")
                     .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(AppColors.textTertiary)
-
+                    .foregroundStyle(AppColors.textTertiary)
                 Spacer()
             }
             .padding(.leading, 2)
@@ -144,13 +159,12 @@ struct SettingsView: View {
         }
     }
 
-
     private var goalsSection: some View {
         VStack(spacing: 10) {
             HStack {
                 Text("Goals")
                     .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(AppColors.textTertiary )
+                    .foregroundStyle(AppColors.textTertiary)
                 Spacer()
             }
             .padding(.leading, 2)
@@ -225,7 +239,7 @@ struct SettingsView: View {
             .padding(.horizontal, AppSpacing.paddingHorizontal)
             .padding(.vertical, 14)
             .appGlassSurface()
-            #endif // DEBUG
+            #endif
         }
     }
 
@@ -242,7 +256,6 @@ struct SettingsView: View {
             set: { date in
                 let components = Calendar.current.dateComponents([.hour, .minute], from: date)
                 guard let hour = components.hour, let minute = components.minute else { return }
-
                 Task {
                     await waterReminderScheduler.updateReminderTime(
                         ReminderTime(hour: hour, minute: minute)
@@ -279,7 +292,6 @@ struct SettingsView: View {
                 Text("Appearance")
                     .font(.system(size: 13, weight: .regular))
                     .foregroundStyle(AppColors.textTertiary)
-
                 Spacer()
             }
             .padding(.leading, 2)
@@ -287,12 +299,7 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(spacing: 12) {
                     Image(systemName: "circle.lefthalf.filled")
-                        .font(
-                            .system(
-                                size: AppSpacing.iconSize,
-                                weight: .medium
-                            )
-                        )
+                        .font(.system(size: AppSpacing.iconSize, weight: .medium))
                         .foregroundStyle(AppColors.accent)
                         .frame(width: 30)
 
@@ -300,42 +307,29 @@ struct SettingsView: View {
                         Text("Theme")
                             .font(.system(size: 15, weight: .medium))
                             .foregroundStyle(AppColors.textPrimary)
-
                         Text(themeStore.mode.title)
                             .font(.caption)
                             .foregroundStyle(AppColors.textSecondary)
                     }
-
                     Spacer()
                 }
 
-                Picker(
-                    "Theme",
-                    selection: Binding(
-                        get: {
-                            themeStore.mode
-                        },
-                        set: {
-                            themeStore.mode = $0
-                        }
-                    )
-                ) {
+                Picker("Theme", selection: Binding(
+                    get: { themeStore.mode },
+                    set: { themeStore.mode = $0 }
+                )) {
                     ForEach(ThemeMode.allCases) { mode in
-                        Text(mode.title)
-                            .tag(mode)
+                        Text(mode.title).tag(mode)
                     }
                 }
                 .pickerStyle(.segmented)
                 .tint(AppColors.accent)
 
-                Divider()
-                    .opacity(0.3)
+                Divider().opacity(0.3)
 
                 Toggle(
                     isOn: Binding(
-                        get: {
-                            themeStore.glassEffectsMode == GlassEffectsMode.subtle
-                        },
+                        get: { themeStore.glassEffectsMode == GlassEffectsMode.subtle },
                         set: { isEnabled in
                             themeStore.glassEffectsMode = isEnabled ? GlassEffectsMode.subtle : GlassEffectsMode.off
                         }
@@ -345,7 +339,6 @@ struct SettingsView: View {
                         Text("Glass Effects")
                             .font(.system(size: 15, weight: .medium))
                             .foregroundStyle(AppColors.textPrimary)
-
                         Text("Use subtle glass on supported interface elements.")
                             .font(.caption)
                             .foregroundStyle(AppColors.textSecondary)
@@ -450,18 +443,127 @@ struct SettingsView: View {
         }
         .padding(.horizontal, AppSpacing.paddingHorizontal)
         .padding(.vertical, 12)
+    }
 
-        if let unitsError = viewModel.unitsError {
-            ErrorView(
-                error: unitsError,
-                onRetry: { Task { await viewModel.updatePreferredUnits() } }
-            )
-            .padding(.horizontal, AppSpacing.paddingHorizontal)
+    private var timeZoneSection: some View {
+        VStack(spacing: 10) {
+            sectionHeader("Time Zone", icon: "globe")
+
+            VStack(spacing: 0) {
+                // Current time zone
+                HStack(spacing: 12) {
+                    Image(systemName: "clock")
+                        .font(.system(size: AppSpacing.iconSize))
+                        .foregroundStyle(AppColors.accent)
+                        .frame(width: 30)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Current Time Zone")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(AppColors.textPrimary)
+
+                        Text(PreferencesStore.shared.timeZone)
+                            .font(.system(size: 13))
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
+
+                    Spacer()
+
+                    if !PreferencesStore.shared.autoUpdateTimeZone {
+                        Button {
+                            showingTimeZoneList = true
+                        } label: {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(AppColors.textTertiary)
+                                .frame(width: 32, height: 32)
+                                .background(AppColors.surfaceSecondary)
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, AppSpacing.paddingHorizontal)
+                .padding(.vertical, 14)
+
+                Divider()
+                    .padding(.leading, 52)
+                    .opacity(0.3)
+
+                // Automatic time zone
+                HStack(spacing: 12) {
+                    Image(systemName: "location.circle")
+                        .font(.system(size: AppSpacing.iconSize))
+                        .foregroundStyle(AppColors.accent)
+                        .frame(width: 30)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Automatic Time Zone")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(AppColors.textPrimary)
+
+                        Text(
+                            PreferencesStore.shared.autoUpdateTimeZone
+                            ? "Updates automatically when you travel."
+                            : "Keep your time zone fixed."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(AppColors.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    Toggle("", isOn: Binding(
+                        get: { PreferencesStore.shared.autoUpdateTimeZone },
+                        set: { isEnabled in
+                            Task {
+                                await viewModel.setAutoUpdateTimeZone(isEnabled)
+                            }
+                        }
+                    ))
+                    .labelsHidden()
+                    .tint(AppColors.accent)
+                }
+                .padding(.horizontal, AppSpacing.paddingHorizontal)
+                .padding(.vertical, 14)
+
+                if let timeZoneError = viewModel.timeZoneError {
+                    Divider()
+                        .opacity(0.3)
+
+                    ErrorView(
+                        error: timeZoneError,
+                        onRetry: {
+                            Task {
+                                await viewModel.updateTimeZone(
+                                    PreferencesStore.shared.timeZone
+                                )
+                            }
+                        }
+                    )
+                    .padding(AppSpacing.paddingHorizontal)
+                }
+            }
+            .appGlassSurface()
         }
     }
+
+    private func sectionHeader(_ title: String, icon: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(AppColors.accent)
+
+            Text(title)
+                .font(.system(size: 13, weight: .regular))
+                .foregroundStyle(AppColors.textTertiary)
+
+            Spacer()
+        }
+        .padding(.leading, 2)
+    }
 }
-
-
 
 #Preview("Settings") {
     let container = AppDependencyContainer()
