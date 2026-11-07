@@ -50,10 +50,20 @@
         }
       }
     },
+    "%@ %@ g" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@ g"
+          }
+        }
+      }
+    },
     "%@ efficiency" : {
 
     },
-    "%@ kcal per 100 g" : {
+    "%@ kcal · 100 g" : {
 
     },
     "%@/%@ %@" : {
@@ -198,13 +208,13 @@
     "Choose an icon that makes this category easy to spot." : {
 
     },
+    "Choose Category" : {
+
+    },
     "Choose category icon" : {
 
     },
     "Choose icon" : {
-
-    },
-    "Choose the category for the selected foods." : {
 
     },
     "Connect Apple Health to see sleep history" : {
@@ -917,10 +927,7 @@
     "LATEST" : {
 
     },
-    "Loading activity..." : {
-
-    },
-    "Loading categories…" : {
+    "Loading activity" : {
 
     },
     "Loading sleep..." : {
@@ -936,6 +943,9 @@
 
     },
     "Manage foods in %@" : {
+
+    },
+    "Manage Personal Foods" : {
 
     },
     "Manage weight records" : {
@@ -957,9 +967,6 @@
 
     },
     "ml" : {
-
-    },
-    "Move %lld foods" : {
 
     },
     "My Categories" : {
@@ -1052,6 +1059,9 @@
     "Per 100g" : {
 
     },
+    "Personal" : {
+
+    },
     "Personalized plan" : {
 
     },
@@ -1094,9 +1104,6 @@
     "Reminders" : {
 
     },
-    "Remove Category" : {
-
-    },
     "Row" : {
 
     },
@@ -1127,6 +1134,9 @@
     "Search catalog" : {
 
     },
+    "Search categories" : {
+
+    },
     "Search Food" : {
 
     },
@@ -1142,7 +1152,13 @@
     "Select Date Range" : {
 
     },
+    "Select personal foods and assign or remove categories." : {
+
+    },
     "Select this food to change its category." : {
+
+    },
+    "Select your foods to assign or remove a category." : {
 
     },
     "Series" : {
@@ -1248,6 +1264,9 @@
 
     },
     "Try again with better lighting and food clearly visible." : {
+
+    },
+    "Unassign Category" : {
 
     },
     "Units" : {

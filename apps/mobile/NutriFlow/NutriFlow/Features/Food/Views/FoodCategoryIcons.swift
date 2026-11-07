@@ -1,45 +1,53 @@
-//
-//  FoodCategoryIcons.swift
-//  Nutriflow
-//
-//  Created by Artem on 05.11.2026.
-//
-
 import SwiftUI
 
 enum FoodCategoryIcons {
     static let defaultIcon = "fork.knife"
 
     static let all: [String] = [
+        // General food
         "fork.knife",
-        "carrot",
-        "fish",
-        "leaf",
-        "cup.and.saucer",
-        "birthday.cake",
-        "takeoutbag.and.cup.and.straw",
-        "basket",
-        "mug",
-        "waterbottle",
-        "drop",
-        "flame",
-        "popcorn",
-        "egg",
         "fork.knife.circle",
-        "leaf.fill",
-        "cup.and.saucer.fill",
-        "tag",
-        "tag.fill",
-        "circle.grid.2x2",
-        "wineglass",
-        "frying.pan",
-        "refrigerator",
-        "carrot.fill",
-        "fish.fill",
         "fork.knife.circle.fill",
-        "takeoutbag.and.cup.and.straw.fill",
+
+        // Fruits and vegetables
+        "carrot",
+        "carrot.fill",
+        "leaf",
+        "leaf.fill",
+
+        // Seafood
+        "fish",
+        "fish.fill",
+
+        // Cooking and meals
+        "frying.pan",
+        "birthday.cake",
+        "birthday.cake.fill",
+        "tray",
+        "tray.fill",
+
+        // Bakery and snacks
+        "popcorn",
+        "basket",
+        "basket.fill",
+
+        // Drinks
+        "cup.and.saucer",
+        "cup.and.saucer.fill",
+        "mug",
         "mug.fill",
+        "waterbottle",
+        "wineglass",
+
+        // Ingredients
+        "drop",
         "drop.fill",
-        "flame.fill"
+        "flame",
+        "flame.fill",
+
+        // Food packaging
+        "takeoutbag.and.cup.and.straw",
+        "takeoutbag.and.cup.and.straw.fill"
     ]
 }
+

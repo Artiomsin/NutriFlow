@@ -2,6 +2,8 @@ import SwiftUI
 
 struct CategoryFoodCard: View {
     let food: CatalogFood
+    let isSelecting: Bool
+    let isSelected: Bool
 
     private var isPersonal: Bool {
         food.source == "user"
@@ -9,6 +11,13 @@ struct CategoryFoodCard: View {
 
     var body: some View {
         HStack(spacing: 12) {
+            if isSelecting {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(isPersonal ? AppColors.accent : AppColors.textTertiary)
+                    .accessibilityHidden(true)
+            }
+
             foodImage
 
             VStack(alignment: .leading, spacing: 6) {
@@ -47,7 +56,18 @@ struct CategoryFoodCard: View {
 
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 4)
+        .padding(12)
+        .background(
+            isSelected ? AppColors.accent.opacity(0.10) : AppColors.surface,
+            in: .rect(cornerRadius: AppRadius.medium)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: AppRadius.medium)
+                .stroke(
+                    isSelected ? AppColors.accent.opacity(0.70) : AppColors.border.opacity(0.70),
+                    lineWidth: isSelected ? 1.5 : 1
+                )
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
     }
