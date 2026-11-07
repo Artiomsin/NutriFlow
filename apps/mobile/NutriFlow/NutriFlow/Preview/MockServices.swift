@@ -131,11 +131,11 @@ final class MockActivityService: ActivityServiceProtocol {
             points.append(ActivityDayPoint(
                 date: df.string(from: day),
                 steps: Int.random(in: 3000...12000),
-                activeCalories: burned,
-                basalCalories: Int.random(in: 1300...1900),
+                activeCalories: Double(burned),
+                basalCalories: Double(Int.random(in: 1300...1900)),
                 distanceMeters: Double(Int.random(in: 2000...9000)),
-                caloriesConsumed: consumed,
-                netCalories: consumed - burned
+                caloriesConsumed: Double(consumed),
+                netCalories: Double(consumed - burned)
             ))
             day = cal.date(byAdding: .day, value: 1, to: day) ?? day
         }

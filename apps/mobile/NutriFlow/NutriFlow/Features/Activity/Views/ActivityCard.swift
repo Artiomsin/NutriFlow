@@ -124,7 +124,7 @@ struct ActivityCard: View {
                 ActivityMetric(icon: "figure.walk", value: "\(activity.steps)", unit: "steps")
                 ActivityMetric(
                     icon: "flame.fill",
-                    value: UnitConversion.formatEnergyValueText(kcal: Double(activity.activeCalories), preferred: prefsStore.preferredUnits),
+                    value: UnitConversion.formatEnergyValueText(kcal: activity.activeCalories, preferred: prefsStore.preferredUnits),
                     unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits)
                 )
                 ActivityMetric(
@@ -149,10 +149,13 @@ struct ActivityCard: View {
                 ActivityGoalRow(
                     icon: "flame.fill",
                     label: "Active kcal",
-                    current: activity.activeCalories,
+                    current: Int(activity.activeCalories.rounded()),
                     goal: goal,
                     color: .orange,
                     unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits),
+                    displayCurrent: UnitConversion.formatEnergyValueText(kcal: activity.activeCalories, preferred: prefsStore.preferredUnits),
+                    displayGoal: UnitConversion.formatEnergyValueText(kcal: Double(goal), preferred: prefsStore.preferredUnits),
+                    progressCurrent: activity.activeCalories,
                     isEmbedded: true
                 )
             }

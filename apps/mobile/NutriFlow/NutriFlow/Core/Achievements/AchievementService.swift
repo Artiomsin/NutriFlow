@@ -30,13 +30,13 @@ struct AchievementService: Sendable {
         ]
     }
 
-    func checkActiveCalories(_ kcal: Int, goal: Int) -> [Achievement] {
-        guard goal > 0, kcal >= goal else { return [] }
+    func checkActiveCalories(_ kcal: Double, goal: Int) -> [Achievement] {
+        guard goal > 0, kcal >= Double(goal) else { return [] }
         return [
             Achievement(
                 id: dailyID("active_calories"),
                 title: "Active calorie goal reached",
-                body: "\(kcal) of \(goal) kcal. Great activity!"
+                body: "\(UnitConversion.formatNutritionValue(kcal)) of \(goal) kcal. Great activity!"
             )
         ]
     }

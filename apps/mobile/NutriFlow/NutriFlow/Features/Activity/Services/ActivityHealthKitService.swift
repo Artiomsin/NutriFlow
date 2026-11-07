@@ -76,19 +76,35 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
             unit: .kilocalorie()
         )
 
-        async let distance = sum(
+        async let walkingRunningDistance = sum(
             .distanceWalkingRunning,
             start: start,
             end: now,
             unit: .meter()
         )
+        async let cyclingDistance = sum(
+            .distanceCycling,
+            start: start,
+            end: now,
+            unit: .meter()
+        )
+        async let swimmingDistance = sum(
+            .distanceSwimming,
+            start: start,
+            end: now,
+            unit: .meter()
+        )
+
+        let totalDistance = await walkingRunningDistance
+            + cyclingDistance
+            + swimmingDistance
 
         let result = DailyActivity(
             date: Self.dateFormatter.string(from: now),
             steps: Int(await steps),
-            activeCalories: Int(await active),
-            basalCalories: Int(await basal),
-            distanceMeters: await distance
+            activeCalories: await active,
+            basalCalories: await basal,
+            distanceMeters: totalDistance
         )
 
         print("[HealthKit] fetchToday result: \(result)")

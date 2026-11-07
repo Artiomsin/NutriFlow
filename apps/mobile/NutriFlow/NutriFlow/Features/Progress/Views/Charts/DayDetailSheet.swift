@@ -52,7 +52,7 @@ struct DayDetailSheet: View {
                 ErrorView(error: warning, onRetry: onRetry)
             }
             if let goals { goalSection(goals) }
-            if let activity { activitySection(activity, goals: goals) }
+            activitySection(activity, goals: goals)
             workoutSection
             foodSection
             waterSection
@@ -90,40 +90,54 @@ struct DayDetailSheet: View {
             sectionLabel("Daily Goals", icon: "target")
 
             VStack(spacing: 14) {
-                GoalBar(title: "Calories", current: UnitConversion.formatEnergyValueText(kcal: foodTotals.cal, preferred: prefsStore.preferredUnits), goal: UnitConversion.formatEnergyValueText(kcal: goals.dailyCaloriesGoal ?? 0, preferred: prefsStore.preferredUnits), unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits), color: .orange, icon: "flame.fill")
-                GoalBar(title: "Protein", current: UnitConversion.formatMacro(grams: foodTotals.protein, preferred: prefsStore.preferredUnits), goal: UnitConversion.formatMacro(grams: goals.dailyProteinGoal ?? 0, preferred: prefsStore.preferredUnits), unit: "", color: .indigo, icon: "bolt.fill")
-                GoalBar(title: "Fat", current: UnitConversion.formatMacro(grams: foodTotals.fat, preferred: prefsStore.preferredUnits), goal: UnitConversion.formatMacro(grams: goals.dailyFatGoal ?? 0, preferred: prefsStore.preferredUnits), unit: "", color: .green, icon: "drop.degreesign.fill")
-                GoalBar(title: "Carbs", current: UnitConversion.formatMacro(grams: foodTotals.carbs, preferred: prefsStore.preferredUnits), goal: UnitConversion.formatMacro(grams: goals.dailyCarbsGoal ?? 0, preferred: prefsStore.preferredUnits), unit: "", color: .purple, icon: "leaf.arrow.circlepath")
-                GoalBar(title: "Water", current: UnitConversion.formatAmount(grams: water.reduce(0) { $0 + $1.amountMl }, unit: "ml", preferred: prefsStore.preferredUnits), goal: UnitConversion.formatAmount(grams: goals.dailyWaterGoal ?? 0, unit: "ml", preferred: prefsStore.preferredUnits), unit: "", color: .cyan, icon: "drop.fill")
+                GoalBar(title: "Calories", current: foodTotals.cal, goal: goals.dailyCaloriesGoal ?? 0, unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits), color: .orange, icon: "flame.fill") { value in
+                    UnitConversion.formatEnergyValueText(kcal: value, preferred: prefsStore.preferredUnits)
+                }
+                GoalBar(title: "Protein", current: foodTotals.protein, goal: goals.dailyProteinGoal ?? 0, unit: "", color: .indigo, icon: "bolt.fill") { value in
+                    UnitConversion.formatMacro(grams: value, preferred: prefsStore.preferredUnits)
+                }
+                GoalBar(title: "Fat", current: foodTotals.fat, goal: goals.dailyFatGoal ?? 0, unit: "", color: .green, icon: "drop.degreesign.fill") { value in
+                    UnitConversion.formatMacro(grams: value, preferred: prefsStore.preferredUnits)
+                }
+                GoalBar(title: "Carbs", current: foodTotals.carbs, goal: goals.dailyCarbsGoal ?? 0, unit: "", color: .purple, icon: "leaf.arrow.circlepath") { value in
+                    UnitConversion.formatMacro(grams: value, preferred: prefsStore.preferredUnits)
+                }
+                GoalBar(title: "Water", current: Double(water.reduce(0) { $0 + $1.amountMl }), goal: Double(goals.dailyWaterGoal ?? 0), unit: "", color: .cyan, icon: "drop.fill") { value in
+                    UnitConversion.formatAmount(grams: value, unit: "ml", preferred: prefsStore.preferredUnits)
+                }
             }
         }
         .padding()
         .appGlassSurface()
     }
 
-    private func activitySection(_ activity: ActivityDayPoint, goals: UserGoals?) -> some View {
+    private func activitySection(_ activity: ActivityDayPoint?, goals: UserGoals?) -> some View {
         let stepsGoal = goals?.dailyStepsGoal ?? 0
         let activeGoal = goals?.dailyActiveCaloriesGoal ?? 0
         return VStack(alignment: .leading, spacing: 16) {
             sectionLabel("Daily Activity", icon: "figure.walk")
 
-            VStack(spacing: 14) {
-                GoalBar(
-                    title: "Steps",
-                    current: "\(activity.steps)",
-                    goal: "\(stepsGoal)",
-                    unit: "",
-                    color: .blue,
-                    icon: "figure.walk"
-                )
-                GoalBar(
-                    title: "Active kcal",
-                    current: "\(activity.activeCalories)",
-                    goal: "\(activeGoal)",
-                    unit: "",
-                    color: .pink,
-                    icon: "flame.fill"
-                )
+            if let activity {
+                VStack(spacing: 14) {
+                    GoalBar(
+                        title: "Steps",
+                        current: Double(activity.steps),
+                        goal: Double(stepsGoal),
+                        unit: "",
+                        color: .blue,
+                        icon: "figure.walk"
+                    ) { $0.formatted(.number) }
+                    GoalBar(
+                        title: "Active kcal",
+                        current: Double(activity.activeCalories),
+                        goal: Double(activeGoal),
+                        unit: "",
+                        color: .pink,
+                        icon: "flame.fill"
+                    ) { $0.formatted(.number) }
+                }
+            } else {
+                emptyRow("No activity data synced")
             }
         }
         .padding()
@@ -252,23 +266,16 @@ struct DetailStatCard: View {
 
 struct GoalBar: View {
     let title: String
-    let current: String
-    let goal: String
+    let current: Double
+    let goal: Double
     let unit: String
     let color: Color
     let icon: String
-
-    private var rawCurrent: Double {
-        Double(current.split(separator: " ").first ?? "") ?? 0
-    }
-
-    private var rawGoal: Double {
-        Double(goal.split(separator: " ").first ?? "") ?? 0
-    }
+    let valueFormatter: (Double) -> String
 
     private var pct: Double {
-        guard rawGoal > 0 else { return 0 }
-        return min(rawCurrent / rawGoal, 1.0)
+        guard goal > 0 else { return 0 }
+        return min(current / goal, 1.0)
     }
 
     var body: some View {
@@ -281,7 +288,7 @@ struct GoalBar: View {
                     .font(.caption)
                     .foregroundColor(AppColors.textSecondary)
                 Spacer()
-                Text("\(current)/\(goal) \(unit)")
+                Text("\(valueFormatter(current))/\(valueFormatter(goal)) \(unit)")
                     .font(.caption.weight(.medium))
                     .foregroundColor(AppColors.textPrimary)
             }
@@ -329,7 +336,7 @@ struct FoodRow: View {
                     .lineLimit(1)
                 }
 
-                Text(formatTime(entry.createdAt))
+                Text("Added \(formatTime(entry.createdAt))")
                     .font(.caption)
                     .foregroundColor(AppColors.textTertiary)
             }
@@ -360,7 +367,7 @@ struct WaterRow: View {
                 .frame(width: 36, height: 36)
                 .overlay(Image(systemName: "drop.fill").font(.caption2).foregroundColor(.cyan))
 
-            Text(formatTime(entry.createdAt))
+            Text("Added \(formatTime(entry.createdAt))")
                 .font(.subheadline)
                 .foregroundColor(AppColors.textPrimary)
 

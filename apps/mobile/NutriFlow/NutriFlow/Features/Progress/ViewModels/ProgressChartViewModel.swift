@@ -116,6 +116,7 @@ final class ProgressChartViewModel {
         selectedDateWorkouts = []
         dayDetailWarning = nil
         dayDetailState = .loading
+        showDaySheet = true
 
         do {
             async let food = foodService?.getFoodByDate(date: date) ?? []
@@ -134,20 +135,36 @@ final class ProgressChartViewModel {
             selectedDateWorkouts = workouts.value
             dayDetailWarning = activity.error ?? workouts.error
             dayDetailState = .loaded
-            showDaySheet = true
         } catch is CancellationError {
             return
         } catch {
             dayDetailState = .error(ErrorMapper.map(error))
-            showDaySheet = true
         }
     }
 
     private func loadWorkoutsDay(_ date: String) async -> (value: [HealthKitWorkout], error: AppError?) {
         guard let workoutService else { return ([], nil) }
         do {
-            let response = try await workoutService.getHistory(from: date, to: date, limit: nil, offset: nil)
-            return (response.workouts.compactMap { WorkoutMapper.toWorkout($0) }, nil)
+            // The API's history filter uses UTC start dates, while `localDate`
+            // is the calendar day selected by the person. Query a one-day
+            // buffer, then use the persisted local date as the authoritative
+            // day to avoid losing workouts around UTC midnight.
+            guard let selectedDate = Self.dateOnlyFormatter.date(from: date) else {
+                return ([], .unknown)
+            }
+            let calendar = Calendar.current
+            let from = calendar.date(byAdding: .day, value: -1, to: selectedDate) ?? selectedDate
+            let to = calendar.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
+            let response = try await workoutService.getHistory(
+                from: Self.dateOnlyFormatter.string(from: from),
+                to: Self.dateOnlyFormatter.string(from: to),
+                limit: nil,
+                offset: nil
+            )
+            let workouts = response.workouts
+                .filter { $0.localDate == date }
+                .compactMap { WorkoutMapper.toWorkout($0) }
+            return (workouts, nil)
         } catch is CancellationError {
             return ([], .cancelled)
         } catch {
@@ -259,7 +276,7 @@ final class ProgressChartViewModel {
             updated.activeCalories = a.activeCalories
             updated.basalCalories = a.basalCalories
             updated.distanceMeters = a.distanceMeters
-            updated.netCalories = a.netCalories
+            updated.netCalories = Double(a.netCalories)
             return updated
         }
     }
