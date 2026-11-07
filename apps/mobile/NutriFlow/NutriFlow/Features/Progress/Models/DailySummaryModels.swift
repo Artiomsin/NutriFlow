@@ -55,10 +55,10 @@ struct ChartDataPoint: Identifiable, Sendable {
     let carbs: Double
     let waterMl: Int
     var steps: Int = 0
-    var activeCalories: Int = 0
-    var basalCalories: Int = 0
+    var activeCalories: Double = 0
+    var basalCalories: Double = 0
     var distanceMeters: Double = 0
-    var netCalories: Int = 0
+    var netCalories: Double = 0
 }
 
 

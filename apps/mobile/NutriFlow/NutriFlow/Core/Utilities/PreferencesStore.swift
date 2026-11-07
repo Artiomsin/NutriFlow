@@ -11,8 +11,29 @@ final class PreferencesStore {
         }
     }
 
+    var timeZone: String = TimeZone.current.identifier {
+        didSet {
+            saveTimeZone()
+        }
+    }
+
+    var autoUpdateTimeZone: Bool = false {
+        didSet {
+            saveAutoUpdateTimeZone()
+        }
+    }
+
+    var hasCompletedInitialBackfill: Bool = false {
+        didSet {
+            saveHasCompletedInitialBackfill()
+        }
+    }
+
     private let defaults = UserDefaults.standard
-    private let key = "preferred_units"
+    private let unitsKey = "preferred_units"
+    private let timeZoneKey = "user_time_zone"
+    private let autoUpdateTimeZoneKey = "user_auto_update_time_zone"
+    private let initialBackfillKey = "user_initial_backfill_completed"
 
     private init() {
         load()
@@ -22,17 +43,38 @@ final class PreferencesStore {
         if let units = profile.preferredUnits {
             preferredUnits = units
         }
+        if let timeZone = profile.timeZone, !timeZone.isEmpty {
+            self.timeZone = timeZone
+        }
     }
 
     private func save() {
         if let data = try? JSONEncoder().encode(preferredUnits) {
-            defaults.set(data, forKey: key)
+            defaults.set(data, forKey: unitsKey)
         }
     }
 
+    private func saveTimeZone() {
+        defaults.set(timeZone, forKey: timeZoneKey)
+    }
+
+    private func saveAutoUpdateTimeZone() {
+        defaults.set(autoUpdateTimeZone, forKey: autoUpdateTimeZoneKey)
+    }
+
+    private func saveHasCompletedInitialBackfill() {
+        defaults.set(hasCompletedInitialBackfill, forKey: initialBackfillKey)
+    }
+
     private func load() {
-        guard let data = defaults.data(forKey: key),
-              let units = try? JSONDecoder().decode(PreferredUnits.self, from: data) else { return }
-        preferredUnits = units
+        if let data = defaults.data(forKey: unitsKey),
+           let units = try? JSONDecoder().decode(PreferredUnits.self, from: data) {
+            preferredUnits = units
+        }
+        if let savedTimeZone = defaults.string(forKey: timeZoneKey), !savedTimeZone.isEmpty {
+            timeZone = savedTimeZone
+        }
+        autoUpdateTimeZone = defaults.bool(forKey: autoUpdateTimeZoneKey)
+        hasCompletedInitialBackfill = defaults.bool(forKey: initialBackfillKey)
     }
 }

@@ -1,5 +1,12 @@
 import { z } from 'zod';
 import { roundNutrition } from '../common/nutrition/precision';
+import { calendarDateSchema } from '../common/validation/date.schema';
+
+export const goalsQuerySchema = z.object({
+  date: calendarDateSchema.optional(),
+});
+
+export type GoalsQueryDto = z.infer<typeof goalsQuerySchema>;
 
 const nutritionGoal = z
   .number()

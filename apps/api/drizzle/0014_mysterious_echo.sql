@@ -1,0 +1,2 @@
+CREATE INDEX "idx_user_goals_user_period" ON "app"."user_goals" USING btree ("user_id","started_at","ended_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "idx_user_goals_one_active_per_user" ON "app"."user_goals" USING btree ("user_id") WHERE "app"."user_goals"."ended_at" IS NULL;

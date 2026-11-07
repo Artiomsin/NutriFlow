@@ -21,14 +21,9 @@ struct ActivityCard: View {
         case .unavailable:
             unavailablePrompt
         case .loading:
-            HStack {
-                ProgressView().tint(AppColors.accent)
-                Text("Loading activity...")
-                    .foregroundColor(AppColors.textSecondary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .appGlassSurface()
+            activitySkeleton
+                .appGlassSurface(level: .prominent)
+                .modifier(SkeletonShimmer())
         case .loaded(let activity):
             activityContent(activity)
         case .error(let error):
@@ -129,7 +124,7 @@ struct ActivityCard: View {
                 ActivityMetric(icon: "figure.walk", value: "\(activity.steps)", unit: "steps")
                 ActivityMetric(
                     icon: "flame.fill",
-                    value: UnitConversion.formatEnergyValueText(kcal: Double(activity.activeCalories), preferred: prefsStore.preferredUnits),
+                    value: UnitConversion.formatEnergyValueText(kcal: activity.activeCalories, preferred: prefsStore.preferredUnits),
                     unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits)
                 )
                 ActivityMetric(
@@ -154,10 +149,13 @@ struct ActivityCard: View {
                 ActivityGoalRow(
                     icon: "flame.fill",
                     label: "Active kcal",
-                    current: activity.activeCalories,
+                    current: Int(activity.activeCalories.rounded()),
                     goal: goal,
                     color: .orange,
                     unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits),
+                    displayCurrent: UnitConversion.formatEnergyValueText(kcal: activity.activeCalories, preferred: prefsStore.preferredUnits),
+                    displayGoal: UnitConversion.formatEnergyValueText(kcal: Double(goal), preferred: prefsStore.preferredUnits),
+                    progressCurrent: activity.activeCalories,
                     isEmbedded: true
                 )
             }
@@ -167,6 +165,155 @@ struct ActivityCard: View {
         .frame(maxWidth: .infinity)
         .appGlassSurface(level: .prominent)
     }
+    
+    private var activitySkeleton: some View {
+        VStack(spacing: 14) {
+            HStack(spacing: 16) {
+                skeletonMetric
+                skeletonMetric
+                skeletonMetric
+            }
+
+            if let goal = stepGoal, goal > 0 {
+                skeletonGoalRow
+            }
+
+            if let goal = activeCaloriesGoal, goal > 0 {
+                skeletonGoalRow
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Loading activity")
+    }
+
+    private var skeletonMetric: some View {
+        VStack(spacing: 6) {
+            Circle()
+                .fill(AppColors.textSecondary.opacity(0.12))
+                .frame(width: 22, height: 22)
+
+            RoundedRectangle(cornerRadius: 5)
+                .fill(AppColors.textSecondary.opacity(0.12))
+                .frame(width: 54, height: 18)
+
+            RoundedRectangle(cornerRadius: 4)
+                .fill(AppColors.textSecondary.opacity(0.08))
+                .frame(width: 38, height: 12)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var skeletonGoalRow: some View {
+        HStack(spacing: 10) {
+
+            // Progress column: 46 × 70
+            ZStack(alignment: .bottom) {
+                RoundedRectangle(
+                    cornerRadius: 15,
+                    style: .continuous
+                )
+                .fill(AppColors.textSecondary.opacity(0.10))
+                .overlay {
+                    RoundedRectangle(
+                        cornerRadius: 15,
+                        style: .continuous
+                    )
+                    .strokeBorder(
+                        AppColors.textSecondary.opacity(0.10),
+                        lineWidth: 1.2
+                    )
+                }
+
+                RoundedRectangle(
+                    cornerRadius: 15,
+                    style: .continuous
+                )
+                .fill(AppColors.textSecondary.opacity(0.14))
+                .frame(height: 35)
+
+                Circle()
+                    .fill(AppColors.textSecondary.opacity(0.18))
+                    .frame(width: 17, height: 17)
+                    .padding(.bottom, 7)
+            }
+            .frame(width: 46, height: 70)
+
+            // Goal information
+            VStack(alignment: .leading, spacing: 3) {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(AppColors.textSecondary.opacity(0.12))
+                    .frame(width: 65, height: 12)
+
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(AppColors.textSecondary.opacity(0.12))
+                    .frame(width: 115, height: 14)
+
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(AppColors.textSecondary.opacity(0.12))
+                    .frame(width: 55, height: 24)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background {
+            RoundedRectangle(
+                cornerRadius: 17,
+                style: .continuous
+            )
+            .fill(AppColors.textSecondary.opacity(0.06))
+        }
+        .overlay {
+            RoundedRectangle(
+                cornerRadius: 17,
+                style: .continuous
+            )
+            .stroke(
+                AppColors.textSecondary.opacity(0.08),
+                lineWidth: 0.8
+            )
+        }
+    }
+
+    private struct SkeletonShimmer: ViewModifier {
+        @State private var isAnimating = false
+
+        func body(content: Content) -> some View {
+            content
+                .overlay {
+                    GeometryReader { geometry in
+                        Rectangle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        .clear,
+                                        .white.opacity(0.10),
+                                        .clear
+                                    ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: geometry.size.width * 0.5)
+                            .offset(x: isAnimating ? geometry.size.width : -geometry.size.width)
+                    }
+                    .clipped()
+                    .allowsHitTesting(false)
+                }
+                .onAppear {
+                    withAnimation(
+                        .linear(duration: 1.4)
+                        .repeatForever(autoreverses: false)
+                    ) {
+                        isAnimating = true
+                    }
+                }
+        }
+    }
+    
     
 }
 
@@ -217,4 +364,18 @@ private struct ActivityMetric: View {
         .padding()
         .background(AppColors.background)
         
+}
+
+#Preview("Loading — Skeleton") {
+    let vm = ActivityViewModel(healthKit: MockHealthKit())
+    vm.state = .loading
+
+    return ActivityCard(
+        vm: vm,
+        stepGoal: 3444,
+        activeCaloriesGoal: 455
+    )
+    .padding()
+    .background(AppColors.background)
+    
 }

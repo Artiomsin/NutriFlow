@@ -7,10 +7,15 @@ final class GoalsService: GoalsServiceProtocol, Sendable {
         self.client = client
     }
     
-    func getGoals() async throws -> UserGoals {
+    func getGoals(date: String? = nil) async throws -> UserGoals {
+        var queryItems: [URLQueryItem] = []
+        if let date {
+            queryItems.append(URLQueryItem(name: "date", value: date))
+        }
         let request = APIRequest<NeverBody>(
             path: GoalsEndpoints.getGoals,
-            method: .GET
+            method: .GET,
+            queryItems: queryItems
         )
         return try await client.send(request)
     }

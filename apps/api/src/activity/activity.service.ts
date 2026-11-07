@@ -6,6 +6,7 @@ import { dailySummary } from '../db/schema/dailySummary';
 import { eq, and, sql } from 'drizzle-orm';
 import type { SyncActivityDto } from './activity.schema';
 import { currentUserDate } from '../common/time/user-date';
+import { roundNutrition } from '../common/nutrition/precision';
 
 @Injectable()
 export class ActivityService {
@@ -18,8 +19,8 @@ export class ActivityService {
           userId,
           date: e.date,
           steps: e.steps ?? 0,
-          activeCalories: e.activeCalories ?? 0,
-          basalCalories: e.basalCalories ?? 0,
+          activeCalories: roundNutrition(e.activeCalories ?? 0),
+          basalCalories: roundNutrition(e.basalCalories ?? 0),
           distanceMeters:
             e.distanceMeters != null ? String(e.distanceMeters) : '0',
         };

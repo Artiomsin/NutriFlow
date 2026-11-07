@@ -122,6 +122,9 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
         }
 
         notifyActivityUpdate(activity)
+
+        // Process any pending queue entries after the refresh sync.
+        await processPendingQueue()
     }
 
     func authorizationDidChange() {
@@ -150,6 +153,9 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
 
             self.notifyActivityUpdate(activity)
 
+            // Process any pending queue entries after the authorization change sync.
+            await processPendingQueue()
+
             print("[ActivitySyncCoordinator] authorization change synced")
         }
     }
@@ -164,6 +170,42 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
         guard await isAuthorized() else {
             print("[ActivitySyncCoordinator] initial sync skipped — not authorized")
             return
+        }
+
+        // M1: Backfill last 30 days on first ever launch after install/reinstall.
+        if !PreferencesStore.shared.hasCompletedInitialBackfill {
+            print("[ActivitySyncCoordinator] starting 30-day backfill")
+
+            var calendar = Calendar.current
+            let tz = TimeZone(identifier: PreferencesStore.shared.timeZone) ?? .current
+            calendar.timeZone = tz
+
+            let end = Date()
+            guard let start = calendar.date(
+                byAdding: .day,
+                value: -30,
+                to: end
+            ) else {
+                print("[ActivitySyncCoordinator] backfill: cannot compute start date")
+                return
+            }
+
+            do {
+                let entries = try await healthKitService.fetchRange(from: start, to: end)
+
+                guard isActive else { return }
+
+                await syncToBackend(entries)
+
+                PreferencesStore.shared.hasCompletedInitialBackfill = true
+                print(
+                    "[ActivitySyncCoordinator] backfill completed: \(entries.count) days"
+                )
+            } catch {
+                print(
+                    "[ActivitySyncCoordinator] backfill failed: \(error)"
+                )
+            }
         }
 
         let activity = await healthKitService.fetchToday()
@@ -219,6 +261,12 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
 
             await self.syncToBackend(activity)
 
+            // Complete the HealthKit observer callback only after the data has
+            // been persisted (synced to backend or queued locally). This
+            // prevents HealthKit from considering the delivery done before we
+            // have actually saved the data.
+            self.healthKitService.completePendingObservations()
+
             guard self.isActive, !Task.isCancelled else {
                 return
             }
@@ -243,6 +291,84 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
             print("[ActivitySyncCoordinator] backend sync success: \(activity)")
         } catch {
             print("[ActivitySyncCoordinator] backend sync failed: \(error)")
+        }
+    }
+
+    private func syncToBackend(_ entries: [DailyActivity]) async {
+        guard isActive else {
+            print("[ActivitySyncCoordinator] backend sync skipped — inactive")
+            return
+        }
+
+        do {
+            // Low-level send without re-enqueueing (entries are already in queue
+            // if they came from processPendingQueue).
+            try await activityService.send(entries: entries)
+
+            print(
+                "[ActivitySyncCoordinator] backend sync success: \(entries.count) entries"
+            )
+        } catch {
+            print("[ActivitySyncCoordinator] backend sync failed: \(error)")
+        }
+    }
+
+
+    private let baseRetryDelay: TimeInterval = 1.0
+    private let maxRetryDelay: TimeInterval = 300.0
+
+    /// Processes pending entries from the local sync queue with exponential backoff.
+    /// Only entries whose nextRetryAt has passed are retried.
+    /// Called on app start, refresh, and after successful syncs.
+    private func processPendingQueue() async {
+        let pending = SyncQueue.shared.readyForRetry
+        guard !pending.isEmpty else { return }
+
+        let entries: [DailyActivity] = pending.compactMap { dict in
+            guard
+                let date = dict["date"] as? String,
+                let steps = dict["steps"] as? Int,
+                let activeCalories = dict["activeCalories"] as? Double,
+                let basalCalories = dict["basalCalories"] as? Double,
+                let distanceMeters = dict["distanceMeters"] as? Double
+            else {
+                return nil
+            }
+            return DailyActivity(
+                date: date,
+                steps: steps,
+                activeCalories: activeCalories,
+                basalCalories: basalCalories,
+                distanceMeters: distanceMeters
+            )
+        }
+
+        guard !entries.isEmpty else {
+            SyncQueue.shared.removeAll()
+            return
+        }
+
+        do {
+            try await activityService.send(entries: entries)
+
+            entries.forEach { SyncQueue.shared.remove($0.date) }
+            SyncQueue.shared.removeOlderThan(days: 30)
+        } catch {
+            for entry in entries {
+                var updated = SyncQueue.shared.all.first { $0["date"] as? String == entry.date } ?? [:]
+                var retryCount = (updated["retryCount"] as? Int) ?? 0
+                retryCount += 1
+                updated["retryCount"] = retryCount
+
+                let delay = min(
+                    pow(2.0, Double(retryCount)) * baseRetryDelay,
+                    maxRetryDelay
+                )
+                let nextRetry = Date().addingTimeInterval(delay)
+                updated["nextRetryAt"] = SyncQueue.isoFormatter.string(from: nextRetry)
+
+                SyncQueue.shared.update(updated)
+            }
         }
     }
 

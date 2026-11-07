@@ -9,7 +9,7 @@ import { DB } from '../db/db.module';
 import { userGoals } from '../db/schema/userGoals';
 import { goalRecommendations } from '../db/schema/goalRecommendations';
 import { userProfiles } from '../db/schema/userProfiles';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, isNull, lt, or, sql } from 'drizzle-orm';
 import { roundNutrition } from '../common/nutrition/precision';
 import type { UpdateGoalsDto } from './goals.schema';
 import type { GoalMetrics } from './personalization/types';
@@ -19,17 +19,39 @@ import {
   EMPTY_GOALS_METRICS,
 } from './goals-history';
 
-type DatabaseExecutor = Pick<Db, 'select' | 'insert' | 'update'>;
+type DatabaseExecutor = Pick<Db, 'select' | 'insert' | 'update' | 'execute'>;
+
+type GoalSource = 'initial' | 'user' | 'personalized';
 
 @Injectable()
 export class GoalsService {
   constructor(@Inject(DB) private readonly db: Db) {}
 
-  async findByUserId(userId: string) {
+  /**
+   * Without date, returns the active goals.
+   *
+   * With date, returns the goal version that was effective during that
+   * calendar day. Date boundaries are currently interpreted as UTC.
+   */
+  async findByUserId(userId: string, date?: string) {
+    const conditions = [eq(userGoals.userId, userId)];
+
+    if (date !== undefined) {
+      const { start, end } = this.getUtcDayRange(date);
+
+      conditions.push(
+        lt(userGoals.startedAt, end),
+        or(isNull(userGoals.endedAt), gt(userGoals.endedAt, start))!,
+      );
+    } else {
+      conditions.push(isNull(userGoals.endedAt));
+    }
+
     const [goals] = await this.db
       .select()
       .from(userGoals)
-      .where(eq(userGoals.userId, userId))
+      .where(and(...conditions))
+      .orderBy(desc(userGoals.startedAt))
       .limit(1);
 
     if (!goals) {
@@ -41,59 +63,59 @@ export class GoalsService {
 
   async update(userId: string, data: UpdateGoalsDto) {
     return this.db.transaction(async (tx) => {
-      // Serialize writes for one user. Without this lock, two simultaneous
-      // requests can both observe no open history row and insert duplicates.
-      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${userId}))`);
+      await this.acquireUserLock(userId, tx);
 
       const existing = await this.findByUserIdSafe(userId, tx);
 
-      if (existing) {
-        const [goals] = await tx
-          .update(userGoals)
-          .set({
-            ...data,
-            source: 'user',
-            updatedAt: new Date(),
-          })
-          .where(eq(userGoals.userId, userId))
-          .returning();
+      const nextMetrics: GoalMetrics = {
+        ...rowToGoalMetrics(existing),
+        ...data,
+      };
 
-        await recordGoalHistory(
-          userId,
-          rowToGoalMetrics(existing),
-          rowToGoalMetrics(goals),
-          'user',
-          'user_edit',
-          tx,
-        );
-        return goals;
-      }
-
-      const [goals] = await tx
-        .insert(userGoals)
-        .values({
-          userId,
-          ...data,
-          source: 'user',
-        })
-        .returning();
-
-      await recordGoalHistory(
+      return this.replaceCurrentGoals(
         userId,
-        EMPTY_GOALS_METRICS,
-        rowToGoalMetrics(goals),
+        existing,
+        nextMetrics,
         'user',
         'user_edit',
         tx,
       );
-      return goals;
     });
   }
 
+  /**
+   * If called without an executor, creates its own transaction.
+   *
+   * If an executor is supplied, it must be the transaction executor of an
+   * already-open transaction. The advisory lock is acquired in that
+   * transaction and therefore remains held until it commits or rolls back.
+   */
   async calculate(
     userId: string,
-    executor: DatabaseExecutor = this.db,
+    executor?: DatabaseExecutor,
     forceAutomatic = false,
+  ) {
+    if (executor) {
+      await this.acquireUserLock(userId, executor);
+
+      return this.calculateWithExecutor(userId, executor, forceAutomatic);
+    }
+
+    return this.db.transaction(async (tx) => {
+      await this.acquireUserLock(userId, tx);
+
+      return this.calculateWithExecutor(userId, tx, forceAutomatic);
+    });
+  }
+
+  async resetToAutomatic(userId: string) {
+    return this.calculate(userId, undefined, true);
+  }
+
+  private async calculateWithExecutor(
+    userId: string,
+    executor: DatabaseExecutor,
+    forceAutomatic: boolean,
   ) {
     const [profile] = await executor
       .select()
@@ -123,7 +145,6 @@ export class GoalsService {
 
     const proteinCals = protein * 4;
     const fatCals = fat * 9;
-
     const carbs = (goalCalories - proteinCals - fatCals) / 4;
 
     const waterMultipliers: Record<string, number> = {
@@ -136,205 +157,213 @@ export class GoalsService {
 
     // Activity / workout / sleep
     const activityGoals = this.calculateActivityGoals(activityLevel);
-
     const workoutGoals = this.calculateWorkoutGoals(activityLevel);
-
     const sleepGoals = this.calculateSleepGoals();
 
-    const calculated = {
-      // Nutrition
+    const calculated: GoalMetrics = {
       dailyCaloriesGoal: roundNutrition(goalCalories),
       dailyProteinGoal: roundNutrition(protein),
       dailyFatGoal: roundNutrition(fat),
       dailyCarbsGoal: roundNutrition(carbs),
       dailyWaterGoal: Math.round(water),
 
-      // Activity
       dailyStepsGoal: activityGoals.steps,
       dailyActiveCaloriesGoal: activityGoals.activeCalories,
 
-      // Workout
       weeklyWorkoutsGoal: workoutGoals.workouts,
       weeklyWorkoutMinutesGoal: workoutGoals.minutes,
 
-      // Sleep
       nightlySleepMinMinutes: sleepGoals.minMinutes,
       nightlySleepMaxMinutes: sleepGoals.maxMinutes,
     };
 
     const existing = await this.findByUserIdSafe(userId, executor);
 
-    if (existing) {
-      if (existing.source === 'user' && !forceAutomatic) {
-        const merged = {
-          dailyCaloriesGoal:
-            existing.dailyCaloriesGoal ?? calculated.dailyCaloriesGoal,
+    if (existing?.source === 'user' && !forceAutomatic) {
+      const currentMetrics = rowToGoalMetrics(existing);
+      const merged: GoalMetrics = {
+        dailyCaloriesGoal:
+          existing.dailyCaloriesGoal ?? calculated.dailyCaloriesGoal,
+        dailyProteinGoal:
+          existing.dailyProteinGoal ?? calculated.dailyProteinGoal,
+        dailyFatGoal: existing.dailyFatGoal ?? calculated.dailyFatGoal,
+        dailyCarbsGoal: existing.dailyCarbsGoal ?? calculated.dailyCarbsGoal,
+        dailyWaterGoal: existing.dailyWaterGoal ?? calculated.dailyWaterGoal,
+        dailyStepsGoal: existing.dailyStepsGoal ?? calculated.dailyStepsGoal,
+        dailyActiveCaloriesGoal:
+          existing.dailyActiveCaloriesGoal ??
+          calculated.dailyActiveCaloriesGoal,
+        weeklyWorkoutsGoal:
+          existing.weeklyWorkoutsGoal ?? calculated.weeklyWorkoutsGoal,
+        weeklyWorkoutMinutesGoal:
+          existing.weeklyWorkoutMinutesGoal ??
+          calculated.weeklyWorkoutMinutesGoal,
+        nightlySleepMinMinutes:
+          existing.nightlySleepMinMinutes ?? calculated.nightlySleepMinMinutes,
+        nightlySleepMaxMinutes:
+          existing.nightlySleepMaxMinutes ?? calculated.nightlySleepMaxMinutes,
+      };
 
-          dailyProteinGoal:
-            existing.dailyProteinGoal ?? calculated.dailyProteinGoal,
-
-          dailyFatGoal: existing.dailyFatGoal ?? calculated.dailyFatGoal,
-
-          dailyCarbsGoal: existing.dailyCarbsGoal ?? calculated.dailyCarbsGoal,
-
-          dailyWaterGoal: existing.dailyWaterGoal ?? calculated.dailyWaterGoal,
-
-          dailyStepsGoal: existing.dailyStepsGoal ?? calculated.dailyStepsGoal,
-
-          dailyActiveCaloriesGoal:
-            existing.dailyActiveCaloriesGoal ??
-            calculated.dailyActiveCaloriesGoal,
-
-          weeklyWorkoutsGoal:
-            existing.weeklyWorkoutsGoal ?? calculated.weeklyWorkoutsGoal,
-
-          weeklyWorkoutMinutesGoal:
-            existing.weeklyWorkoutMinutesGoal ??
-            calculated.weeklyWorkoutMinutesGoal,
-
-          nightlySleepMinMinutes:
-            existing.nightlySleepMinMinutes ??
-            calculated.nightlySleepMinMinutes,
-
-          nightlySleepMaxMinutes:
-            existing.nightlySleepMaxMinutes ??
-            calculated.nightlySleepMaxMinutes,
-
-          source: 'user' as const,
-          updatedAt: new Date(),
-        };
-
-        const goalValuesChanged =
-          existing.dailyCaloriesGoal !== merged.dailyCaloriesGoal ||
-          existing.dailyProteinGoal !== merged.dailyProteinGoal ||
-          existing.dailyFatGoal !== merged.dailyFatGoal ||
-          existing.dailyCarbsGoal !== merged.dailyCarbsGoal ||
-          existing.dailyWaterGoal !== merged.dailyWaterGoal ||
-          existing.dailyStepsGoal !== merged.dailyStepsGoal ||
-          existing.dailyActiveCaloriesGoal !== merged.dailyActiveCaloriesGoal ||
-          existing.weeklyWorkoutsGoal !== merged.weeklyWorkoutsGoal ||
-          existing.weeklyWorkoutMinutesGoal !==
-            merged.weeklyWorkoutMinutesGoal ||
-          existing.nightlySleepMinMinutes !== merged.nightlySleepMinMinutes ||
-          existing.nightlySleepMaxMinutes !== merged.nightlySleepMaxMinutes;
-
-        // Manual goals are an explicit user choice. Do not replace them from
-        // a profile or weight update, and do not write no-op history rows.
-        if (!goalValuesChanged) {
-          return existing;
-        }
-
-        const [goals] = await executor
-          .update(userGoals)
-          .set(merged)
-          .where(eq(userGoals.userId, userId))
-          .returning();
-
-        await recordGoalHistory(
-          userId,
-          rowToGoalMetrics(existing),
-          rowToGoalMetrics(goals),
-          goals?.source ?? 'user',
-          'profile_recalculation',
-          executor,
-        );
-
-        return goals;
+      if (this.sameGoalMetrics(currentMetrics, merged)) {
+        return existing;
       }
 
-      if (existing.source === 'personalized' && !forceAutomatic) {
-        const personalized = await this.applyLatestRecommendationAdjustment(
-          userId,
-          calculated,
-          executor,
-        );
-        const merged = {
-          ...personalized,
-          source: 'personalized' as const,
-          updatedAt: new Date(),
-        };
-
-        const goalValuesChanged =
-          existing.dailyCaloriesGoal !== merged.dailyCaloriesGoal ||
-          existing.dailyProteinGoal !== merged.dailyProteinGoal ||
-          existing.dailyFatGoal !== merged.dailyFatGoal ||
-          existing.dailyCarbsGoal !== merged.dailyCarbsGoal ||
-          existing.dailyWaterGoal !== merged.dailyWaterGoal ||
-          existing.dailyStepsGoal !== merged.dailyStepsGoal ||
-          existing.dailyActiveCaloriesGoal !== merged.dailyActiveCaloriesGoal ||
-          existing.weeklyWorkoutsGoal !== merged.weeklyWorkoutsGoal ||
-          existing.weeklyWorkoutMinutesGoal !==
-            merged.weeklyWorkoutMinutesGoal ||
-          existing.nightlySleepMinMinutes !== merged.nightlySleepMinMinutes ||
-          existing.nightlySleepMaxMinutes !== merged.nightlySleepMaxMinutes;
-
-        if (!goalValuesChanged) {
-          return existing;
-        }
-
-        const [goals] = await executor
-          .update(userGoals)
-          .set(merged)
-          .where(eq(userGoals.userId, userId))
-          .returning();
-
-        await recordGoalHistory(
-          userId,
-          rowToGoalMetrics(existing),
-          rowToGoalMetrics(goals),
-          'personalized',
-          'personalized_profile_recalculation',
-          executor,
-        );
-
-        return goals;
-      }
-
-      const [goals] = await executor
-        .update(userGoals)
-        .set({
-          ...calculated,
-          source: 'initial',
-          updatedAt: new Date(),
-        })
-        .where(eq(userGoals.userId, userId))
-        .returning();
-
-      await recordGoalHistory(
+      return this.replaceCurrentGoals(
         userId,
-        rowToGoalMetrics(existing),
-        rowToGoalMetrics(goals),
-        'initial',
-        forceAutomatic ? 'manual_reset_to_automatic' : 'profile_recalculation',
+        existing,
+        merged,
+        'user',
+        'profile_recalculation',
+        executor,
+      );
+    }
+
+    if (existing?.source === 'personalized' && !forceAutomatic) {
+      const personalized = await this.applyLatestRecommendationAdjustment(
+        userId,
+        calculated,
         executor,
       );
 
-      return goals;
+      if (this.sameGoalMetrics(rowToGoalMetrics(existing), personalized)) {
+        return existing;
+      }
+
+      return this.replaceCurrentGoals(
+        userId,
+        existing,
+        personalized,
+        'personalized',
+        'personalized_profile_recalculation',
+        executor,
+      );
     }
 
-    const [goals] = await executor
+    const reason = !existing
+      ? 'initial_calculation'
+      : forceAutomatic
+        ? 'manual_reset_to_automatic'
+        : 'profile_recalculation';
+
+    return this.replaceCurrentGoals(
+      userId,
+      existing,
+      calculated,
+      'initial',
+      reason,
+      executor,
+    );
+  }
+
+  /**
+   * Closes the current version and inserts a new snapshot.
+   * This method must run inside a transaction while holding the user lock.
+   */
+  private async replaceCurrentGoals(
+    userId: string,
+    existing: typeof userGoals.$inferSelect | undefined,
+    nextMetrics: GoalMetrics,
+    source: GoalSource,
+    reason: string,
+    executor: DatabaseExecutor,
+  ) {
+    const previousMetrics = rowToGoalMetrics(existing);
+
+    if (
+      existing &&
+      existing.source === source &&
+      this.sameGoalMetrics(previousMetrics, nextMetrics)
+    ) {
+      return existing;
+    }
+
+    const now = new Date();
+
+    if (existing) {
+      await executor
+        .update(userGoals)
+        .set({
+          endedAt: now,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(userGoals.id, existing.id),
+            eq(userGoals.userId, userId),
+            isNull(userGoals.endedAt),
+          ),
+        );
+    }
+
+    const [created] = await executor
       .insert(userGoals)
       .values({
         userId,
-        ...calculated,
-        source: 'initial',
+        ...nextMetrics,
+        source,
+        startedAt: now,
+        endedAt: null,
+        createdAt: now,
+        updatedAt: now,
       })
       .returning();
 
     await recordGoalHistory(
       userId,
-      EMPTY_GOALS_METRICS,
-      rowToGoalMetrics(goals),
-      'initial',
-      'initial_calculation',
+      previousMetrics,
+      rowToGoalMetrics(created),
+      source,
+      reason,
       executor,
     );
+
+    return created;
+  }
+
+  private sameGoalMetrics(first: GoalMetrics, second: GoalMetrics): boolean {
+    const keys = Object.keys(EMPTY_GOALS_METRICS) as (keyof GoalMetrics)[];
+
+    return keys.every((key) => first[key] === second[key]);
+  }
+
+  private async findByUserIdSafe(
+    userId: string,
+    executor: Pick<Db, 'select'> = this.db,
+  ) {
+    const [goals] = await executor
+      .select()
+      .from(userGoals)
+      .where(and(eq(userGoals.userId, userId), isNull(userGoals.endedAt)))
+      .orderBy(desc(userGoals.startedAt))
+      .limit(1);
 
     return goals;
   }
 
-  async resetToAutomatic(userId: string) {
-    return this.calculate(userId, this.db, true);
+  private async acquireUserLock(userId: string, executor: Pick<Db, 'execute'>) {
+    await executor.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtext(${userId}))`,
+    );
+  }
+
+  private getUtcDayRange(date: string) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      throw new BadRequestException('Invalid date. Expected YYYY-MM-DD.');
+    }
+
+    const start = new Date(`${date}T00:00:00.000Z`);
+
+    if (
+      Number.isNaN(start.getTime()) ||
+      start.toISOString().slice(0, 10) !== date
+    ) {
+      throw new BadRequestException('Invalid calendar date.');
+    }
+
+    const end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + 1);
+
+    return { start, end };
   }
 
   /**
@@ -368,6 +397,7 @@ export class GoalsService {
     if (!recommendation) return calculated;
 
     const adjusted = {} as GoalMetrics;
+
     for (const key of Object.keys(calculated) as (keyof GoalMetrics)[]) {
       const baseline = calculated[key];
       const previous = recommendation.previousGoals[key];
@@ -466,18 +496,5 @@ export class GoalsService {
     };
 
     return weight * (perKg[goal] ?? 1.6);
-  }
-
-  private async findByUserIdSafe(
-    userId: string,
-    executor: Pick<Db, 'select'> = this.db,
-  ) {
-    const [goals] = await executor
-      .select()
-      .from(userGoals)
-      .where(eq(userGoals.userId, userId))
-      .limit(1);
-
-    return goals;
   }
 }

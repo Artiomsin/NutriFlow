@@ -29,6 +29,7 @@ struct ActivityGoalRow: View {
     var unit: String = ""
     var displayCurrent: String? = nil
     var displayGoal: String? = nil
+    var progressCurrent: Double? = nil
     var completionColor: Color? = nil
     var isEmbedded: Bool = false
 
@@ -41,7 +42,7 @@ struct ActivityGoalRow: View {
 
     private var pct: Double {
         guard goal > 0 else { return 0 }
-        return min(Double(current) / Double(goal), 1.0)
+        return min((progressCurrent ?? Double(current)) / Double(goal), 1.0)
     }
 
     private var currentText: String {

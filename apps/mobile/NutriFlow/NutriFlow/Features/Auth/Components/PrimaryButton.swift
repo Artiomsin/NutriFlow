@@ -17,20 +17,13 @@ struct PrimaryButton: View {
 
     var body: some View {
         Button(action: action) {
-            Group {
-                if isLoading {
-                    ProgressView()
-                        .tint(AppColors.accentOnPrimary)
-                } else {
-                    Text(title)
-                        .font(.headline)
-                }
-            }
-            .foregroundColor(AppColors.accentOnPrimary)
-            .frame(maxWidth: .infinity)
-            .frame(height: AppSpacing.buttonHeight)
-            .background(AppColors.accent)
-            .cornerRadius(AppRadius.medium)
+            Text(title)
+                .font(.headline)
+                .foregroundColor(AppColors.accentOnPrimary)
+                .frame(maxWidth: .infinity)
+                .frame(height: AppSpacing.buttonHeight)
+                .background(AppColors.accent)
+                .cornerRadius(AppRadius.medium)
         }
         .disabled(isLoading)
     }

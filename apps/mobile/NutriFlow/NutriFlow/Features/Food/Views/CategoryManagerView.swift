@@ -10,6 +10,7 @@ struct CategoryManagerView: View {
     @State private var categoryToDelete: FoodCategory?
     @State private var categoryToEdit: FoodCategory?
     @State private var categoryToManage: FoodCategory?
+    @State private var isManagingAllPersonalFoods = false
     @State private var areSystemCategoriesExpanded = false
 
     private var personalCategories: [FoodCategory] {
@@ -23,7 +24,7 @@ struct CategoryManagerView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: 14) {
                     introductionCard
 
                     if viewModel.isLoadingCategories &&
@@ -34,6 +35,7 @@ struct CategoryManagerView: View {
                             viewModel.retryCategories()
                         }
                     } else {
+                        managePersonalFoodsCard
                         createCategoryCard
 
                         if !personalCategories.isEmpty {
@@ -95,7 +97,18 @@ struct CategoryManagerView: View {
                         availableCategories: viewModel.categories,
                         viewModel: viewModel.makeCategoryFoodsViewModel(for: category),
                         onCategoriesChanged: {
-                            await viewModel.reloadCategories()
+                            await viewModel.refreshAfterCategoryChange()
+                        }
+                    )
+                }
+            }
+            .sheet(isPresented: $isManagingAllPersonalFoods) {
+                NavigationStack {
+                    CategoryFoodsView(
+                        availableCategories: viewModel.categories,
+                        viewModel: viewModel.makeAllPersonalFoodsViewModel(),
+                        onCategoriesChanged: {
+                            await viewModel.refreshAfterCategoryChange()
                         }
                     )
                 }
@@ -129,20 +142,49 @@ struct CategoryManagerView: View {
         }
     }
 
-
-    private var loadingCard: some View {
+    private var managePersonalFoodsCard: some View {
         AppCard {
-            HStack(spacing: 12) {
-                ProgressView()
-                    .tint(AppColors.accent)
-
-                Text("Loading categories…")
-                    .font(.subheadline)
-                    .foregroundStyle(AppColors.textSecondary)
+            Button("Manage Personal Foods", systemImage: "square.and.pencil") {
+                isManagingAllPersonalFoods = true
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 8)
-            .accessibilityElement(children: .combine)
+            .foregroundStyle(AppColors.accent)
+            .accessibilityHint("Select personal foods and assign or remove categories.")
+        }
+    }
+
+
+    private var loadingCard: some View {
+        VStack(spacing: 12) {
+            ForEach(0..<3, id: \.self) { _ in
+                AppCard {
+                    HStack(spacing: 12) {
+                        Circle()
+                            .fill(AppColors.surfaceSecondary)
+                            .frame(width: 40, height: 40)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(AppColors.surfaceSecondary)
+                                .frame(width: 126, height: 16)
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(AppColors.surfaceSecondary)
+                                .frame(width: 64, height: 12)
+                        }
+
+                        Spacer()
+
+                        Capsule()
+                            .fill(AppColors.surfaceSecondary)
+                            .frame(width: 28, height: 20)
+
+                        Circle()
+                            .fill(AppColors.surfaceSecondary)
+                            .frame(width: 28, height: 28)
+                    }
+                    .accessibilityHidden(true)
+                }
+            }
         }
     }
 

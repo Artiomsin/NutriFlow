@@ -77,6 +77,11 @@ struct ProfileDisplayView: View {
                                 title: "Activity",
                                 value: viewModel.activityLevel?.displayName ?? "Not set"
                             )
+                            ProfileInfoCard(
+                                icon: "clock",
+                                title: "Time Zone",
+                                value: PreferencesStore.shared.timeZone
+                            )
                         }
                     } else if case .loading = viewModel.state {
                         ProgressView()

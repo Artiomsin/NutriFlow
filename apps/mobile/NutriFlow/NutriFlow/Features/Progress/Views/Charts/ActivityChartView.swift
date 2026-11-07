@@ -104,14 +104,14 @@ struct ActivityChartView: View {
         filteredData.flatMap { pt in
             [
                 FlattenedPoint(label: pt.label, series: "Eaten", color: .orange, value: pt.calories),
-                FlattenedPoint(label: pt.label, series: "Burned", color: .green, value: Double(pt.activeCalories)),
-                FlattenedPoint(label: pt.label, series: "Rest", color: .blue, value: Double(pt.basalCalories))
+                FlattenedPoint(label: pt.label, series: "Burned", color: .green, value: pt.activeCalories),
+                FlattenedPoint(label: pt.label, series: "Rest", color: .blue, value: pt.basalCalories)
             ]
         }
     }
 
     private var maxYValue: Double {
-        let max = filteredData.flatMap { [$0.calories, Double($0.activeCalories), Double($0.basalCalories)] }.max() ?? 0
+        let max = filteredData.flatMap { [$0.calories, $0.activeCalories, $0.basalCalories] }.max() ?? 0
         if max == 0 { return 1_000 }
         return max * 1.25
     }
@@ -134,10 +134,10 @@ struct ActivityChartView: View {
             carbs: 0,
             waterMl: 0,
             steps: Int.random(in: 3000...12000),
-            activeCalories: burned,
-            basalCalories: Int.random(in: 1300...1900),
+            activeCalories: Double(burned),
+            basalCalories: Double(Int.random(in: 1300...1900)),
             distanceMeters: Double(Int.random(in: 2000...9000)),
-            netCalories: Int((base - Double(burned)).rounded())
+            netCalories: (base - Double(burned)).rounded()
         )
     }
     return ActivityChartView(data: data)

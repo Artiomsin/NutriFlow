@@ -18,7 +18,7 @@ private struct WorkoutHistoryCache: Codable, Sendable {
 @MainActor
 final class WorkoutViewModel {
     
-    private static let syncWindowDays = 365
+    private static let syncWindowDays = 30
     private static let pruneWindowDays = 30
     private static let displayWindowDays = 90
     private static let pageSize = 100

@@ -180,10 +180,19 @@ final class AddFoodViewModel: Identifiable {
         }
     }
 
+    func refreshAfterCategoryChange() async {
+        await reloadCategories()
+        await todayFoodVM.loadToday(forceNetwork: true)
+    }
+
     func makeCategoryFoodsViewModel(
         for category: FoodCategory
     ) -> CategoryFoodsViewModel {
         CategoryFoodsViewModel(category: category, service: service)
+    }
+
+    func makeAllPersonalFoodsViewModel() -> CategoryFoodsViewModel {
+        CategoryFoodsViewModel(categoryID: nil, service: service)
     }
 
     func createCategory(named name: String, icon: String? = nil) async -> FoodCategory? {

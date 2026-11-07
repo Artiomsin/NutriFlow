@@ -12,10 +12,10 @@ enum SleepMapper {
         isoFormatter.string(from: date)
     }
 
-    static func localDayString(from date: Date) -> String {
+    static func localDayString(from date: Date, timeZone: TimeZone = TimeZone(identifier: PreferencesStore.shared.timeZone) ?? .current) -> String {
         let formatter = DateFormatter()
         formatter.calendar = .current
-        formatter.timeZone = .current
+        formatter.timeZone = timeZone
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.string(from: date)
     }

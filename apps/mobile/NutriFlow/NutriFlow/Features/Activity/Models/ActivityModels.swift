@@ -10,8 +10,8 @@ import Foundation
 struct DailyActivity: Codable, Sendable {
     let date: String
     let steps: Int
-    let activeCalories: Int
-    let basalCalories: Int
+    let activeCalories: Double
+    let basalCalories: Double
     let distanceMeters: Double
 }
 
@@ -23,14 +23,13 @@ struct ActivitySyncRequest: Codable, Sendable{
 struct ActivityDayPoint: Codable, Identifiable, Sendable {
     let date: String
     let steps: Int
-    let activeCalories: Int
-    let basalCalories: Int
+    let activeCalories: Double
+    let basalCalories: Double
     let distanceMeters: Double
-    let caloriesConsumed: Int
-    let netCalories: Int
+    let caloriesConsumed: Double
+    let netCalories: Double
 
     var id: String { date }
 }
-
 
 

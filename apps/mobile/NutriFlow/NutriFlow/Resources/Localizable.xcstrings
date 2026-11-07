@@ -50,10 +50,20 @@
         }
       }
     },
+    "%@ %@ g" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@ g"
+          }
+        }
+      }
+    },
     "%@ efficiency" : {
 
     },
-    "%@ kcal per 100 g" : {
+    "%@ kcal · 100 g" : {
 
     },
     "%@/%@ %@" : {
@@ -126,6 +136,12 @@
     "Add Water" : {
 
     },
+    "Added %@" : {
+
+    },
+    "All Time Zones" : {
+
+    },
     "Allow notifications for NutriFlow in iPhone Settings to receive reminders." : {
 
     },
@@ -151,6 +167,9 @@
 
     },
     "Automatic calculation is off" : {
+
+    },
+    "Automatic Time Zone" : {
 
     },
     "Based on your recent activity" : {
@@ -198,13 +217,13 @@
     "Choose an icon that makes this category easy to spot." : {
 
     },
+    "Choose Category" : {
+
+    },
     "Choose category icon" : {
 
     },
     "Choose icon" : {
-
-    },
-    "Choose the category for the selected foods." : {
 
     },
     "Connect Apple Health to see sleep history" : {
@@ -247,6 +266,9 @@
 
     },
     "Create Profile" : {
+
+    },
+    "Current Time Zone" : {
 
     },
     "Custom amount" : {
@@ -908,6 +930,9 @@
     "Keep going!" : {
 
     },
+    "Keep your time zone fixed." : {
+
+    },
     "Last 7 nights" : {
 
     },
@@ -917,13 +942,22 @@
     "LATEST" : {
 
     },
-    "Loading activity..." : {
+    "Loading activity" : {
 
     },
-    "Loading categories…" : {
+    "Loading daily summary" : {
 
     },
-    "Loading sleep..." : {
+    "Loading food entries" : {
+
+    },
+    "Loading sleep data" : {
+
+    },
+    "Loading water entries" : {
+
+    },
+    "Loading workout data" : {
 
     },
     "Macros (Avg)" : {
@@ -936,6 +970,9 @@
 
     },
     "Manage foods in %@" : {
+
+    },
+    "Manage Personal Foods" : {
 
     },
     "Manage weight records" : {
@@ -957,9 +994,6 @@
 
     },
     "ml" : {
-
-    },
-    "Move %lld foods" : {
 
     },
     "My Categories" : {
@@ -1052,6 +1086,9 @@
     "Per 100g" : {
 
     },
+    "Personal" : {
+
+    },
     "Personalized plan" : {
 
     },
@@ -1094,9 +1131,6 @@
     "Reminders" : {
 
     },
-    "Remove Category" : {
-
-    },
     "Row" : {
 
     },
@@ -1127,6 +1161,12 @@
     "Search catalog" : {
 
     },
+    "Search categories" : {
+
+    },
+    "Search city or region" : {
+
+    },
     "Search Food" : {
 
     },
@@ -1142,7 +1182,16 @@
     "Select Date Range" : {
 
     },
+    "Select personal foods and assign or remove categories." : {
+
+    },
     "Select this food to change its category." : {
+
+    },
+    "Select Time Zone" : {
+
+    },
+    "Select your foods to assign or remove a category." : {
 
     },
     "Series" : {
@@ -1250,10 +1299,16 @@
     "Try again with better lighting and food clearly visible." : {
 
     },
+    "Unassign Category" : {
+
+    },
     "Units" : {
 
     },
     "Update my goals to match my stats" : {
+
+    },
+    "Updates automatically when you travel." : {
 
     },
     "Use automatic goals?" : {

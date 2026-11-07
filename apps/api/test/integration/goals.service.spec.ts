@@ -278,3 +278,66 @@ describe('GoalsService personalized recalculation', () => {
     expect(goals.dailyCaloriesGoal).toBe(2959);
   });
 });
+
+describe('GoalsService.findByUserId by date', () => {
+  async function seedVersions(userId: string) {
+    const first = await service.update(userId, {
+      dailyCaloriesGoal: 2000,
+      dailyStepsGoal: 6000,
+    });
+    const second = await service.update(userId, { dailyCaloriesGoal: 2500 });
+
+    await tx
+      .update(userGoals)
+      .set({
+        startedAt: new Date('2026-01-01T00:00:00.000Z'),
+        endedAt: new Date('2026-01-11T00:00:00.000Z'),
+      })
+      .where(eq(userGoals.id, first!.id));
+
+    await tx
+      .update(userGoals)
+      .set({ startedAt: new Date('2026-01-11T00:00:00.000Z') })
+      .where(eq(userGoals.id, second!.id));
+
+    return { first, second };
+  }
+
+  it('returns the version that was active on that day', async () => {
+    const user = await createUser(tx);
+    await seedVersions(user.id);
+
+    const firstDay = await service.findByUserId(user.id, '2026-01-01');
+    expect(firstDay.dailyCaloriesGoal).toBe(2000);
+
+    const beforeChange = await service.findByUserId(user.id, '2026-01-10');
+    expect(beforeChange.dailyCaloriesGoal).toBe(2000);
+    expect(beforeChange.dailyStepsGoal).toBe(6000);
+
+    const changeDay = await service.findByUserId(user.id, '2026-01-11');
+    expect(changeDay.dailyCaloriesGoal).toBe(2500);
+    // update() merges partial changes instead of wiping other metrics
+    expect(changeDay.dailyStepsGoal).toBe(6000);
+
+    const later = await service.findByUserId(user.id, '2026-02-01');
+    expect(later.dailyCaloriesGoal).toBe(2500);
+  });
+
+  it('throws when no goal version existed on that day', async () => {
+    const user = await createUser(tx);
+    await seedVersions(user.id);
+
+    expect(service.findByUserId(user.id, '2025-12-31')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it('returns the active version when no date is given', async () => {
+    const user = await createUser(tx);
+    await seedVersions(user.id);
+
+    const current = await service.findByUserId(user.id);
+    expect(current.dailyCaloriesGoal).toBe(2500);
+    expect(current.endedAt).toBeNull();
+  });
+});

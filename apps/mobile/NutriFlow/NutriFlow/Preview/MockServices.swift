@@ -116,6 +116,7 @@ final class MockFoodService: FoodServiceProtocol {
 
 final class MockActivityService: ActivityServiceProtocol {
     func sync(entries: [DailyActivity]) async throws { }
+    func send(entries: [DailyActivity]) async throws { }
     func getRange(from: String, to: String) async throws -> [ActivityDayPoint] {
         let cal = Calendar.current
         let df = DateFormatter()
@@ -131,11 +132,11 @@ final class MockActivityService: ActivityServiceProtocol {
             points.append(ActivityDayPoint(
                 date: df.string(from: day),
                 steps: Int.random(in: 3000...12000),
-                activeCalories: burned,
-                basalCalories: Int.random(in: 1300...1900),
+                activeCalories: Double(burned),
+                basalCalories: Double(Int.random(in: 1300...1900)),
                 distanceMeters: Double(Int.random(in: 2000...9000)),
-                caloriesConsumed: consumed,
-                netCalories: consumed - burned
+                caloriesConsumed: Double(consumed),
+                netCalories: Double(consumed - burned)
             ))
             day = cal.date(byAdding: .day, value: 1, to: day) ?? day
         }
@@ -444,7 +445,7 @@ final class MockGoalsService: GoalsServiceProtocol {
         ]
     }
     
-    func getGoals() async throws -> UserGoals {
+    func getGoals(date: String? = nil) async throws -> UserGoals {
         UserGoals(
             id: "1",
             userId: "1",
@@ -695,11 +696,15 @@ final class MockHealthKit: ActivityHealthKitServiceProtocol, WorkoutHealthKitSer
     func fetchToday() async -> DailyActivity {
         DailyActivity(date: "", steps: 0, activeCalories: 0, basalCalories: 0, distanceMeters: 0)
     }
+    func fetchRange(from startDate: Date, to endDate: Date) async throws -> [DailyActivity] {
+        []
+    }
     func fetchWorkouts(from startDate: Date, to endDate: Date) async throws -> [HealthKitWorkout] { [Self.sampleWorkout] }
     func fetchLatestWorkout() async throws -> HealthKitWorkout? { Self.sampleWorkout }
     func enableBackgroundDelivery() async throws {}
     func startObserving() {}
     func stopObserving() {}
+    func completePendingObservations() {}
     func permissionState() async -> HealthKitAuthorization { .authorized }
     func fetchHeartRateWorkout(for workout: HealthKitWorkout) async throws -> [HeartRatePoint] {
         stride(from: workout.startDate, through: workout.endDate, by: 60).map { date in

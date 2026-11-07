@@ -25,6 +25,7 @@ final class FoodService: FoodServiceProtocol, Sendable {
     ) async throws -> FoodEntry {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
+        df.timeZone = TimeZone(identifier: PreferencesStore.shared.timeZone) ?? .current
         let entryDate = date ?? df.string(from: Date())
         let request = APIRequest(
             path: FoodEndpoints.createFoodEntry,

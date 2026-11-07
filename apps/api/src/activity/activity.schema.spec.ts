@@ -31,6 +31,14 @@ describe('syncEntrySchema', () => {
       syncEntrySchema.safeParse({ date: '2026-01-01', steps: 1.5 }).success,
     ).toBe(false);
     expect(
+      syncEntrySchema.safeParse({ date: '2026-01-01', activeCalories: 512.4 })
+        .success,
+    ).toBe(true);
+    expect(
+      syncEntrySchema.safeParse({ date: '2026-01-01', basalCalories: 1730.7 })
+        .success,
+    ).toBe(true);
+    expect(
       syncEntrySchema.safeParse({ date: '2026-01-01', activeCalories: -10 })
         .success,
     ).toBe(false);

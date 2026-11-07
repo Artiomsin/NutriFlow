@@ -49,7 +49,6 @@ final class AuthViewModel {
         self.activitySync = activitySync
     }
 
-    // MARK: - Lifecycle
 
     func onAppear() {
         analyticsTracker?.track(.screenView(screen: "auth"))
