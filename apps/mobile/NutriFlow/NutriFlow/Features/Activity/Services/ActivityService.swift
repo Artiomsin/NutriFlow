@@ -1,32 +1,49 @@
-//
-//  ActivityService.swift
-//  Nutriflow
-//
-//  Created by Artem on 03.09.2026.
-//
-
 import Foundation
 
 final class ActivityService: ActivityServiceProtocol, Sendable {
     
     private let client: HTTPClient
+    private let queue = SyncQueue.shared
     
     init(client: HTTPClient){
         self.client = client
     }
     
-    func sync(entries: [DailyActivity])async throws{
+    /// Public entry point: enqueues entries locally, then attempts network send.
+    /// On success, clears sent entries from the queue.
+    func sync(entries: [DailyActivity]) async throws {
         
+        // Persist entries locally before attempting network call so they survive
+        // network failures and can be retried later.
+        let payloads = entries.map { entry in
+            [
+                "date": entry.date,
+                "steps": entry.steps,
+                "activeCalories": entry.activeCalories,
+                "basalCalories": entry.basalCalories,
+                "distanceMeters": entry.distanceMeters
+            ]
+        }
+        payloads.forEach { queue.enqueue($0) }
+        queue.trimToMaxEntries()
+        
+        try await send(entries: entries)
+        
+        // Success: remove sent entries from the queue and cleanup old records.
+        entries.forEach { queue.remove($0.date) }
+        queue.removeOlderThan(days: 30)
+    }
+    
+    /// Low-level send without local enqueue. Used by the coordinator when
+    /// retrying entries that are already in the queue.
+    func send(entries: [DailyActivity]) async throws {
         let request = APIRequest(
             path: ActivityEndpoints.sync,
             method: .POST,
             body: ActivitySyncRequest(entries: entries)
         )
         try await client.sendVoid(request)
-        
-        
     }
-    
     
     func getRange(from: String, to: String) async throws -> [ActivityDayPoint] {
         let endpoint = ActivityEndpoints.range(from: from, to: to)
@@ -37,5 +54,4 @@ final class ActivityService: ActivityServiceProtocol, Sendable {
         )
         return try await client.send(request)
     }
-    
 }

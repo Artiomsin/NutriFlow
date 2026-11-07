@@ -122,6 +122,9 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
         }
 
         notifyActivityUpdate(activity)
+
+        // Process any pending queue entries after the refresh sync.
+        await processPendingQueue()
     }
 
     func authorizationDidChange() {
@@ -150,6 +153,9 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
 
             self.notifyActivityUpdate(activity)
 
+            // Process any pending queue entries after the authorization change sync.
+            await processPendingQueue()
+
             print("[ActivitySyncCoordinator] authorization change synced")
         }
     }
@@ -170,8 +176,8 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
         if !PreferencesStore.shared.hasCompletedInitialBackfill {
             print("[ActivitySyncCoordinator] starting 30-day backfill")
 
-            let calendar = Calendar.current
-            var tz = TimeZone(identifier: PreferencesStore.shared.timeZone) ?? .current
+            var calendar = Calendar.current
+            let tz = TimeZone(identifier: PreferencesStore.shared.timeZone) ?? .current
             calendar.timeZone = tz
 
             let end = Date()
@@ -181,23 +187,24 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
                 to: end
             ) else {
                 print("[ActivitySyncCoordinator] backfill: cannot compute start date")
-            } else {
-                do {
-                    let entries = try await healthKitService.fetchRange(from: start, to: end)
+                return
+            }
 
-                    guard isActive else { return }
+            do {
+                let entries = try await healthKitService.fetchRange(from: start, to: end)
 
-                    await syncToBackend(entries)
+                guard isActive else { return }
 
-                    PreferencesStore.shared.hasCompletedInitialBackfill = true
-                    print(
-                        "[ActivitySyncCoordinator] backfill completed: \(entries.count) days"
-                    )
-                } catch {
-                    print(
-                        "[ActivitySyncCoordinator] backfill failed: \(error)"
-                    )
-                }
+                await syncToBackend(entries)
+
+                PreferencesStore.shared.hasCompletedInitialBackfill = true
+                print(
+                    "[ActivitySyncCoordinator] backfill completed: \(entries.count) days"
+                )
+            } catch {
+                print(
+                    "[ActivitySyncCoordinator] backfill failed: \(error)"
+                )
             }
         }
 
@@ -288,13 +295,89 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
         }
 
         do {
-            try await activityService.sync(entries: entries)
+            // Low-level send without re-enqueueing (entries are already in queue
+            // if they came from processPendingQueue).
+            try await activityService.send(entries: entries)
 
             print(
                 "[ActivitySyncCoordinator] backend sync success: \(entries.count) entries"
             )
         } catch {
             print("[ActivitySyncCoordinator] backend sync failed: \(error)")
+        }
+    }
+
+    // MARK: - Retry configuration (exponential backoff)
+
+    private let baseRetryDelay: TimeInterval = 1.0
+    private let maxRetryDelay: TimeInterval = 300.0
+
+    /// Processes pending entries from the local sync queue with exponential backoff.
+    /// Only entries whose nextRetryAt has passed are retried.
+    /// Called on app start, refresh, and after successful syncs.
+    private func processPendingQueue() async {
+        let pending = SyncQueue.shared.readyForRetry
+        guard !pending.isEmpty else { return }
+
+        print(
+            "[ActivitySyncCoordinator] processing \(pending.count) queued entries"
+        )
+
+        let entries: [DailyActivity] = pending.compactMap { dict in
+            guard
+                let date = dict["date"] as? String,
+                let steps = dict["steps"] as? Int,
+                let activeCalories = dict["activeCalories"] as? Double,
+                let basalCalories = dict["basalCalories"] as? Double,
+                let distanceMeters = dict["distanceMeters"] as? Double
+            else {
+                print("[ActivitySyncCoordinator] skipping malformed queue entry")
+                return nil
+            }
+            return DailyActivity(
+                date: date,
+                steps: steps,
+                activeCalories: activeCalories,
+                basalCalories: basalCalories,
+                distanceMeters: distanceMeters
+            )
+        }
+
+        guard !entries.isEmpty else {
+            // All entries were malformed; clear the queue to avoid retrying forever.
+            SyncQueue.shared.removeAll()
+            return
+        }
+
+        do {
+            // Use low-level send (no re-enqueue) since entries are already in the queue.
+            try await activityService.send(entries: entries)
+
+            // Success: remove sent entries from the queue and cleanup old records.
+            entries.forEach { SyncQueue.shared.remove($0.date) }
+            SyncQueue.shared.removeOlderThan(days: 30)
+
+            print(
+                "[ActivitySyncCoordinator] queue processed: \(entries.count) entries sent"
+            )
+        } catch {
+            // Failure: bump retryCount and schedule next retry with exponential backoff.
+            for entry in entries {
+                var updated = SyncQueue.shared.all.first { $0["date"] as? String == entry.date } ?? [:]
+                var retryCount = (updated["retryCount"] as? Int) ?? 0
+                retryCount += 1
+                updated["retryCount"] = retryCount
+
+                let delay = min(
+                    pow(2.0, Double(retryCount)) * baseRetryDelay,
+                    maxRetryDelay
+                )
+                let nextRetry = Date().addingTimeInterval(delay)
+                updated["nextRetryAt"] = SyncQueue.isoFormatter.string(from: nextRetry)
+
+                SyncQueue.shared.update(updated)
+            }
+            print("[ActivitySyncCoordinator] queue retry failed: \(error)")
         }
     }
 

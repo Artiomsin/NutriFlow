@@ -116,6 +116,7 @@ final class MockFoodService: FoodServiceProtocol {
 
 final class MockActivityService: ActivityServiceProtocol {
     func sync(entries: [DailyActivity]) async throws { }
+    func send(entries: [DailyActivity]) async throws { }
     func getRange(from: String, to: String) async throws -> [ActivityDayPoint] {
         let cal = Calendar.current
         let df = DateFormatter()
@@ -694,6 +695,9 @@ final class MockHealthKit: ActivityHealthKitServiceProtocol, WorkoutHealthKitSer
     func requestAuthorization() async throws {}
     func fetchToday() async -> DailyActivity {
         DailyActivity(date: "", steps: 0, activeCalories: 0, basalCalories: 0, distanceMeters: 0)
+    }
+    func fetchRange(from startDate: Date, to endDate: Date) async throws -> [DailyActivity] {
+        []
     }
     func fetchWorkouts(from startDate: Date, to endDate: Date) async throws -> [HealthKitWorkout] { [Self.sampleWorkout] }
     func fetchLatestWorkout() async throws -> HealthKitWorkout? { Self.sampleWorkout }
