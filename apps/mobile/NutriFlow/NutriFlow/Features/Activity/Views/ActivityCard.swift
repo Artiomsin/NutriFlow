@@ -21,14 +21,9 @@ struct ActivityCard: View {
         case .unavailable:
             unavailablePrompt
         case .loading:
-            HStack {
-                ProgressView().tint(AppColors.accent)
-                Text("Loading activity...")
-                    .foregroundColor(AppColors.textSecondary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .appGlassSurface()
+            activitySkeleton
+                .appGlassSurface(level: .prominent)
+                .modifier(SkeletonShimmer())
         case .loaded(let activity):
             activityContent(activity)
         case .error(let error):
@@ -167,6 +162,117 @@ struct ActivityCard: View {
         .frame(maxWidth: .infinity)
         .appGlassSurface(level: .prominent)
     }
+    
+    private var activitySkeleton: some View {
+        VStack(spacing: 14) {
+            HStack(spacing: 16) {
+                skeletonMetric
+                skeletonMetric
+                skeletonMetric
+            }
+
+            if stepGoal ?? 0 > 0 {
+                skeletonGoalRow
+            }
+
+            if activeCaloriesGoal ?? 0 > 0 {
+                skeletonGoalRow
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity)
+        .appGlassSurface(level: .prominent)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Loading activity")
+    }
+
+    private var skeletonMetric: some View {
+        VStack(spacing: 8) {
+            Circle()
+                .fill(AppColors.textSecondary.opacity(0.12))
+                .frame(width: 22, height: 22)
+
+            RoundedRectangle(cornerRadius: 5)
+                .fill(AppColors.textSecondary.opacity(0.12))
+                .frame(width: 54, height: 18)
+
+            RoundedRectangle(cornerRadius: 4)
+                .fill(AppColors.textSecondary.opacity(0.08))
+                .frame(width: 38, height: 12)
+        }
+        .frame(maxWidth: .infinity)
+        .redacted(reason: .placeholder)
+    }
+
+    private var skeletonGoalRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Circle()
+                    .fill(AppColors.textSecondary.opacity(0.12))
+                    .frame(width: 18, height: 18)
+
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(AppColors.textSecondary.opacity(0.12))
+                    .frame(width: 90, height: 13)
+
+                Spacer()
+
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(AppColors.textSecondary.opacity(0.12))
+                    .frame(width: 75, height: 13)
+            }
+
+            GeometryReader { geometry in
+                Capsule()
+                    .fill(AppColors.textSecondary.opacity(0.10))
+                    .frame(height: 8)
+                    .overlay(alignment: .leading) {
+                        Capsule()
+                            .fill(AppColors.textSecondary.opacity(0.16))
+                            .frame(width: geometry.size.width * 0.35, height: 8)
+                    }
+            }
+            .frame(height: 8)
+        }
+        .redacted(reason: .placeholder)
+    }
+
+    private struct SkeletonShimmer: ViewModifier {
+        @State private var isAnimating = false
+
+        func body(content: Content) -> some View {
+            content
+                .overlay {
+                    GeometryReader { geometry in
+                        Rectangle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        .clear,
+                                        .white.opacity(0.10),
+                                        .clear
+                                    ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: geometry.size.width * 0.5)
+                            .offset(x: isAnimating ? geometry.size.width : -geometry.size.width)
+                    }
+                    .clipped()
+                    .allowsHitTesting(false)
+                }
+                .onAppear {
+                    withAnimation(
+                        .linear(duration: 1.4)
+                        .repeatForever(autoreverses: false)
+                    ) {
+                        isAnimating = true
+                    }
+                }
+        }
+    }
+    
     
 }
 
