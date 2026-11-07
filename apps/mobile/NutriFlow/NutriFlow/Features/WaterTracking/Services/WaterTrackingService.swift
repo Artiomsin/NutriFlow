@@ -11,6 +11,7 @@ final class WaterTrackingService: WaterTrackingServiceProtocol, Sendable {
     func createWaterEntry(amountMl: Int, date: String? = nil) async throws -> WaterEntry {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
+        df.timeZone = TimeZone(identifier: PreferencesStore.shared.timeZone) ?? .current
         let entryDate = date ?? df.string(from: Date())
         let request = APIRequest(
             path: WaterTrackingEndpoints.createWaterTracking,

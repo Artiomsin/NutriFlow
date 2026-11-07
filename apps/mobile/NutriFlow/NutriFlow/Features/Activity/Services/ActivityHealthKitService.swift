@@ -20,10 +20,10 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
     var onActivityChanged: (() -> Void)?
 
 
-    private static var dateFormatter: DateFormatter {
+    private var dateFormatter: DateFormatter {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
-        f.timeZone = TimeZone.current
+        f.timeZone = TimeZone(identifier: PreferencesStore.shared.timeZone) ?? .current
         return f
     }
 
@@ -48,11 +48,14 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
 
     func fetchToday() async -> DailyActivity {
         let now = Date()
-        let start = Calendar.current.startOfDay(for: now)
+        let tz = TimeZone(identifier: PreferencesStore.shared.timeZone) ?? .current
+        var calendar = Calendar.current
+        calendar.timeZone = tz
+        let start = calendar.startOfDay(for: now)
 
         print(
             "[HealthKit] fetchToday: " +
-            "start=\(start) end=\(now)"
+            "start=\(start) end=\(now) timeZone=\(tz.identifier)"
         )
 
         async let steps = sum(
@@ -100,7 +103,7 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
             + swimmingDistance
 
         let result = DailyActivity(
-            date: Self.dateFormatter.string(from: now),
+            date: dateFormatter.string(from: now),
             steps: Int(await steps),
             activeCalories: await active,
             basalCalories: await basal,

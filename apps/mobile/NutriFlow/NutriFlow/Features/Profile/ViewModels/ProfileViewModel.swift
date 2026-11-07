@@ -21,6 +21,7 @@ final class ProfileViewModel {
     var preferredUnits: PreferredUnits = .default
     var saveError: AppError?
     var unitsError: AppError?
+    var timeZoneError: AppError?
     var fieldErrors = FormFieldErrors()
 
     private var originalWeightKg: Double?
@@ -141,10 +142,10 @@ final class ProfileViewModel {
             lastName = userResult.lastName
             mapProfile(profileResult)
             PreferencesStore.shared.updateFromProfile(profileResult)
-            // This request only runs after the authenticated profile read has
-            // succeeded, so the token interceptor is ready to attach a token.
-            if profileResult.timeZone != TimeZone.current.identifier {
-                try? await profileService.updateTimeZone(TimeZone.current.identifier)
+            
+            if PreferencesStore.shared.autoUpdateTimeZone,
+               profileResult.timeZone != TimeZone.current.identifier {
+                await updateTimeZone(TimeZone.current.identifier)
             }
             try? await cacheService?.set("user", userResult, ttl: 1800)
             try? await cacheService?.set("profile", profileResult, ttl: 1800)
@@ -409,12 +410,30 @@ final class ProfileViewModel {
         } catch {
             let mapped = ErrorMapper.map(error)
             routeAuth(mapped)
-            // SettingsView writes PreferencesStore before calling this method, so the
-            // rollback has to cover both places or the toggle snaps back on next launch.
             preferredUnits = lastSavedUnits
             PreferencesStore.shared.preferredUnits = lastSavedUnits
             reformatMeasurements(from: newPrefs, to: lastSavedUnits)
             unitsError = mapped
+        }
+    }
+
+    func updateTimeZone(_ timeZone: String) async {
+        timeZoneError = nil
+        do {
+            _ = try await profileService.updateTimeZone(timeZone)
+            PreferencesStore.shared.timeZone = timeZone
+            await cacheService?.remove("profile")
+        } catch {
+            let mapped = ErrorMapper.map(error)
+            routeAuth(mapped)
+            timeZoneError = mapped
+        }
+    }
+
+    func setAutoUpdateTimeZone(_ enabled: Bool) async {
+        PreferencesStore.shared.autoUpdateTimeZone = enabled
+        if enabled {
+            await updateTimeZone(TimeZone.current.identifier)
         }
     }
 

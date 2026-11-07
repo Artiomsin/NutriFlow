@@ -15,12 +15,12 @@ final class AnalyticsViewModel {
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var loadTaskID = 0
     @ObservationIgnored private var lastProgressRevision: UInt?
-    private static let formatter: DateFormatter = {
+    private static func formatter(timeZone: TimeZone) -> DateFormatter {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
-        f.timeZone = TimeZone.current
+        f.timeZone = timeZone
         return f
-    }()
+    }
 
     init(coordinator: AppCoordinator, service: AnalyticsServiceProtocol, periodState: PeriodState = PeriodState(), cacheService: CacheService? = nil) {
         print("AnalyticsViewModel init")
@@ -231,6 +231,7 @@ final class AnalyticsViewModel {
     }
 
     private func formatDate(_ date: Date) -> String {
-        Self.formatter.string(from: date)
+        let tz = TimeZone(identifier: PreferencesStore.shared.timeZone) ?? .current
+        return Self.formatter(timeZone: tz).string(from: date)
     }
 }
