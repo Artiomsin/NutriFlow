@@ -10,13 +10,14 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { GoalsService } from './goals.service';
-import { updateGoalsSchema } from './goals.schema';
-import type { UpdateGoalsDto } from './goals.schema';
+import { updateGoalsSchema, goalsQuerySchema } from './goals.schema';
+import type { UpdateGoalsDto, GoalsQueryDto } from './goals.schema';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 import { User } from '../auth/decorators/user.decorator';
 import type { AuthPayload } from '../auth/types/auth.types';
 import { GoalPersonalizationService } from './personalization/goal-personalization.service';
+
 @Controller('goals')
 @UseGuards(JwtAuthGuard)
 export class GoalsController {
@@ -27,9 +28,10 @@ export class GoalsController {
   @Get()
   findMe(
     @User() user: AuthPayload,
-    @Query('date') date?: string,
+    @Query(new ZodValidationPipe(goalsQuerySchema))
+    query: GoalsQueryDto,
   ) {
-    return this.goalsService.findByUserId(user.userId, date);
+    return this.goalsService.findByUserId(user.userId, query.date);
   }
   @Patch()
   update(

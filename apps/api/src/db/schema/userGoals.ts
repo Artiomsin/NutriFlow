@@ -7,6 +7,7 @@ import {
   timestamp,
   check,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { users } from './users';
 import { sql } from 'drizzle-orm';
@@ -94,6 +95,16 @@ export const userGoals = app.table(
       sql`${table.source} IN ('initial', 'user', 'personalized')`,
     ),
     userIdIdx: index('idx_user_goals_user_id').on(table.userId),
+
+    userPeriodIdx: index('idx_user_goals_user_period').on(
+      table.userId,
+      table.startedAt,
+      table.endedAt,
+    ),
+
+    oneActiveGoalPerUser: uniqueIndex('idx_user_goals_one_active_per_user')
+      .on(table.userId)
+      .where(sql`${table.endedAt} IS NULL`),
   }),
 );
 export type UserGoals = typeof userGoals.$inferSelect;
