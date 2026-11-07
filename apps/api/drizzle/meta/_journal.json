@@ -78,6 +78,20 @@
       "when": 1794000000000,
       "tag": "0011_activity_energy_precision",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794083327215,
+      "tag": "0012_real_changeling",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794083728093,
+      "tag": "0013_spotty_eddie_brock",
+      "breakpoints": true
     }
   ]
 }

@@ -9,7 +9,7 @@ import { DB } from '../db/db.module';
 import { userGoals } from '../db/schema/userGoals';
 import { goalRecommendations } from '../db/schema/goalRecommendations';
 import { userProfiles } from '../db/schema/userProfiles';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, isNull, lte, or, sql } from 'drizzle-orm';
 import { roundNutrition } from '../common/nutrition/precision';
 import type { UpdateGoalsDto } from './goals.schema';
 import type { GoalMetrics } from './personalization/types';
@@ -25,11 +25,20 @@ type DatabaseExecutor = Pick<Db, 'select' | 'insert' | 'update'>;
 export class GoalsService {
   constructor(@Inject(DB) private readonly db: Db) {}
 
-  async findByUserId(userId: string) {
+  async findByUserId(userId: string, date?: string) {
+    const conds = [eq(userGoals.userId, userId)];
+    if (date) {
+      conds.push(
+        gte(userGoals.startedAt, new Date(`${date}T00:00:00.000Z`)),
+        sql`(${userGoals.endedAt} IS NULL OR ${userGoals.endedAt} >= ${new Date(`${date}T00:00:00.000Z`)})`,
+      );
+    }
+
     const [goals] = await this.db
       .select()
       .from(userGoals)
-      .where(eq(userGoals.userId, userId))
+      .where(and(...conds))
+      .orderBy(desc(userGoals.startedAt))
       .limit(1);
 
     if (!goals) {
@@ -40,23 +49,35 @@ export class GoalsService {
   }
 
   async update(userId: string, data: UpdateGoalsDto) {
-    return this.db.transaction(async (tx) => {
+    return this.db.transaction(async (executor) => {
       // Serialize writes for one user. Without this lock, two simultaneous
       // requests can both observe no open history row and insert duplicates.
-      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${userId}))`);
+      await executor.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${userId}))`);
 
-      const existing = await this.findByUserIdSafe(userId, tx);
+      const existing = await this.findByUserIdSafe(userId, executor);
 
       if (existing) {
-        const [goals] = await tx
+        // Close the old goal row so it no longer applies to future dates.
+        await executor
           .update(userGoals)
-          .set({
+          .set({ endedAt: new Date() })
+          .where(
+            and(
+              eq(userGoals.userId, userId),
+              isNull(userGoals.endedAt),
+            ),
+          );
+
+        // Insert a new goal row effective from now.
+        const [goals] = (await executor
+          .insert(userGoals)
+          .values({
+            userId,
             ...data,
             source: 'user',
-            updatedAt: new Date(),
+            startedAt: new Date(),
           })
-          .where(eq(userGoals.userId, userId))
-          .returning();
+          .returning()) as any;
 
         await recordGoalHistory(
           userId,
@@ -64,17 +85,18 @@ export class GoalsService {
           rowToGoalMetrics(goals),
           'user',
           'user_edit',
-          tx,
+          executor,
         );
         return goals;
       }
 
-      const [goals] = await tx
+      const [goals] = await executor
         .insert(userGoals)
         .values({
           userId,
           ...data,
           source: 'user',
+          startedAt: new Date(),
         })
         .returning();
 
@@ -84,7 +106,7 @@ export class GoalsService {
         rowToGoalMetrics(goals),
         'user',
         'user_edit',
-        tx,
+        executor,
       );
       return goals;
     });
@@ -224,22 +246,36 @@ export class GoalsService {
           return existing;
         }
 
-        const [goals] = await executor
+        const [goals] = (await executor
           .update(userGoals)
-          .set(merged)
-          .where(eq(userGoals.userId, userId))
-          .returning();
+          .set({ endedAt: new Date() })
+          .where(
+            and(
+              eq(userGoals.userId, userId),
+              isNull(userGoals.endedAt),
+            ),
+          ).returning()) as any;
+
+        const [newGoals] = (await executor
+          .insert(userGoals)
+          .values({
+            userId,
+            ...merged,
+            source: 'user' as const,
+            startedAt: new Date(),
+          })
+          .returning()) as any;
 
         await recordGoalHistory(
           userId,
           rowToGoalMetrics(existing),
-          rowToGoalMetrics(goals),
-          goals?.source ?? 'user',
+          rowToGoalMetrics(newGoals),
+          'user',
           'profile_recalculation',
           executor,
         );
 
-        return goals;
+        return newGoals;
       }
 
       if (existing.source === 'personalized' && !forceAutomatic) {
@@ -272,44 +308,69 @@ export class GoalsService {
           return existing;
         }
 
-        const [goals] = await executor
+        const [goals] = (await executor
           .update(userGoals)
-          .set(merged)
-          .where(eq(userGoals.userId, userId))
-          .returning();
+          .set({ endedAt: new Date() })
+          .where(
+            and(
+              eq(userGoals.userId, userId),
+              isNull(userGoals.endedAt),
+            ),
+          ).returning()) as any;
+
+        const [newGoals] = (await executor
+          .insert(userGoals)
+          .values({
+            userId,
+            ...merged,
+            source: 'personalized' as const,
+            startedAt: new Date(),
+          })
+          .returning()) as any;
 
         await recordGoalHistory(
           userId,
           rowToGoalMetrics(existing),
-          rowToGoalMetrics(goals),
+          rowToGoalMetrics(newGoals),
           'personalized',
           'personalized_profile_recalculation',
           executor,
         );
 
-        return goals;
+        return newGoals;
       }
 
-      const [goals] = await executor
-        .update(userGoals)
-        .set({
-          ...calculated,
-          source: 'initial',
-          updatedAt: new Date(),
-        })
-        .where(eq(userGoals.userId, userId))
-        .returning();
+        const [goals] = (await executor
+          .update(userGoals)
+          .set({ endedAt: new Date() })
+          .where(
+            and(
+              eq(userGoals.userId, userId),
+              isNull(userGoals.endedAt),
+            ),
+          ).returning()) as any;
+
+        const [newGoals] = (await executor
+          .insert(userGoals)
+          .values({
+            userId,
+            ...calculated,
+            source: 'initial',
+            startedAt: new Date(),
+          })
+          .returning()) as any;
+
 
       await recordGoalHistory(
         userId,
         rowToGoalMetrics(existing),
-        rowToGoalMetrics(goals),
+        rowToGoalMetrics(newGoals),
         'initial',
         forceAutomatic ? 'manual_reset_to_automatic' : 'profile_recalculation',
         executor,
       );
 
-      return goals;
+      return newGoals;
     }
 
     const [goals] = await executor

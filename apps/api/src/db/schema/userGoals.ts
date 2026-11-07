@@ -6,6 +6,7 @@ import {
   varchar,
   timestamp,
   check,
+  index,
 } from 'drizzle-orm/pg-core';
 import { users } from './users';
 import { sql } from 'drizzle-orm';
@@ -19,8 +20,7 @@ export const userGoals = app.table(
     id: uuid('id').primaryKey().defaultRandom(),
     userId: uuid('user_id')
       .notNull()
-      .references(() => users.id, { onDelete: 'cascade' })
-      .unique(),
+      .references(() => users.id, { onDelete: 'cascade' }),
     // Nutrition
     dailyCaloriesGoal: numeric('daily_calories_goal', {
       precision: 10,
@@ -64,6 +64,10 @@ export const userGoals = app.table(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
+    startedAt: timestamp('started_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    endedAt: timestamp('ended_at', { withTimezone: true }),
   },
   (table) => ({
     positiveGoals: check(
@@ -89,6 +93,7 @@ export const userGoals = app.table(
       'user_goals_source_values',
       sql`${table.source} IN ('initial', 'user', 'personalized')`,
     ),
+    userIdIdx: index('idx_user_goals_user_id').on(table.userId),
   }),
 );
 export type UserGoals = typeof userGoals.$inferSelect;

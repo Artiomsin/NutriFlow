@@ -4,6 +4,7 @@ import {
   Post,
   Patch,
   Body,
+  Query,
   UseGuards,
   Param,
   ParseUUIDPipe,
@@ -24,8 +25,11 @@ export class GoalsController {
     private readonly personalizationService: GoalPersonalizationService,
   ) {}
   @Get()
-  findMe(@User() user: AuthPayload) {
-    return this.goalsService.findByUserId(user.userId);
+  findMe(
+    @User() user: AuthPayload,
+    @Query('date') date?: string,
+  ) {
+    return this.goalsService.findByUserId(user.userId, date);
   }
   @Patch()
   update(
