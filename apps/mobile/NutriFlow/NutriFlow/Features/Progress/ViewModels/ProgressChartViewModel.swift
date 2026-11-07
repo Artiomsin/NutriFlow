@@ -121,7 +121,7 @@ final class ProgressChartViewModel {
         do {
             async let food = foodService?.getFoodByDate(date: date) ?? []
             async let water = waterService?.getWaterByDate(date: date) ?? []
-            async let goals = goalsService?.getGoals(date: date)
+            async let goals = try? await goalsService?.getGoals(date: date)
             async let activityResult = loadActivityDay(date)
             async let workoutsResult = loadWorkoutsDay(date)
 
