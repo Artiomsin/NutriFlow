@@ -115,6 +115,91 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
         return result
     }
 
+    func fetchRange(from startDate: Date, to endDate: Date) async throws -> [DailyActivity] {
+        let tz = TimeZone(identifier: PreferencesStore.shared.timeZone) ?? .current
+        var calendar = Calendar.current
+        calendar.timeZone = tz
+
+        var results: [DailyActivity] = []
+
+        // Iterate day by day in the profile time zone
+        var current = calendar.startOfDay(for: startDate)
+        let endDay = calendar.startOfDay(for: endDate)
+
+        while current <= endDay {
+            guard let nextDay = calendar.date(byAdding: .day, value: 1, to: current) else {
+                break
+            }
+
+            let dayStart = current
+            let dayEnd = nextDay
+
+            print(
+                "[HealthKit] fetchRange day: " +
+                "start=\(dayStart) end=\(dayEnd) timeZone=\(tz.identifier)"
+            )
+
+            async let steps = sum(
+                .stepCount,
+                start: dayStart,
+                end: dayEnd,
+                unit: .count()
+            )
+
+            async let active = sum(
+                .activeEnergyBurned,
+                start: dayStart,
+                end: dayEnd,
+                unit: .kilocalorie()
+            )
+
+            async let basal = sum(
+                .basalEnergyBurned,
+                start: dayStart,
+                end: dayEnd,
+                unit: .kilocalorie()
+            )
+
+            async let walkingRunningDistance = sum(
+                .distanceWalkingRunning,
+                start: dayStart,
+                end: dayEnd,
+                unit: .meter()
+            )
+            async let cyclingDistance = sum(
+                .distanceCycling,
+                start: dayStart,
+                end: dayEnd,
+                unit: .meter()
+            )
+            async let swimmingDistance = sum(
+                .distanceSwimming,
+                start: dayStart,
+                end: dayEnd,
+                unit: .meter()
+            )
+
+            let totalDistance = await walkingRunningDistance
+                + cyclingDistance
+                + swimmingDistance
+
+            let entry = DailyActivity(
+                date: dateFormatter.string(from: dayStart),
+                steps: Int(await steps),
+                activeCalories: await active,
+                basalCalories: await basal,
+                distanceMeters: totalDistance
+            )
+
+            results.append(entry)
+            current = nextDay
+        }
+
+        print("[HealthKit] fetchRange result: \(results.count) days")
+
+        return results
+    }
+
 
     func enableBackgroundDelivery() async throws {
         guard isAvailable else {

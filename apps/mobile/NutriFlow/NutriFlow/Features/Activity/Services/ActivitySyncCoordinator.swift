@@ -166,6 +166,41 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
             return
         }
 
+        // M1: Backfill last 30 days on first ever launch after install/reinstall.
+        if !PreferencesStore.shared.hasCompletedInitialBackfill {
+            print("[ActivitySyncCoordinator] starting 30-day backfill")
+
+            let calendar = Calendar.current
+            var tz = TimeZone(identifier: PreferencesStore.shared.timeZone) ?? .current
+            calendar.timeZone = tz
+
+            let end = Date()
+            guard let start = calendar.date(
+                byAdding: .day,
+                value: -30,
+                to: end
+            ) else {
+                print("[ActivitySyncCoordinator] backfill: cannot compute start date")
+            } else {
+                do {
+                    let entries = try await healthKitService.fetchRange(from: start, to: end)
+
+                    guard isActive else { return }
+
+                    await syncToBackend(entries)
+
+                    PreferencesStore.shared.hasCompletedInitialBackfill = true
+                    print(
+                        "[ActivitySyncCoordinator] backfill completed: \(entries.count) days"
+                    )
+                } catch {
+                    print(
+                        "[ActivitySyncCoordinator] backfill failed: \(error)"
+                    )
+                }
+            }
+        }
+
         let activity = await healthKitService.fetchToday()
 
         guard isActive else {
@@ -241,6 +276,23 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
             try await activityService.sync(entries: [activity])
 
             print("[ActivitySyncCoordinator] backend sync success: \(activity)")
+        } catch {
+            print("[ActivitySyncCoordinator] backend sync failed: \(error)")
+        }
+    }
+
+    private func syncToBackend(_ entries: [DailyActivity]) async {
+        guard isActive else {
+            print("[ActivitySyncCoordinator] backend sync skipped — inactive")
+            return
+        }
+
+        do {
+            try await activityService.sync(entries: entries)
+
+            print(
+                "[ActivitySyncCoordinator] backend sync success: \(entries.count) entries"
+            )
         } catch {
             print("[ActivitySyncCoordinator] backend sync failed: \(error)")
         }

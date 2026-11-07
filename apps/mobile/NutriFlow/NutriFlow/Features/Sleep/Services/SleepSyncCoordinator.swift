@@ -137,17 +137,30 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
    
 
     func loadHistoryIfNeeded() async throws -> [HealthKitSleep] {
+        // On first ever launch, do a 30-day backfill instead of the usual 7-day window.
+        let isInitialBackfill = !PreferencesStore.shared.hasCompletedInitialBackfill
+        let daysBack = isInitialBackfill ? 30 : 7
+
         if let last = lastHistorySyncedAt,
+           !isInitialBackfill,
            Date().timeIntervalSince(last) < Self.historyCacheTTL {
             return try await cachedHistory() ?? []
         }
 
         let history = try await loadHistory(
             useCache: true,
-            reconcile: false
+            reconcile: false,
+            daysBack: daysBack
         )
 
         lastHistorySyncedAt = Date()
+
+        if isInitialBackfill {
+            PreferencesStore.shared.hasCompletedInitialBackfill = true
+            print(
+                "[SleepSyncCoordinator] initial backfill completed: \(history.count) nights"
+            )
+        }
 
         return history
     }
@@ -169,7 +182,8 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
 
     private func loadHistory(
         useCache: Bool,
-        reconcile: Bool
+        reconcile: Bool,
+        daysBack: Int = 7
     ) async throws -> [HealthKitSleep] {
         let calendar = Calendar.current
 
@@ -180,9 +194,9 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
             of: Date()
         ) ?? Date()
 
-        let sevenDaysAgo = calendar.date(
+        let windowStart = calendar.date(
             byAdding: .day,
-            value: -7,
+            value: -daysBack,
             to: todayNoon
         ) ?? todayNoon
 
@@ -195,7 +209,7 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
         }
 
         let fetched = try await healthKitService.fetchNights(
-            from: sevenDaysAgo,
+            from: windowStart,
             to: todayNoon
         )
 
@@ -227,7 +241,7 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
         if reconcile {
             await reconcileBackend(
                 kept: sorted,
-                windowStart: sevenDaysAgo,
+                windowStart: windowStart,
                 windowEnd: todayNoon
             )
         }

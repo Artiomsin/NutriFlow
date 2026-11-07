@@ -23,10 +23,17 @@ final class PreferencesStore {
         }
     }
 
+    var hasCompletedInitialBackfill: Bool = false {
+        didSet {
+            saveHasCompletedInitialBackfill()
+        }
+    }
+
     private let defaults = UserDefaults.standard
     private let unitsKey = "preferred_units"
     private let timeZoneKey = "user_time_zone"
     private let autoUpdateTimeZoneKey = "user_auto_update_time_zone"
+    private let initialBackfillKey = "user_initial_backfill_completed"
 
     private init() {
         load()
@@ -55,6 +62,10 @@ final class PreferencesStore {
         defaults.set(autoUpdateTimeZone, forKey: autoUpdateTimeZoneKey)
     }
 
+    private func saveHasCompletedInitialBackfill() {
+        defaults.set(hasCompletedInitialBackfill, forKey: initialBackfillKey)
+    }
+
     private func load() {
         if let data = defaults.data(forKey: unitsKey),
            let units = try? JSONDecoder().decode(PreferredUnits.self, from: data) {
@@ -64,5 +75,6 @@ final class PreferencesStore {
             timeZone = savedTimeZone
         }
         autoUpdateTimeZone = defaults.bool(forKey: autoUpdateTimeZoneKey)
+        hasCompletedInitialBackfill = defaults.bool(forKey: initialBackfillKey)
     }
 }
