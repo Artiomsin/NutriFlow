@@ -31,7 +31,7 @@ struct DailySummarySection: View {
         switch state {
 
         case .idle, .loading:
-            ProgressView()
+            DailySummarySkeletonView()
 
         case .loaded(let summary):
             DailySummaryCard(summary: summary, goals: goals)
@@ -78,14 +78,19 @@ struct DailySummarySection: View {
     }
 }
 
-#Preview {
-    DailySummarySectionPreview()
+#Preview("Daily Summary — Loading") {
+    DailySummarySection(
+        state: .loading,
+        goals: nil
+    )
+    .padding()
+    .background(AppColors.background)
 }
 
-struct DailySummarySectionPreview: View {
-    var body: some View {
-        DailySummarySection(
-            state: .loaded(DailySummary(
+#Preview("Daily Summary — Loaded") {
+    DailySummarySection(
+        state: .loaded(
+            DailySummary(
                 id: "1",
                 userId: "1",
                 date: "2026-05-18",
@@ -96,11 +101,10 @@ struct DailySummarySectionPreview: View {
                 totalWaterMl: 1750,
                 createdAt: "2026-05-18T10:00:00Z",
                 updatedAt: nil
-            )),
-            goals: nil
-        )
-        .padding()
-        .background(AppColors.background)
-        
-    }
+            )
+        ),
+        goals: nil
+    )
+    .padding()
+    .background(AppColors.background)
 }

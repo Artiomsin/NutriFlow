@@ -930,7 +930,19 @@
     "Loading activity" : {
 
     },
-    "Loading sleep..." : {
+    "Loading daily summary" : {
+
+    },
+    "Loading food entries" : {
+
+    },
+    "Loading sleep data" : {
+
+    },
+    "Loading water entries" : {
+
+    },
+    "Loading workout data" : {
 
     },
     "Macros (Avg)" : {

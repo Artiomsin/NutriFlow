@@ -18,18 +18,16 @@ struct LastWorkoutCard: View {
     var weeklyWorkoutMinutesGoal: Int? = nil
     var weekWorkoutsCount: Int = 0
     var weekWorkoutMinutes: Int = 0
-
+    
     var body: some View {
         if healthAccessDenied {
             deniedPrompt
         } else if case .error(let error) = state, workout == nil {
             WorkoutLatestErrorNotice(error: error, onRetry: onRetry)
         } else if state == .loading, workout == nil {
-            ProgressView()
-                .tint(AppColors.accent)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .appGlassSurface()
+            workoutSkeleton
+                .appGlassSurface(level: .prominent)
+                .modifier(SkeletonShimmer())
         } else {
             workoutContent
         }
@@ -113,6 +111,160 @@ struct LastWorkoutCard: View {
         .appGlassSurface(level: .prominent)
     }
 
+    
+    private var workoutSkeleton: some View {
+        VStack(spacing: 12) {
+            // Workout header
+            HStack(spacing: 16) {
+                RoundedRectangle(cornerRadius: AppRadius.medium)
+                    .fill(AppColors.textSecondary.opacity(0.12))
+                    .frame(width: 44, height: 44)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    skeletonPlaceholder(width: 105, height: 17)
+                    skeletonPlaceholder(width: 125, height: 12)
+                }
+
+                Spacer(minLength: 0)
+
+                VStack(alignment: .trailing, spacing: 6) {
+                    skeletonPlaceholder(width: 58, height: 14)
+
+                    HStack(spacing: 10) {
+                        skeletonPlaceholder(width: 48, height: 11)
+                        skeletonPlaceholder(width: 45, height: 11)
+                    }
+                }
+            }
+
+            if let goal = weeklyWorkoutsGoal, goal > 0 {
+                activityGoalSkeleton
+            }
+
+            if let goal = weeklyWorkoutMinutesGoal, goal > 0 {
+                activityGoalSkeleton
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Loading workout data")
+    }
+
+    private struct SkeletonShimmer: ViewModifier {
+        @State private var isAnimating = false
+
+        func body(content: Content) -> some View {
+            content
+                .overlay {
+                    GeometryReader { geometry in
+                        Rectangle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        .clear,
+                                        .white.opacity(0.10),
+                                        .clear
+                                    ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: geometry.size.width * 0.5)
+                            .offset(
+                                x: isAnimating
+                                    ? geometry.size.width
+                                    : -geometry.size.width
+                            )
+                    }
+                    .clipped()
+                    .allowsHitTesting(false)
+                }
+                .onAppear {
+                    withAnimation(
+                        .linear(duration: 1.4)
+                            .repeatForever(autoreverses: false)
+                    ) {
+                        isAnimating = true
+                    }
+                }
+        }
+    }
+    
+    private var activityGoalSkeleton: some View {
+        HStack(spacing: 10) {
+            // Progress column: 46 × 70
+            ZStack(alignment: .bottom) {
+                RoundedRectangle(
+                    cornerRadius: 15,
+                    style: .continuous
+                )
+                .fill(AppColors.textSecondary.opacity(0.10))
+                .overlay {
+                    RoundedRectangle(
+                        cornerRadius: 15,
+                        style: .continuous
+                    )
+                    .strokeBorder(
+                        AppColors.textSecondary.opacity(0.10),
+                        lineWidth: 1.2
+                    )
+                }
+
+                RoundedRectangle(
+                    cornerRadius: 15,
+                    style: .continuous
+                )
+                .fill(AppColors.textSecondary.opacity(0.14))
+                .frame(height: 35)
+
+                Circle()
+                    .fill(AppColors.textSecondary.opacity(0.18))
+                    .frame(width: 17, height: 17)
+                    .padding(.bottom, 7)
+            }
+            .frame(width: 46, height: 70)
+
+            // Goal information
+            VStack(alignment: .leading, spacing: 3) {
+                skeletonPlaceholder(width: 65, height: 12)
+                skeletonPlaceholder(width: 115, height: 14)
+                skeletonPlaceholder(width: 55, height: 24)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background {
+            RoundedRectangle(
+                cornerRadius: 17,
+                style: .continuous
+            )
+            .fill(AppColors.textSecondary.opacity(0.06))
+        }
+        .overlay {
+            RoundedRectangle(
+                cornerRadius: 17,
+                style: .continuous
+            )
+            .stroke(
+                AppColors.textSecondary.opacity(0.08),
+                lineWidth: 0.8
+            )
+        }
+    }
+
+    private func skeletonPlaceholder(
+        width: CGFloat,
+        height: CGFloat
+    ) -> some View {
+        RoundedRectangle(cornerRadius: 5)
+            .fill(AppColors.textSecondary.opacity(0.12))
+            .frame(width: width, height: height)
+    }
+    
+    
     private var deniedPrompt: some View {
         HStack {
             Image(systemName: "heart.slash")
@@ -175,6 +327,24 @@ private struct WorkoutLatestErrorNotice: View {
         weeklyWorkoutMinutesGoal: 150,
         weekWorkoutsCount: 3,
         weekWorkoutMinutes: 95
+    )
+    .padding()
+    .background(AppColors.background)
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Loading") {
+    LastWorkoutCard(
+        workout: nil,
+        state: .loading,
+        healthAccessDenied: false,
+        onOpenSettings: {},
+        onTap: {},
+        onRetry: {},
+        weeklyWorkoutsGoal: 5,
+        weeklyWorkoutMinutesGoal: 150,
+        weekWorkoutsCount: 0,
+        weekWorkoutMinutes: 0
     )
     .padding()
     .background(AppColors.background)

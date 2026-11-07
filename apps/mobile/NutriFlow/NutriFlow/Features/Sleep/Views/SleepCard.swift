@@ -15,14 +15,7 @@ struct SleepCard: View {
     var body: some View {
         switch vm.state {
         case .idle, .loading:
-            HStack {
-                ProgressView().tint(AppColors.accent)
-                Text("Loading sleep...")
-                    .foregroundColor(AppColors.textSecondary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .appGlassSurface()
+            sleepSkeleton
         case .needsAccess:
             accessPrompt
         case .denied:
@@ -244,6 +237,120 @@ struct SleepCard: View {
         if sleep.segmentCount > 0 { parts.append("\(sleep.segmentCount) segments") }
         return parts.joined(separator: " · ")
     }
+    
+    private var sleepSkeleton: some View {
+        VStack(spacing: 12) {
+            // Header
+            HStack {
+                HStack(spacing: 8) {
+                    skeletonPlaceholder(width: 18, height: 18)
+                        .clipShape(Circle())
+
+                    skeletonPlaceholder(width: 55, height: 17)
+                }
+
+                Spacer()
+
+                HStack(spacing: 5) {
+                    skeletonPlaceholder(width: 12, height: 12)
+                        .clipShape(Circle())
+
+                    skeletonPlaceholder(width: 48, height: 12)
+                }
+            }
+
+            // Metrics
+            HStack(spacing: 16) {
+                sleepMetricSkeleton
+                sleepMetricSkeleton
+                sleepMetricSkeleton
+            }
+
+            // Sleep stages
+            // Sleep stages
+            VStack(spacing: 10) {
+                HStack(spacing: 2) {
+                    stageBarSkeleton
+                    stageBarSkeleton
+                    stageBarSkeleton
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 8)
+
+                HStack(spacing: 8) {
+                    stageLegendSkeleton
+                    stageLegendSkeleton
+                    stageLegendSkeleton
+                    stageLegendSkeleton
+                }
+            }
+
+            // Statistics
+            skeletonPlaceholder(width: 180, height: 12)
+
+            // Sleep goal
+            if let _ = goals?.nightlySleepMinMinutes,
+               let maxMinutes = goals?.nightlySleepMaxMinutes,
+               maxMinutes > 0 {
+                VStack(spacing: 10) {
+                    HStack {
+                        skeletonPlaceholder(width: 90, height: 13)
+
+                        Spacer()
+
+                        skeletonPlaceholder(width: 75, height: 13)
+                    }
+
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(AppColors.textSecondary.opacity(0.12))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 8)
+                }
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .appGlassSurface(level: .prominent)
+        .accessibilityLabel("Loading sleep data")
+    }
+
+    private var sleepMetricSkeleton: some View {
+        VStack(spacing: 6) {
+            skeletonPlaceholder(width: 18, height: 18)
+                .clipShape(Circle())
+
+            skeletonPlaceholder(width: 48, height: 18)
+
+            skeletonPlaceholder(width: 45, height: 12)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var stageBarSkeleton: some View {
+        RoundedRectangle(cornerRadius: 2)
+            .fill(AppColors.textSecondary.opacity(0.12))
+            .frame(maxWidth: .infinity)
+            .frame(height: 8)
+    }
+
+    private var stageLegendSkeleton: some View {
+        HStack(spacing: 3) {
+            Circle()
+                .fill(AppColors.textSecondary.opacity(0.12))
+                .frame(width: 6, height: 6)
+
+            skeletonPlaceholder(width: 27, height: 10)
+        }
+    }
+
+    private func skeletonPlaceholder(
+        width: CGFloat,
+        height: CGFloat
+    ) -> some View {
+        RoundedRectangle(cornerRadius: 5)
+            .fill(AppColors.textSecondary.opacity(0.12))
+            .frame(width: width, height: height)
+    }
 }
 
 private struct SleepMetric: View {
@@ -348,6 +455,22 @@ private struct StageBar: View {
         heartRateAvg: 58,
         segments: []
     )])
+    return SleepCard(vm: vm)
+        .padding()
+        .background(AppColors.background)
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Loading") {
+    let vm = SleepViewModel(
+        coordinator: SleepSyncCoordinator(
+            healthKitService: MockSleepHealthKit(),
+            sleepService: MockSleepService(),
+            cacheService: CacheService()
+        )
+    )
+    vm.state = .loading
+
     return SleepCard(vm: vm)
         .padding()
         .background(AppColors.background)

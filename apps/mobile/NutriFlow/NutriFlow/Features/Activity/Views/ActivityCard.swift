@@ -171,23 +171,22 @@ struct ActivityCard: View {
                 skeletonMetric
             }
 
-            if stepGoal ?? 0 > 0 {
+            if let goal = stepGoal, goal > 0 {
                 skeletonGoalRow
             }
 
-            if activeCaloriesGoal ?? 0 > 0 {
+            if let goal = activeCaloriesGoal, goal > 0 {
                 skeletonGoalRow
             }
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .appGlassSurface(level: .prominent)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Loading activity")
     }
 
     private var skeletonMetric: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             Circle()
                 .fill(AppColors.textSecondary.opacity(0.12))
                 .frame(width: 22, height: 22)
@@ -201,40 +200,79 @@ struct ActivityCard: View {
                 .frame(width: 38, height: 12)
         }
         .frame(maxWidth: .infinity)
-        .redacted(reason: .placeholder)
     }
 
     private var skeletonGoalRow: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
+        HStack(spacing: 10) {
+
+            // Progress column: 46 × 70
+            ZStack(alignment: .bottom) {
+                RoundedRectangle(
+                    cornerRadius: 15,
+                    style: .continuous
+                )
+                .fill(AppColors.textSecondary.opacity(0.10))
+                .overlay {
+                    RoundedRectangle(
+                        cornerRadius: 15,
+                        style: .continuous
+                    )
+                    .strokeBorder(
+                        AppColors.textSecondary.opacity(0.10),
+                        lineWidth: 1.2
+                    )
+                }
+
+                RoundedRectangle(
+                    cornerRadius: 15,
+                    style: .continuous
+                )
+                .fill(AppColors.textSecondary.opacity(0.14))
+                .frame(height: 35)
+
                 Circle()
+                    .fill(AppColors.textSecondary.opacity(0.18))
+                    .frame(width: 17, height: 17)
+                    .padding(.bottom, 7)
+            }
+            .frame(width: 46, height: 70)
+
+            // Goal information
+            VStack(alignment: .leading, spacing: 3) {
+                RoundedRectangle(cornerRadius: 4)
                     .fill(AppColors.textSecondary.opacity(0.12))
-                    .frame(width: 18, height: 18)
+                    .frame(width: 65, height: 12)
 
                 RoundedRectangle(cornerRadius: 4)
                     .fill(AppColors.textSecondary.opacity(0.12))
-                    .frame(width: 90, height: 13)
+                    .frame(width: 115, height: 14)
 
-                Spacer()
-
-                RoundedRectangle(cornerRadius: 4)
+                RoundedRectangle(cornerRadius: 5)
                     .fill(AppColors.textSecondary.opacity(0.12))
-                    .frame(width: 75, height: 13)
+                    .frame(width: 55, height: 24)
             }
 
-            GeometryReader { geometry in
-                Capsule()
-                    .fill(AppColors.textSecondary.opacity(0.10))
-                    .frame(height: 8)
-                    .overlay(alignment: .leading) {
-                        Capsule()
-                            .fill(AppColors.textSecondary.opacity(0.16))
-                            .frame(width: geometry.size.width * 0.35, height: 8)
-                    }
-            }
-            .frame(height: 8)
+            Spacer(minLength: 0)
         }
-        .redacted(reason: .placeholder)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background {
+            RoundedRectangle(
+                cornerRadius: 17,
+                style: .continuous
+            )
+            .fill(AppColors.textSecondary.opacity(0.06))
+        }
+        .overlay {
+            RoundedRectangle(
+                cornerRadius: 17,
+                style: .continuous
+            )
+            .stroke(
+                AppColors.textSecondary.opacity(0.08),
+                lineWidth: 0.8
+            )
+        }
     }
 
     private struct SkeletonShimmer: ViewModifier {
@@ -323,4 +361,18 @@ private struct ActivityMetric: View {
         .padding()
         .background(AppColors.background)
         
+}
+
+#Preview("Loading — Skeleton") {
+    let vm = ActivityViewModel(healthKit: MockHealthKit())
+    vm.state = .loading
+
+    return ActivityCard(
+        vm: vm,
+        stepGoal: 3444,
+        activeCaloriesGoal: 455
+    )
+    .padding()
+    .background(AppColors.background)
+    
 }
