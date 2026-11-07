@@ -234,6 +234,22 @@ struct CatalogFoodCategoryGroup: Codable, Sendable {
 struct BulkUpdateFoodCategoryRequest: Codable, Sendable {
     let foodIds: [String]
     let categoryId: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case foodIds
+        case categoryId
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(foodIds, forKey: .foodIds)
+
+        if let categoryId {
+            try container.encode(categoryId, forKey: .categoryId)
+        } else {
+            try container.encodeNil(forKey: .categoryId)
+        }
+    }
 }
 
 struct BulkUpdateFoodCategoryResponse: Codable, Sendable {
