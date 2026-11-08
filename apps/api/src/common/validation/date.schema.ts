@@ -1,5 +1,18 @@
 import { z } from 'zod';
 
+export const timeZoneSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .refine((value) => {
+    try {
+      Intl.DateTimeFormat(undefined, { timeZone: value });
+      return true;
+    } catch {
+      return false;
+    }
+  }, 'Invalid IANA time zone');
+
 const calendarDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 const isoDateTimePattern =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;

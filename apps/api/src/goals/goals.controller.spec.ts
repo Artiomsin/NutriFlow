@@ -45,7 +45,10 @@ describe('GoalsController', () => {
     const { controller, goalsService } = setup();
 
     await controller.findMe(user, {});
-    await controller.findMe(user, { date: '2026-11-08' });
+    await controller.findMe(user, {
+      date: '2026-11-08',
+      tz: 'Europe/Moscow',
+    });
 
     await controller.update(user, { dailyCaloriesGoal: 2200 });
     await controller.calculate(user);
@@ -55,11 +58,13 @@ describe('GoalsController', () => {
       1,
       'user-1',
       undefined,
+      undefined,
     );
     expect(goalsService.findByUserId).toHaveBeenNthCalledWith(
       2,
       'user-1',
       '2026-11-08',
+      'Europe/Moscow',
     );
 
     expect(goalsService.update).toHaveBeenCalledWith('user-1', {

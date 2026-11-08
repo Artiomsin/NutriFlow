@@ -340,4 +340,43 @@ describe('GoalsService.findByUserId by date', () => {
     expect(current.dailyCaloriesGoal).toBe(2500);
     expect(current.endedAt).toBeNull();
   });
+
+  it('resolves day boundaries in the requested time zone', async () => {
+    const user = await createUser(tx);
+    const first = await service.update(user.id, { dailyCaloriesGoal: 2000 });
+    const second = await service.update(user.id, { dailyCaloriesGoal: 2500 });
+
+    // Goal changed at 01:00 on Jan 12 in Moscow (UTC+3) == Jan 11 22:00 UTC.
+    await tx
+      .update(userGoals)
+      .set({
+        startedAt: new Date('2026-01-01T00:00:00.000Z'),
+        endedAt: new Date('2026-01-11T22:00:00.000Z'),
+      })
+      .where(eq(userGoals.id, first!.id));
+
+    await tx
+      .update(userGoals)
+      .set({ startedAt: new Date('2026-01-11T22:00:00.000Z') })
+      .where(eq(userGoals.id, second!.id));
+
+    // UTC sees the change on Jan 11, so the new version is selected.
+    const utcDay = await service.findByUserId(user.id, '2026-01-11', 'UTC');
+    expect(utcDay.dailyCaloriesGoal).toBe(2500);
+
+    // Moscow still treats it as Jan 11, so the old version is selected.
+    const moscowDay = await service.findByUserId(
+      user.id,
+      '2026-01-11',
+      'Europe/Moscow',
+    );
+    expect(moscowDay.dailyCaloriesGoal).toBe(2000);
+
+    const moscowNextDay = await service.findByUserId(
+      user.id,
+      '2026-01-12',
+      'Europe/Moscow',
+    );
+    expect(moscowNextDay.dailyCaloriesGoal).toBe(2500);
+  });
 });

@@ -6,7 +6,7 @@ import { dailyActivity } from '../db/schema/dailyActivity';
 import { userGoals } from '../db/schema/userGoals';
 import { userSleep } from '../db/schema/userSleep';
 import { userWorkouts } from '../db/schema/userWorkouts';
-import { eq, and, gte, lte } from 'drizzle-orm';
+import { eq, and, gte, lte, isNull, desc } from 'drizzle-orm';
 import { currentUserDate } from '../common/time/user-date';
 import { roundNutrition } from '../common/nutrition/precision';
 
@@ -44,7 +44,8 @@ export class AnalyticsService {
     const [goals] = await this.db
       .select()
       .from(userGoals)
-      .where(eq(userGoals.userId, userId))
+      .where(and(eq(userGoals.userId, userId), isNull(userGoals.endedAt)))
+      .orderBy(desc(userGoals.startedAt))
       .limit(1);
     const fromMs = new Date(fromDate).getTime();
     const toMs = new Date(toDate).getTime();

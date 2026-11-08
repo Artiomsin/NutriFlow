@@ -31,7 +31,7 @@ export class GoalsController {
     @Query(new ZodValidationPipe(goalsQuerySchema))
     query: GoalsQueryDto,
   ) {
-    return this.goalsService.findByUserId(user.userId, query.date);
+    return this.goalsService.findByUserId(user.userId, query.date, query.tz);
   }
   @Patch()
   update(

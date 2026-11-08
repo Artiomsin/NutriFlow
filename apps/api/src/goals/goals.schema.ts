@@ -1,9 +1,13 @@
 import { z } from 'zod';
 import { roundNutrition } from '../common/nutrition/precision';
-import { calendarDateSchema } from '../common/validation/date.schema';
+import {
+  calendarDateSchema,
+  timeZoneSchema,
+} from '../common/validation/date.schema';
 
 export const goalsQuerySchema = z.object({
   date: calendarDateSchema.optional(),
+  tz: timeZoneSchema.optional(),
 });
 
 export type GoalsQueryDto = z.infer<typeof goalsQuerySchema>;

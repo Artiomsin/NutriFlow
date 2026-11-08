@@ -7,8 +7,12 @@ import { goalHistory } from '../../db/schema/goalHistory';
 import type { GoalMetrics } from './types';
 import { generateRecommendation } from './recommendation';
 import { DataCollectionService } from './data-collection.service';
-import { recordGoalHistory } from '../goals-history';
-import { eq, and, lt, desc } from 'drizzle-orm';
+import {
+  recordGoalHistory,
+  rowToGoalMetrics,
+  EMPTY_GOALS_METRICS,
+} from '../goals-history';
+import { eq, and, lt, desc, isNull, sql } from 'drizzle-orm';
 
 export const PERSONALIZATION_INTERVAL_DAYS = 14;
 export const RECOMMENDATION_TTL_DAYS = 7;
@@ -109,6 +113,9 @@ export class GoalPersonalizationService {
 
   async acceptRecommendation(userId: string, recommendationId: string) {
     return this.db.transaction(async (tx) => {
+      // Serialize goal writes for this user, exactly like GoalsService does.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${userId}))`);
+
       // Claim the pending recommendation first. The status predicate prevents
       // concurrent requests from applying the same recommendation twice.
       const [recRow] = await tx
@@ -127,31 +134,49 @@ export class GoalPersonalizationService {
         throw new NotFoundException('Recommendation is not pending');
       }
 
-      const previous = recRow.previousGoals;
       const next = recRow.recommendedGoals;
+      const now = new Date();
+
+      // Read only the version that is active right now. Historical versions
+      // must stay untouched so past days keep showing the goal they had.
       const [existing] = await tx
         .select()
         .from(userGoals)
-        .where(eq(userGoals.userId, userId))
+        .where(and(eq(userGoals.userId, userId), isNull(userGoals.endedAt)))
+        .orderBy(desc(userGoals.startedAt))
         .limit(1);
 
       if (existing) {
+        // Close the current version instead of overwriting it.
         await tx
           .update(userGoals)
-          .set({ ...this.toGoalFields(next), source: 'personalized' })
-          .where(eq(userGoals.userId, userId));
-      } else {
-        await tx.insert(userGoals).values({
+          .set({ endedAt: now, updatedAt: now })
+          .where(
+            and(
+              eq(userGoals.id, existing.id),
+              eq(userGoals.userId, userId),
+              isNull(userGoals.endedAt),
+            ),
+          );
+      }
+
+      const [created] = await tx
+        .insert(userGoals)
+        .values({
           userId,
           ...this.toGoalFields(next),
           source: 'personalized',
-        });
-      }
+          startedAt: now,
+          endedAt: null,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
 
       await recordGoalHistory(
         userId,
-        previous,
-        next,
+        existing ? rowToGoalMetrics(existing) : { ...EMPTY_GOALS_METRICS },
+        rowToGoalMetrics(created),
         'personalized',
         'recommendation_accepted',
         tx,
@@ -217,7 +242,8 @@ export class GoalPersonalizationService {
     const [goalsRow] = await this.db
       .select()
       .from(userGoals)
-      .where(eq(userGoals.userId, userId))
+      .where(and(eq(userGoals.userId, userId), isNull(userGoals.endedAt)))
+      .orderBy(desc(userGoals.startedAt))
       .limit(1);
 
     const [lastRec] = await this.db

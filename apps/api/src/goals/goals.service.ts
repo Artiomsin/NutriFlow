@@ -11,6 +11,7 @@ import { goalRecommendations } from '../db/schema/goalRecommendations';
 import { userProfiles } from '../db/schema/userProfiles';
 import { and, desc, eq, gt, isNull, lt, or, sql } from 'drizzle-orm';
 import { roundNutrition } from '../common/nutrition/precision';
+import { zonedDayRange } from '../common/time/user-date';
 import type { UpdateGoalsDto } from './goals.schema';
 import type { GoalMetrics } from './personalization/types';
 import {
@@ -31,13 +32,14 @@ export class GoalsService {
    * Without date, returns the active goals.
    *
    * With date, returns the goal version that was effective during that
-   * calendar day. Date boundaries are currently interpreted as UTC.
+   * calendar day. Date boundaries are interpreted in `tz` (IANA name), falling
+   * back to UTC when it is missing or invalid.
    */
-  async findByUserId(userId: string, date?: string) {
+  async findByUserId(userId: string, date?: string, tz?: string) {
     const conditions = [eq(userGoals.userId, userId)];
 
     if (date !== undefined) {
-      const { start, end } = this.getUtcDayRange(date);
+      const { start, end } = this.getDayRange(date, tz);
 
       conditions.push(
         lt(userGoals.startedAt, end),
@@ -346,24 +348,32 @@ export class GoalsService {
     );
   }
 
-  private getUtcDayRange(date: string) {
+  private getDayRange(date: string, tz?: string) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       throw new BadRequestException('Invalid date. Expected YYYY-MM-DD.');
     }
 
-    const start = new Date(`${date}T00:00:00.000Z`);
+    const parsed = new Date(`${date}T00:00:00.000Z`);
 
     if (
-      Number.isNaN(start.getTime()) ||
-      start.toISOString().slice(0, 10) !== date
+      Number.isNaN(parsed.getTime()) ||
+      parsed.toISOString().slice(0, 10) !== date
     ) {
       throw new BadRequestException('Invalid calendar date.');
     }
 
-    const end = new Date(start);
-    end.setUTCDate(end.getUTCDate() + 1);
+    return zonedDayRange(date, this.resolveTimeZone(tz));
+  }
 
-    return { start, end };
+  private resolveTimeZone(tz?: string): string {
+    if (!tz) return 'UTC';
+
+    try {
+      new Intl.DateTimeFormat(undefined, { timeZone: tz });
+      return tz;
+    } catch {
+      return 'UTC';
+    }
   }
 
   /**
