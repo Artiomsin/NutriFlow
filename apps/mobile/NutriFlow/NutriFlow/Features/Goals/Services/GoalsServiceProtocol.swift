@@ -11,3 +11,10 @@ protocol GoalsServiceProtocol: Sendable {
     func dismissRecommendation(id: String) async throws -> DismissResult
     func getGoalHistory() async throws -> [GoalHistoryEntry]
 }
+
+extension GoalsServiceProtocol {
+    /// Goals that are active right now (no historical date filter).
+    func getGoals() async throws -> UserGoals {
+        try await getGoals(date: nil)
+    }
+}

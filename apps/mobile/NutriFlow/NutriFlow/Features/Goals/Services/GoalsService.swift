@@ -11,6 +11,14 @@ final class GoalsService: GoalsServiceProtocol, Sendable {
         var queryItems: [URLQueryItem] = []
         if let date {
             queryItems.append(URLQueryItem(name: "date", value: date))
+            // Day boundaries must match the profile time zone used for all
+            // calendar grouping on the client.
+            queryItems.append(
+                URLQueryItem(
+                    name: "tz",
+                    value: PreferencesStore.shared.timeZone
+                )
+            )
         }
         let request = APIRequest<NeverBody>(
             path: GoalsEndpoints.getGoals,
