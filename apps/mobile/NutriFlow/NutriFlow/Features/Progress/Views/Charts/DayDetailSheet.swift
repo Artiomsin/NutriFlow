@@ -5,6 +5,7 @@ struct DayDetailSheet: View {
     let food: [FoodEntry]
     let water: [WaterEntry]
     let goals: UserGoals?
+    let goalVersions: [GoalVersionEntry]
     let state: DayDetailState
     let activity: ActivityDayPoint?
     let workouts: [HealthKitWorkout]
@@ -52,6 +53,7 @@ struct DayDetailSheet: View {
                 ErrorView(error: warning, onRetry: onRetry)
             }
             if let goals { goalSection(goals) }
+            if !goalVersions.isEmpty { goalChangesSection }
             activitySection(activity, goals: goals)
             workoutSection
             foodSection
@@ -106,6 +108,27 @@ struct DayDetailSheet: View {
         }
         .padding()
         .appGlassSurface()
+    }
+
+    private var goalChangesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel("Goal Changes", icon: "clock.arrow.circlepath")
+
+            GoalHistoryTimeline(
+                entries: goalVersions,
+                dayStart: dayStart,
+                chronological: true,
+                showsDayHeaders: false
+            )
+
+            Text("Rings use the goal in effect at the end of the day.")
+                .font(.caption2)
+                .foregroundColor(AppColors.textTertiary)
+        }
+    }
+
+    private var dayStart: Date? {
+        AppDate.dateOnlyFormatter().date(from: dateStr)
     }
 
     private func activitySection(_ activity: ActivityDayPoint?, goals: UserGoals?) -> some View {
@@ -454,6 +477,7 @@ func formatTime(_ iso: String) -> String {
             WaterEntry(id: "2", userId: "1", amountMl: 300, createdAt: "2026-09-09T15:00:00Z", updatedAt: nil),
         ],
         goals: UserGoals(id: "1", userId: "1", dailyCaloriesGoal: 2200, dailyProteinGoal: 150, dailyFatGoal: 65, dailyCarbsGoal: 250, dailyWaterGoal: 3000, dailyStepsGoal: 5000, dailyActiveCaloriesGoal: 450, weeklyWorkoutsGoal: 33, weeklyWorkoutMinutesGoal: 44, nightlySleepMinMinutes: 456, nightlySleepMaxMinutes: 600,  source: "auto", createdAt: nil, updatedAt: nil),
+        goalVersions: [],
         state: .loaded,
         activity: ActivityDayPoint(date: "2026-09-09", steps: 8400, activeCalories: 380, basalCalories: 1700, distanceMeters: 6200, caloriesConsumed: 1950, netCalories: 1570),
         workouts: [

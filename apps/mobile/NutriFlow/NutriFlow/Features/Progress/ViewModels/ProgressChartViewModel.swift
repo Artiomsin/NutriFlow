@@ -55,6 +55,7 @@ final class ProgressChartViewModel {
     var selectedDateFood: [FoodEntry] = []
     var selectedDateWater: [WaterEntry] = []
     var selectedDateGoals: UserGoals?
+    var selectedDateGoalVersions: [GoalVersionEntry] = []
     var selectedDateActivity: ActivityDayPoint?
     var selectedDateWorkouts: [HealthKitWorkout] = []
     var dayDetailWarning: AppError?
@@ -107,6 +108,7 @@ final class ProgressChartViewModel {
         selectedDateFood = []
         selectedDateWater = []
         selectedDateGoals = nil
+        selectedDateGoalVersions = []
         selectedDateActivity = nil
         selectedDateWorkouts = []
         dayDetailWarning = nil
@@ -117,15 +119,17 @@ final class ProgressChartViewModel {
             async let food = foodService?.getFoodByDate(date: date) ?? []
             async let water = waterService?.getWaterByDate(date: date) ?? []
             async let goals = try? await goalsService?.getGoals(date: date)
+            async let versionsResult = loadGoalVersions(date)
             async let activityResult = loadActivityDay(date)
             async let workoutsResult = loadWorkoutsDay(date)
 
-            let (f, w, g, activity, workouts) = try await (food, water, goals, activityResult, workoutsResult)
+            let (f, w, g, versions, activity, workouts) = try await (food, water, goals, versionsResult, activityResult, workoutsResult)
             try Task.checkCancellation()
 
             selectedDateFood = f
             selectedDateWater = w
             selectedDateGoals = g
+            selectedDateGoalVersions = versions
             selectedDateActivity = activity.value
             selectedDateWorkouts = workouts.value
             dayDetailWarning = activity.error ?? workouts.error
@@ -134,6 +138,20 @@ final class ProgressChartViewModel {
             return
         } catch {
             dayDetailState = .error(ErrorMapper.map(error))
+        }
+    }
+
+    private func loadGoalVersions(_ date: String) async -> [GoalVersionEntry] {
+        guard let goalsService else { return [] }
+        do {
+            let page = try await goalsService.getGoalHistory(date: date)
+            return page.items
+        } catch is CancellationError {
+            return []
+        } catch {
+            // The goal timeline is supplementary; a failure here must not
+            // replace the whole day detail with an error.
+            return []
         }
     }
 

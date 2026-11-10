@@ -95,6 +95,7 @@ struct ProgressDashboardView: View {
                 food: chartVM.selectedDateFood,
                 water: chartVM.selectedDateWater,
                 goals: chartVM.selectedDateGoals,
+                goalVersions: chartVM.selectedDateGoalVersions,
                 state: chartVM.dayDetailState,
                 activity: chartVM.selectedDateActivity,
                 workouts: chartVM.selectedDateWorkouts,
