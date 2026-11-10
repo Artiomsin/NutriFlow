@@ -10,6 +10,7 @@ import type { GoalPersonalizationService } from './personalization/goal-personal
 function setup() {
   const goalsService = {
     findByUserId: mock(async () => ({ userId: 'user-1' })),
+    getHistory: mock(async () => ({ items: [], nextCursor: null })),
     update: mock(async () => ({ userId: 'user-1' })),
     calculate: mock(async () => ({ userId: 'user-1' })),
     resetToAutomatic: mock(async () => ({ userId: 'user-1' })),
@@ -19,7 +20,6 @@ function setup() {
     getPersonalizationState: mock(async () => ({ pending: null })),
     acceptRecommendation: mock(async () => ({ ok: true })),
     dismissRecommendation: mock(async () => ({ dismissed: true })),
-    getGoalHistory: mock(async () => []),
   };
 
   return {
@@ -53,6 +53,12 @@ describe('GoalsController', () => {
     await controller.update(user, { dailyCaloriesGoal: 2200 });
     await controller.calculate(user);
     await controller.resetToAutomatic(user);
+    await controller.goalHistory(user, { limit: 20 });
+    await controller.goalHistory(user, {
+      date: '2026-11-08',
+      tz: 'Europe/Moscow',
+      limit: 20,
+    });
 
     expect(goalsService.findByUserId).toHaveBeenNthCalledWith(
       1,
@@ -72,21 +78,25 @@ describe('GoalsController', () => {
     });
     expect(goalsService.calculate).toHaveBeenCalledWith('user-1');
     expect(goalsService.resetToAutomatic).toHaveBeenCalledWith('user-1');
+    expect(goalsService.getHistory).toHaveBeenNthCalledWith(1, 'user-1', {
+      limit: 20,
+    });
+    expect(goalsService.getHistory).toHaveBeenNthCalledWith(2, 'user-1', {
+      date: '2026-11-08',
+      tz: 'Europe/Moscow',
+      limit: 20,
+    });
   });
 
   it('delegates personalization to GoalPersonalizationService', async () => {
     const { controller, personalizationService } = setup();
     await controller.personalize(user);
     await controller.personalizationState(user);
-    await controller.goalHistory(user);
     await controller.acceptRecommendation(user, recId);
     await controller.dismissRecommendation(user, recId);
 
     expect(personalizationService.personalize).toHaveBeenCalledWith('user-1');
     expect(personalizationService.getPersonalizationState).toHaveBeenCalledWith(
-      'user-1',
-    );
-    expect(personalizationService.getGoalHistory).toHaveBeenCalledWith(
       'user-1',
     );
     expect(personalizationService.acceptRecommendation).toHaveBeenCalledWith(

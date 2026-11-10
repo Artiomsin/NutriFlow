@@ -12,6 +12,18 @@ export const goalsQuerySchema = z.object({
 
 export type GoalsQueryDto = z.infer<typeof goalsQuerySchema>;
 
+export const goalsHistoryQuerySchema = z.object({
+  // When present, returns every version that was in effect during that
+  // calendar day instead of a paginated page.
+  date: calendarDateSchema.optional(),
+  tz: timeZoneSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  // Id of the last version on the previous page.
+  cursor: z.string().uuid().optional(),
+});
+
+export type GoalsHistoryQueryDto = z.infer<typeof goalsHistoryQuerySchema>;
+
 const nutritionGoal = z
   .number()
   .finite()

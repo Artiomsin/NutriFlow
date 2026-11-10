@@ -10,8 +10,16 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { GoalsService } from './goals.service';
-import { updateGoalsSchema, goalsQuerySchema } from './goals.schema';
-import type { UpdateGoalsDto, GoalsQueryDto } from './goals.schema';
+import {
+  updateGoalsSchema,
+  goalsQuerySchema,
+  goalsHistoryQuerySchema,
+} from './goals.schema';
+import type {
+  UpdateGoalsDto,
+  GoalsQueryDto,
+  GoalsHistoryQueryDto,
+} from './goals.schema';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 import { User } from '../auth/decorators/user.decorator';
@@ -77,7 +85,11 @@ export class GoalsController {
   }
 
   @Get('history')
-  goalHistory(@User() user: AuthPayload) {
-    return this.personalizationService.getGoalHistory(user.userId);
+  goalHistory(
+    @User() user: AuthPayload,
+    @Query(new ZodValidationPipe(goalsHistoryQuerySchema))
+    query: GoalsHistoryQueryDto,
+  ) {
+    return this.goalsService.getHistory(user.userId, query);
   }
 }

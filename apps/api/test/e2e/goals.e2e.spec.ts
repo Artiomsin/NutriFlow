@@ -85,8 +85,10 @@ describe('goals routes', () => {
       .get('/api/goals/history')
       .set(auth(token))
       .expect(200);
-    expect(history.body).toBeArray();
-    expect(history.body.length).toBeGreaterThan(0);
+    expect(history.body.items).toBeArray();
+    expect(history.body.items.length).toBeGreaterThan(0);
+    expect(history.body.items[0].changes.length).toBeGreaterThan(0);
+    expect(history.body.items[0].reason).toBe('user_edit');
   });
 
   it('rejects an invalid goals body', async () => {
