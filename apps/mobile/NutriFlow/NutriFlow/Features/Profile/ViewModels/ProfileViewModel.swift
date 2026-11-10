@@ -34,6 +34,7 @@ final class ProfileViewModel {
     @ObservationIgnored private let userService: UserServiceProtocol
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let cacheService: CacheService?
+    @ObservationIgnored private let progressRefreshState: ProgressRefreshState?
     @ObservationIgnored private let activitySync: ActivitySyncProtocol?
     @ObservationIgnored private let analyticsTracker: AnalyticsTracking?
     @ObservationIgnored private let weightReminderScheduler: WeightReminderScheduling?
@@ -47,6 +48,7 @@ final class ProfileViewModel {
         profileService: ProfileServiceProtocol,
         userService: UserServiceProtocol,
         cacheService: CacheService? = nil,
+        progressRefreshState: ProgressRefreshState? = nil,
         activitySync: ActivitySyncProtocol? = nil,
         analyticsTracker: AnalyticsTracking? = nil,
         weightReminderScheduler: WeightReminderScheduling? = nil,
@@ -60,6 +62,7 @@ final class ProfileViewModel {
         self.profileService = profileService
         self.userService = userService
         self.cacheService = cacheService
+        self.progressRefreshState = progressRefreshState
         self.activitySync = activitySync
         self.analyticsTracker = analyticsTracker
         self.weightReminderScheduler = weightReminderScheduler
@@ -423,11 +426,25 @@ final class ProfileViewModel {
             _ = try await profileService.updateTimeZone(timeZone)
             PreferencesStore.shared.timeZone = timeZone
             await cacheService?.remove("profile")
+            await invalidateTimeZoneCaches()
+            // Time zone changes invalidate every calendar-day query, including
+            // data already loaded in memory.
+            progressRefreshState?.invalidateRequiringFullReload()
         } catch {
             let mapped = ErrorMapper.map(error)
             routeAuth(mapped)
             timeZoneError = mapped
         }
+    }
+
+    /// Drops everything that was calculated for calendar days and periods in
+    /// the previous time zone. The `analytics_week` and `analytics_month` keys
+    /// have no date in them, so without this they would keep results computed
+    /// in the old zone until their TTL runs out.
+    private func invalidateTimeZoneCaches() async {
+        await invalidateAggregateCaches()
+        await cacheService?.remove("food_today")
+        await cacheService?.remove("water_today")
     }
 
     func setAutoUpdateTimeZone(_ enabled: Bool) async {

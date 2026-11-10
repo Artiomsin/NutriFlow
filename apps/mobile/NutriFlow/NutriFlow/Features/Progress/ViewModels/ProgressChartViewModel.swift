@@ -386,9 +386,12 @@ final class ProgressChartViewModel {
         lastProgressRevision = revision
     }
 
-    func refreshIfNeeded(currentRevision: UInt) async {
+    func refreshIfNeeded(currentRevision: UInt, reloadWeight: Bool = false) async {
         guard lastProgressRevision != currentRevision else { return }
         await refreshData()
+        if reloadWeight {
+            await loadWeightSummary()
+        }
         if case .loaded = chartState {
             lastProgressRevision = currentRevision
         }
