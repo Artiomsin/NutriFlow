@@ -45,6 +45,10 @@ final class CategoryFoodsViewModel {
         await loadMore()
     }
 
+    func loadMoreSystemFoods() async {
+        await loadMore()
+    }
+
     func loadMore() async {
         guard hasMoreFoods, !isLoadingMore else { return }
         await loadNextPage()

@@ -7,15 +7,11 @@ struct CategoryManagerView: View {
 
     @State private var categoryName = ""
     @State private var selectedIcon = FoodCategoryIcons.defaultIcon
-    @State private var selectedColor = "#10B981"
+    @State private var selectedColor: Color = Color(hex: "#10B981") ?? AppColors.accent
     @State private var categoryToDelete: FoodCategory?
     @State private var categoryToEdit: FoodCategory?
     @State private var categoryToManage: FoodCategory?
     @State private var isManagingAllPersonalDishes = false
-
-    private var createColor: Color {
-        Color(hex: selectedColor) ?? AppColors.accent
-    }
 
     private var personalCategories: [FoodCategory] {
         viewModel.categories.filter(\.isPersonal)
@@ -112,6 +108,19 @@ struct CategoryManagerView: View {
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: categoryToDelete)
+            .alert(
+                "Couldn’t save category",
+                isPresented: Binding(
+                    get: { viewModel.categoryMutationError != nil },
+                    set: { if !$0 { viewModel.categoryMutationError = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) {
+                    viewModel.categoryMutationError = nil
+                }
+            } message: {
+                Text("Your changes weren’t saved. Please try again.")
+            }
         }
     }
 
@@ -204,71 +213,24 @@ struct CategoryManagerView: View {
                 .background(AppColors.surfaceSecondary)
                 .clipShape(.rect(cornerRadius: AppRadius.medium))
 
-                // Icon + color preview
-                HStack(spacing: 12) {
-                    CategoryIconView(
-                        iconName: selectedIcon,
-                        color: createColor
-                    )
-                    .frame(width: 44, height: 44)
-                    .background(createColor.opacity(0.12))
-                    .clipShape(.circle)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(selectedIcon.replacingOccurrences(of: ".", with: " ").capitalized)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(AppColors.textSecondary)
-
-                        Text("\(createColor.description)")
-                            .font(.caption2)
-                            .foregroundStyle(AppColors.textTertiary)
-                    }
-
-                    Spacer()
-                }
-
                 CategoryIconPicker(
                     selection: $selectedIcon,
-                    icons: FoodCategoryIcons.all
+                    icons: FoodCategoryIcons.all,
+                    color: selectedColor
                 )
 
-                // Color picker (preset colors)
+                // Color picker (gradient bar)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Color")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(AppColors.textSecondary)
 
-                    let presetColors: [String] = [
-                        "#10B981", "#EF4444", "#3B82F6", "#F59E0B",
-                        "#EC4899", "#84CC16", "#A855F7", "#06B6D4",
-                        "#F97316", "#6366F1", "#14B8A6", "#8B5CF6",
-                    ]
-
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 10) {
-                        ForEach(presetColors, id: \.self) { hex in
-                            Button {
-                                selectedColor = hex
-                            } label: {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color(hex: hex) ?? AppColors.accent)
-                                        .frame(width: 32, height: 32)
-
-                                    if selectedColor == hex {
-                                        Image(systemName: "checkmark")
-                                            .font(.caption2.weight(.bold))
-                                            .foregroundStyle(.white)
-                                    }
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
+                    GradientColorPicker(selectedColor: $selectedColor)
                 }
 
                 Button("Add Category", systemImage: "plus", action: createCategory)
                     .buttonStyle(.borderedProminent)
-                    .tint(createColor)
+                    .tint(selectedColor)
                     .disabled(trimmedCategoryName.isEmpty)
             }
         }
@@ -355,9 +317,9 @@ struct CategoryManagerView: View {
                     } label: {
                         Image(systemName: "pencil")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(categoryColor)
+                            .foregroundStyle(AppColors.accent)
                             .padding(8)
-                            .background(categoryColor.opacity(0.1), in: .circle)
+                            .background(AppColors.accent.opacity(0.1), in: .circle)
                     }
                     .buttonStyle(.plain)
 
@@ -399,10 +361,10 @@ struct CategoryManagerView: View {
         guard !name.isEmpty else { return }
 
         let icon = selectedIcon
-        let color = selectedColor
+        let color = selectedColor.toHex() ?? "#10B981"
         categoryName = ""
         selectedIcon = FoodCategoryIcons.defaultIcon
-        selectedColor = "#10B981"
+        selectedColor = Color(hex: "#10B981") ?? AppColors.accent
 
         Task {
             await viewModel.createCategory(named: name, icon: icon, color: color)

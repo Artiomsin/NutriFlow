@@ -212,6 +212,9 @@
     "Categories for system foods are managed by Nutriflow and cannot be changed here." : {
 
     },
+    "Category color" : {
+
+    },
     "Category icon" : {
 
     },
@@ -242,9 +245,6 @@
     "Color" : {
 
     },
-    "Color: %@" : {
-
-    },
     "Connect Apple Health to see sleep history" : {
 
     },
@@ -273,6 +273,9 @@
 
     },
     "Couldn’t load the latest workout from Apple Health." : {
+
+    },
+    "Couldn’t save category" : {
 
     },
     "Create a Category" : {
@@ -1096,6 +1099,9 @@
     "NutriFlow" : {
 
     },
+    "OK" : {
+
+    },
     "Only you can edit or delete these." : {
 
     },
@@ -1261,6 +1267,9 @@
     "Start typing to search" : {
 
     },
+    "Swipe up or down to adjust the hue." : {
+
+    },
     "Switch to automatic goals" : {
 
     },
@@ -1409,6 +1418,9 @@
 
     },
     "Your Categories" : {
+
+    },
+    "Your changes weren’t saved. Please try again." : {
 
     },
     "Your goal history will appear here after your first update." : {

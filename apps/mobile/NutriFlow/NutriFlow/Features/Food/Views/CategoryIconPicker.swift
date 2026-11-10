@@ -4,6 +4,7 @@ struct CategoryIconPicker: View {
     @Binding var selection: String
 
     let icons: [String]
+    let color: Color
 
     @State private var isExpanded = false
 
@@ -16,9 +17,9 @@ struct CategoryIconPicker: View {
             HStack(spacing: 12) {
                 Image(systemName: selection)
                     .font(.title2.weight(.semibold))
-                    .foregroundStyle(AppColors.accent)
+                    .foregroundStyle(color)
                     .frame(width: 48, height: 48)
-                    .background(AppColors.accent.opacity(0.12), in: .circle)
+                    .background(color.opacity(0.12), in: .circle)
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -35,7 +36,7 @@ struct CategoryIconPicker: View {
 
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                     .font(.callout.weight(.semibold))
-                    .foregroundStyle(AppColors.accent)
+                    .foregroundStyle(color)
             }
             .contentShape(Rectangle())
             .onTapGesture {
@@ -68,16 +69,16 @@ struct CategoryIconPicker: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 52)
                 .foregroundStyle(
-                    isSelected ? AppColors.accent : AppColors.accent.opacity(0.7)
+                    isSelected ? color : color.opacity(0.7)
                 )
                 .background(
-                    isSelected ? AppColors.accent.opacity(0.18) : AppColors.surface,
+                    isSelected ? color.opacity(0.18) : AppColors.surface,
                     in: .rect(cornerRadius: AppRadius.small)
                 )
                 .overlay {
                     RoundedRectangle(cornerRadius: AppRadius.small)
                         .stroke(
-                            isSelected ? AppColors.accent : AppColors.accent.opacity(0.16),
+                            isSelected ? color : color.opacity(0.16),
                             lineWidth: isSelected ? 2 : 1
                         )
                 }

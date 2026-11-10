@@ -5,6 +5,7 @@ struct CategoryFoodCard: View {
     let food: CatalogFood
     let isSelecting: Bool
     let isSelected: Bool
+    let accentColor: Color
 
     private var isPersonal: Bool {
         food.source == "user"
@@ -15,7 +16,7 @@ struct CategoryFoodCard: View {
             if isSelecting {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
-                    .foregroundStyle(AppColors.accent)
+                    .foregroundStyle(accentColor)
                     .accessibilityHidden(true)
             }
 
@@ -30,18 +31,18 @@ struct CategoryFoodCard: View {
                 HStack(spacing: 6) {
                     Text(isPersonal ? "Personal" : "System")
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(isPersonal ? AppColors.accent : AppColors.textSecondary)
+                        .foregroundStyle(isPersonal ? accentColor : AppColors.textSecondary)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 3)
                         .background(
-                            (isPersonal ? AppColors.accent : AppColors.surfaceSecondary)
+                            (isPersonal ? accentColor : AppColors.surfaceSecondary)
                                 .opacity(isPersonal ? 0.12 : 1),
                             in: .capsule
                         )
 
                     Text("\(food.caloriesPer100g.formatted(.number.precision(.fractionLength(0)))) kcal · 100 g")
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(AppColors.accent)
+                        .foregroundStyle(accentColor)
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
                 }
@@ -72,13 +73,13 @@ struct CategoryFoodCard: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            isSelected ? AppColors.accent.opacity(0.10) : AppColors.surface,
+            isSelected ? accentColor.opacity(0.10) : AppColors.surface,
             in: .rect(cornerRadius: AppRadius.medium)
         )
         .overlay {
             RoundedRectangle(cornerRadius: AppRadius.medium)
                 .stroke(
-                    isSelected ? AppColors.accent.opacity(0.70) : AppColors.border.opacity(0.70),
+                    isSelected ? accentColor.opacity(0.70) : AppColors.border.opacity(0.70),
                     lineWidth: isSelected ? 1.5 : 1
                 )
         }

@@ -154,7 +154,16 @@ final class MockFoodService: FoodServiceProtocol {
         FoodCategory(id: UUID().uuidString, name: name, icon: icon, color: color, createdBy: "1", createdAt: "", foodCount: 0)
     }
     func updateCategory(id: String, name: String?, icon: String?, color: String?) async throws -> FoodCategory {
-        FoodCategory(id: id, name: name ?? "Category", icon: icon, color: color, createdBy: "1", createdAt: "", foodCount: 0)
+        let existing = try await getCategories().first { $0.id == id }
+        return FoodCategory(
+            id: id,
+            name: name ?? existing?.name ?? "Category",
+            icon: icon ?? existing?.icon,
+            color: color ?? existing?.color,
+            createdBy: existing?.createdBy ?? "1",
+            createdAt: existing?.createdAt ?? "",
+            foodCount: existing?.foodCount ?? 0
+        )
     }
     func deleteCategory(id: String) async throws { }
     func uploadImage(_ data: Data) async throws -> String { "https://example.com/mock.jpg" }
