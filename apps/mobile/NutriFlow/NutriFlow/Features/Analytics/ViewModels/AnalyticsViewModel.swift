@@ -82,7 +82,7 @@ final class AnalyticsViewModel {
                 result = try await service.getMonthAnalytics()
                 cacheKey = "analytics_month"
             case .custom:
-                let days = Calendar.current.dateComponents([.day], from: periodState.fromDate, to: periodState.toDate).day ?? 0
+                let days = AppDate.calendar.dateComponents([.day], from: periodState.fromDate, to: periodState.toDate).day ?? 0
                 if days < 6 {
                     state = .idle
                     return
@@ -190,14 +190,14 @@ final class AnalyticsViewModel {
             state = .idle
             return
         case .week:
-            periodState.fromDate = Calendar.current.date(byAdding: .day, value: -6, to: Date()) ?? Date()
+            periodState.fromDate = AppDate.calendar.date(byAdding: .day, value: -6, to: Date()) ?? Date()
             periodState.toDate = Date()
         case .month:
-            periodState.fromDate = Calendar.current.date(byAdding: .day, value: -29, to: Date()) ?? Date()
+            periodState.fromDate = AppDate.calendar.date(byAdding: .day, value: -29, to: Date()) ?? Date()
             periodState.toDate = Date()
         case .custom:
             if periodState.fromDate == periodState.toDate {
-                periodState.fromDate = Calendar.current.date(byAdding: .day, value: -6, to: periodState.toDate) ?? periodState.toDate
+                periodState.fromDate = AppDate.calendar.date(byAdding: .day, value: -6, to: periodState.toDate) ?? periodState.toDate
             }
         }
         startPeriodLoad()
@@ -207,7 +207,7 @@ final class AnalyticsViewModel {
         periodState.fromDate = from
         periodState.toDate = to
         periodState.type = .custom
-        let days = Calendar.current.dateComponents([.day], from: from, to: to).day ?? 0
+        let days = AppDate.calendar.dateComponents([.day], from: from, to: to).day ?? 0
         if days < 6 {
             state = .idle
             return

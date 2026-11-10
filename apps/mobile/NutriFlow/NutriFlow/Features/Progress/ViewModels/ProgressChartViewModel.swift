@@ -63,22 +63,17 @@ final class ProgressChartViewModel {
         periodState.type != .today && aggregationLevel() == .day
     }
 
-    private static let dateOnlyFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.timeZone = TimeZone.current
-        return f
-    }()
-    private static let labelFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "d.M"
-        return f
-    }()
-    private static let monthFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "MMM"
-        return f
-    }()
+    // Date strings and day buckets must follow the profile time zone, the same
+    // one the API uses to resolve goal versions and group entries.
+    private static func dateOnlyFormatter() -> DateFormatter {
+        AppDate.dateOnlyFormatter()
+    }
+    private static func labelFormatter() -> DateFormatter {
+        AppDate.displayFormatter("d.M")
+    }
+    private static func monthFormatter() -> DateFormatter {
+        AppDate.displayFormatter("MMM")
+    }
 
     init(coordinator: AppCoordinator, service: DailySummaryServiceProtocol, periodState: PeriodState, foodService: FoodServiceProtocol? = nil, waterService: WaterTrackingServiceProtocol? = nil, goalsService: GoalsServiceProtocol? = nil, activityService: ActivityServiceProtocol? = nil, cacheService: CacheService? = nil, profileService: ProfileServiceProtocol? = nil, workoutService: WorkoutServiceProtocol? = nil, progressRefreshState: ProgressRefreshState? = nil, weightReminderScheduler: WeightReminderScheduling? = nil) {
         print("ProgressChartViewModel init")
@@ -149,15 +144,15 @@ final class ProgressChartViewModel {
             // is the calendar day selected by the person. Query a one-day
             // buffer, then use the persisted local date as the authoritative
             // day to avoid losing workouts around UTC midnight.
-            guard let selectedDate = Self.dateOnlyFormatter.date(from: date) else {
+            guard let selectedDate = Self.dateOnlyFormatter().date(from: date) else {
                 return ([], .unknown)
             }
-            let calendar = Calendar.current
+            let calendar = AppDate.calendar
             let from = calendar.date(byAdding: .day, value: -1, to: selectedDate) ?? selectedDate
             let to = calendar.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
             let response = try await workoutService.getHistory(
-                from: Self.dateOnlyFormatter.string(from: from),
-                to: Self.dateOnlyFormatter.string(from: to),
+                from: Self.dateOnlyFormatter().string(from: from),
+                to: Self.dateOnlyFormatter().string(from: to),
                 limit: nil,
                 offset: nil
             )
@@ -185,7 +180,7 @@ final class ProgressChartViewModel {
 
     func handleBarTap(point: ChartDataPoint) {
         guard canTapBars else { return }
-        let dateStr = Self.dateOnlyFormatter.string(from: point.date)
+        let dateStr = Self.dateOnlyFormatter().string(from: point.date)
         Task { [weak self] in await self?.loadDayDetail(date: dateStr) }
     }
 
@@ -196,7 +191,7 @@ final class ProgressChartViewModel {
         var carbsByHour: [Int: Double] = [:]
         var waterByHour: [Int: Int] = [:]
 
-        let cal = Calendar.current
+        let cal = AppDate.calendar
 
         for entry in food {
             guard let date = parseDate(entry.createdAt) else { continue }
@@ -236,7 +231,7 @@ final class ProgressChartViewModel {
         case .month:
             return .week
         case .custom:
-            let days = (Calendar.current.dateComponents([.day], from: periodState.fromDate, to: periodState.toDate).day ?? 0) + 1
+            let days = (AppDate.calendar.dateComponents([.day], from: periodState.fromDate, to: periodState.toDate).day ?? 0) + 1
             if days <= 7 { return .day }
             if days <= 60 { return .week }
             return .month
@@ -245,9 +240,9 @@ final class ProgressChartViewModel {
 
     var periodDays: Int {
         let range = currentRange()
-        guard let from = Self.dateOnlyFormatter.date(from: range.from),
-              let to = Self.dateOnlyFormatter.date(from: range.to) else { return 0 }
-        return (Calendar.current.dateComponents([.day], from: from, to: to).day ?? 0) + 1
+        guard let from = Self.dateOnlyFormatter().date(from: range.from),
+              let to = Self.dateOnlyFormatter().date(from: range.to) else { return 0 }
+        return (AppDate.calendar.dateComponents([.day], from: from, to: to).day ?? 0) + 1
     }
 
     private func currentRange() -> (from: String, to: String) {
@@ -256,10 +251,10 @@ final class ProgressChartViewModel {
             let today = formatDate(Date())
             return (today, today)
         case .week:
-            let from = formatDate(Calendar.current.date(byAdding: .day, value: -6, to: Date()) ?? Date())
+            let from = formatDate(AppDate.calendar.date(byAdding: .day, value: -6, to: Date()) ?? Date())
             return (from, formatDate(Date()))
         case .month:
-            let from = formatDate(Calendar.current.date(byAdding: .day, value: -29, to: Date()) ?? Date())
+            let from = formatDate(AppDate.calendar.date(byAdding: .day, value: -29, to: Date()) ?? Date())
             return (from, formatDate(Date()))
         case .custom:
             return (formatDate(periodState.fromDate), formatDate(periodState.toDate))
@@ -268,8 +263,9 @@ final class ProgressChartViewModel {
 
     private func applyActivity(_ dict: [String: ActivityDayPoint], to points: [ChartDataPoint]) -> [ChartDataPoint] {
         guard !dict.isEmpty else { return points }
+        let formatter = Self.dateOnlyFormatter()
         return points.map { pt in
-            let dateStr = Self.dateOnlyFormatter.string(from: pt.date)
+            let dateStr = formatter.string(from: pt.date)
             guard let a = dict[dateStr] else { return pt }
             var updated = pt
             updated.steps = a.steps
@@ -311,12 +307,14 @@ final class ProgressChartViewModel {
     private func aggregateData(_ data: [ChartDataPoint], level: AggregationLevel) -> [ChartDataPoint] {
         guard !data.isEmpty else { return [] }
         let sorted = data.sorted { $0.date < $1.date }
-        let calendar = Calendar.current
+        let calendar = AppDate.calendar
+        let labelFormatter = Self.labelFormatter()
+        let monthFormatter = Self.monthFormatter()
 
         switch level {
         case .day:
             return sorted.map { pt in
-                ChartDataPoint(date: pt.date, label: Self.labelFormatter.string(from: pt.date), calories: pt.calories, protein: pt.protein, fat: pt.fat, carbs: pt.carbs, waterMl: pt.waterMl, steps: pt.steps, activeCalories: pt.activeCalories, basalCalories: pt.basalCalories, distanceMeters: pt.distanceMeters, netCalories: pt.netCalories)
+                ChartDataPoint(date: pt.date, label: labelFormatter.string(from: pt.date), calories: pt.calories, protein: pt.protein, fat: pt.fat, carbs: pt.carbs, waterMl: pt.waterMl, steps: pt.steps, activeCalories: pt.activeCalories, basalCalories: pt.basalCalories, distanceMeters: pt.distanceMeters, netCalories: pt.netCalories)
             }
 
         case .week:
@@ -331,7 +329,7 @@ final class ProgressChartViewModel {
                 let end = calendar.date(byAdding: .day, value: 6, to: start) ?? start
                 return ChartDataPoint(
                     date: start,
-                    label: "\(Self.labelFormatter.string(from: start))-\(Self.labelFormatter.string(from: end))",
+                    label: "\(labelFormatter.string(from: start))-\(labelFormatter.string(from: end))",
                     calories: pts.reduce(0.0) { $0 + $1.calories } / Double(pts.count),
                     protein: pts.reduce(0.0) { $0 + $1.protein } / Double(pts.count),
                     fat: pts.reduce(0.0) { $0 + $1.fat } / Double(pts.count),
@@ -356,7 +354,7 @@ final class ProgressChartViewModel {
                 let pts = grouped[start]!
                 return ChartDataPoint(
                     date: start,
-                    label: Self.monthFormatter.string(from: start).capitalized,
+                    label: monthFormatter.string(from: start).capitalized,
                     calories: pts.reduce(0.0) { $0 + $1.calories } / Double(pts.count),
                     protein: pts.reduce(0.0) { $0 + $1.protein } / Double(pts.count),
                     fat: pts.reduce(0.0) { $0 + $1.fat } / Double(pts.count),
@@ -439,7 +437,7 @@ final class ProgressChartViewModel {
             weightEntries = logs
             weights = logs
                 .compactMap { log -> WeightPoint? in
-                    guard let date = Self.dateOnlyFormatter.date(from: String(log.entryDate.prefix(10))) else { return nil }
+                    guard let date = Self.dateOnlyFormatter().date(from: String(log.entryDate.prefix(10))) else { return nil }
                     return WeightPoint(
                         id: String(log.entryDate.prefix(10)),
                         date: date,
@@ -480,7 +478,7 @@ final class ProgressChartViewModel {
                 weightLatestKg = kg
                 weightPoints = [
                     WeightPoint(
-                        id: Self.dateOnlyFormatter.string(from: Date()),
+                        id: Self.dateOnlyFormatter().string(from: Date()),
                         date: Date(),
                         kg: kg
                     )
@@ -493,7 +491,7 @@ final class ProgressChartViewModel {
 
         if let first = weights.first {
             weightDeltaKg = latest.kg - first.kg
-            let days = max(1, Calendar.current.dateComponents([.day], from: first.date, to: latest.date).day ?? 1)
+            let days = max(1, AppDate.calendar.dateComponents([.day], from: first.date, to: latest.date).day ?? 1)
             weightWeeklyRateKg = (latest.kg - first.kg) / (Double(days) / 7.0)
         } else {
             weightDeltaKg = nil
@@ -559,8 +557,8 @@ final class ProgressChartViewModel {
         case .month:
             return "30 days"
         case .custom:
-            let from = Self.labelFormatter.string(from: periodState.fromDate)
-            let to = Self.labelFormatter.string(from: periodState.toDate)
+            let from = Self.labelFormatter().string(from: periodState.fromDate)
+            let to = Self.labelFormatter().string(from: periodState.toDate)
             return "\(from) – \(to)"
         }
     }
@@ -792,11 +790,11 @@ final class ProgressChartViewModel {
     }
 
     private func formatDate(_ date: Date) -> String {
-        Self.dateOnlyFormatter.string(from: date)
+        Self.dateOnlyFormatter().string(from: date)
     }
 
     private func parseDateOnly(_ dateString: String) -> Date? {
-        Self.dateOnlyFormatter.date(
+        Self.dateOnlyFormatter().date(
             from: String(dateString.prefix(10))
         )
     }
@@ -821,6 +819,6 @@ final class ProgressChartViewModel {
         if let d = Self.isoFormatter.date(from: dateString) { return d }
         if let d = Self.dateTimeFormatter.date(from: dateString) { return d }
         if let d = Self.dateTimeShortFormatter.date(from: dateString) { return d }
-        return Self.dateOnlyFormatter.date(from: String(dateString.prefix(10)))
+        return Self.dateOnlyFormatter().date(from: String(dateString.prefix(10)))
     }
 }

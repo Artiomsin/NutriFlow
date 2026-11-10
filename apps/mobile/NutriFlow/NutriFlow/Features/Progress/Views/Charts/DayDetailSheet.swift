@@ -65,12 +65,9 @@ struct DayDetailSheet: View {
     }
 
     private var formattedHeaderDate: String {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM-dd"
+        let fmt = AppDate.dateOnlyFormatter()
         guard let d = fmt.date(from: dateStr) else { return dateStr }
-        let out = DateFormatter()
-        out.dateFormat = "d MMM yyyy"
-        return out.string(from: d)
+        return AppDate.displayFormatter("d MMM yyyy").string(from: d)
     }
 
     private var header: some View {
@@ -429,22 +426,18 @@ private func previewDate(_ year: Int, _ month: Int, _ day: Int, _ hour: Int, _ m
     comps.day = day
     comps.hour = hour
     comps.minute = minute
-    return Calendar.current.date(from: comps) ?? Date()
+    return AppDate.calendar.date(from: comps) ?? Date()
 }
 
 func formatTime(_ iso: String) -> String {
     let fmt = ISO8601DateFormatter()
     fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     if let d = fmt.date(from: iso) {
-        let tf = DateFormatter()
-        tf.dateFormat = "HH:mm"
-        return tf.string(from: d)
+        return AppDate.displayFormatter("HH:mm").string(from: d)
     }
     fmt.formatOptions = [.withInternetDateTime]
     if let d = fmt.date(from: iso) {
-        let tf = DateFormatter()
-        tf.dateFormat = "HH:mm"
-        return tf.string(from: d)
+        return AppDate.displayFormatter("HH:mm").string(from: d)
     }
     return String(iso.suffix(8).prefix(5))
 }

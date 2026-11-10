@@ -352,11 +352,10 @@ struct ProgressDashboardView: View {
     }
 
     private func formattedWeightDate(_ value: String) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale.current
-        formatter.dateFormat = "yyyy-MM-dd"
-        guard let date = formatter.date(from: String(value.prefix(10))) else { return value }
-        return date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
+        guard let date = AppDate.dateOnlyFormatter().date(from: String(value.prefix(10))) else {
+            return value
+        }
+        return AppDate.displayFormatter("EEEE, MMM d").string(from: date)
     }
 
     @ViewBuilder
