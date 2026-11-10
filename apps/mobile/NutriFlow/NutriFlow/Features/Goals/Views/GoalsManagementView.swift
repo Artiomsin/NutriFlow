@@ -464,45 +464,78 @@ struct GoalsManagementView: View {
         }
     }
 
+    
     private var historySection: some View {
-        VStack(spacing: 10) {
-            HStack {
-                Text("Goal Changes")
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(AppColors.textTertiary )
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Goal Activity")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(AppColors.textPrimary)
+
+                    Text("Track how your daily targets change over time")
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppColors.textTertiary)
+                }
+
                 Spacer()
+
+                if !history.isEmpty {
+                    Text("\(history.count) versions")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(AppColors.textSecondary)
+                }
             }
-            .padding(.leading, 2)
 
             if let historyError = goalsVM.historyError {
                 ErrorView(error: historyError) {
-                    Task { await loadHistory(forceNetwork: true) }
+                    Task {
+                        await loadHistory(forceNetwork: true)
+                    }
                 }
             } else if history.isEmpty {
-                Text("No changes yet")
-                    .font(.footnote)
-                    .foregroundColor(AppColors.textSecondary)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .appGlassSurface()
+                VStack(spacing: 8) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 24))
+                        .foregroundStyle(AppColors.textTertiary)
+
+                    Text("No goal changes yet")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(AppColors.textSecondary)
+
+                    Text("Your goal history will appear here after your first update.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppColors.textTertiary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 24)
+                .padding(.horizontal, 16)
+                .appGlassSurface()
             } else {
                 GoalHistoryTimeline(entries: history)
 
                 if historyNextCursor != nil {
                     Button {
-                        Task { await loadMoreHistory() }
-                    } label: {
-                        if isLoadingMoreHistory {
-                            ProgressView()
-                                .tint(AppColors.textPrimary)
-                                .frame(maxWidth: .infinity)
-                        } else {
-                            Text("Show more")
-                                .font(.footnote.weight(.semibold))
-                                .foregroundColor(AppColors.accent)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
+                        Task {
+                            await loadMoreHistory()
                         }
+                    } label: {
+                        HStack(spacing: 6) {
+                            if isLoadingMoreHistory {
+                                ProgressView()
+                                    .tint(AppColors.accent)
+                            } else {
+                                Text("Load older changes")
+
+                                Image(systemName: "arrow.down")
+                                    .font(.system(size: 10, weight: .semibold))
+                            }
+                        }
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(AppColors.accent)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
                     }
                     .buttonStyle(.plain)
                     .disabled(isLoadingMoreHistory)
@@ -510,6 +543,7 @@ struct GoalsManagementView: View {
             }
         }
     }
+
 
     private func save() async {
         guard !isSaving else { return }

@@ -415,40 +415,82 @@ final class MockGoalsService: GoalsServiceProtocol {
         GoalHistoryPage(
             items: [
                 GoalVersionEntry(
-                    id: "v2",
+                    id: "v3",
                     startedAt: "2026-09-17T10:00:00Z",
                     endedAt: nil,
                     source: "personalized",
                     reason: "recommendation_accepted",
                     changes: [
-                        GoalMetricChange(metric: "dailyCaloriesGoal", from: 2200, to: 2050),
+                        GoalMetricChange(metric: "dailyCaloriesGoal", from: 2300, to: 2050),
                         GoalMetricChange(metric: "dailyProteinGoal", from: 150, to: 160),
+                        GoalMetricChange(metric: "dailyFatGoal", from: 65, to: 60),
+                        GoalMetricChange(metric: "dailyCarbsGoal", from: 250, to: 230),
                         GoalMetricChange(metric: "dailyStepsGoal", from: 8000, to: 9000)
                     ],
                     goal: GoalMetrics(
-                        dailyCaloriesGoal: 2050, dailyProteinGoal: 160,
-                        dailyFatGoal: 60, dailyCarbsGoal: 230, dailyWaterGoal: 3000,
-                        dailyStepsGoal: 9000, dailyActiveCaloriesGoal: 550,
-                        weeklyWorkoutsGoal: 6, weeklyWorkoutMinutesGoal: 180,
-                        nightlySleepMinMinutes: 240, nightlySleepMaxMinutes: 510
+                        dailyCaloriesGoal: 2050,
+                        dailyProteinGoal: 160,
+                        dailyFatGoal: 60,
+                        dailyCarbsGoal: 230,
+                        dailyWaterGoal: 3000,
+                        dailyStepsGoal: 9000,
+                        dailyActiveCaloriesGoal: 550,
+                        weeklyWorkoutsGoal: 6,
+                        weeklyWorkoutMinutesGoal: 180,
+                        nightlySleepMinMinutes: 240,
+                        nightlySleepMaxMinutes: 510
+                    )
+                ),
+                GoalVersionEntry(
+                    id: "v2",
+                    startedAt: "2026-09-10T10:00:00Z",
+                    endedAt: "2026-09-17T10:00:00Z",
+                    source: "user",
+                    reason: "user_edit",
+                    changes: [
+                        GoalMetricChange(metric: "dailyCaloriesGoal", from: 2200, to: 2300)
+                    ],
+                    goal: GoalMetrics(
+                        dailyCaloriesGoal: 2300,
+                        dailyProteinGoal: 150,
+                        dailyFatGoal: 65,
+                        dailyCarbsGoal: 250,
+                        dailyWaterGoal: 3000,
+                        dailyStepsGoal: 8000,
+                        dailyActiveCaloriesGoal: 500,
+                        weeklyWorkoutsGoal: 5,
+                        weeklyWorkoutMinutesGoal: 155,
+                        nightlySleepMinMinutes: 234,
+                        nightlySleepMaxMinutes: 500
                     )
                 ),
                 GoalVersionEntry(
                     id: "v1",
                     startedAt: "2026-09-01T10:00:00Z",
-                    endedAt: "2026-09-17T10:00:00Z",
-                    source: "user",
-                    reason: "user_edit",
+                    endedAt: "2026-09-10T10:00:00Z",
+                    source: "initial",
+                    reason: "initial_calculation",
                     changes: [
                         GoalMetricChange(metric: "dailyCaloriesGoal", from: nil, to: 2200),
+                        GoalMetricChange(metric: "dailyProteinGoal", from: nil, to: 150),
+                        GoalMetricChange(metric: "dailyFatGoal", from: nil, to: 65),
+                        GoalMetricChange(metric: "dailyCarbsGoal", from: nil, to: 250),
+                        GoalMetricChange(metric: "dailyWaterGoal", from: nil, to: 3000),
+                        GoalMetricChange(metric: "dailyStepsGoal", from: nil, to: 8000),
                         GoalMetricChange(metric: "nightlySleepMinMinutes", from: nil, to: 234)
                     ],
                     goal: GoalMetrics(
-                        dailyCaloriesGoal: 2200, dailyProteinGoal: 150,
-                        dailyFatGoal: 65, dailyCarbsGoal: 250, dailyWaterGoal: 3000,
-                        dailyStepsGoal: 8000, dailyActiveCaloriesGoal: 500,
-                        weeklyWorkoutsGoal: 5, weeklyWorkoutMinutesGoal: 155,
-                        nightlySleepMinMinutes: 234, nightlySleepMaxMinutes: 500
+                        dailyCaloriesGoal: 2200,
+                        dailyProteinGoal: 150,
+                        dailyFatGoal: 65,
+                        dailyCarbsGoal: 250,
+                        dailyWaterGoal: 3000,
+                        dailyStepsGoal: 8000,
+                        dailyActiveCaloriesGoal: 500,
+                        weeklyWorkoutsGoal: 5,
+                        weeklyWorkoutMinutesGoal: 155,
+                        nightlySleepMinMinutes: 234,
+                        nightlySleepMaxMinutes: 500
                     )
                 )
             ],
@@ -460,18 +502,18 @@ final class MockGoalsService: GoalsServiceProtocol {
         UserGoals(
             id: "1",
             userId: "1",
-            dailyCaloriesGoal: 2200,
-            dailyProteinGoal: 150,
-            dailyFatGoal: 65,
-            dailyCarbsGoal: 250,
+            dailyCaloriesGoal: 2050,
+            dailyProteinGoal: 160,
+            dailyFatGoal: 60,
+            dailyCarbsGoal: 230,
             dailyWaterGoal: 3000,
-            dailyStepsGoal: 8000,
-            dailyActiveCaloriesGoal: 500,
-            weeklyWorkoutsGoal: 5,
-            weeklyWorkoutMinutesGoal: 155,
-            nightlySleepMinMinutes: 234,
-            nightlySleepMaxMinutes: 500,
-            source: "auto",
+            dailyStepsGoal: 9000,
+            dailyActiveCaloriesGoal: 550,
+            weeklyWorkoutsGoal: 6,
+            weeklyWorkoutMinutesGoal: 180,
+            nightlySleepMinMinutes: 240,
+            nightlySleepMaxMinutes: 510,
+            source: "personalized",
             createdAt: nil,
             updatedAt: nil
         )

@@ -1,15 +1,22 @@
 import SwiftUI
 
-/// Карточка одного события изменения целей: время, источник, причина и список изменений.
 struct GoalHistoryCard: View {
     let event: GoalHistoryEvent
     let dayStart: Date?
+    let isLatest: Bool
+
     @Binding private var expanded: Set<String>
 
-    init(event: GoalHistoryEvent, dayStart: Date? = nil, expanded: Binding<Set<String>>) {
+    init(
+        event: GoalHistoryEvent,
+        dayStart: Date? = nil,
+        expanded: Binding<Set<String>>,
+        isLatest: Bool = false
+    ) {
         self.event = event
         self.dayStart = dayStart
         self._expanded = expanded
+        self.isLatest = isLatest
     }
 
     var body: some View {
@@ -23,6 +30,16 @@ struct GoalHistoryCard: View {
                 Text(timeText(event))
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(AppColors.textPrimary)
+
+                if isLatest {
+                    Text("LATEST")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(AppColors.accent)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(AppColors.accent.opacity(0.12))
+                        .clipShape(Capsule())
+                }
 
                 if event.automaticCount > 1 {
                     Text("\(event.automaticCount) recalculations")

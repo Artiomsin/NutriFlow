@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Одна строка изменения показателя цели: метрика, старое значение → новое.
+
 struct GoalHistoryChangeRow: View {
     let change: GoalMetricChange
 
