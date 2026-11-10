@@ -107,6 +107,9 @@
     "%lld recalculations" : {
 
     },
+    "%lld versions" : {
+
+    },
     "%lld-day streak" : {
 
     },
@@ -904,10 +907,16 @@
     "Goal" : {
 
     },
-    "Goal Changes" : {
+    "Goal Activity" : {
 
     },
     "Goal recommendations" : {
+
+    },
+    "Goal update" : {
+
+    },
+    "Goal updates" : {
 
     },
     "Goals" : {
@@ -956,6 +965,9 @@
 
     },
     "LATEST" : {
+
+    },
+    "Load older changes" : {
 
     },
     "Loading activity" : {
@@ -1036,9 +1048,6 @@
     "No categories yet." : {
 
     },
-    "No changes yet" : {
-
-    },
     "No data for this period" : {
 
     },
@@ -1046,6 +1055,9 @@
 
     },
     "No foods" : {
+
+    },
+    "No goal changes yet" : {
 
     },
     "No heart rate data" : {
@@ -1067,6 +1079,9 @@
 
     },
     "No sleep data yet" : {
+
+    },
+    "No updates in this category" : {
 
     },
     "No water added today" : {
@@ -1222,9 +1237,6 @@
     "Show less" : {
 
     },
-    "Show more" : {
-
-    },
     "Sign in to continue" : {
 
     },
@@ -1306,6 +1318,9 @@
     "TODAY’S WEIGHT" : {
 
     },
+    "Track how your daily targets change over time" : {
+
+    },
     "Track your activity" : {
 
     },
@@ -1322,6 +1337,9 @@
 
     },
     "Try again with better lighting and food clearly visible." : {
+
+    },
+    "Try selecting another filter." : {
 
     },
     "Unassign Category" : {
@@ -1391,6 +1409,12 @@
 
     },
     "Workouts access is off. Enable Apple Health in Settings." : {
+
+    },
+    "Your goal history will appear here after your first update." : {
+
+    },
+    "Your goals have evolved over time" : {
 
     },
     "Your manual or personalized targets will be replaced using your current profile and weight." : {

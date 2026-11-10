@@ -33,16 +33,16 @@ struct CategoryIconPicker: View {
 
                 Spacer(minLength: 8)
 
-                Button(
-                    isExpanded ? "Hide" : "Choose icon",
-                    systemImage: isExpanded ? "chevron.up" : "chevron.down",
-                    action: toggleExpansion
-                )
-                .labelStyle(.iconOnly)
-                .foregroundStyle(AppColors.accent)
-                .frame(width: 44, height: 44)
-                .accessibilityLabel(isExpanded ? "Hide icons" : "Choose category icon")
+                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(AppColors.accent)
             }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                toggleExpansion()
+            }
+            .accessibilityLabel(isExpanded ? "Hide category icons" : "Choose category icon")
+            .accessibilityAddTraits(.isButton)
 
             if isExpanded {
                 LazyVGrid(columns: columns, spacing: 10) {
@@ -95,8 +95,5 @@ struct CategoryIconPicker: View {
 
     private func select(_ icon: String) {
         selection = icon
-        withAnimation(.easeInOut(duration: 0.2)) {
-            isExpanded = false
-        }
     }
 }

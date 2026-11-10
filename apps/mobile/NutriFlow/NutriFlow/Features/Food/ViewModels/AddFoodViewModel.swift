@@ -191,7 +191,7 @@ final class AddFoodViewModel: Identifiable {
         CategoryFoodsViewModel(category: category, service: service)
     }
 
-    func makeAllPersonalFoodsViewModel() -> CategoryFoodsViewModel {
+    func makeAllPersonalDishesViewModel() -> CategoryFoodsViewModel {
         CategoryFoodsViewModel(categoryID: nil, service: service)
     }
 

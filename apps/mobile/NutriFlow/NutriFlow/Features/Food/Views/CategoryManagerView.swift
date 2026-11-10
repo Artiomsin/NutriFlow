@@ -10,7 +10,7 @@ struct CategoryManagerView: View {
     @State private var categoryToDelete: FoodCategory?
     @State private var categoryToEdit: FoodCategory?
     @State private var categoryToManage: FoodCategory?
-    @State private var isManagingAllPersonalFoods = false
+    @State private var isManagingAllPersonalDishes = false
     @State private var areSystemCategoriesExpanded = false
 
     private var personalCategories: [FoodCategory] {
@@ -35,8 +35,8 @@ struct CategoryManagerView: View {
                             viewModel.retryCategories()
                         }
                     } else {
-                        managePersonalFoodsCard
                         createCategoryCard
+                        managePersonalDishesCard
 
                         if !personalCategories.isEmpty {
                             categorySection(
@@ -102,11 +102,11 @@ struct CategoryManagerView: View {
                     )
                 }
             }
-            .sheet(isPresented: $isManagingAllPersonalFoods) {
+            .sheet(isPresented: $isManagingAllPersonalDishes) {
                 NavigationStack {
                     CategoryFoodsView(
                         availableCategories: viewModel.categories,
-                        viewModel: viewModel.makeAllPersonalFoodsViewModel(),
+                        viewModel: viewModel.makeAllPersonalDishesViewModel(),
                         onCategoriesChanged: {
                             await viewModel.refreshAfterCategoryChange()
                         }
@@ -142,14 +142,14 @@ struct CategoryManagerView: View {
         }
     }
 
-    private var managePersonalFoodsCard: some View {
+    private var managePersonalDishesCard: some View {
         AppCard {
-            Button("Manage Personal Foods", systemImage: "square.and.pencil") {
-                isManagingAllPersonalFoods = true
+            Button("Manage Personal Dishes", systemImage: "square.and.pencil") {
+                isManagingAllPersonalDishes = true
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .foregroundStyle(AppColors.accent)
-            .accessibilityHint("Select personal foods and assign or remove categories.")
+            .accessibilityHint("Select personal dishes and assign or remove categories.")
         }
     }
 
@@ -339,12 +339,12 @@ struct CategoryManagerView: View {
                 .foregroundStyle(AppColors.textSecondary)
                 .accessibilityLabel("\(category.foodCount) foods")
 
-            Button("Manage foods", systemImage: "list.bullet") {
+            Button("Manage dishes", systemImage: "list.bullet") {
                 categoryToManage = category
             }
             .labelStyle(.iconOnly)
             .foregroundStyle(AppColors.accent)
-            .accessibilityLabel("Manage foods in \(category.name)")
+            .accessibilityLabel("Manage dishes in \(category.name)")
 
             if showsDeleteAction {
                 Button(
@@ -388,4 +388,25 @@ struct CategoryManagerView: View {
             )
         }
     }
+}
+
+#Preview("Category Manager") {
+    let viewModel = AddFoodViewModel(
+        service: MockFoodService(),
+        coordinator: nil,
+        todayFoodVM: TodayFoodViewModel(
+            service: MockFoodService(),
+            coordinator: nil
+        )
+    )
+    viewModel.categories = [
+        FoodCategory(id: "personal-breakfast", name: "My Breakfast", icon: "sunrise.fill", createdBy: "user-1", createdAt: "2026-05-18T08:00:00Z", foodCount: 3),
+        FoodCategory(id: "personal-home", name: "Home Cooking", icon: "house.fill", createdBy: "user-1", createdAt: "2026-05-18T09:00:00Z", foodCount: 5),
+        FoodCategory(id: "personal-snacks", name: "Snacks", icon: "popcorn", createdBy: "user-1", createdAt: "2026-05-18T10:00:00Z", foodCount: 2),
+        FoodCategory(id: "system-fruits", name: "Fruits", icon: "leaf.fill", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 2),
+        FoodCategory(id: "system-protein", name: "Protein", icon: "fish.fill", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 1),
+        FoodCategory(id: "system-dairy", name: "Dairy", icon: "cup.and.saucer.fill", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 1)
+    ]
+
+    return CategoryManagerView(viewModel: viewModel)
 }

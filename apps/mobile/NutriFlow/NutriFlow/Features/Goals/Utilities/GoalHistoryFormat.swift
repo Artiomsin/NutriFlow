@@ -1,6 +1,6 @@
 import Foundation
 
-/// Форматирование показателей, источников и причин для истории целей.
+
 enum GoalHistoryFormat {
     private static let metrics = [
         "dailyCaloriesGoal",
