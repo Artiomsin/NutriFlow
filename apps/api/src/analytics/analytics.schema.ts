@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { calendarDateSchema } from '../common/validation/date.schema';
+import {
+  calendarDateSchema,
+  timeZoneSchema,
+} from '../common/validation/date.schema';
 
 const MAX_RANGE_DAYS = 366;
 
@@ -7,6 +10,7 @@ export const rangeQuerySchema = z
   .object({
     from: calendarDateSchema,
     to: calendarDateSchema,
+    tz: timeZoneSchema.optional(),
   })
   .refine((value) => value.from <= value.to, {
     message: 'from must not be after to',
