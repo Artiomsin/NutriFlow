@@ -69,9 +69,9 @@ protocol FoodServiceProtocol: Sendable {
 
     func getCategories() async throws -> [FoodCategory]
 
-    func createCategory(name: String, icon: String?) async throws -> FoodCategory
+    func createCategory(name: String, icon: String?, color: String?) async throws -> FoodCategory
 
-    func updateCategory(id: String, name: String?, icon: String?) async throws -> FoodCategory
+    func updateCategory(id: String, name: String?, icon: String?, color: String?) async throws -> FoodCategory
 
     func deleteCategory(id: String) async throws
 

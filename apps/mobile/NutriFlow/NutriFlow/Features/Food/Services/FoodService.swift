@@ -197,20 +197,20 @@ final class FoodService: FoodServiceProtocol, Sendable {
         return try await client.send(request)
     }
 
-    func createCategory(name: String, icon: String?) async throws -> FoodCategory {
+    func createCategory(name: String, icon: String?, color: String?) async throws -> FoodCategory {
         let request = APIRequest(
             path: FoodEndpoints.createCategory,
             method: .POST,
-            body: CreateFoodCategoryRequest(name: name, icon: icon)
+            body: CreateFoodCategoryRequest(name: name, icon: icon, color: color)
         )
         return try await client.send(request)
     }
 
-    func updateCategory(id: String, name: String?, icon: String?) async throws -> FoodCategory {
+    func updateCategory(id: String, name: String?, icon: String?, color: String?) async throws -> FoodCategory {
         let request = APIRequest(
             path: FoodEndpoints.updateFoodCategory(id: id),
             method: .PATCH,
-            body: UpdateFoodCategoryRequest(name: name, icon: icon)
+            body: UpdateFoodCategoryRequest(name: name, icon: icon, color: color)
         )
         return try await client.send(request)
     }

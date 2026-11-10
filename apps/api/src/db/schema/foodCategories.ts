@@ -21,6 +21,9 @@ export const foodCategories = app.table(
 
     icon: varchar('icon', { length: 50 }),
 
+    // Hex color for the category icon and UI accents. Defaults to green.
+    color: varchar('color', { length: 20 }).default('#10B981').notNull(),
+
     // Owner of a personal category. `NULL` marks a shared catalog category
     // that only the project owner maintains.
     createdBy: uuid('created_by').references(() => users.id, {

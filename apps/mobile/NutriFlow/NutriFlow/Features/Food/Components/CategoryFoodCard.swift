@@ -1,3 +1,4 @@
+
 import SwiftUI
 
 struct CategoryFoodCard: View {
@@ -14,13 +15,13 @@ struct CategoryFoodCard: View {
             if isSelecting {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
-                    .foregroundStyle(isPersonal ? AppColors.accent : AppColors.textTertiary)
+                    .foregroundStyle(AppColors.accent)
                     .accessibilityHidden(true)
             }
 
             foodImage
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(food.name)
                     .font(.body.weight(.semibold))
                     .foregroundStyle(AppColors.textPrimary)
@@ -41,6 +42,8 @@ struct CategoryFoodCard: View {
                     Text("\(food.caloriesPer100g.formatted(.number.precision(.fractionLength(0)))) kcal · 100 g")
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(AppColors.accent)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
                 }
 
                 HStack(spacing: 5) {
@@ -49,14 +52,25 @@ struct CategoryFoodCard: View {
                         value: food.proteinPer100g ?? 0,
                         color: AppColors.success
                     )
-                    nutrientBadge(title: "F", value: food.fatPer100g ?? 0, color: .orange)
-                    nutrientBadge(title: "C", value: food.carbsPer100g ?? 0, color: .blue)
+
+                    nutrientBadge(
+                        title: "F",
+                        value: food.fatPer100g ?? 0,
+                        color: .orange
+                    )
+
+                    nutrientBadge(
+                        title: "C",
+                        value: food.carbsPer100g ?? 0,
+                        color: .blue
+                    )
                 }
             }
 
             Spacer(minLength: 0)
         }
-        .padding(12)
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             isSelected ? AppColors.accent.opacity(0.10) : AppColors.surface,
             in: .rect(cornerRadius: AppRadius.medium)
@@ -76,14 +90,14 @@ struct CategoryFoodCard: View {
     private var foodImage: some View {
         if let url = food.imageUrl.flatMap(ImageURLResolver.resolve) {
             ZStack {
-                FoodImagePlaceholder(cornerRadius: 12, iconSize: 23)
+                FoodImagePlaceholder(cornerRadius: 12, iconSize: 25)
                 NutriflowImage(url: url)
             }
-            .frame(width: 56, height: 56)
+            .frame(width: 64, height: 64)
             .clipShape(.rect(cornerRadius: 12))
         } else {
-            FoodImagePlaceholder(cornerRadius: 12, iconSize: 23)
-                .frame(width: 56, height: 56)
+            FoodImagePlaceholder(cornerRadius: 12, iconSize: 25)
+                .frame(width: 64, height: 64)
         }
     }
 
@@ -94,6 +108,8 @@ struct CategoryFoodCard: View {
             .padding(.horizontal, 6)
             .padding(.vertical, 3)
             .background(color.opacity(0.12), in: .capsule)
+            .lineLimit(1)
+            .minimumScaleFactor(0.85)
     }
 
     private var accessibilityLabel: String {

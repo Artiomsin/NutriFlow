@@ -129,7 +129,7 @@ struct CustomTabBar: View {
                     }
             )
         }
-        .frame(height: 68)
+        .frame(height: 60)
     }
 
     private func lensWidth(

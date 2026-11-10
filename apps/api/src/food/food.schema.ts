@@ -61,6 +61,7 @@ export type RequiredDateQueryDto = z.infer<typeof requiredDateQuerySchema>;
 export const createFoodCategorySchema = z.object({
   name: z.string().trim().min(1).max(100),
   icon: z.string().trim().max(50).optional(),
+  color: z.string().trim().max(20).optional(),
 });
 
 export type CreateFoodCategoryDto = z.infer<typeof createFoodCategorySchema>;
@@ -70,6 +71,7 @@ export const updateFoodCategorySchema = createFoodCategorySchema
   .partial()
   .extend({
     icon: z.string().trim().max(50).nullable().optional(),
+    color: z.string().trim().max(20).nullable().optional(),
   });
 
 export type UpdateFoodCategoryDto = z.infer<typeof updateFoodCategorySchema>;
