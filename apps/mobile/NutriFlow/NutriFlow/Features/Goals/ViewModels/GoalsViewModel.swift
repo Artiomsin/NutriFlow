@@ -330,23 +330,41 @@ final class GoalsViewModel {
         await loadPersonalization(forceNetwork: true)
     }
 
-    func loadGoalHistory() async -> [GoalHistoryEntry] {
+    func loadGoalHistory(
+        limit: Int = 20,
+        cursor: String? = nil,
+        forceNetwork: Bool = false
+    ) async -> GoalHistoryPage? {
         historyError = nil
-        if let cached: [GoalHistoryEntry] = try? await cacheService?.get("goals_history") {
+        let isFirstPage = cursor == nil
+
+        if isFirstPage,
+           !forceNetwork,
+           let cached: GoalHistoryPage = try? await cacheService?.get("goals_history") {
             return cached
         }
+
         do {
-            let entries = try await service.getGoalHistory()
-            try? await cacheService?.set("goals_history", entries, ttl: 300)
-            return entries
+            let page = try await service.getGoalHistory(
+                limit: limit,
+                cursor: cursor
+            )
+            if isFirstPage {
+                try? await cacheService?.set("goals_history", page, ttl: 300)
+            }
+            return page
         } catch {
-            if let cached: [GoalHistoryEntry] = try? await cacheService?.get("goals_history", ignoreTTL: true) {
+            if isFirstPage,
+               let cached: GoalHistoryPage = try? await cacheService?.get(
+                   "goals_history",
+                   ignoreTTL: true
+               ) {
                 return cached
             }
             let mapped = ErrorMapper.map(error)
             routeAuth(mapped)
             historyError = mapped == .cancelled ? nil : mapped
-            return []
+            return nil
         }
     }
 

@@ -60,6 +60,16 @@
         }
       }
     },
+    "%@ → %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ → %2$@"
+          }
+        }
+      }
+    },
     "%@ efficiency" : {
 
     },
@@ -92,6 +102,9 @@
 
     },
     "%lld ml" : {
+
+    },
+    "%lld recalculations" : {
 
     },
     "%lld-day streak" : {
@@ -149,6 +162,9 @@
 
     },
     "Amount" : {
+
+    },
+    "And %lld more" : {
 
     },
     "Appearance" : {
@@ -888,6 +904,9 @@
     "Goal" : {
 
     },
+    "Goal Changes" : {
+
+    },
     "Goal recommendations" : {
 
     },
@@ -913,9 +932,6 @@
 
     },
     "Hide icons" : {
-
-    },
-    "History" : {
 
     },
     "Home" : {
@@ -1131,6 +1147,9 @@
     "Reminders" : {
 
     },
+    "Rings use the goal in effect at the end of the day." : {
+
+    },
     "Row" : {
 
     },
@@ -1198,6 +1217,12 @@
 
     },
     "Settings" : {
+
+    },
+    "Show less" : {
+
+    },
+    "Show more" : {
 
     },
     "Sign in to continue" : {
