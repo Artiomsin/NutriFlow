@@ -3,7 +3,6 @@ import type { Db } from '../../db/db';
 import { DB } from '../../db/db.module';
 import { userGoals } from '../../db/schema/userGoals';
 import { goalRecommendations } from '../../db/schema/goalRecommendations';
-import { goalHistory } from '../../db/schema/goalHistory';
 import type { GoalMetrics } from './types';
 import { generateRecommendation } from './recommendation';
 import { DataCollectionService } from './data-collection.service';
@@ -166,6 +165,7 @@ export class GoalPersonalizationService {
           userId,
           ...this.toGoalFields(next),
           source: 'personalized',
+          changeReason: 'recommendation_accepted',
           startedAt: now,
           endedAt: null,
           createdAt: now,
@@ -212,15 +212,6 @@ export class GoalPersonalizationService {
       .where(eq(goalRecommendations.id, recommendationId));
 
     return { dismissed: true };
-  }
-
-  async getGoalHistory(userId: string) {
-    return this.db
-      .select()
-      .from(goalHistory)
-      .where(eq(goalHistory.userId, userId))
-      .orderBy(desc(goalHistory.createdAt))
-      .limit(200);
   }
 
   private async findPending(userId: string) {

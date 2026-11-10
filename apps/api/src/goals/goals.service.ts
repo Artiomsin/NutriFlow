@@ -12,13 +12,15 @@ import { userProfiles } from '../db/schema/userProfiles';
 import { and, desc, eq, gt, isNull, lt, or, sql } from 'drizzle-orm';
 import { roundNutrition } from '../common/nutrition/precision';
 import { zonedDayRange } from '../common/time/user-date';
-import type { UpdateGoalsDto } from './goals.schema';
+import type { GoalsHistoryQueryDto, UpdateGoalsDto } from './goals.schema';
 import type { GoalMetrics } from './personalization/types';
 import {
   recordGoalHistory,
   rowToGoalMetrics,
   EMPTY_GOALS_METRICS,
 } from './goals-history';
+import { diffGoalMetrics } from './goal-versions';
+import type { GoalHistoryPage, GoalVersionEntry } from './goal-versions';
 
 type DatabaseExecutor = Pick<Db, 'select' | 'insert' | 'update' | 'execute'>;
 
@@ -61,6 +63,144 @@ export class GoalsService {
     }
 
     return goals;
+  }
+
+  /**
+   * Goal versions newest first, each with the diff against the version it
+   * replaced.
+   *
+   * Without `date` the response is paginated with `limit`/`cursor`. With
+   * `date` it returns every version in effect during that day in `tz`, which
+   * is what the day detail sheet renders. There is no coalescing: two edits
+   * minutes apart are two versions and therefore two entries.
+   */
+  async getHistory(
+    userId: string,
+    query: GoalsHistoryQueryDto,
+  ): Promise<GoalHistoryPage> {
+    if (query.date !== undefined) {
+      return this.getHistoryForDay(userId, query.date, query.tz);
+    }
+
+    return this.getHistoryPage(userId, query.limit, query.cursor);
+  }
+
+  private async getHistoryForDay(
+    userId: string,
+    date: string,
+    tz?: string,
+  ): Promise<GoalHistoryPage> {
+    const { start, end } = this.getDayRange(date, tz);
+
+    const rows = await this.db
+      .select()
+      .from(userGoals)
+      .where(
+        and(
+          eq(userGoals.userId, userId),
+          lt(userGoals.startedAt, end),
+          or(isNull(userGoals.endedAt), gt(userGoals.endedAt, start))!,
+        ),
+      )
+      .orderBy(desc(userGoals.startedAt), desc(userGoals.id));
+
+    if (rows.length === 0) {
+      return { items: [], nextCursor: null };
+    }
+
+    // The oldest version in the day still needs the version it replaced to
+    // show a diff, and that predecessor may have started before the day.
+    const oldest = rows[rows.length - 1]!;
+    const [previous] = await this.db
+      .select()
+      .from(userGoals)
+      .where(
+        and(
+          eq(userGoals.userId, userId),
+          lt(userGoals.startedAt, oldest.startedAt),
+        ),
+      )
+      .orderBy(desc(userGoals.startedAt))
+      .limit(1);
+
+    return {
+      items: this.buildVersionEntries(
+        previous ? [...rows, previous] : rows,
+        rows.length,
+      ),
+      nextCursor: null,
+    };
+  }
+
+  private async getHistoryPage(
+    userId: string,
+    limit: number,
+    cursor?: string,
+  ): Promise<GoalHistoryPage> {
+    const conditions = [eq(userGoals.userId, userId)];
+
+    if (cursor !== undefined) {
+      const [cursorRow] = await this.db
+        .select({ startedAt: userGoals.startedAt })
+        .from(userGoals)
+        .where(and(eq(userGoals.userId, userId), eq(userGoals.id, cursor)))
+        .limit(1);
+
+      if (!cursorRow) {
+        throw new BadRequestException('Invalid history cursor.');
+      }
+
+      // Composite cursor: versions can share a millisecond, so the id breaks
+      // the tie without skipping or repeating a version.
+      conditions.push(
+        or(
+          lt(userGoals.startedAt, cursorRow.startedAt),
+          and(
+            eq(userGoals.startedAt, cursorRow.startedAt),
+            lt(userGoals.id, cursor),
+          ),
+        )!,
+      );
+    }
+
+    // One extra row is the predecessor of the oldest visible entry, so every
+    // returned entry can be diffed inside this page.
+    const rows = await this.db
+      .select()
+      .from(userGoals)
+      .where(and(...conditions))
+      .orderBy(desc(userGoals.startedAt), desc(userGoals.id))
+      .limit(limit + 1);
+
+    const count = Math.min(rows.length, limit);
+
+    return {
+      items: this.buildVersionEntries(rows, count),
+      nextCursor: rows.length > limit && count > 0 ? rows[count - 1]!.id : null,
+    };
+  }
+
+  private buildVersionEntries(
+    rows: (typeof userGoals.$inferSelect)[],
+    count: number,
+  ): GoalVersionEntry[] {
+    return rows.slice(0, count).map((row, index) => {
+      const previous = rows[index + 1];
+      const goal = rowToGoalMetrics(row);
+
+      return {
+        id: row.id,
+        startedAt: row.startedAt.toISOString(),
+        endedAt: row.endedAt ? row.endedAt.toISOString() : null,
+        source: row.source ?? 'initial',
+        reason: row.changeReason ?? null,
+        changes: diffGoalMetrics(
+          previous ? rowToGoalMetrics(previous) : null,
+          goal,
+        ),
+        goal,
+      };
+    });
   }
 
   async update(userId: string, data: UpdateGoalsDto) {
@@ -303,6 +443,7 @@ export class GoalsService {
         userId,
         ...nextMetrics,
         source,
+        changeReason: reason,
         startedAt: now,
         endedAt: null,
         createdAt: now,

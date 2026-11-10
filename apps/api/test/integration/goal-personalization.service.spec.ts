@@ -319,13 +319,16 @@ describe('GoalPersonalizationService.dismissRecommendation', () => {
   });
 });
 
-describe('GoalPersonalizationService.getGoalHistory', () => {
-  it('returns recorded goal changes', async () => {
+describe('GoalPersonalizationService history', () => {
+  it('records the reason on the accepted version', async () => {
     const user = await createUser(tx);
     await goalsService.update(user.id, { dailyCaloriesGoal: 2100 });
 
-    const history = await service.getGoalHistory(user.id);
-    expect(history.length).toBeGreaterThan(0);
-    expect(history[0]?.userId).toBe(user.id);
+    const [version] = await tx
+      .select()
+      .from(userGoals)
+      .where(and(eq(userGoals.userId, user.id), isNull(userGoals.endedAt)));
+
+    expect(version?.changeReason).toBe('user_edit');
   });
 });

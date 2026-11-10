@@ -60,6 +60,9 @@ export const userGoals = app.table(
     source: varchar('source', { length: 20 })
       .$type<GoalSource>()
       .default('initial'),
+    // Why this version replaced the previous one. Nullable because versions
+    // created before the column existed have no reason recorded.
+    changeReason: varchar('change_reason', { length: 100 }),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()
