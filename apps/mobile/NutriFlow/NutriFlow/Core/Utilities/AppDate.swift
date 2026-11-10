@@ -34,6 +34,20 @@ enum AppDate {
         makeFormatter(format, locale: .current)
     }
 
+    /// Parses an ISO 8601 timestamp returned by the API.
+    ///
+    /// Timestamps arrive with fractional seconds from Postgres, but some
+    /// endpoints omit them, so both shapes are accepted.
+    static func parseISO(_ iso: String) -> Date? {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: iso) {
+            return date
+        }
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.date(from: iso)
+    }
+
     private static func makeFormatter(
         _ format: String,
         locale: Locale

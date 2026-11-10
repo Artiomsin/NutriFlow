@@ -15,7 +15,31 @@ enum GoalsEndpoints {
     static let resetToAutomatic = "/goals/reset-to-automatic"
     static let personalize = "/goals/personalize"
     static let personalizationState = "/goals/personalization"
-    static let goalHistory = "/goals/history"
+
+    static func goalHistory(
+        date: String? = nil,
+        limit: Int? = nil,
+        cursor: String? = nil
+    ) -> (path: String, query: [URLQueryItem]) {
+        var query: [URLQueryItem] = []
+        if let date {
+            query.append(URLQueryItem(name: "date", value: date))
+            // Versions are resolved by calendar day in the profile zone.
+            query.append(
+                URLQueryItem(
+                    name: "tz",
+                    value: PreferencesStore.shared.timeZone
+                )
+            )
+        }
+        if let limit {
+            query.append(URLQueryItem(name: "limit", value: String(limit)))
+        }
+        if let cursor {
+            query.append(URLQueryItem(name: "cursor", value: cursor))
+        }
+        return (path: "/goals/history", query: query)
+    }
 
     static func acceptRecommendation(id: String) -> String {
         "/goals/personalization/\(EndpointPath.component(id))/accept"

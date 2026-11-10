@@ -407,44 +407,55 @@ final class MockGoalsService: GoalsServiceProtocol {
         )
     }
     
-    func getGoalHistory() async throws -> [GoalHistoryEntry] {
-        [
-            GoalHistoryEntry(
-                id: "h1",
-                userId: "1",
-                goalType: "nutrition",
-                metric: "dailyCaloriesGoal",
-                oldValue: 2200,
-                newValue: 2050,
-                source: "personalized",
-                reason: "Weekly calories were 10% below target",
-                createdAt: "2026-09-17T08:00:00Z"
-            ),
-            GoalHistoryEntry(
-                id: "h2",
-                userId: "1",
-                goalType: "activity",
-                metric: "dailyStepsGoal",
-                oldValue: 8000,
-                newValue: 9000,
-                source: "personalized",
-                reason: "Averaged 8,600 steps on tracked days",
-                createdAt: "2026-09-17T08:00:01Z"
-            ),
-            GoalHistoryEntry(
-                id: "h3",
-                userId: "1",
-                goalType: "sleep",
-                metric: "nightlySleepMinMinutes",
-                oldValue: 234,
-                newValue: 240,
-                source: "user",
-                reason: nil,
-                createdAt: "2026-09-01T10:00:00Z"
-            )
-        ]
+    func getGoalHistory(
+        date: String?,
+        limit: Int?,
+        cursor: String?
+    ) async throws -> GoalHistoryPage {
+        GoalHistoryPage(
+            items: [
+                GoalVersionEntry(
+                    id: "v2",
+                    startedAt: "2026-09-17T10:00:00Z",
+                    endedAt: nil,
+                    source: "personalized",
+                    reason: "recommendation_accepted",
+                    changes: [
+                        GoalMetricChange(metric: "dailyCaloriesGoal", from: 2200, to: 2050),
+                        GoalMetricChange(metric: "dailyProteinGoal", from: 150, to: 160),
+                        GoalMetricChange(metric: "dailyStepsGoal", from: 8000, to: 9000)
+                    ],
+                    goal: GoalMetrics(
+                        dailyCaloriesGoal: 2050, dailyProteinGoal: 160,
+                        dailyFatGoal: 60, dailyCarbsGoal: 230, dailyWaterGoal: 3000,
+                        dailyStepsGoal: 9000, dailyActiveCaloriesGoal: 550,
+                        weeklyWorkoutsGoal: 6, weeklyWorkoutMinutesGoal: 180,
+                        nightlySleepMinMinutes: 240, nightlySleepMaxMinutes: 510
+                    )
+                ),
+                GoalVersionEntry(
+                    id: "v1",
+                    startedAt: "2026-09-01T10:00:00Z",
+                    endedAt: "2026-09-17T10:00:00Z",
+                    source: "user",
+                    reason: "user_edit",
+                    changes: [
+                        GoalMetricChange(metric: "dailyCaloriesGoal", from: nil, to: 2200),
+                        GoalMetricChange(metric: "nightlySleepMinMinutes", from: nil, to: 234)
+                    ],
+                    goal: GoalMetrics(
+                        dailyCaloriesGoal: 2200, dailyProteinGoal: 150,
+                        dailyFatGoal: 65, dailyCarbsGoal: 250, dailyWaterGoal: 3000,
+                        dailyStepsGoal: 8000, dailyActiveCaloriesGoal: 500,
+                        weeklyWorkoutsGoal: 5, weeklyWorkoutMinutesGoal: 155,
+                        nightlySleepMinMinutes: 234, nightlySleepMaxMinutes: 500
+                    )
+                )
+            ],
+            nextCursor: nil
+        )
     }
-    
+
     func getGoals(date: String? = nil) async throws -> UserGoals {
         UserGoals(
             id: "1",

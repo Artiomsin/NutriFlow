@@ -96,10 +96,20 @@ final class GoalsService: GoalsServiceProtocol, Sendable {
         return try await client.send(request)
     }
 
-    func getGoalHistory() async throws -> [GoalHistoryEntry] {
+    func getGoalHistory(
+        date: String?,
+        limit: Int?,
+        cursor: String?
+    ) async throws -> GoalHistoryPage {
+        let endpoint = GoalsEndpoints.goalHistory(
+            date: date,
+            limit: limit,
+            cursor: cursor
+        )
         let request = APIRequest<NeverBody>(
-            path: GoalsEndpoints.goalHistory,
-            method: .GET
+            path: endpoint.path,
+            method: .GET,
+            queryItems: endpoint.query
         )
         return try await client.send(request)
     }
