@@ -11,6 +11,8 @@ final class GoalsViewModel {
     var fieldErrors = FormFieldErrors()
     var historyError: AppError?
     var isProcessingPersonalization = false
+    /// Goals active at the end of the selected Progress period.
+    var periodGoals: UserGoals?
     
     @ObservationIgnored private let service: GoalsServiceProtocol
     @ObservationIgnored private weak var coordinator: AppCoordinator?
@@ -123,6 +125,16 @@ final class GoalsViewModel {
         Task { await loadPersonalization() }
     }
 
+    /// Loads the goal version that was active at the end of the selected
+    /// period, so historical rings are not compared with a newer goal.
+    func loadPeriodGoals(endingOn date: Date) async {
+        let loaded = try? await service.getGoals(
+            date: AppDate.dateOnlyFormatter().string(from: date)
+        )
+        guard !Task.isCancelled else { return }
+        periodGoals = loaded
+    }
+
     func fitnessGoalRows(
         avgSteps: Double,
         avgActiveCalories: Double,
@@ -132,7 +144,14 @@ final class GoalsViewModel {
         workoutMinutes: Int,
         daysCount: Int
     ) -> [FitnessGoalRowData] {
-        guard case .loaded(let goals) = state else { return [] }
+        let goals: UserGoals
+        if let periodGoals {
+            goals = periodGoals
+        } else if case .loaded(let current) = state {
+            goals = current
+        } else {
+            return []
+        }
         let stepsGoal = goals.dailyStepsGoal ?? 0
         let activeGoal = goals.dailyActiveCaloriesGoal ?? 0
         let sleepMin = goals.nightlySleepMinMinutes ?? 0
