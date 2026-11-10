@@ -1028,7 +1028,7 @@ export class FoodService {
 
     if (!owned) throw new NotFoundException('Category not found');
 
-    const patch: { name?: string; icon?: string | null; color?: string | null } = {};
+    const patch: { name?: string; icon?: string | null; color?: string } = {};
 
     if (data.name !== undefined) {
       const name = data.name.trim();
@@ -1054,7 +1054,9 @@ export class FoodService {
 
     if (data.icon !== undefined) patch.icon = data.icon;
 
-    if (data.color !== undefined) patch.color = data.color;
+    // The database keeps a non-null color so every category has a predictable
+    // UI fallback. A PATCH with `null` clears a custom color back to default.
+    if (data.color !== undefined) patch.color = data.color ?? '#10B981';
 
     const [updated] = await this.db
       .update(foodCategories)
