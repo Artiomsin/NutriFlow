@@ -1,0 +1,1 @@
+ALTER TABLE "app"."user_goals" ADD COLUMN "change_reason" varchar(100);

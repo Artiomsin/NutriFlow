@@ -7,7 +7,7 @@ struct PeriodSelectorView: View {
     let onPeriodChange: (PeriodType) -> Void
     let onCustomRange: (Date, Date) -> Void
     @State private var showDatePicker = false
-    @State private var tempFromDate = Calendar.current.date(byAdding: .day, value: -3, to: Date()) ?? Date()
+    @State private var tempFromDate = AppDate.calendar.date(byAdding: .day, value: -3, to: Date()) ?? Date()
     @State private var tempToDate = Date()
     var body: some View {
         VStack(spacing: 12) {
@@ -36,13 +36,8 @@ struct PeriodSelectorView: View {
             if newValue { tempFromDate = fromDate; tempToDate = toDate }
         }
     }
-    private static let formatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "MMM d"
-        return f
-    }()
     private func formatDate(_ date: Date) -> String {
-        Self.formatter.string(from: date)
+        AppDate.displayFormatter("MMM d").string(from: date)
     }
 }
 struct PeriodChip: View {
@@ -106,13 +101,8 @@ struct DateRangePickerSheet: View {
         }
     }
 
-    private static let formatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "MMM d"
-        return f
-    }()
     private func formatDate(_ date: Date) -> String {
-        Self.formatter.string(from: date)
+        AppDate.displayFormatter("MMM d").string(from: date)
     }
 }
 
@@ -122,7 +112,7 @@ struct DateRangePickerSheet: View {
 }
 struct PeriodSelectorPreviewContent: View {
     @State private var selectedPeriod: PeriodType = .week
-    @State private var fromDate = Calendar.current.date(byAdding: .day, value: -3, to: Date()) ?? Date()
+    @State private var fromDate = AppDate.calendar.date(byAdding: .day, value: -3, to: Date()) ?? Date()
     @State private var toDate = Date()
     var body: some View {
         ZStack {

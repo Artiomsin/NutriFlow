@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { ConfigModule } from '@nestjs/config';
 import { NotFoundException } from '@nestjs/common';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 
 import { DbModule } from '../../src/db/db.module';
 import { dailyActivity } from '../../src/db/schema/dailyActivity';
@@ -233,15 +233,31 @@ describe('GoalPersonalizationService.acceptRecommendation', () => {
       recommendedGoals: metrics({ dailyCaloriesGoal: 3000 }),
     });
 
+    const before = await goalsService.findByUserId(user.id);
     const result = await service.acceptRecommendation(user.id, rec.id);
     expect(result.dailyCaloriesGoal).toBe(3000);
+
+    const versions = await tx
+      .select()
+      .from(userGoals)
+      .where(eq(userGoals.userId, user.id));
+    expect(versions).toHaveLength(2);
+
+    // The previous version is closed, not overwritten: it must keep the values
+    // that historical days have to keep showing.
+    const closed = versions.find((row) => row.id === before.id);
+    expect(closed?.endedAt).not.toBeNull();
+    expect(closed?.dailyCaloriesGoal).toBe(before.dailyCaloriesGoal);
 
     const [goals] = await tx
       .select()
       .from(userGoals)
-      .where(eq(userGoals.userId, user.id));
+      .where(and(eq(userGoals.userId, user.id), isNull(userGoals.endedAt)));
     expect(goals?.source).toBe('personalized');
     expect(goals?.dailyCaloriesGoal).toBe(3000);
+    expect(goals?.startedAt.getTime()).toBeGreaterThanOrEqual(
+      before.startedAt.getTime(),
+    );
 
     const history = await tx
       .select()
@@ -303,13 +319,16 @@ describe('GoalPersonalizationService.dismissRecommendation', () => {
   });
 });
 
-describe('GoalPersonalizationService.getGoalHistory', () => {
-  it('returns recorded goal changes', async () => {
+describe('GoalPersonalizationService history', () => {
+  it('records the reason on the accepted version', async () => {
     const user = await createUser(tx);
     await goalsService.update(user.id, { dailyCaloriesGoal: 2100 });
 
-    const history = await service.getGoalHistory(user.id);
-    expect(history.length).toBeGreaterThan(0);
-    expect(history[0]?.userId).toBe(user.id);
+    const [version] = await tx
+      .select()
+      .from(userGoals)
+      .where(and(eq(userGoals.userId, user.id), isNull(userGoals.endedAt)));
+
+    expect(version?.changeReason).toBe('user_edit');
   });
 });

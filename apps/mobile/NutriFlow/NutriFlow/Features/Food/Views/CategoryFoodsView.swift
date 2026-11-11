@@ -10,6 +10,8 @@ struct CategoryFoodsView: View {
     @State private var selectedFoodIDs = Set<String>()
     @State private var isSelecting = false
     @State private var isChoosingDestination = false
+    @State private var visibleSystemCount = 5
+    @State private var isShowingMoreSystemFoods = false
 
     init(
         category: FoodCategory,
@@ -37,25 +39,198 @@ struct CategoryFoodsView: View {
     private var selectedCount: Int {
         selectedFoodIDs.count
     }
+    
+    private var isSystemCategory: Bool {
+        category.map { !$0.isPersonal } ?? false
+    }
+
+    private var categoryAccentColor: Color {
+        guard let category else { return AppColors.accent }
+        return Color(hex: category.color ?? "#10B981") ?? AppColors.accent
+    }
+
+    private var personalFoods: [CatalogFood] {
+        viewModel.foods.filter { $0.source == "user" }
+    }
+
+    private var systemFoods: [CatalogFood] {
+        viewModel.foods.filter { $0.source != "user" }
+    }
+
+    private var visibleSystemFoods: [CatalogFood] {
+        Array(systemFoods.prefix(visibleSystemCount))
+    }
+
+    private var canShowMoreSystemFoods: Bool {
+        systemFoods.count > visibleSystemCount
+    }
 
     private var destinationCategories: [FoodCategory] {
         guard let category else { return availableCategories }
         return availableCategories.filter { $0.id != category.id }
     }
 
-    var body: some View {
-        List {
-            if let category {
-                Section {
-                    Label("\(category.foodCount) foods in this category", systemImage: "tag.fill")
-                        .foregroundStyle(AppColors.textSecondary)
-                }
-            } else {
-                Section {
-                    Label("Select your foods to assign or remove a category.", systemImage: "tag.fill")
+    @ViewBuilder
+    private func categoryHeader(_ category: FoodCategory) -> some View {
+        let categoryColor: Color = Color(hex: category.color ?? "#10B981") ?? AppColors.accent
+
+        HStack(spacing: 16) {
+            // Category icon — large circle on left
+            CategoryIconView(
+                iconName: category.icon ?? FoodCategoryIcons.defaultIcon,
+                color: categoryColor
+            )
+            .frame(width: 48, height: 48)
+            .background(categoryColor.opacity(0.12))
+            .clipShape(.circle)
+
+            // Name + count (center)
+            VStack(alignment: .leading, spacing: 5) {
+                Text(category.name)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(AppColors.textPrimary)
+                    .lineLimit(1)
+
+                HStack(spacing: 5) {
+                    Image(systemName: "cart.fill")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(categoryColor)
+
+                    Text("\(category.foodCount) foods")
+                        .font(.caption.weight(.medium))
                         .foregroundStyle(AppColors.textSecondary)
                 }
             }
+
+            Spacer(minLength: 0)
+
+            // Right badge — compact food count pill
+            VStack(alignment: .center, spacing: 3) {
+                Text("\(category.foodCount)")
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(categoryColor)
+                    .minimumScaleFactor(0.6)
+
+                Text("foods")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(categoryColor.opacity(0.6))
+            }
+            .frame(width: 48)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 10)
+            .background(categoryColor.opacity(0.06), in: .rect(cornerRadius: AppRadius.large))
+            .overlay {
+                RoundedRectangle(cornerRadius: AppRadius.large)
+                    .stroke(categoryColor, lineWidth: 1.5)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppColors.surface, in: .rect(cornerRadius: AppRadius.large))
+        .overlay {
+            RoundedRectangle(cornerRadius: AppRadius.large)
+                .stroke(categoryColor, lineWidth: 2)
+        }
+        .shadow(color: categoryColor.opacity(0.08), radius: 6, x: 0, y: 2)
+        .padding(.horizontal, 2)
+    }
+
+    @ViewBuilder
+    private var manageAllHeader: some View {
+        HStack(spacing: 16) {
+            // Category icon — large circle on left
+            Image(systemName: "tag.fill")
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(AppColors.accent)
+                .frame(width: 48, height: 48)
+                .background(AppColors.accent.opacity(0.12))
+                .clipShape(.circle)
+
+            // Name + subtitle (center)
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Manage Dishes")
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(AppColors.textPrimary)
+                    .lineLimit(1)
+
+                Text("Select your foods to assign or remove a category.")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppColors.surface, in: .rect(cornerRadius: AppRadius.large))
+        .overlay {
+            RoundedRectangle(cornerRadius: AppRadius.large)
+                .stroke(AppColors.accent, lineWidth: 2)
+        }
+        .shadow(color: AppColors.accent.opacity(0.08), radius: 6, x: 0, y: 2)
+        .padding(.horizontal, 2)
+    }
+
+    // MARK: - Show more / Show less button
+
+    @ViewBuilder
+    private var showMoreButton: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                if isShowingMoreSystemFoods {
+                    visibleSystemCount = 5
+                    isShowingMoreSystemFoods = false
+                } else {
+                    visibleSystemCount = systemFoods.count
+                    isShowingMoreSystemFoods = true
+                }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: isShowingMoreSystemFoods ? "chevron.up" : "chevron.down")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(categoryAccentColor)
+
+                Text(
+                    isShowingMoreSystemFoods
+                        ? "Show less (\(systemFoods.count) total)"
+                        : "Show more (\(max(systemFoods.count - visibleSystemCount, 0)) more)"
+                )
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(categoryAccentColor)
+
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
+            .background(categoryAccentColor.opacity(0.08), in: .rect(cornerRadius: AppRadius.medium))
+            .overlay {
+                RoundedRectangle(cornerRadius: AppRadius.medium)
+                    .stroke(categoryAccentColor, lineWidth: 1.5)
+            }
+        }
+        .buttonStyle(.plain)
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+
+    var body: some View {
+        List {
+            // Category header — красивый блок с количеством блюд
+            Section {
+                if let category {
+                    categoryHeader(category)
+                } else {
+                    manageAllHeader
+                }
+            }
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
 
             switch viewModel.state {
             case .idle, .loading:
@@ -73,6 +248,39 @@ struct CategoryFoodsView: View {
                         systemImage: "tray",
                         description: Text("Foods assigned to this category will appear here.")
                     )
+                } else if isSystemCategory {
+                    if !personalFoods.isEmpty {
+                        Section("Personal") {
+                            ForEach(personalFoods) { food in
+                                foodRow(food)
+                            }
+                        }
+                    }
+
+                    Section("System") {
+                        if visibleSystemFoods.isEmpty {
+                            Text("No system foods in this category.")
+                                .foregroundStyle(AppColors.textSecondary)
+                        } else {
+                            ForEach(visibleSystemFoods) { food in
+                                systemFoodRow(food)
+                                    .task {
+                                        guard isShowingMoreSystemFoods,
+                                              food.id == systemFoods.last?.id else { return }
+                                        await viewModel.loadMoreSystemFoods()
+                                    }
+                            }
+                        }
+
+                        if canShowMoreSystemFoods {
+                            showMoreButton
+                        }
+                    }
+
+                    if viewModel.isLoadingMore {
+                        skeletonRows(count: 2)
+                    }
+
                 } else {
                     ForEach(viewModel.foods) { food in
                         foodRow(food)
@@ -87,6 +295,10 @@ struct CategoryFoodsView: View {
                 }
             }
         }
+        .listStyle(.plain)
+        .listRowSpacing(16)
+        .listSectionSpacing(16)
+        .contentMargins(.horizontal, 16)
         .scrollContentBackground(.hidden)
         .background(AppColors.background)
         .navigationTitle(category?.name ?? "Manage Foods")
@@ -98,10 +310,7 @@ struct CategoryFoodsView: View {
                         selectedFoodIDs.removeAll()
                         isSelecting = false
                     }
-                } else {
-                    Button("Select") {
-                        isSelecting = true
-                    }
+                    .tint(categoryAccentColor)
                 }
             }
 
@@ -111,6 +320,7 @@ struct CategoryFoodsView: View {
                         isChoosingDestination = true
                     }
                     .disabled(viewModel.isUpdating)
+                    .tint(categoryAccentColor)
                 }
             }
         }
@@ -173,26 +383,44 @@ struct CategoryFoodsView: View {
         }
     }
 
+    private func systemFoodRow(_ food: CatalogFood) -> some View {
+        CategoryFoodCard(
+            food: food,
+            isSelecting: false,
+            isSelected: false,
+            accentColor: categoryAccentColor
+        )
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .accessibilityElement(children: .combine)
+    }
+
     @ViewBuilder
     private func foodRow(_ food: CatalogFood) -> some View {
         let canEdit = food.source == "user"
 
         Button {
-            guard isSelecting, canEdit else { return }
+            guard canEdit else { return }
+
             if selectedFoodIDs.contains(food.id) {
                 selectedFoodIDs.remove(food.id)
             } else {
                 selectedFoodIDs.insert(food.id)
             }
+
+            isSelecting = !selectedFoodIDs.isEmpty
         } label: {
             CategoryFoodCard(
                 food: food,
                 isSelecting: isSelecting,
-                isSelected: selectedFoodIDs.contains(food.id)
+                isSelected: selectedFoodIDs.contains(food.id),
+                accentColor: categoryAccentColor
             )
         }
         .buttonStyle(.plain)
-        .disabled(isSelecting && !canEdit)
+        .disabled(!canEdit)
+        .listRowInsets(EdgeInsets())
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
         .accessibilityHint(canEdit
@@ -201,18 +429,28 @@ struct CategoryFoodsView: View {
     }
     
     private func categoryRow(_ destination: FoodCategory) -> some View {
-        Button {
+        let categoryColor: Color = Color(hex: destination.color ?? "#10B981") ?? AppColors.accent
+
+        return Button {
             isChoosingDestination = false
             updateCategories(to: destination.id)
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: destination.icon ?? "tag.fill")
-                    .foregroundStyle(AppColors.accent)
+                    .foregroundStyle(categoryColor)
+                    .frame(width: 32, height: 32)
+                    .background(categoryColor.opacity(0.12), in: .circle)
 
                 Text(destination.name)
                     .foregroundStyle(.primary)
 
                 Spacer()
+            }
+            .padding(10)
+            .background(categoryColor.opacity(0.06), in: .rect(cornerRadius: AppRadius.small))
+            .overlay {
+                RoundedRectangle(cornerRadius: AppRadius.small)
+                    .stroke(categoryColor.opacity(0.25), lineWidth: 1)
             }
             .contentShape(Rectangle())
         }

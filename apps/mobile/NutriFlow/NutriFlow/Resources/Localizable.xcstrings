@@ -60,6 +60,16 @@
         }
       }
     },
+    "%@ → %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ → %2$@"
+          }
+        }
+      }
+    },
     "%@ efficiency" : {
 
     },
@@ -85,13 +95,16 @@
     "%lld foods" : {
 
     },
-    "%lld foods in this category" : {
-
-    },
     "%lld kcal" : {
 
     },
     "%lld ml" : {
+
+    },
+    "%lld recalculations" : {
+
+    },
+    "%lld versions" : {
 
     },
     "%lld-day streak" : {
@@ -151,6 +164,9 @@
     "Amount" : {
 
     },
+    "And %lld more" : {
+
+    },
     "Appearance" : {
 
     },
@@ -196,10 +212,13 @@
     "Categories for system foods are managed by Nutriflow and cannot be changed here." : {
 
     },
-    "Category" : {
+    "Category color" : {
 
     },
     "Category icon" : {
+
+    },
+    "Category name" : {
 
     },
     "Change Category" : {
@@ -223,7 +242,7 @@
     "Choose category icon" : {
 
     },
-    "Choose icon" : {
+    "Color" : {
 
     },
     "Connect Apple Health to see sleep history" : {
@@ -256,6 +275,9 @@
     "Couldn’t load the latest workout from Apple Health." : {
 
     },
+    "Couldn’t save category" : {
+
+    },
     "Create a Category" : {
 
     },
@@ -283,7 +305,7 @@
     "Delete \"%@\"?" : {
 
     },
-    "Delete %@" : {
+    "Delete \"%@\"? Your foods will remain without a category." : {
 
     },
     "Delete category?" : {
@@ -749,6 +771,9 @@
     "Food name" : {
 
     },
+    "foods" : {
+
+    },
     "Foods assigned to this category will appear here." : {
 
     },
@@ -888,7 +913,16 @@
     "Goal" : {
 
     },
+    "Goal Activity" : {
+
+    },
     "Goal recommendations" : {
+
+    },
+    "Goal update" : {
+
+    },
+    "Goal updates" : {
 
     },
     "Goals" : {
@@ -909,13 +943,7 @@
     "Heart Rate" : {
 
     },
-    "Hide" : {
-
-    },
-    "Hide icons" : {
-
-    },
-    "History" : {
+    "Hide category icons" : {
 
     },
     "Home" : {
@@ -942,6 +970,9 @@
     "LATEST" : {
 
     },
+    "Load older changes" : {
+
+    },
     "Loading activity" : {
 
     },
@@ -966,13 +997,10 @@
     "Manage Categories" : {
 
     },
-    "Manage foods" : {
+    "Manage Dishes" : {
 
     },
-    "Manage foods in %@" : {
-
-    },
-    "Manage Personal Foods" : {
+    "Manage Personal Dishes" : {
 
     },
     "Manage weight records" : {
@@ -999,9 +1027,6 @@
     "My Categories" : {
 
     },
-    "Name" : {
-
-    },
     "Need at least 2 other nights to compare" : {
 
     },
@@ -1017,12 +1042,6 @@
     "No account? Register" : {
 
     },
-    "No categories yet." : {
-
-    },
-    "No changes yet" : {
-
-    },
     "No data for this period" : {
 
     },
@@ -1030,6 +1049,9 @@
 
     },
     "No foods" : {
+
+    },
+    "No goal changes yet" : {
 
     },
     "No heart rate data" : {
@@ -1053,6 +1075,12 @@
     "No sleep data yet" : {
 
     },
+    "No system foods in this category." : {
+
+    },
+    "No updates in this category" : {
+
+    },
     "No water added today" : {
 
     },
@@ -1069,6 +1097,12 @@
 
     },
     "NutriFlow" : {
+
+    },
+    "OK" : {
+
+    },
+    "Only you can edit or delete these." : {
 
     },
     "Open Settings" : {
@@ -1131,6 +1165,9 @@
     "Reminders" : {
 
     },
+    "Rings use the goal in effect at the end of the day." : {
+
+    },
     "Row" : {
 
     },
@@ -1176,13 +1213,10 @@
     "Seconds" : {
 
     },
-    "Select" : {
-
-    },
     "Select Date Range" : {
 
     },
-    "Select personal foods and assign or remove categories." : {
+    "Select personal dishes and assign or remove categories." : {
 
     },
     "Select this food to change its category." : {
@@ -1198,6 +1232,15 @@
 
     },
     "Settings" : {
+
+    },
+    "Show less" : {
+
+    },
+    "Show less (%lld total)" : {
+
+    },
+    "Show more (%lld more)" : {
 
     },
     "Sign in to continue" : {
@@ -1222,6 +1265,9 @@
 
     },
     "Start typing to search" : {
+
+    },
+    "Swipe up or down to adjust the hue." : {
 
     },
     "Switch to automatic goals" : {
@@ -1251,9 +1297,6 @@
     "Tell us about yourself" : {
 
     },
-    "The category will be removed from your foods. Your foods will remain without a category." : {
-
-    },
     "The chart and automatic goals will be updated if this is today’s current record." : {
 
     },
@@ -1281,6 +1324,9 @@
     "TODAY’S WEIGHT" : {
 
     },
+    "Track how your daily targets change over time" : {
+
+    },
     "Track your activity" : {
 
     },
@@ -1297,6 +1343,9 @@
 
     },
     "Try again with better lighting and food clearly visible." : {
+
+    },
+    "Try selecting another filter." : {
 
     },
     "Unassign Category" : {
@@ -1366,6 +1415,18 @@
 
     },
     "Workouts access is off. Enable Apple Health in Settings." : {
+
+    },
+    "Your Categories" : {
+
+    },
+    "Your changes weren’t saved. Please try again." : {
+
+    },
+    "Your goal history will appear here after your first update." : {
+
+    },
+    "Your goals have evolved over time" : {
 
     },
     "Your manual or personalized targets will be replaced using your current profile and weight." : {

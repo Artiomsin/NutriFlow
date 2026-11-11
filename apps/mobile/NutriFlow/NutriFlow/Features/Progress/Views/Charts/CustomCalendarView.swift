@@ -5,16 +5,11 @@ struct CustomCalendarView: View {
     @Binding var toDate: Date
     @State private var currentMonth: Date = Date()
 
-    private let calendar = Calendar.current
+    private let calendar = AppDate.calendar
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
 
-    private static let monthYearFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "MMMM yyyy"
-        return f
-    }()
     private var monthYearString: String {
-        Self.monthYearFormatter.string(from: currentMonth)
+        AppDate.displayFormatter("MMMM yyyy").string(from: currentMonth)
     }
 
     private var daySymbols: [String] {
@@ -171,7 +166,7 @@ struct DayCell: View {
     let isEndOfRange: Bool
     let belongsToMonth: Bool
 
-    private let calendar = Calendar.current
+    private let calendar = AppDate.calendar
 
     var body: some View {
         Text("\(calendar.component(.day, from: date))")
@@ -217,7 +212,7 @@ struct DayCell: View {
 }
 
 struct CustomCalendarPreview: View {
-    @State private var fromDate = Calendar.current.date(byAdding: .day, value: -3, to: Date()) ?? Date()
+    @State private var fromDate = AppDate.calendar.date(byAdding: .day, value: -3, to: Date()) ?? Date()
     @State private var toDate = Date()
 
     var body: some View {

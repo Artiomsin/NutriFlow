@@ -13,7 +13,9 @@ struct GoalsManagementView: View {
     @State private var successMessage: String?
     @State private var showResetConfirmation = false
     @State private var lastSaveAction: SaveAction?
-    @State private var history: [GoalHistoryEntry] = []
+    @State private var history: [GoalVersionEntry] = []
+    @State private var historyNextCursor: String?
+    @State private var isLoadingMoreHistory = false
     @State private var lastSeededGoals: UserGoals?
 
     @State private var calories = 2200.0
@@ -56,7 +58,7 @@ struct GoalsManagementView: View {
                             let accepted = await goalsVM.acceptRecommendation(recommendation)
                             if accepted {
                                 seedDrafts()
-                                await loadHistory()
+                                await loadHistory(forceNetwork: true)
                             }
                         }
                     },
@@ -462,78 +464,86 @@ struct GoalsManagementView: View {
         }
     }
 
+    
     private var historySection: some View {
-        VStack(spacing: 10) {
-            HStack {
-                Text("History")
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(AppColors.textTertiary )
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Goal Activity")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(AppColors.textPrimary)
+
+                    Text("Track how your daily targets change over time")
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppColors.textTertiary)
+                }
+
                 Spacer()
+
+                if !history.isEmpty {
+                    Text("\(history.count) versions")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(AppColors.textSecondary)
+                }
             }
-            .padding(.leading, 2)
 
             if let historyError = goalsVM.historyError {
-                ErrorView(error: historyError) { Task { await loadHistory() } }
-            } else if history.isEmpty {
-                Text("No changes yet")
-                    .font(.footnote)
-                    .foregroundColor(AppColors.textSecondary)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .appGlassSurface()
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(history.prefix(20).enumerated()), id: \.element.id) { index, entry in
-                        historyRow(entry)
-                        if index < min(history.count, 20) - 1 {
-                            divider
-                        }
+                ErrorView(error: historyError) {
+                    Task {
+                        await loadHistory(forceNetwork: true)
                     }
                 }
+            } else if history.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 24))
+                        .foregroundStyle(AppColors.textTertiary)
+
+                    Text("No goal changes yet")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(AppColors.textSecondary)
+
+                    Text("Your goal history will appear here after your first update.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppColors.textTertiary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 24)
+                .padding(.horizontal, 16)
                 .appGlassSurface()
+            } else {
+                GoalHistoryTimeline(entries: history)
+
+                if historyNextCursor != nil {
+                    Button {
+                        Task {
+                            await loadMoreHistory()
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            if isLoadingMoreHistory {
+                                ProgressView()
+                                    .tint(AppColors.accent)
+                            } else {
+                                Text("Load older changes")
+
+                                Image(systemName: "arrow.down")
+                                    .font(.system(size: 10, weight: .semibold))
+                            }
+                        }
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(AppColors.accent)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isLoadingMoreHistory)
+                }
             }
         }
     }
 
-    private func historyRow(_ entry: GoalHistoryEntry) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack {
-                Text(metricLabel(entry.metric))
-                    .font(.system(size: 15))
-                    .foregroundColor(AppColors.textPrimary)
-                Spacer()
-                Text(shortDate(entry.createdAt))
-                    .font(.caption)
-                    .foregroundColor(AppColors.textTertiary )
-            }
-            HStack(spacing: 6) {
-                Text(valueText(entry))
-                    .font(.footnote)
-                    .foregroundColor(AppColors.textSecondary)
-                Spacer()
-                Text(sourceLabel(entry.source))
-                    .font(.caption2.weight(.semibold))
-                    .foregroundColor(AppColors.accent)
-            }
-            if let reason = entry.reason, !reason.isEmpty {
-                Text(historyReasonLabel(reason))
-                    .font(.caption2)
-                    .foregroundColor(AppColors.textTertiary )
-            }
-        }
-        .padding(.horizontal, AppSpacing.paddingHorizontal)
-        .padding(.vertical, 10)
-    }
-
-    private func valueText(_ entry: GoalHistoryEntry) -> String {
-        let from = entry.oldValue.map(Self.formatHistoryValue) ?? "—"
-        let to = entry.newValue.map(Self.formatHistoryValue) ?? "—"
-        return "\(from) → \(to)"
-    }
-
-    private static func formatHistoryValue(_ value: Double) -> String {
-        value.formatted(.number.precision(.fractionLength(0...1)))
-    }
 
     private func save() async {
         guard !isSaving else { return }
@@ -556,7 +566,7 @@ struct GoalsManagementView: View {
         )
         if success {
             successMessage = "Goals saved"
-            await loadHistory()
+            await loadHistory(forceNetwork: true)
         }
     }
 
@@ -569,7 +579,7 @@ struct GoalsManagementView: View {
         if await goalsVM.resetGoalsToAutomatic() {
             seedDrafts()
             successMessage = "Automatic goals enabled"
-            await loadHistory()
+            await loadHistory(forceNetwork: true)
         }
     }
 
@@ -600,8 +610,23 @@ struct GoalsManagementView: View {
         sleepMaxMin = goals.nightlySleepMaxMinutes ?? sleepMaxMin
     }
 
-    private func loadHistory() async {
-        history = await goalsVM.loadGoalHistory()
+    private func loadHistory(forceNetwork: Bool = false) async {
+        guard let page = await goalsVM.loadGoalHistory(forceNetwork: forceNetwork) else {
+            return
+        }
+        history = page.items
+        historyNextCursor = page.nextCursor
+    }
+
+    private func loadMoreHistory() async {
+        guard let cursor = historyNextCursor, !isLoadingMoreHistory else { return }
+        isLoadingMoreHistory = true
+        defer { isLoadingMoreHistory = false }
+
+        guard let page = await goalsVM.loadGoalHistory(cursor: cursor) else { return }
+        let known = Set(history.map(\.id))
+        history.append(contentsOf: page.items.filter { !known.contains($0.id) })
+        historyNextCursor = page.nextCursor
     }
 
     private func sourceLabel(_ source: String?) -> String {
@@ -611,54 +636,6 @@ struct GoalsManagementView: View {
         case "personalized": return "Personalized"
         default: return "Auto"
         }
-    }
-
-    private func metricLabel(_ metric: String) -> String {
-        switch metric {
-        case "dailyCaloriesGoal": return "Calories"
-        case "dailyProteinGoal": return "Protein"
-        case "dailyFatGoal": return "Fat"
-        case "dailyCarbsGoal": return "Carbs"
-        case "dailyWaterGoal": return "Water"
-        case "dailyStepsGoal": return "Steps"
-        case "dailyActiveCaloriesGoal": return "Active calories"
-        case "weeklyWorkoutsGoal": return "Workouts / week"
-        case "weeklyWorkoutMinutesGoal": return "Workout minutes / week"
-        case "nightlySleepMinMinutes": return "Sleep min / night"
-        case "nightlySleepMaxMinutes": return "Sleep max / night"
-        default: return metric
-        }
-    }
-
-    private func historyReasonLabel(_ reason: String) -> String {
-        switch reason {
-        case "recommendation_accepted":
-            return "Updated from a personalized recommendation"
-        case "user_edit":
-            return "Updated manually"
-        case "manual_reset_to_automatic":
-            return "Switched to automatic goals"
-        case "profile_recalculation":
-            return "Recalculated from your profile and current weight"
-        case "personalized_profile_recalculation":
-            return "Recalculated while keeping recommendation adjustments"
-        case "initial_calculation":
-            return "Initial automatic calculation"
-        default:
-            return reason
-        }
-    }
-
-    private func shortDate(_ iso: String) -> String {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        var date = formatter.date(from: iso)
-        if date == nil {
-            formatter.formatOptions = [.withInternetDateTime]
-            date = formatter.date(from: iso)
-        }
-        guard let date else { return String(iso.prefix(10)) }
-        return date.formatted(.dateTime.day().month(.abbreviated))
     }
 }
 

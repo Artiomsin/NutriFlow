@@ -16,7 +16,10 @@ enum AnalyticsEndpoints {
     static func getCustomRange(from: String, to: String) -> (path: String, query: [URLQueryItem]) {
         (path: "/analytics/custom", query: [
             URLQueryItem(name: "from", value: from),
-            URLQueryItem(name: "to", value: to)
+            URLQueryItem(name: "to", value: to),
+            // Resolve the period's goal in the same time zone used for the
+            // calendar range above.
+            URLQueryItem(name: "tz", value: PreferencesStore.shared.timeZone)
         ])
     }
 }

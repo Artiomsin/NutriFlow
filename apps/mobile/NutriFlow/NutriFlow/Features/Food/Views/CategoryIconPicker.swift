@@ -4,6 +4,7 @@ struct CategoryIconPicker: View {
     @Binding var selection: String
 
     let icons: [String]
+    let color: Color
 
     @State private var isExpanded = false
 
@@ -16,9 +17,9 @@ struct CategoryIconPicker: View {
             HStack(spacing: 12) {
                 Image(systemName: selection)
                     .font(.title2.weight(.semibold))
-                    .foregroundStyle(AppColors.accent)
+                    .foregroundStyle(color)
                     .frame(width: 48, height: 48)
-                    .background(AppColors.accent.opacity(0.12), in: .circle)
+                    .background(color.opacity(0.12), in: .circle)
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -33,16 +34,16 @@ struct CategoryIconPicker: View {
 
                 Spacer(minLength: 8)
 
-                Button(
-                    isExpanded ? "Hide" : "Choose icon",
-                    systemImage: isExpanded ? "chevron.up" : "chevron.down",
-                    action: toggleExpansion
-                )
-                .labelStyle(.iconOnly)
-                .foregroundStyle(AppColors.accent)
-                .frame(width: 44, height: 44)
-                .accessibilityLabel(isExpanded ? "Hide icons" : "Choose category icon")
+                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(color)
             }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                toggleExpansion()
+            }
+            .accessibilityLabel(isExpanded ? "Hide category icons" : "Choose category icon")
+            .accessibilityAddTraits(.isButton)
 
             if isExpanded {
                 LazyVGrid(columns: columns, spacing: 10) {
@@ -68,16 +69,16 @@ struct CategoryIconPicker: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 52)
                 .foregroundStyle(
-                    isSelected ? AppColors.accent : AppColors.accent.opacity(0.7)
+                    isSelected ? color : color.opacity(0.7)
                 )
                 .background(
-                    isSelected ? AppColors.accent.opacity(0.18) : AppColors.surface,
+                    isSelected ? color.opacity(0.18) : AppColors.surface,
                     in: .rect(cornerRadius: AppRadius.small)
                 )
                 .overlay {
                     RoundedRectangle(cornerRadius: AppRadius.small)
                         .stroke(
-                            isSelected ? AppColors.accent : AppColors.accent.opacity(0.16),
+                            isSelected ? color : color.opacity(0.16),
                             lineWidth: isSelected ? 2 : 1
                         )
                 }
@@ -95,8 +96,5 @@ struct CategoryIconPicker: View {
 
     private func select(_ icon: String) {
         selection = icon
-        withAnimation(.easeInOut(duration: 0.2)) {
-            isExpanded = false
-        }
     }
 }

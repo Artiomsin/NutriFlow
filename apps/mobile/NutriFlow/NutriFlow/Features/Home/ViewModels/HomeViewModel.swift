@@ -127,6 +127,7 @@ final class HomeViewModel {
             group.addTask { await self.waterVM.loadToday(forceRefresh: true) }
             
         }
+        lastGoalsRevision = progressRefreshState?.revision
     }
 
     func loadAll() async {

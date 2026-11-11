@@ -340,4 +340,174 @@ describe('GoalsService.findByUserId by date', () => {
     expect(current.dailyCaloriesGoal).toBe(2500);
     expect(current.endedAt).toBeNull();
   });
+
+  it('resolves day boundaries in the requested time zone', async () => {
+    const user = await createUser(tx);
+    const first = await service.update(user.id, { dailyCaloriesGoal: 2000 });
+    const second = await service.update(user.id, { dailyCaloriesGoal: 2500 });
+
+    // Goal changed at 01:00 on Jan 12 in Moscow (UTC+3) == Jan 11 22:00 UTC.
+    await tx
+      .update(userGoals)
+      .set({
+        startedAt: new Date('2026-01-01T00:00:00.000Z'),
+        endedAt: new Date('2026-01-11T22:00:00.000Z'),
+      })
+      .where(eq(userGoals.id, first!.id));
+
+    await tx
+      .update(userGoals)
+      .set({ startedAt: new Date('2026-01-11T22:00:00.000Z') })
+      .where(eq(userGoals.id, second!.id));
+
+    // UTC sees the change on Jan 11, so the new version is selected.
+    const utcDay = await service.findByUserId(user.id, '2026-01-11', 'UTC');
+    expect(utcDay.dailyCaloriesGoal).toBe(2500);
+
+    // Moscow still treats it as Jan 11, so the old version is selected.
+    const moscowDay = await service.findByUserId(
+      user.id,
+      '2026-01-11',
+      'Europe/Moscow',
+    );
+    expect(moscowDay.dailyCaloriesGoal).toBe(2000);
+
+    const moscowNextDay = await service.findByUserId(
+      user.id,
+      '2026-01-12',
+      'Europe/Moscow',
+    );
+    expect(moscowNextDay.dailyCaloriesGoal).toBe(2500);
+  });
+});
+
+describe('GoalsService.getHistory', () => {
+  it('returns one entry per version with the diff against the previous one', async () => {
+    const user = await createUser(tx);
+    await service.update(user.id, {
+      dailyCaloriesGoal: 2100,
+      dailyProteinGoal: 150,
+    });
+    await service.update(user.id, { dailyCaloriesGoal: 2200 });
+
+    const page = await service.getHistory(user.id, { limit: 20 });
+
+    expect(page.items).toHaveLength(2);
+    expect(page.nextCursor).toBeNull();
+
+    const [latest, first] = page.items;
+    expect(latest?.reason).toBe('user_edit');
+    expect(latest?.changes).toEqual([
+      { metric: 'dailyCaloriesGoal', from: 2100, to: 2200 },
+    ]);
+    expect(first?.changes).toEqual(
+      expect.arrayContaining([
+        { metric: 'dailyCaloriesGoal', from: null, to: 2100 },
+        { metric: 'dailyProteinGoal', from: null, to: 150 },
+      ]),
+    );
+  });
+
+  it('keeps frequent edits as separate entries instead of coalescing', async () => {
+    const user = await createUser(tx);
+    await service.update(user.id, { dailyCaloriesGoal: 2100 });
+    await service.update(user.id, { dailyCaloriesGoal: 2200 });
+    await service.update(user.id, { dailyCaloriesGoal: 2300 });
+
+    const page = await service.getHistory(user.id, { limit: 20 });
+
+    expect(page.items).toHaveLength(3);
+    expect(page.items[0]?.changes).toEqual([
+      { metric: 'dailyCaloriesGoal', from: 2200, to: 2300 },
+    ]);
+    expect(page.items[1]?.changes).toEqual([
+      { metric: 'dailyCaloriesGoal', from: 2100, to: 2200 },
+    ]);
+  });
+
+  it('paginates without skipping or repeating versions', async () => {
+    const user = await createUser(tx);
+
+    for (const calories of [2100, 2200, 2300]) {
+      await service.update(user.id, { dailyCaloriesGoal: calories });
+    }
+
+    const firstPage = await service.getHistory(user.id, { limit: 2 });
+
+    expect(firstPage.items.map((item) => item.goal.dailyCaloriesGoal)).toEqual([
+      2300, 2200,
+    ]);
+    // The oldest visible entry still has its diff, computed from the extra
+    // predecessor row fetched beyond the page.
+    expect(firstPage.items[1]?.changes).toEqual([
+      { metric: 'dailyCaloriesGoal', from: 2100, to: 2200 },
+    ]);
+    expect(firstPage.nextCursor).toBe(firstPage.items[1]?.id ?? null);
+
+    const secondPage = await service.getHistory(user.id, {
+      limit: 2,
+      cursor: firstPage.nextCursor!,
+    });
+
+    expect(secondPage.items.map((item) => item.goal.dailyCaloriesGoal)).toEqual(
+      [2100],
+    );
+    expect(secondPage.items[0]?.changes).toEqual([
+      { metric: 'dailyCaloriesGoal', from: null, to: 2100 },
+    ]);
+    expect(secondPage.nextCursor).toBeNull();
+  });
+
+  it('rejects an unknown cursor', async () => {
+    const user = await createUser(tx);
+
+    await expect(
+      service.getHistory(user.id, {
+        limit: 20,
+        cursor: '11111111-1111-4111-8111-111111111111',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('resolves the versions in effect during a day in the profile time zone', async () => {
+    const user = await createUser(tx);
+
+    await tx.insert(userGoals).values([
+      {
+        userId: user.id,
+        dailyCaloriesGoal: 2000,
+        source: 'user',
+        changeReason: 'user_edit',
+        startedAt: new Date('2026-11-09T00:00:00Z'),
+        endedAt: new Date('2026-11-10T16:00:00Z'),
+      },
+      {
+        userId: user.id,
+        dailyCaloriesGoal: 2400,
+        source: 'user',
+        changeReason: 'user_edit',
+        startedAt: new Date('2026-11-10T16:00:00Z'),
+        endedAt: null,
+      },
+    ]);
+
+    const utc = await service.getHistory(user.id, {
+      date: '2026-11-10',
+      tz: 'UTC',
+      limit: 20,
+    });
+    expect(utc.items.map((item) => item.goal.dailyCaloriesGoal)).toEqual([
+      2400, 2000,
+    ]);
+
+    // Tokyo's November 10th ends at 15:00 UTC, before the new version starts.
+    const tokyo = await service.getHistory(user.id, {
+      date: '2026-11-10',
+      tz: 'Asia/Tokyo',
+      limit: 20,
+    });
+    expect(tokyo.items.map((item) => item.goal.dailyCaloriesGoal)).toEqual([
+      2000,
+    ]);
+  });
 });

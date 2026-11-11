@@ -92,16 +92,29 @@ struct DismissResult: Codable, Sendable {
     let dismissed: Bool
 }
 
-struct GoalHistoryEntry: Codable, Sendable {
-    let id: String
-    let userId: String?
-    let goalType: String
+/// One goal field that changed when a new goal version was created.
+struct GoalMetricChange: Codable, Sendable, Identifiable {
     let metric: String
-    let oldValue: Double?
-    let newValue: Double?
+    let from: Double?
+    let to: Double?
+
+    var id: String { metric }
+}
+
+/// A stored goal version. One entry is one change event, not one field.
+struct GoalVersionEntry: Codable, Sendable, Identifiable {
+    let id: String
+    let startedAt: String
+    let endedAt: String?
     let source: String
     let reason: String?
-    let createdAt: String
+    let changes: [GoalMetricChange]
+    let goal: GoalMetrics
+}
+
+struct GoalHistoryPage: Codable, Sendable {
+    let items: [GoalVersionEntry]
+    let nextCursor: String?
 }
 
 enum PersonalizeResult: Decodable, Sendable {

@@ -26,6 +26,7 @@ final class AddFoodViewModel: Identifiable {
 
     var categories: [FoodCategory] = []
     var categoriesError: AppError?
+    var categoryMutationError: AppError?
     var isLoadingCategories = false
     var selectedCategory: FoodCategory?
     var photosItem: PhotosPickerItem?
@@ -191,46 +192,49 @@ final class AddFoodViewModel: Identifiable {
         CategoryFoodsViewModel(category: category, service: service)
     }
 
-    func makeAllPersonalFoodsViewModel() -> CategoryFoodsViewModel {
+    func makeAllPersonalDishesViewModel() -> CategoryFoodsViewModel {
         CategoryFoodsViewModel(categoryID: nil, service: service)
     }
 
-    func createCategory(named name: String, icon: String? = nil) async -> FoodCategory? {
+    func createCategory(named name: String, icon: String? = nil, color: String? = nil) async -> FoodCategory? {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else { return nil }
+        categoryMutationError = nil
 
         do {
-            let category = try await service.createCategory(name: trimmedName, icon: icon)
+            let category = try await service.createCategory(name: trimmedName, icon: icon, color: color)
             categories.append(category)
             categories.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
             selectedCategory = category
             return category
         } catch {
-            categoriesError = ErrorMapper.map(error)
+            categoryMutationError = ErrorMapper.map(error)
             return nil
         }
     }
 
-    func updateCategory(_ category: FoodCategory, name: String, icon: String?) async -> Bool {
+    func updateCategory(_ category: FoodCategory, name: String, icon: String?, color: String?) async -> Bool {
         guard category.isPersonal else { return false }
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else { return false }
+        categoryMutationError = nil
 
         do {
-            let updated = try await service.updateCategory(id: category.id, name: trimmedName, icon: icon)
+            let updated = try await service.updateCategory(id: category.id, name: trimmedName, icon: icon, color: color)
             guard let index = categories.firstIndex(where: { $0.id == updated.id }) else { return false }
             categories[index] = updated
             categories.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
             if selectedCategory?.id == updated.id { selectedCategory = updated }
             return true
         } catch {
-            categoriesError = ErrorMapper.map(error)
+            categoryMutationError = ErrorMapper.map(error)
             return false
         }
     }
 
     func deleteCategory(_ category: FoodCategory) async -> Bool {
         guard category.isPersonal else { return false }
+        categoryMutationError = nil
 
         do {
             try await service.deleteCategory(id: category.id)
@@ -240,7 +244,7 @@ final class AddFoodViewModel: Identifiable {
             }
             return true
         } catch {
-            categoriesError = ErrorMapper.map(error)
+            categoryMutationError = ErrorMapper.map(error)
             return false
         }
     }

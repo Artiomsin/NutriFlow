@@ -81,11 +81,54 @@ final class MockFoodService: FoodServiceProtocol {
     func selectFood(id: String) async throws { }
     func getPopularFood() async throws -> [CatalogFood] {
         [
-            CatalogFood(id: "1", name: "Apple", categoryId: "1", categoryName: "Fruits", brand: nil, caloriesPer100g: 52, proteinPer100g: nil, fatPer100g: nil, carbsPer100g: 14, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
-            CatalogFood(id: "2", name: "Banana", categoryId: "1", categoryName: "Fruits", brand: nil, caloriesPer100g: 89, proteinPer100g: 1, fatPer100g: nil, carbsPer100g: 23, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
-            CatalogFood(id: "3", name: "Chicken Breast", categoryId: "2", categoryName: "Meat", brand: nil, caloriesPer100g: 165, proteinPer100g: 31, fatPer100g: 4, carbsPer100g: nil, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
-            CatalogFood(id: "4", name: "Brown Rice", categoryId: "3", categoryName: "Grains", brand: nil, caloriesPer100g: 111, proteinPer100g: 3, fatPer100g: 1, carbsPer100g: 23, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
-            CatalogFood(id: "5", name: "Greek Yogurt", categoryId: "4", categoryName: "Dairy", brand: nil, caloriesPer100g: 59, proteinPer100g: 10, fatPer100g: nil, carbsPer100g: 4, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+            // Fruits (system-fruits)
+            CatalogFood(id: "f1", name: "Apple", categoryId: "system-fruits", categoryName: "Fruits", brand: nil, caloriesPer100g: 52, proteinPer100g: 0.3, fatPer100g: 0.2, carbsPer100g: 14, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "f2", name: "Banana", categoryId: "system-fruits", categoryName: "Fruits", brand: nil, caloriesPer100g: 89, proteinPer100g: 1.1, fatPer100g: 0.3, carbsPer100g: 23, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "f3", name: "Orange", categoryId: "system-fruits", categoryName: "Fruits", brand: nil, caloriesPer100g: 47, proteinPer100g: 0.9, fatPer100g: 0.1, carbsPer100g: 12, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "f4", name: "Strawberry", categoryId: "system-fruits", categoryName: "Fruits", brand: nil, caloriesPer100g: 32, proteinPer100g: 0.7, fatPer100g: 0.3, carbsPer100g: 8, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "f5", name: "Grapes", categoryId: "system-fruits", categoryName: "Fruits", brand: nil, caloriesPer100g: 69, proteinPer100g: 0.7, fatPer100g: 0.2, carbsPer100g: 18, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "f6", name: "dfdf", categoryId: "system-fruits", categoryName: "Protein", brand: nil, caloriesPer100g: 155, proteinPer100g: 13, fatPer100g: 11, carbsPer100g: 1.1, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "f7", name: "fgfg", categoryId: "system-fruits", categoryName: "Protein", brand: nil, caloriesPer100g: 155, proteinPer100g: 13, fatPer100g: 11, carbsPer100g: 1.1, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+
+            // Protein (system-protein)
+            CatalogFood(id: "p1", name: "Chicken Breast", categoryId: "system-protein", categoryName: "Protein", brand: nil, caloriesPer100g: 165, proteinPer100g: 31, fatPer100g: 3.6, carbsPer100g: 0, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "p2", name: "Beef Steak", categoryId: "system-protein", categoryName: "Protein", brand: nil, caloriesPer100g: 250, proteinPer100g: 26, fatPer100g: 15, carbsPer100g: 0, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "p3", name: "Salmon", categoryId: "system-protein", categoryName: "Protein", brand: nil, caloriesPer100g: 206, proteinPer100g: 22, fatPer100g: 12, carbsPer100g: 0, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "p4", name: "Eggs", categoryId: "system-protein", categoryName: "Protein", brand: nil, caloriesPer100g: 155, proteinPer100g: 13, fatPer100g: 11, carbsPer100g: 1.1, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+
+            // Dairy (system-dairy)
+            CatalogFood(id: "d1", name: "Greek Yogurt", categoryId: "system-dairy", categoryName: "Dairy", brand: nil, caloriesPer100g: 59, proteinPer100g: 10, fatPer100g: 0.4, carbsPer100g: 4, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "d2", name: "Milk", categoryId: "system-dairy", categoryName: "Dairy", brand: nil, caloriesPer100g: 42, proteinPer100g: 3.4, fatPer100g: 1, carbsPer100g: 5, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "d3", name: "Cheese", categoryId: "system-dairy", categoryName: "Dairy", brand: nil, caloriesPer100g: 400, proteinPer100g: 25, fatPer100g: 33, carbsPer100g: 1, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+
+            // Vegetables (system-vegetables)
+            CatalogFood(id: "v1", name: "Broccoli", categoryId: "system-vegetables", categoryName: "Vegetables", brand: nil, caloriesPer100g: 34, proteinPer100g: 2.8, fatPer100g: 0.4, carbsPer100g: 7, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "v2", name: "Carrot", categoryId: "system-vegetables", categoryName: "Vegetables", brand: nil, caloriesPer100g: 41, proteinPer100g: 0.9, fatPer100g: 0.2, carbsPer100g: 10, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "v3", name: "Spinach", categoryId: "system-vegetables", categoryName: "Vegetables", brand: nil, caloriesPer100g: 23, proteinPer100g: 2.9, fatPer100g: 0.4, carbsPer100g: 3.6, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+
+            // Grains (system-grains)
+            CatalogFood(id: "g1", name: "Brown Rice", categoryId: "system-grains", categoryName: "Grains", brand: nil, caloriesPer100g: 111, proteinPer100g: 3, fatPer100g: 1, carbsPer100g: 23, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "g2", name: "Oatmeal", categoryId: "system-grains", categoryName: "Grains", brand: nil, caloriesPer100g: 71, proteinPer100g: 2.5, fatPer100g: 1.4, carbsPer100g: 12, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "g3", name: "Quinoa", categoryId: "system-grains", categoryName: "Grains", brand: nil, caloriesPer100g: 120, proteinPer100g: 4.4, fatPer100g: 1.9, carbsPer100g: 21, barcode: nil, imageUrl: nil, source: "system", createdBy: nil, createdAt: "", updatedAt: "", servings: nil),
+
+            // Breakfast (personal-breakfast)
+            CatalogFood(id: "pb1", name: "Oatmeal Bowl", categoryId: "personal-breakfast", categoryName: "Breakfast", brand: nil, caloriesPer100g: 71, proteinPer100g: 2.5, fatPer100g: 1.4, carbsPer100g: 12, barcode: nil, imageUrl: nil, source: "user", createdBy: "user-1", createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "pb2", name: "Pancakes", categoryId: "personal-breakfast", categoryName: "Breakfast", brand: nil, caloriesPer100g: 227, proteinPer100g: 6, fatPer100g: 9, carbsPer100g: 32, barcode: nil, imageUrl: nil, source: "user", createdBy: "user-1", createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "pb3", name: "Scrambled Eggs", categoryId: "personal-breakfast", categoryName: "Breakfast", brand: nil, caloriesPer100g: 149, proteinPer100g: 11, fatPer100g: 10, carbsPer100g: 1.4, barcode: nil, imageUrl: nil, source: "user", createdBy: "user-1", createdAt: "", updatedAt: "", servings: nil),
+
+            // Home Cooking (personal-home)
+            CatalogFood(id: "ph1", name: "Pasta Carbonara", categoryId: "personal-home", categoryName: "Home Cooking", brand: nil, caloriesPer100g: 174, proteinPer100g: 7, fatPer100g: 7, carbsPer100g: 26, barcode: nil, imageUrl: nil, source: "user", createdBy: "user-1", createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "ph2", name: "Chicken Soup", categoryId: "personal-home", categoryName: "Home Cooking", brand: nil, caloriesPer100g: 67, proteinPer100g: 5, fatPer100g: 2, carbsPer100g: 6, barcode: nil, imageUrl: nil, source: "user", createdBy: "user-1", createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "ph3", name: "Beef Stew", categoryId: "personal-home", categoryName: "Home Cooking", brand: nil, caloriesPer100g: 123, proteinPer100g: 9, fatPer100g: 5, carbsPer100g: 12, barcode: nil, imageUrl: nil, source: "user", createdBy: "user-1", createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "ph4", name: "Roasted Vegetables", categoryId: "personal-home", categoryName: "Home Cooking", brand: nil, caloriesPer100g: 89, proteinPer100g: 3, fatPer100g: 4, carbsPer100g: 12, barcode: nil, imageUrl: nil, source: "user", createdBy: "user-1", createdAt: "", updatedAt: "", servings: nil),
+
+            // Dinner (personal-dinner)
+            CatalogFood(id: "pd1", name: "Grilled Salmon", categoryId: "personal-dinner", categoryName: "Dinner", brand: nil, caloriesPer100g: 206, proteinPer100g: 22, fatPer100g: 12, carbsPer100g: 0, barcode: nil, imageUrl: nil, source: "user", createdBy: "user-1", createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "pd2", name: "Steak with Potatoes", categoryId: "personal-dinner", categoryName: "Dinner", brand: nil, caloriesPer100g: 312, proteinPer100g: 26, fatPer100g: 18, carbsPer100g: 18, barcode: nil, imageUrl: nil, source: "user", createdBy: "user-1", createdAt: "", updatedAt: "", servings: nil),
+
+            // Drinks (personal-drinks)
+            CatalogFood(id: "dr1", name: "Coffee", categoryId: "personal-drinks", categoryName: "Drinks", brand: nil, caloriesPer100g: 2, proteinPer100g: 0.1, fatPer100g: 0, carbsPer100g: 0, barcode: nil, imageUrl: nil, source: "user", createdBy: "user-1", createdAt: "", updatedAt: "", servings: nil),
+            CatalogFood(id: "dr2", name: "Orange Juice", categoryId: "personal-drinks", categoryName: "Drinks", brand: nil, caloriesPer100g: 47, proteinPer100g: 0.7, fatPer100g: 0.1, carbsPer100g: 12, barcode: nil, imageUrl: nil, source: "user", createdBy: "user-1", createdAt: "", updatedAt: "", servings: nil),
         ]
     }
     func getFoodById(_ id: String) async throws -> CatalogFood {
@@ -96,18 +139,31 @@ final class MockFoodService: FoodServiceProtocol {
     }
     func getCategories() async throws -> [FoodCategory] {
         [
-            FoodCategory(id: "system-fruits", name: "Fruits", icon: "leaf.fill", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 2),
-            FoodCategory(id: "system-protein", name: "Protein", icon: "fish.fill", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 1),
-            FoodCategory(id: "system-dairy", name: "Dairy", icon: "cup.and.saucer.fill", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 1),
-            FoodCategory(id: "personal-breakfast", name: "Breakfast", icon: "sunrise.fill", createdBy: "1", createdAt: "2026-05-18T08:00:00Z", foodCount: 0),
-            FoodCategory(id: "personal-home", name: "Home Cooking", icon: "house.fill", createdBy: "1", createdAt: "2026-05-18T08:00:00Z", foodCount: 0)
+            FoodCategory(id: "system-fruits", name: "Fruits", icon: "leaf.fill", color: "#84CC16", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 5),
+            FoodCategory(id: "system-protein", name: "Protein", icon: "fish.fill", color: "#EF4444", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 4),
+            FoodCategory(id: "system-dairy", name: "Dairy", icon: "cup.and.saucer.fill", color: "#3B82F6", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 3),
+            FoodCategory(id: "system-vegetables", name: "Vegetables", icon: "carrot.fill", color: "#F59E0B", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 3),
+            FoodCategory(id: "system-grains", name: "Grains", icon: "bread.fill", color: "#A855F7", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 3),
+            FoodCategory(id: "personal-breakfast", name: "Breakfast", icon: "sunrise.fill", color: "#F97316", createdBy: "1", createdAt: "2026-05-18T08:00:00Z", foodCount: 3),
+            FoodCategory(id: "personal-home", name: "Home Cooking", icon: "house.fill", color: "#10B981", createdBy: "1", createdAt: "2026-05-18T08:00:00Z", foodCount: 4),
+            FoodCategory(id: "personal-dinner", name: "Dinner", icon: "moon.fill", color: "#6366F1", createdBy: "1", createdAt: "2026-05-18T09:00:00Z", foodCount: 2),
+            FoodCategory(id: "personal-drinks", name: "Drinks", icon: "cup.and.saucer.fill", color: "#EC4899", createdBy: "1", createdAt: "2026-05-18T10:00:00Z", foodCount: 2),
         ]
     }
-    func createCategory(name: String, icon: String?) async throws -> FoodCategory {
-        FoodCategory(id: UUID().uuidString, name: name, icon: icon, createdBy: "1", createdAt: "", foodCount: 0)
+    func createCategory(name: String, icon: String?, color: String?) async throws -> FoodCategory {
+        FoodCategory(id: UUID().uuidString, name: name, icon: icon, color: color, createdBy: "1", createdAt: "", foodCount: 0)
     }
-    func updateCategory(id: String, name: String?, icon: String?) async throws -> FoodCategory {
-        FoodCategory(id: id, name: name ?? "Category", icon: icon, createdBy: "1", createdAt: "", foodCount: 0)
+    func updateCategory(id: String, name: String?, icon: String?, color: String?) async throws -> FoodCategory {
+        let existing = try await getCategories().first { $0.id == id }
+        return FoodCategory(
+            id: id,
+            name: name ?? existing?.name ?? "Category",
+            icon: icon ?? existing?.icon,
+            color: color ?? existing?.color,
+            createdBy: existing?.createdBy ?? "1",
+            createdAt: existing?.createdAt ?? "",
+            foodCount: existing?.foodCount ?? 0
+        )
     }
     func deleteCategory(id: String) async throws { }
     func uploadImage(_ data: Data) async throws -> String { "https://example.com/mock.jpg" }
@@ -407,60 +463,113 @@ final class MockGoalsService: GoalsServiceProtocol {
         )
     }
     
-    func getGoalHistory() async throws -> [GoalHistoryEntry] {
-        [
-            GoalHistoryEntry(
-                id: "h1",
-                userId: "1",
-                goalType: "nutrition",
-                metric: "dailyCaloriesGoal",
-                oldValue: 2200,
-                newValue: 2050,
-                source: "personalized",
-                reason: "Weekly calories were 10% below target",
-                createdAt: "2026-09-17T08:00:00Z"
-            ),
-            GoalHistoryEntry(
-                id: "h2",
-                userId: "1",
-                goalType: "activity",
-                metric: "dailyStepsGoal",
-                oldValue: 8000,
-                newValue: 9000,
-                source: "personalized",
-                reason: "Averaged 8,600 steps on tracked days",
-                createdAt: "2026-09-17T08:00:01Z"
-            ),
-            GoalHistoryEntry(
-                id: "h3",
-                userId: "1",
-                goalType: "sleep",
-                metric: "nightlySleepMinMinutes",
-                oldValue: 234,
-                newValue: 240,
-                source: "user",
-                reason: nil,
-                createdAt: "2026-09-01T10:00:00Z"
-            )
-        ]
+    func getGoalHistory(
+        date: String?,
+        limit: Int?,
+        cursor: String?
+    ) async throws -> GoalHistoryPage {
+        GoalHistoryPage(
+            items: [
+                GoalVersionEntry(
+                    id: "v3",
+                    startedAt: "2026-09-17T10:00:00Z",
+                    endedAt: nil,
+                    source: "personalized",
+                    reason: "recommendation_accepted",
+                    changes: [
+                        GoalMetricChange(metric: "dailyCaloriesGoal", from: 2300, to: 2050),
+                        GoalMetricChange(metric: "dailyProteinGoal", from: 150, to: 160),
+                        GoalMetricChange(metric: "dailyFatGoal", from: 65, to: 60),
+                        GoalMetricChange(metric: "dailyCarbsGoal", from: 250, to: 230),
+                        GoalMetricChange(metric: "dailyStepsGoal", from: 8000, to: 9000)
+                    ],
+                    goal: GoalMetrics(
+                        dailyCaloriesGoal: 2050,
+                        dailyProteinGoal: 160,
+                        dailyFatGoal: 60,
+                        dailyCarbsGoal: 230,
+                        dailyWaterGoal: 3000,
+                        dailyStepsGoal: 9000,
+                        dailyActiveCaloriesGoal: 550,
+                        weeklyWorkoutsGoal: 6,
+                        weeklyWorkoutMinutesGoal: 180,
+                        nightlySleepMinMinutes: 240,
+                        nightlySleepMaxMinutes: 510
+                    )
+                ),
+                GoalVersionEntry(
+                    id: "v2",
+                    startedAt: "2026-09-10T10:00:00Z",
+                    endedAt: "2026-09-17T10:00:00Z",
+                    source: "user",
+                    reason: "user_edit",
+                    changes: [
+                        GoalMetricChange(metric: "dailyCaloriesGoal", from: 2200, to: 2300)
+                    ],
+                    goal: GoalMetrics(
+                        dailyCaloriesGoal: 2300,
+                        dailyProteinGoal: 150,
+                        dailyFatGoal: 65,
+                        dailyCarbsGoal: 250,
+                        dailyWaterGoal: 3000,
+                        dailyStepsGoal: 8000,
+                        dailyActiveCaloriesGoal: 500,
+                        weeklyWorkoutsGoal: 5,
+                        weeklyWorkoutMinutesGoal: 155,
+                        nightlySleepMinMinutes: 234,
+                        nightlySleepMaxMinutes: 500
+                    )
+                ),
+                GoalVersionEntry(
+                    id: "v1",
+                    startedAt: "2026-09-01T10:00:00Z",
+                    endedAt: "2026-09-10T10:00:00Z",
+                    source: "initial",
+                    reason: "initial_calculation",
+                    changes: [
+                        GoalMetricChange(metric: "dailyCaloriesGoal", from: nil, to: 2200),
+                        GoalMetricChange(metric: "dailyProteinGoal", from: nil, to: 150),
+                        GoalMetricChange(metric: "dailyFatGoal", from: nil, to: 65),
+                        GoalMetricChange(metric: "dailyCarbsGoal", from: nil, to: 250),
+                        GoalMetricChange(metric: "dailyWaterGoal", from: nil, to: 3000),
+                        GoalMetricChange(metric: "dailyStepsGoal", from: nil, to: 8000),
+                        GoalMetricChange(metric: "nightlySleepMinMinutes", from: nil, to: 234)
+                    ],
+                    goal: GoalMetrics(
+                        dailyCaloriesGoal: 2200,
+                        dailyProteinGoal: 150,
+                        dailyFatGoal: 65,
+                        dailyCarbsGoal: 250,
+                        dailyWaterGoal: 3000,
+                        dailyStepsGoal: 8000,
+                        dailyActiveCaloriesGoal: 500,
+                        weeklyWorkoutsGoal: 5,
+                        weeklyWorkoutMinutesGoal: 155,
+                        nightlySleepMinMinutes: 234,
+                        nightlySleepMaxMinutes: 500
+                    )
+                )
+            ],
+            nextCursor: nil
+        )
     }
-    
+
     func getGoals(date: String? = nil) async throws -> UserGoals {
         UserGoals(
             id: "1",
             userId: "1",
-            dailyCaloriesGoal: 2200,
-            dailyProteinGoal: 150,
-            dailyFatGoal: 65,
-            dailyCarbsGoal: 250,
+            dailyCaloriesGoal: 2050,
+            dailyProteinGoal: 160,
+            dailyFatGoal: 60,
+            dailyCarbsGoal: 230,
             dailyWaterGoal: 3000,
-            dailyStepsGoal: 8000,
-            dailyActiveCaloriesGoal: 500,
-            weeklyWorkoutsGoal: 5,
-            weeklyWorkoutMinutesGoal: 155,
-            nightlySleepMinMinutes: 234,
-            nightlySleepMaxMinutes: 500,
-            source: "auto",
+            dailyStepsGoal: 9000,
+            dailyActiveCaloriesGoal: 550,
+            weeklyWorkoutsGoal: 6,
+            weeklyWorkoutMinutesGoal: 180,
+            nightlySleepMinMinutes: 240,
+            nightlySleepMaxMinutes: 510,
+            source: "personalized",
             createdAt: nil,
             updatedAt: nil
         )

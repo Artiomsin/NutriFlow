@@ -164,6 +164,7 @@ struct FoodCategory: Codable, Identifiable, Hashable, Sendable {
     let id: String
     let name: String
     let icon: String?
+    let color: String?
     let createdBy: String?
     let createdAt: String
     let foodCount: Int
@@ -176,6 +177,7 @@ struct FoodCategory: Codable, Identifiable, Hashable, Sendable {
         case id
         case name
         case icon
+        case color
         case createdBy
         case createdAt
         case foodCount
@@ -185,6 +187,7 @@ struct FoodCategory: Codable, Identifiable, Hashable, Sendable {
         id: String,
         name: String,
         icon: String?,
+        color: String?,
         createdBy: String?,
         createdAt: String,
         foodCount: Int
@@ -192,6 +195,7 @@ struct FoodCategory: Codable, Identifiable, Hashable, Sendable {
         self.id = id
         self.name = name
         self.icon = icon
+        self.color = color
         self.createdBy = createdBy
         self.createdAt = createdAt
         self.foodCount = foodCount
@@ -203,6 +207,7 @@ struct FoodCategory: Codable, Identifiable, Hashable, Sendable {
         id = try container.decode(String.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         icon = try container.decodeIfPresent(String.self, forKey: .icon)
+        color = try container.decodeIfPresent(String.self, forKey: .color)
         createdBy = try container.decodeIfPresent(String.self, forKey: .createdBy)
         createdAt = try container.decode(String.self, forKey: .createdAt)
         foodCount = try container.decodeIfPresent(Int.self, forKey: .foodCount) ?? 0
@@ -212,11 +217,13 @@ struct FoodCategory: Codable, Identifiable, Hashable, Sendable {
 struct CreateFoodCategoryRequest: Codable, Sendable {
     let name: String
     let icon: String?
+    let color: String?
 }
 
 struct UpdateFoodCategoryRequest: Codable, Sendable {
     let name: String?
     let icon: String?
+    let color: String?
 }
 
 struct CategoryWithFoods: Codable, Sendable {

@@ -6,8 +6,9 @@ import { dailyActivity } from '../db/schema/dailyActivity';
 import { userGoals } from '../db/schema/userGoals';
 import { userSleep } from '../db/schema/userSleep';
 import { userWorkouts } from '../db/schema/userWorkouts';
-import { eq, and, gte, lte } from 'drizzle-orm';
-import { currentUserDate } from '../common/time/user-date';
+import { userProfiles } from '../db/schema/userProfiles';
+import { eq, and, gte, lte, gt, lt, isNull, or, desc } from 'drizzle-orm';
+import { currentUserDate, zonedDayRange } from '../common/time/user-date';
 import { roundNutrition } from '../common/nutrition/precision';
 
 @Injectable()
@@ -15,20 +16,25 @@ export class AnalyticsService {
   constructor(@Inject(DB) private readonly db: Db) {}
 
   async getAnalytics(userId: string, period: 'week' | 'month') {
-    const toDate = await currentUserDate(userId, this.db);
+    const [toDate, timeZone] = await Promise.all([
+      currentUserDate(userId, this.db),
+      this.profileTimeZone(userId),
+    ]);
     const from = new Date(`${toDate}T12:00:00Z`);
     from.setDate(from.getDate() - (period === 'week' ? 6 : 29));
     const fromDate = this.toDateStr(from);
-    return this.computeAnalytics(userId, fromDate, toDate, period);
+    return this.computeAnalytics(userId, fromDate, toDate, period, timeZone);
   }
-  async getCustomRange(userId: string, from: string, to: string) {
-    return this.computeAnalytics(userId, from, to, 'custom');
+  async getCustomRange(userId: string, from: string, to: string, tz?: string) {
+    const timeZone = tz ?? (await this.profileTimeZone(userId));
+    return this.computeAnalytics(userId, from, to, 'custom', timeZone);
   }
   private async computeAnalytics(
     userId: string,
     fromDate: string,
     toDate: string,
     period: string,
+    timeZone: string,
   ) {
     const days = await this.db
       .select()
@@ -41,11 +47,9 @@ export class AnalyticsService {
         ),
       )
       .orderBy(dailySummary.date);
-    const [goals] = await this.db
-      .select()
-      .from(userGoals)
-      .where(eq(userGoals.userId, userId))
-      .limit(1);
+    // Aggregate the period against the goal that was in effect at its end, so
+    // past weeks/months do not get compared with a goal changed later.
+    const goals = await this.findGoalsAt(userId, toDate, timeZone);
     const fromMs = new Date(fromDate).getTime();
     const toMs = new Date(toDate).getTime();
     const totalDays = Math.round((toMs - fromMs) / (1000 * 60 * 60 * 24)) + 1;
@@ -251,6 +255,46 @@ export class AnalyticsService {
       workoutMinutes,
     };
   }
+  private async profileTimeZone(userId: string): Promise<string> {
+    const [profile] = await this.db
+      .select({ timeZone: userProfiles.timeZone })
+      .from(userProfiles)
+      .where(eq(userProfiles.userId, userId))
+      .limit(1);
+    return profile?.timeZone ?? 'UTC';
+  }
+
+  private async findGoalsAt(
+    userId: string,
+    date: string,
+    timeZone: string,
+  ): Promise<typeof userGoals.$inferSelect | undefined> {
+    const { start, end } = zonedDayRange(date, timeZone);
+    const [goals] = await this.db
+      .select()
+      .from(userGoals)
+      .where(
+        and(
+          eq(userGoals.userId, userId),
+          lt(userGoals.startedAt, end),
+          or(isNull(userGoals.endedAt), gt(userGoals.endedAt, start))!,
+        ),
+      )
+      .orderBy(desc(userGoals.startedAt))
+      .limit(1);
+
+    if (goals) return goals;
+
+    // Periods before the first goal version fall back to the active goal.
+    const [active] = await this.db
+      .select()
+      .from(userGoals)
+      .where(and(eq(userGoals.userId, userId), isNull(userGoals.endedAt)))
+      .orderBy(desc(userGoals.startedAt))
+      .limit(1);
+    return active;
+  }
+
   private calculateStreak(
     days: { date: string; totalCalories: number | null }[],
     anchorDate: string,

@@ -9,6 +9,7 @@ struct MainTabView: View {
     @State private var periodState: PeriodState
     @State private var tabBarState = TabBarState()
     @State private var progressRefreshState: ProgressRefreshState
+    @State private var handledFullReloadRevision: UInt = 0
 
     @State private var homeVM: HomeViewModel
     @State private var analyticsVM: AnalyticsViewModel
@@ -51,6 +52,7 @@ struct MainTabView: View {
             profileService: container.profileService,
             userService: container.userService,
             cacheService: container.cacheService,
+            progressRefreshState: refreshState,
             activitySync: container.activitySync,
             analyticsTracker: container.analyticsTracker,
             weightReminderScheduler: container.weightReminderScheduler,
@@ -129,8 +131,19 @@ struct MainTabView: View {
         .onChange(of: progressRefreshState.revision) { _, _ in
             // Weight, food, water, and goals mutations share this revision.
             // Keep Home's separate GoalsViewModel current even while Home is hidden.
-            Task { await homeVM.refreshGoalsIfNeeded() }
-            Task { await container.waterReminderScheduler.syncTodayReminder() }
+            let needsFullReload =
+                progressRefreshState.fullReloadRevision != handledFullReloadRevision
+            handledFullReloadRevision = progressRefreshState.fullReloadRevision
+            Task {
+                if needsFullReload {
+                    // A time zone change moves the boundaries of every day, so
+                    // reload the summary, food, and water instead of only goals.
+                    await homeVM.refreshAll()
+                } else {
+                    await homeVM.refreshGoalsIfNeeded()
+                }
+                await container.waterReminderScheduler.syncTodayReminder()
+            }
         }
         .onChange(of: coordinator.pendingNotificationType) { _, _ in
             openPendingNotificationDestination()

@@ -27,6 +27,7 @@ export class AnalyticsController {
       user.userId,
       query.from,
       query.to,
+      query.tz,
     );
   }
 }

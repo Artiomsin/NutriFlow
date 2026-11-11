@@ -8,7 +8,7 @@ import { userWorkouts } from '../../db/schema/userWorkouts';
 import { userSleep } from '../../db/schema/userSleep';
 import { userProfiles } from '../../db/schema/userProfiles';
 import { userGoals } from '../../db/schema/userGoals';
-import { eq, and, gte, lte } from 'drizzle-orm';
+import { eq, and, gte, lte, isNull, desc } from 'drizzle-orm';
 import type {
   ActivityDayData,
   AnalysisInput,
@@ -50,7 +50,8 @@ export class DataCollectionService {
     const goalsRow = await this.db
       .select()
       .from(userGoals)
-      .where(eq(userGoals.userId, userId))
+      .where(and(eq(userGoals.userId, userId), isNull(userGoals.endedAt)))
+      .orderBy(desc(userGoals.startedAt))
       .limit(1);
 
     const now = new Date();

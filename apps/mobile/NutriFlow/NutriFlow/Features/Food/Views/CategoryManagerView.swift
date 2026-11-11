@@ -7,11 +7,11 @@ struct CategoryManagerView: View {
 
     @State private var categoryName = ""
     @State private var selectedIcon = FoodCategoryIcons.defaultIcon
+    @State private var selectedColor: Color = Color(hex: "#10B981") ?? AppColors.accent
     @State private var categoryToDelete: FoodCategory?
     @State private var categoryToEdit: FoodCategory?
     @State private var categoryToManage: FoodCategory?
-    @State private var isManagingAllPersonalFoods = false
-    @State private var areSystemCategoriesExpanded = false
+    @State private var isManagingAllPersonalDishes = false
 
     private var personalCategories: [FoodCategory] {
         viewModel.categories.filter(\.isPersonal)
@@ -27,27 +27,23 @@ struct CategoryManagerView: View {
                 VStack(spacing: 14) {
                     introductionCard
 
-                    if viewModel.isLoadingCategories &&
-                        viewModel.categories.isEmpty {
+                    if viewModel.isLoadingCategories && viewModel.categories.isEmpty {
                         loadingCard
                     } else if let error = viewModel.categoriesError {
                         ErrorView(error: error) {
                             viewModel.retryCategories()
                         }
                     } else {
-                        managePersonalFoodsCard
                         createCategoryCard
+                        managePersonalDishesCard
 
                         if !personalCategories.isEmpty {
-                            categorySection(
-                                title: "Your Categories",
-                                subtitle: "Only you can edit or delete these.",
-                                categories: personalCategories,
-                                showsDeleteAction: true
-                            )
+                            personalCategoriesStack
                         }
 
-                        systemCategoriesSection
+                        if !systemCategories.isEmpty {
+                            systemCategoriesStack
+                        }
                     }
                 }
                 .padding()
@@ -66,30 +62,11 @@ struct CategoryManagerView: View {
             .task {
                 await viewModel.loadCategories()
             }
-            .confirmationDialog(
-                "Delete category?",
-                item: $categoryToDelete,
-                titleVisibility: .visible
-            ) { category in
-                Button(
-                    "Delete \(category.name)",
-                    role: .destructive
-                ) {
-                    Task {
-                        await viewModel.deleteCategory(category)
-                    }
-                }
-            } message: { _ in
-                Text(
-                    "The category will be removed from your foods. Your foods will remain without a category."
-                )
-            }
             .sheet(item: $categoryToEdit) { category in
-                CategoryEditorView(
-                    category: category,
-                    viewModel: viewModel
-                )
+                CategoryEditorView(category: category, viewModel: viewModel)
+                    .presentationDetents([.large])
             }
+            .animation(.easeInOut(duration: 0.2), value: categoryToDelete)
             .sheet(item: $categoryToManage) { category in
                 NavigationStack {
                     CategoryFoodsView(
@@ -102,20 +79,50 @@ struct CategoryManagerView: View {
                     )
                 }
             }
-            .sheet(isPresented: $isManagingAllPersonalFoods) {
+            .sheet(isPresented: $isManagingAllPersonalDishes) {
                 NavigationStack {
                     CategoryFoodsView(
                         availableCategories: viewModel.categories,
-                        viewModel: viewModel.makeAllPersonalFoodsViewModel(),
+                        viewModel: viewModel.makeAllPersonalDishesViewModel(),
                         onCategoriesChanged: {
                             await viewModel.refreshAfterCategoryChange()
                         }
                     )
                 }
             }
+            .overlay(alignment: .center) {
+                if let category = categoryToDelete {
+                    DeleteCategoryModal(
+                        category: category,
+                        onDelete: {
+                            categoryToDelete = nil
+                            Task {
+                                await viewModel.deleteCategory(category)
+                            }
+                        },
+                        onCancel: {
+                            categoryToDelete = nil
+                        }
+                    )
+                    .transition(.opacity.combined(with: .scale))
+                }
+            }
+            .animation(.easeInOut(duration: 0.2), value: categoryToDelete)
+            .alert(
+                "Couldn’t save category",
+                isPresented: Binding(
+                    get: { viewModel.categoryMutationError != nil },
+                    set: { if !$0 { viewModel.categoryMutationError = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) {
+                    viewModel.categoryMutationError = nil
+                }
+            } message: {
+                Text("Your changes weren’t saved. Please try again.")
+            }
         }
     }
-
 
     private var introductionCard: some View {
         AppCard {
@@ -142,17 +149,16 @@ struct CategoryManagerView: View {
         }
     }
 
-    private var managePersonalFoodsCard: some View {
+    private var managePersonalDishesCard: some View {
         AppCard {
-            Button("Manage Personal Foods", systemImage: "square.and.pencil") {
-                isManagingAllPersonalFoods = true
+            Button("Manage Personal Dishes", systemImage: "square.and.pencil") {
+                isManagingAllPersonalDishes = true
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .foregroundStyle(AppColors.accent)
-            .accessibilityHint("Select personal foods and assign or remove categories.")
+            .accessibilityHint("Select personal dishes and assign or remove categories.")
         }
     }
-
 
     private var loadingCard: some View {
         VStack(spacing: 12) {
@@ -188,7 +194,6 @@ struct CategoryManagerView: View {
         }
     }
 
-
     private var createCategoryCard: some View {
         AppCard {
             VStack(alignment: .leading, spacing: 12) {
@@ -210,182 +215,240 @@ struct CategoryManagerView: View {
 
                 CategoryIconPicker(
                     selection: $selectedIcon,
-                    icons: FoodCategoryIcons.all
+                    icons: FoodCategoryIcons.all,
+                    color: selectedColor
                 )
 
-                Button(
-                    "Add Category",
-                    systemImage: "plus",
-                    action: createCategory
-                )
-                .buttonStyle(.borderedProminent)
-                .tint(AppColors.accent)
-                .disabled(trimmedCategoryName.isEmpty)
+                // Color picker (gradient bar)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Color")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppColors.textSecondary)
+
+                    GradientColorPicker(selectedColor: $selectedColor)
+                }
+
+                Button("Add Category", systemImage: "plus", action: createCategory)
+                    .buttonStyle(.borderedProminent)
+                    .tint(selectedColor)
+                    .disabled(trimmedCategoryName.isEmpty)
             }
         }
     }
 
     private var trimmedCategoryName: String {
-        categoryName.trimmingCharacters(
-            in: .whitespacesAndNewlines
-        )
+        categoryName.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private var personalCategoriesStack: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Your Categories")
+                .font(.headline)
+                .foregroundStyle(AppColors.textPrimary)
 
-    private var systemCategoriesSection: some View {
-        AppCard {
-            DisclosureGroup(
-                isExpanded: $areSystemCategoriesExpanded
-            ) {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(systemCategories) { category in
-                        categoryRow(
-                            category,
-                            showsDeleteAction: false
-                        )
-                    }
-                }
-                .padding(.top, 12)
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "square.grid.2x2.fill")
-                        .foregroundStyle(AppColors.textSecondary)
-                        .frame(width: 32, height: 32)
-                        .background(AppColors.surfaceSecondary)
-                        .clipShape(.circle)
+            Text("Only you can edit or delete these.")
+                .font(.subheadline)
+                .foregroundStyle(AppColors.textSecondary)
 
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("System Categories")
-                            .font(.headline)
-                            .foregroundStyle(AppColors.textPrimary)
-
-                        Text(
-                            "\(systemCategories.count) available to everyone"
-                        )
-                        .font(.subheadline)
-                        .foregroundStyle(AppColors.textSecondary)
-                    }
-                }
-            }
-            .tint(AppColors.accent)
-        }
-    }
-
-
-    @ViewBuilder
-    private func categorySection(
-        title: String,
-        subtitle: String,
-        categories: [FoodCategory],
-        showsDeleteAction: Bool
-    ) -> some View {
-        AppCard {
-            VStack(alignment: .leading, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.headline)
-                        .foregroundStyle(AppColors.textPrimary)
-
-                    Text(subtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(AppColors.textSecondary)
-                }
-
-                if categories.isEmpty {
-                    Text("No categories yet.")
-                        .font(.subheadline)
-                        .foregroundStyle(AppColors.textSecondary)
-                } else {
-                    ForEach(categories) { category in
-                        categoryRow(
-                            category,
-                            showsDeleteAction: showsDeleteAction
-                        )
-                    }
+            VStack(spacing: 10) {
+                ForEach(personalCategories) { category in
+                    categoryStackCell(
+                        category,
+                        isPersonal: true
+                    )
                 }
             }
         }
     }
 
+    private var systemCategoriesStack: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("System Categories")
+                .font(.headline)
+                .foregroundStyle(AppColors.textPrimary)
 
+            Text("\(systemCategories.count) available to everyone")
+                .font(.subheadline)
+                .foregroundStyle(AppColors.textSecondary)
 
-    private func categoryRow(
+            VStack(spacing: 10) {
+                ForEach(systemCategories) { category in
+                    categoryStackCell(
+                        category,
+                        isPersonal: false
+                    )
+                }
+            }
+        }
+    }
+
+    private func categoryStackCell(
         _ category: FoodCategory,
-        showsDeleteAction: Bool
+        isPersonal: Bool
     ) -> some View {
-        HStack(spacing: 8) {
+        let categoryColor: Color = Color(hex: category.color ?? "#10B981") ?? AppColors.accent
+
+        return HStack(spacing: 12) {
             CategoryIconView(
                 iconName: category.icon ?? FoodCategoryIcons.defaultIcon,
-                color: AppColors.accent
+                color: categoryColor
             )
-            .frame(width: 28, height: 28)
-            .padding(6)
-            .background(AppColors.accent.opacity(0.12))
+            .frame(width: 44, height: 44)
+            .background(categoryColor.opacity(0.12))
             .clipShape(.circle)
 
-            Button(category.name) {
-                if category.isPersonal {
-                    categoryToEdit = category
-                }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(category.name)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(AppColors.textPrimary)
+                    .lineLimit(1)
+
+                Text("\(category.foodCount) foods")
+                    .font(.caption)
+                    .foregroundStyle(AppColors.textSecondary)
             }
-            .buttonStyle(.plain)
-            .font(.body.weight(.medium))
-            .foregroundStyle(AppColors.textPrimary)
 
-            Spacer()
+            Spacer(minLength: 12)
 
-            Text("\(category.foodCount)")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(AppColors.textSecondary)
-                .accessibilityLabel("\(category.foodCount) foods")
+            if isPersonal {
+                HStack(spacing: 8) {
+                    Button {
+                        categoryToEdit = category
+                    } label: {
+                        Image(systemName: "pencil")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(AppColors.accent)
+                            .padding(8)
+                            .background(AppColors.accent.opacity(0.1), in: .circle)
+                    }
+                    .buttonStyle(.plain)
 
-            Button("Manage foods", systemImage: "list.bullet") {
-                categoryToManage = category
-            }
-            .labelStyle(.iconOnly)
-            .foregroundStyle(AppColors.accent)
-            .accessibilityLabel("Manage foods in \(category.name)")
-
-            if showsDeleteAction {
-                Button(
-                    "Delete",
-                    systemImage: "trash",
-                    role: .destructive
-                ) {
-                    categoryToDelete = category
+                    Button(role: .destructive) {
+                        categoryToDelete = category
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(AppColors.error)
+                            .padding(8)
+                            .background(AppColors.error.opacity(0.1), in: .circle)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .labelStyle(.iconOnly)
-                .accessibilityLabel("Delete \(category.name)")
             } else {
                 Text("System")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppColors.textSecondary)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(AppColors.textTertiary)
                     .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
+                    .padding(.vertical, 4)
                     .background(AppColors.surfaceSecondary)
                     .clipShape(.capsule)
             }
         }
-        .padding(.vertical, 4)
+        .padding(12)
+        .background(AppColors.surface, in: .rect(cornerRadius: AppRadius.large))
+        .overlay {
+            RoundedRectangle(cornerRadius: AppRadius.large)
+                .stroke(AppColors.border.opacity(0.5), lineWidth: 1)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            categoryToManage = category
+        }
     }
-
-
 
     private func createCategory() {
         let name = trimmedCategoryName
-
         guard !name.isEmpty else { return }
 
         let icon = selectedIcon
-
+        let color = selectedColor.toHex() ?? "#10B981"
         categoryName = ""
         selectedIcon = FoodCategoryIcons.defaultIcon
+        selectedColor = Color(hex: "#10B981") ?? AppColors.accent
 
         Task {
-            await viewModel.createCategory(
-                named: name,
-                icon: icon
-            )
+            await viewModel.createCategory(named: name, icon: icon, color: color)
         }
     }
+}
+
+private struct DeleteCategoryModal: View {
+    let category: FoodCategory
+    let onDelete: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.35)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    onCancel()
+                }
+
+            VStack(spacing: 18) {
+                Image(systemName: "trash")
+                    .font(.system(size: 36, weight: .medium))
+                    .foregroundStyle(AppColors.error)
+
+                VStack(spacing: 8) {
+                    Text("Delete category?")
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(AppColors.textPrimary)
+
+                    Text("Delete \"\(category.name)\"? Your foods will remain without a category.")
+                        .font(.subheadline)
+                        .foregroundStyle(AppColors.textSecondary)
+                        .multilineTextAlignment(.center)
+                }
+
+                HStack(spacing: 14) {
+                    Button("Cancel") {
+                        onCancel()
+                    }
+                    .font(.headline)
+                    .foregroundStyle(AppColors.textSecondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(AppColors.surfaceSecondary, in: .rect(cornerRadius: AppRadius.large))
+
+                    Button("Delete") {
+                        onDelete()
+                    }
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(AppColors.error, in: .rect(cornerRadius: AppRadius.large))
+                }
+            }
+            .padding(24)
+            .frame(maxWidth: 320)
+            .background(AppColors.surface, in: .rect(cornerRadius: AppRadius.large))
+            .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 8)
+        }
+    }
+}
+
+#Preview("Category Manager") {
+    let viewModel = AddFoodViewModel(
+        service: MockFoodService(),
+        coordinator: nil,
+        todayFoodVM: TodayFoodViewModel(
+            service: MockFoodService(),
+            coordinator: nil
+        )
+    )
+    viewModel.categories = [
+        FoodCategory(id: "system-fruits", name: "Fruits", icon: "leaf.fill", color: "#84CC16", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 5),
+        FoodCategory(id: "system-protein", name: "Protein", icon: "fish.fill", color: "#EF4444", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 4),
+        FoodCategory(id: "system-dairy", name: "Dairy", icon: "cup.and.saucer.fill", color: "#3B82F6", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 3),
+        FoodCategory(id: "system-vegetables", name: "Vegetables", icon: "carrot.fill", color: "#F59E0B", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 3),
+        FoodCategory(id: "system-grains", name: "Grains", icon: "bread.fill", color: "#A855F7", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 3),
+        FoodCategory(id: "personal-breakfast", name: "Breakfast", icon: "sunrise.fill", color: "#F97316", createdBy: "user-1", createdAt: "2026-05-18T08:00:00Z", foodCount: 3),
+        FoodCategory(id: "personal-home", name: "Home Cooking", icon: "house.fill", color: "#10B981", createdBy: "user-1", createdAt: "2026-05-18T08:00:00Z", foodCount: 4),
+        FoodCategory(id: "personal-dinner", name: "Dinner", icon: "moon.fill", color: "#6366F1", createdBy: "user-1", createdAt: "2026-05-18T09:00:00Z", foodCount: 2),
+        FoodCategory(id: "personal-drinks", name: "Drinks", icon: "cup.and.saucer.fill", color: "#EC4899", createdBy: "user-1", createdAt: "2026-05-18T10:00:00Z", foodCount: 2)
+    ]
+
+    return CategoryManagerView(viewModel: viewModel)
 }
