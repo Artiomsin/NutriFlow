@@ -12,6 +12,7 @@ struct CategoryManagerView: View {
     @State private var categoryToEdit: FoodCategory?
     @State private var categoryToManage: FoodCategory?
     @State private var isManagingAllPersonalDishes = false
+    @State private var allPersonalDishesVM: CategoryFoodsViewModel?
 
     private var personalCategories: [FoodCategory] {
         viewModel.categories.filter(\.isPersonal)
@@ -83,11 +84,18 @@ struct CategoryManagerView: View {
                 NavigationStack {
                     CategoryFoodsView(
                         availableCategories: viewModel.categories,
-                        viewModel: viewModel.makeAllPersonalDishesViewModel(),
+                        viewModel: allPersonalDishesVM ?? viewModel.makeAllPersonalDishesViewModel(),
                         onCategoriesChanged: {
                             await viewModel.refreshAfterCategoryChange()
+                            await allPersonalDishesVM?.load()
                         }
                     )
+                    .onAppear {
+                        if allPersonalDishesVM == nil {
+                            allPersonalDishesVM = viewModel.makeAllPersonalDishesViewModel()
+                        }
+                        Task { await allPersonalDishesVM?.load() }
+                    }
                 }
             }
             .overlay(alignment: .center) {

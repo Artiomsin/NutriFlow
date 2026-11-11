@@ -6,9 +6,49 @@ struct CategoryFoodCard: View {
     let isSelecting: Bool
     let isSelected: Bool
     let accentColor: Color
+    let showsCategory: Bool
+    let categoryDisplayName: String?
+    let categoryIcon: String?
+    let categoryColor: Color?
+
+    init(
+        food: CatalogFood,
+        isSelecting: Bool,
+        isSelected: Bool,
+        accentColor: Color,
+        showsCategory: Bool = false,
+        categoryDisplayName: String? = nil,
+        categoryIcon: String? = nil,
+        categoryColor: Color? = nil
+    ) {
+        self.food = food
+        self.isSelecting = isSelecting
+        self.isSelected = isSelected
+        self.accentColor = accentColor
+        self.showsCategory = showsCategory
+        self.categoryDisplayName = categoryDisplayName
+        self.categoryIcon = categoryIcon
+        self.categoryColor = categoryColor
+    }
 
     private var isPersonal: Bool {
         food.source == "user"
+    }
+
+    private var categoryLabel: String {
+        let categoryName = categoryDisplayName ?? food.categoryName
+
+        guard let categoryName = categoryName?.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        ), !categoryName.isEmpty else {
+            return "Uncategorized"
+        }
+
+        return categoryName
+    }
+
+    private var categoryBadgeColor: Color {
+        categoryColor ?? accentColor
     }
 
     var body: some View {
@@ -22,7 +62,7 @@ struct CategoryFoodCard: View {
 
             foodImage
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 7) {
                 Text(food.name)
                     .font(.body.weight(.semibold))
                     .foregroundStyle(AppColors.textPrimary)
@@ -45,6 +85,10 @@ struct CategoryFoodCard: View {
                         .foregroundStyle(accentColor)
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
+                }
+
+                if showsCategory {
+                    categoryBadge
                 }
 
                 HStack(spacing: 5) {
@@ -87,6 +131,20 @@ struct CategoryFoodCard: View {
         .accessibilityLabel(accessibilityLabel)
     }
 
+    private var categoryBadge: some View {
+        Label(categoryLabel, systemImage: categoryIcon ?? "tag.fill")
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(categoryBadgeColor)
+            .lineLimit(1)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(categoryBadgeColor.opacity(0.12), in: .capsule)
+            .overlay {
+                Capsule()
+                    .stroke(categoryBadgeColor.opacity(0.35), lineWidth: 1)
+            }
+    }
+
     @ViewBuilder
     private var foodImage: some View {
         if let url = food.imageUrl.flatMap(ImageURLResolver.resolve) {
@@ -115,6 +173,7 @@ struct CategoryFoodCard: View {
 
     private var accessibilityLabel: String {
         let source = isPersonal ? "personal" : "system"
-        return "\(food.name), \(source) food, \(food.caloriesPer100g.formatted(.number.precision(.fractionLength(0)))) calories per 100 grams."
+        let categoryDescription = showsCategory ? ", category \(categoryLabel)" : ""
+        return "\(food.name), \(source) food\(categoryDescription), \(food.caloriesPer100g.formatted(.number.precision(.fractionLength(0)))) calories per 100 grams."
     }
 }

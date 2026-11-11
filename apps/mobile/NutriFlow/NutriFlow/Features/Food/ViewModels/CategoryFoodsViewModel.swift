@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-enum CategoryFoodsState {
+enum CategoryFoodsState: Equatable {
     case idle
     case loading
     case loaded
@@ -20,6 +20,10 @@ final class CategoryFoodsViewModel {
     @ObservationIgnored private let categoryID: String?
     @ObservationIgnored private let service: FoodServiceProtocol
     @ObservationIgnored private let pageSize = 100
+
+    /// A smaller first page shortens the wait before real rows replace the
+    /// skeletons; later pages fall back to `pageSize` while the user scrolls.
+    @ObservationIgnored private let firstPageSize = 30
     @ObservationIgnored private var nextOffset = 0
 
     init(category: FoodCategory, service: FoodServiceProtocol) {
@@ -60,17 +64,23 @@ final class CategoryFoodsViewModel {
         isLoadingMore = true
 
         do {
+            // The unfiltered endpoint also returns system foods. Keep loading until
+            // this request contributes a personal food (or the catalog is exhausted),
+            // otherwise a system-only page can make personal foods appear to be missing.
+            let foodCountBeforeRequest = foods.count
+
             repeat {
+                let pageLimit = nextOffset == 0 ? firstPageSize : pageSize
                 let groups = try await service.getFoods(
                     categoryId: categoryID,
-                    limit: pageSize,
+                    limit: pageLimit,
                     offset: nextOffset
                 )
 
                 let fetchedFoods = groups.flatMap(\.foods)
 
                 nextOffset += fetchedFoods.count
-                hasMoreFoods = fetchedFoods.count == pageSize && nextOffset <= 10_000
+                hasMoreFoods = fetchedFoods.count == pageLimit && nextOffset <= 10_000
 
                 let visibleFoods = if categoryID == nil {
                     fetchedFoods.filter { $0.source == "user" }
@@ -80,13 +90,16 @@ final class CategoryFoodsViewModel {
 
                 foods.append(contentsOf: visibleFoods)
 
-            } while categoryID == nil && foods.isEmpty && hasMoreFoods
+            } while categoryID == nil &&
+                foods.count == foodCountBeforeRequest &&
+                hasMoreFoods
 
             isLoadingMore = false
             state = .loaded
 
         } catch {
             isLoadingMore = false
+            hasMoreFoods = false
             let mapped = ErrorMapper.map(error)
             state = mapped == .cancelled ? .loaded : .error(mapped)
         }
