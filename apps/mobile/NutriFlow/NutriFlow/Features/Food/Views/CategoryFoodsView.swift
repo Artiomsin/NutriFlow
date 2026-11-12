@@ -466,9 +466,6 @@ struct CategoryFoodsView: View {
         .task {
             await viewModel.load()
         }
-        .onAppear {
-            Task { await viewModel.load() }
-        }
     }
 
     private func systemFoodRow(_ food: CatalogFood) -> some View {
