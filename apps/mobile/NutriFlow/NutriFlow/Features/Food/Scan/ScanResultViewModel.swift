@@ -34,6 +34,9 @@ struct EditableScanFood: Identifiable, Sendable {
     var nameText: String
     var gramsText: String
     var categoryText: String
+    var categoryID: String?
+    var hasManualProductEdit = false
+    var hasManualNutritionEdit = false
     var caloriesText: String
     var proteinText: String
     var fatText: String
@@ -54,6 +57,7 @@ struct EditableScanFood: Identifiable, Sendable {
         self.nameText = item.name ?? "Unknown food"
         self.gramsText = UnitConversion.formatDisplayValue(value, displayUnit: unit)
         self.categoryText = item.category ?? ""
+        self.categoryID = nil
         
         let baseCalories = item.bestCalories ?? item.calories ?? 0
         self.caloriesText = UnitConversion.formatEnergyValueText(kcal: baseCalories, preferred: preferred)
@@ -102,7 +106,7 @@ struct EditableScanFood: Identifiable, Sendable {
         _ per100g: Double?,
         preferred: PreferredUnits
     ) -> Double? {
-        guard source.catalogCaloriesPer100g != nil else { return nil }
+        guard source.catalogCaloriesPer100g != nil, !hasManualNutritionEdit else { return nil }
         return UnitConversion.roundedForNutritionStorage(
             (per100g ?? 0) * gramsDouble(preferred: preferred) / 100
         )
@@ -184,6 +188,26 @@ struct EditableScanFood: Identifiable, Sendable {
         }
     }
     
+    mutating func scaleManualNutrition(
+        from previousGrams: Double,
+        to newGrams: Double,
+        preferred: PreferredUnits
+    ) {
+        guard hasManualNutritionEdit, previousGrams > 0, newGrams > 0 else {
+            recalculateMacros(preferred: preferred)
+            return
+        }
+
+        let scale = newGrams / previousGrams
+        caloriesText = UnitConversion.formatEnergyValueText(
+            kcal: calories(preferred: preferred) * scale,
+            preferred: preferred
+        )
+        proteinText = Self.macroText(protein(preferred: preferred).map { $0 * scale }, preferred: preferred)
+        fatText = Self.macroText(fat(preferred: preferred).map { $0 * scale }, preferred: preferred)
+        carbsText = Self.macroText(carbs(preferred: preferred).map { $0 * scale }, preferred: preferred)
+    }
+
     private static func macroText(_ grams: Double?, preferred: PreferredUnits) -> String {
         guard let grams else { return "" }
         return UnitConversion.macroDisplay(grams: grams, preferred: preferred)
@@ -335,6 +359,7 @@ final class ScanResultViewModel {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         guard case .food(var item) = items[index] else { return }
         item.nameText = text
+        item.hasManualProductEdit = true
         clearFieldError(for: id, field: "name")
         items[index] = .food(item)
     }
@@ -343,6 +368,8 @@ final class ScanResultViewModel {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         guard case .food(var item) = items[index] else { return }
         item.caloriesText = text
+        item.hasManualProductEdit = true
+        item.hasManualNutritionEdit = true
         clearFieldError(for: id, field: "calories")
         items[index] = .food(item)
     }
@@ -358,6 +385,8 @@ final class ScanResultViewModel {
         case .carbs:
             item.carbsText = text
         }
+        item.hasManualProductEdit = true
+        item.hasManualNutritionEdit = true
         let fieldName: String
         switch field {
         case .protein: fieldName = "protein"
@@ -371,9 +400,14 @@ final class ScanResultViewModel {
     func updateGramsText(id: UUID, _ text: String) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         guard case .food(var item) = items[index] else { return }
+        let previousGrams = item.gramsDouble(preferred: preferredUnits)
         item.gramsText = text
         clearFieldError(for: id, field: "grams")
-        item.recalculateMacros(preferred: preferredUnits)
+        item.scaleManualNutrition(
+            from: previousGrams,
+            to: item.gramsDouble(preferred: preferredUnits),
+            preferred: preferredUnits
+        )
         items[index] = .food(item)
     }
     
@@ -382,11 +416,29 @@ final class ScanResultViewModel {
         items[index].isSelected.toggle()
     }
     
-    func setCategory(id: UUID, _ category: String?) {
+    func setCategory(id: UUID, _ category: FoodCategory?) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         guard case .food(var item) = items[index] else { return }
-        item.categoryText = category ?? ""
+        item.categoryText = category?.name ?? ""
+        item.categoryID = category?.id
         items[index] = .food(item)
+    }
+
+    private func applySuggestedCategories() {
+        for index in items.indices {
+            guard case .food(var item) = items[index],
+                  item.categoryID == nil,
+                  !item.categoryText.isEmpty,
+                  let category = categories.first(where: {
+                      $0.name.compare(item.categoryText, options: .caseInsensitive) == .orderedSame
+                  }) else {
+                continue
+            }
+
+            item.categoryText = category.name
+            item.categoryID = category.id
+            items[index] = .food(item)
+        }
     }
 
     func updateWaterAmount(id: UUID, _ text: String) {
@@ -401,6 +453,7 @@ final class ScanResultViewModel {
         categoriesError = nil
         do {
             categories = try await service.getCategories()
+            applySuggestedCategories()
         } catch {
             let mapped = ErrorMapper.map(error)
             if mapped == .unauthorized {
@@ -442,6 +495,10 @@ final class ScanResultViewModel {
         guard !selected.isEmpty else { return false }
         let foods = selectedFoodItems
         let water = selectedWaterItems
+
+        if !foods.isEmpty {
+            await loadCategories()
+        }
 
         fieldErrors.removeAll()
         for food in foods {
@@ -486,6 +543,9 @@ final class ScanResultViewModel {
                     grams: item.grams(preferred: preferredUnits),
                     unit: item.baseUnit,
                     categoryName: item.categoryName,
+                    categoryId: item.categoryID,
+                    createPersonalFood: true,
+                    updatePersonalFood: item.hasManualProductEdit,
                     imageUrl: imageUrl,
                     date: nil
                 )

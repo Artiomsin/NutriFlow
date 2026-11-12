@@ -1,7 +1,7 @@
 import Foundation
 
 final class MockFoodService: FoodServiceProtocol {
-    func createFoodEntry(name: String, calories: Double, protein: Double?, fat: Double?, carbs: Double?, foodId: String? = nil, grams: Double? = nil, unit: String? = nil, categoryName: String? = nil, imageUrl: String? = nil, date: String? = nil) async throws -> FoodEntry {
+    func createFoodEntry(name: String, calories: Double, protein: Double?, fat: Double?, carbs: Double?, foodId: String? = nil, grams: Double? = nil, unit: String? = nil, categoryName: String? = nil, categoryId: String? = nil, createPersonalFood: Bool = false, updatePersonalFood: Bool = false, imageUrl: String? = nil, date: String? = nil) async throws -> FoodEntry {
         FoodEntry(id: UUID().uuidString, userId: "1", name: name, calories: calories, protein: protein, fat: fat, carbs: carbs, foodId: foodId, grams: grams, unit: unit ?? "g", categoryName: categoryName, categoryIcon: nil,imageUrl: imageUrl, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil)
     }
     func getTodayFood() async throws -> [FoodEntry] {
@@ -49,13 +49,17 @@ final class MockFoodService: FoodServiceProtocol {
     }
     func getFoods(
         categoryId: String?,
+        personalOnly: Bool = false,
         limit: Int,
         offset: Int
     ) async throws -> [CatalogFoodCategoryGroup] {
         let foods = try await getPopularFood()
-        let filteredFoods = categoryId.map { id in
+        let categoryFilteredFoods = categoryId.map { id in
             foods.filter { $0.categoryId == id }
         } ?? foods
+        let filteredFoods = personalOnly
+            ? categoryFilteredFoods.filter { $0.source == "user" }
+            : categoryFilteredFoods
 
         return [
             CatalogFoodCategoryGroup(

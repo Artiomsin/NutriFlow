@@ -368,6 +368,9 @@ final class AddFoodViewModel: Identifiable {
                 grams: gramsValue,
                 unit: "g",
                 categoryName: selectedCategory?.name,
+                categoryId: selectedCategory?.id,
+                createPersonalFood: false,
+                updatePersonalFood: false,
                 imageUrl: imageUrl,
                 date: nil
             )

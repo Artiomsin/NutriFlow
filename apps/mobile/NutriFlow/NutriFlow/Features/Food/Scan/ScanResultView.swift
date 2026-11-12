@@ -143,7 +143,7 @@ struct ScanResultView: View {
                         Section("My Categories") {
                             ForEach(viewModel.categories.filter(\.isPersonal)) { category in
                                 Button {
-                                    viewModel.setCategory(id: item.id, category.name)
+                                    viewModel.setCategory(id: item.id, category)
                                 } label: {
                                     Label(category.name, systemImage: category.icon ?? "tag.fill")
                                 }
@@ -153,7 +153,7 @@ struct ScanResultView: View {
                         Section("System Categories") {
                             ForEach(viewModel.categories.filter { !$0.isPersonal }) { category in
                                 Button {
-                                    viewModel.setCategory(id: item.id, category.name)
+                                    viewModel.setCategory(id: item.id, category)
                                 } label: {
                                     Label(category.name, systemImage: category.icon ?? "tag.fill")
                                 }

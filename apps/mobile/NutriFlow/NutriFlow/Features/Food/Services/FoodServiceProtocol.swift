@@ -15,6 +15,9 @@ protocol FoodServiceProtocol: Sendable {
         grams: Double?,
         unit: String?,
         categoryName: String?,
+        categoryId: String?,
+        createPersonalFood: Bool,
+        updatePersonalFood: Bool,
         imageUrl: String?,
         date: String?
     ) async throws -> FoodEntry
@@ -50,6 +53,7 @@ protocol FoodServiceProtocol: Sendable {
 
     func getFoods(
         categoryId: String?,
+        personalOnly: Bool,
         limit: Int,
         offset: Int
     ) async throws -> [CatalogFoodCategoryGroup]

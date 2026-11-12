@@ -20,6 +20,9 @@ final class FoodService: FoodServiceProtocol, Sendable {
         grams: Double? = nil,
         unit: String? = nil,
         categoryName: String? = nil,
+        categoryId: String? = nil,
+        createPersonalFood: Bool = false,
+        updatePersonalFood: Bool = false,
         imageUrl: String? = nil,
         date: String? = nil
     ) async throws -> FoodEntry {
@@ -40,6 +43,9 @@ final class FoodService: FoodServiceProtocol, Sendable {
                 grams: grams,
                 unit: unit,
                 categoryName: categoryName,
+                categoryId: categoryId,
+                createPersonalFood: createPersonalFood,
+                updatePersonalFood: updatePersonalFood,
                 imageUrl: imageUrl,
                 date: entryDate
             )
@@ -125,11 +131,13 @@ final class FoodService: FoodServiceProtocol, Sendable {
 
     func getFoods(
         categoryId: String?,
+        personalOnly: Bool = false,
         limit: Int,
         offset: Int
     ) async throws -> [CatalogFoodCategoryGroup] {
         let endpoint = FoodEndpoints.getFoods(
             categoryId: categoryId,
+            personalOnly: personalOnly,
             limit: limit,
             offset: offset
         )
