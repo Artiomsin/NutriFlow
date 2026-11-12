@@ -10,8 +10,10 @@ struct CategoryFoodsView: View {
     @State private var selectedFoodIDs = Set<String>()
     @State private var isSelecting = false
     @State private var isChoosingDestination = false
-    @State private var visibleSystemCount = 5
     @State private var isShowingMoreSystemFoods = false
+
+    /// Number of system foods shown while the section is collapsed.
+    private static let collapsedSystemFoodLimit = 5
 
     init(
         category: FoodCategory,
@@ -39,13 +41,20 @@ struct CategoryFoodsView: View {
     private var selectedCount: Int {
         selectedFoodIDs.count
     }
+
+    // Categories are reloaded after a move. Resolve the current value by ID so
+    // the header and counters never keep showing the snapshot from sheet launch.
+    private var displayedCategory: FoodCategory? {
+        guard let category else { return nil }
+        return availableCategories.first { $0.id == category.id } ?? category
+    }
     
     private var isSystemCategory: Bool {
-        category.map { !$0.isPersonal } ?? false
+        displayedCategory.map { !$0.isPersonal } ?? false
     }
 
     private var categoryAccentColor: Color {
-        guard let category else { return AppColors.accent }
+        guard let category = displayedCategory else { return AppColors.accent }
         return Color(hex: category.color ?? "#10B981") ?? AppColors.accent
     }
 
@@ -58,11 +67,68 @@ struct CategoryFoodsView: View {
     }
 
     private var visibleSystemFoods: [CatalogFood] {
-        Array(systemFoods.prefix(visibleSystemCount))
+        isShowingMoreSystemFoods
+            ? systemFoods
+            : Array(systemFoods.prefix(Self.collapsedSystemFoodLimit))
     }
 
+    private var categoriesByID: [String: FoodCategory] {
+        Dictionary(uniqueKeysWithValues: availableCategories.map { ($0.id, $0) })
+    }
+
+    private var personalFoodGroups: [PersonalFoodCategoryGroup] {
+        guard category == nil else { return [] }
+
+        let personalCategoryIDs = Set(
+            availableCategories.filter(\.isPersonal).map(\.id)
+        )
+        let systemCategoryIDs = Set(
+            availableCategories.filter { !$0.isPersonal }.map(\.id)
+        )
+
+        let uncategorizedFoods = personalFoods.filter { $0.categoryId == nil }
+        let foodsInPersonalCategories = personalFoods.filter {
+            guard let categoryID = $0.categoryId else { return false }
+            return personalCategoryIDs.contains(categoryID)
+        }
+        let foodsInSystemCategories = personalFoods.filter {
+            guard let categoryID = $0.categoryId else { return false }
+            // Foods whose category is no longer available stay visible here
+            // instead of disappearing from the manager.
+            return systemCategoryIDs.contains(categoryID) ||
+                (!personalCategoryIDs.contains(categoryID) && !systemCategoryIDs.contains(categoryID))
+        }
+
+        return [
+            PersonalFoodCategoryGroup(
+                id: "uncategorized",
+                title: "Uncategorized",
+                icon: "folder.badge.minus",
+                color: AppColors.accent,
+                foods: uncategorizedFoods
+            ),
+            PersonalFoodCategoryGroup(
+                id: "personal-categories",
+                title: "Personal Categories",
+                icon: "person.fill",
+                color: AppColors.accent,
+                foods: foodsInPersonalCategories
+            ),
+            PersonalFoodCategoryGroup(
+                id: "system-categories",
+                title: "System Categories",
+                icon: "globe",
+                color: AppColors.textSecondary,
+                foods: foodsInSystemCategories
+            )
+        ]
+        .filter { !$0.foods.isEmpty }
+    }
+
+    /// The toggle must stay available once the section is expanded, otherwise
+    /// there is no way back to the collapsed list.
     private var canShowMoreSystemFoods: Bool {
-        systemFoods.count > visibleSystemCount
+        systemFoods.count > Self.collapsedSystemFoodLimit
     }
 
     private var destinationCategories: [FoodCategory] {
@@ -173,19 +239,12 @@ struct CategoryFoodsView: View {
         .padding(.horizontal, 2)
     }
 
-    // MARK: - Show more / Show less button
 
     @ViewBuilder
     private var showMoreButton: some View {
         Button {
             withAnimation(.easeInOut(duration: 0.3)) {
-                if isShowingMoreSystemFoods {
-                    visibleSystemCount = 5
-                    isShowingMoreSystemFoods = false
-                } else {
-                    visibleSystemCount = systemFoods.count
-                    isShowingMoreSystemFoods = true
-                }
+                isShowingMoreSystemFoods.toggle()
             }
         } label: {
             HStack(spacing: 8) {
@@ -196,7 +255,7 @@ struct CategoryFoodsView: View {
                 Text(
                     isShowingMoreSystemFoods
                         ? "Show less (\(systemFoods.count) total)"
-                        : "Show more (\(max(systemFoods.count - visibleSystemCount, 0)) more)"
+                        : "Show more (\(max(systemFoods.count - Self.collapsedSystemFoodLimit, 0)) more)"
                 )
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(categoryAccentColor)
@@ -222,7 +281,7 @@ struct CategoryFoodsView: View {
         List {
             // Category header — красивый блок с количеством блюд
             Section {
-                if let category {
+                if let category = displayedCategory {
                     categoryHeader(category)
                 } else {
                     manageAllHeader
@@ -248,6 +307,10 @@ struct CategoryFoodsView: View {
                         systemImage: "tray",
                         description: Text("Foods assigned to this category will appear here.")
                     )
+                    .frame(maxWidth: .infinity, minHeight: 280)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
                 } else if isSystemCategory {
                     if !personalFoods.isEmpty {
                         Section("Personal") {
@@ -281,6 +344,26 @@ struct CategoryFoodsView: View {
                         skeletonRows(count: 2)
                     }
 
+                } else if category == nil {
+                    ForEach(personalFoodGroups) { group in
+                        PersonalFoodCategorySection(
+                            group: group,
+                            categoriesByID: categoriesByID,
+                            isSelecting: isSelecting,
+                            selectedFoodIDs: selectedFoodIDs,
+                            loadsMoreWhenVisible: group.id == personalFoodGroups.last?.id,
+                            onToggleSelection: toggleSelection,
+                            onReachEnd: {
+                                Task {
+                                    await viewModel.loadMore()
+                                }
+                            }
+                        )
+                    }
+
+                    if viewModel.isLoadingMore {
+                        skeletonRows(count: 2)
+                    }
                 } else {
                     ForEach(viewModel.foods) { food in
                         foodRow(food)
@@ -296,12 +379,14 @@ struct CategoryFoodsView: View {
             }
         }
         .listStyle(.plain)
+        .animation(.easeOut(duration: 0.25), value: viewModel.state)
+        .animation(.easeOut(duration: 0.2), value: viewModel.isLoadingMore)
         .listRowSpacing(16)
         .listSectionSpacing(16)
         .contentMargins(.horizontal, 16)
         .scrollContentBackground(.hidden)
         .background(AppColors.background)
-        .navigationTitle(category?.name ?? "Manage Foods")
+        .navigationTitle(displayedCategory?.name ?? "Manage Foods")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -401,15 +486,7 @@ struct CategoryFoodsView: View {
         let canEdit = food.source == "user"
 
         Button {
-            guard canEdit else { return }
-
-            if selectedFoodIDs.contains(food.id) {
-                selectedFoodIDs.remove(food.id)
-            } else {
-                selectedFoodIDs.insert(food.id)
-            }
-
-            isSelecting = !selectedFoodIDs.isEmpty
+            toggleSelection(food)
         } label: {
             CategoryFoodCard(
                 food: food,
@@ -428,6 +505,18 @@ struct CategoryFoodsView: View {
             : "System foods can’t be moved.")
     }
     
+    private func toggleSelection(_ food: CatalogFood) {
+        guard food.source == "user" else { return }
+
+        if selectedFoodIDs.contains(food.id) {
+            selectedFoodIDs.remove(food.id)
+        } else {
+            selectedFoodIDs.insert(food.id)
+        }
+
+        isSelecting = !selectedFoodIDs.isEmpty
+    }
+
     private func categoryRow(_ destination: FoodCategory) -> some View {
         let categoryColor: Color = Color(hex: destination.color ?? "#10B981") ?? AppColors.accent
 
@@ -459,45 +548,10 @@ struct CategoryFoodsView: View {
 
     private func skeletonRows(count: Int = 6) -> some View {
         ForEach(0..<count, id: \.self) { _ in
-            HStack(spacing: 12) {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(AppColors.surfaceSecondary)
-                    .frame(width: 56, height: 56)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(AppColors.surfaceSecondary)
-                        .frame(width: 148, height: 16)
-
-                    HStack(spacing: 6) {
-                        Capsule()
-                            .fill(AppColors.surfaceSecondary)
-                            .frame(width: 56, height: 18)
-                        Capsule()
-                            .fill(AppColors.surfaceSecondary)
-                            .frame(width: 92, height: 18)
-                    }
-
-                    HStack(spacing: 5) {
-                        ForEach(0..<3, id: \.self) { _ in
-                            Capsule()
-                                .fill(AppColors.surfaceSecondary)
-                                .frame(width: 48, height: 18)
-                        }
-                    }
-                }
-
-                Spacer()
-            }
-            .padding(12)
-            .background(AppColors.surface, in: .rect(cornerRadius: AppRadius.medium))
-            .overlay {
-                RoundedRectangle(cornerRadius: AppRadius.medium)
-                    .stroke(AppColors.border.opacity(0.70), lineWidth: 1)
-            }
+            CategoryFoodSkeletonRow(showsSelection: isSelecting)
+            .transition(.opacity)
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
-            .accessibilityHidden(true)
         }
     }
 
@@ -515,3 +569,61 @@ struct CategoryFoodsView: View {
         }
     }
 }
+private struct PersonalFoodCategoryGroup: Identifiable {
+    let id: String
+    let title: String
+    let icon: String
+    let color: Color
+    let foods: [CatalogFood]
+}
+
+private struct PersonalFoodCategorySection: View {
+    let group: PersonalFoodCategoryGroup
+    let categoriesByID: [String: FoodCategory]
+    let isSelecting: Bool
+    let selectedFoodIDs: Set<String>
+    let loadsMoreWhenVisible: Bool
+    let onToggleSelection: (CatalogFood) -> Void
+    let onReachEnd: () -> Void
+
+    var body: some View {
+        Section {
+            ForEach(group.foods) { food in
+                Button {
+                    onToggleSelection(food)
+                } label: {
+                    let category = food.categoryId.flatMap { categoriesByID[$0] }
+                    let categoryColor = category.flatMap {
+                        Color(hex: $0.color ?? "#10B981")
+                    } ?? group.color
+
+                    CategoryFoodCard(
+                        food: food,
+                        isSelecting: isSelecting,
+                        isSelected: selectedFoodIDs.contains(food.id),
+                        accentColor: categoryColor,
+                        showsCategory: true,
+                        categoryDisplayName: category?.name,
+                        categoryIcon: category?.icon,
+                        categoryColor: categoryColor
+                    )
+                }
+                .buttonStyle(.plain)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .accessibilityHint("Select this food to change its category.")
+                .task {
+                    guard loadsMoreWhenVisible, food.id == group.foods.last?.id else {
+                        return
+                    }
+                    onReachEnd()
+                }
+            }
+        } header: {
+            Label(group.title, systemImage: group.icon)
+                .foregroundStyle(group.color)
+        }
+    }
+}
+

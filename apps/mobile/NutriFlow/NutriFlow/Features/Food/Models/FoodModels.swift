@@ -10,12 +10,15 @@ struct CreateFoodRequest: Codable, Sendable {
     let grams: Double?
     let unit: String?
     let categoryName: String?
+    let categoryId: String?
+    let createPersonalFood: Bool
+    let updatePersonalFood: Bool
     let imageUrl: String?
     let date: String?
 
     enum CodingKeys: String, CodingKey {
         case name, calories, protein, fat, carbs
-        case foodId, grams, unit, imageUrl, date, categoryName
+        case foodId, grams, unit, imageUrl, date, categoryName, categoryId, createPersonalFood, updatePersonalFood
     }
 
     func encode(to encoder: Encoder) throws {
@@ -34,6 +37,9 @@ struct CreateFoodRequest: Codable, Sendable {
 
         // Explicit null means that no category is selected.
         try container.encode(categoryName, forKey: .categoryName)
+        try container.encode(categoryId, forKey: .categoryId)
+        try container.encode(createPersonalFood, forKey: .createPersonalFood)
+        try container.encode(updatePersonalFood, forKey: .updatePersonalFood)
     }
 }
 

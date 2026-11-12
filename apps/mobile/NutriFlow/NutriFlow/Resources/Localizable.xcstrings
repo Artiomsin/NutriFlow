@@ -7,6 +7,9 @@
     "· %@" : {
 
     },
+    "(%lld)" : {
+
+    },
     "%@ - %@" : {
       "localizations" : {
         "en" : {
@@ -89,9 +92,6 @@
     "%lld" : {
 
     },
-    "%lld available to everyone" : {
-
-    },
     "%lld foods" : {
 
     },
@@ -150,6 +150,9 @@
 
     },
     "Added %@" : {
+
+    },
+    "All (%lld)" : {
 
     },
     "All Time Zones" : {
@@ -970,6 +973,9 @@
     "LATEST" : {
 
     },
+    "Less" : {
+
+    },
     "Load older changes" : {
 
     },
@@ -1060,6 +1066,9 @@
     "No heart rate data for this workout." : {
 
     },
+    "No matching categories" : {
+
+    },
     "No meals logged today" : {
 
     },
@@ -1100,9 +1109,6 @@
 
     },
     "OK" : {
-
-    },
-    "Only you can edit or delete these." : {
 
     },
     "Open Settings" : {
@@ -1193,6 +1199,9 @@
 
     },
     "ScanFood" : {
+
+    },
+    "Scope: %@" : {
 
     },
     "Search catalog" : {
@@ -1336,6 +1345,9 @@
     "Track your workouts" : {
 
     },
+    "Try a different search term." : {
+
+    },
     "Try again" : {
 
     },
@@ -1415,9 +1427,6 @@
 
     },
     "Workouts access is off. Enable Apple Health in Settings." : {
-
-    },
-    "Your Categories" : {
 
     },
     "Your changes weren’t saved. Please try again." : {

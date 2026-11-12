@@ -238,10 +238,13 @@ final class AddFoodViewModel: Identifiable {
 
         do {
             try await service.deleteCategory(id: category.id)
-            categories.removeAll { $0.id == category.id }
             if selectedCategory?.id == category.id {
                 selectedCategory = nil
             }
+
+            // Deleting a category returns its foods to the uncategorized pool.
+            // Reload the server-derived counters so every remaining category stays in sync.
+            await refreshAfterCategoryChange()
             return true
         } catch {
             categoryMutationError = ErrorMapper.map(error)
@@ -365,13 +368,17 @@ final class AddFoodViewModel: Identifiable {
                 grams: gramsValue,
                 unit: "g",
                 categoryName: selectedCategory?.name,
+                categoryId: selectedCategory?.id,
+                createPersonalFood: false,
+                updatePersonalFood: false,
                 imageUrl: imageUrl,
                 date: nil
             )
 
             await todayFoodVM.reloadAfterMutation()
             todayFoodVM.notifyDataMutated()
-
+            await refreshAfterCategoryChange()
+            
             clearForm()
             state = .idle
             return true

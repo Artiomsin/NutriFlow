@@ -42,6 +42,7 @@ enum FoodEndpoints {
 
     static func getFoods(
         categoryId: String?,
+        personalOnly: Bool = false,
         limit: Int,
         offset: Int
     ) -> (path: String, query: [URLQueryItem]) {
@@ -52,6 +53,10 @@ enum FoodEndpoints {
 
         if let categoryId {
             query.append(URLQueryItem(name: "categoryId", value: categoryId))
+        }
+
+        if personalOnly {
+            query.append(URLQueryItem(name: "personalOnly", value: "true"))
         }
 
         return (path: getAllFoods, query: query)

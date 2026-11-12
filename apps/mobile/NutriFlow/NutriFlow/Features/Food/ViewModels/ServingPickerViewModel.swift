@@ -149,6 +149,9 @@ final class ServingPickerViewModel {
                 grams: grams,
                 unit: suggestedUnit ?? "g",
                 categoryName: food.categoryName,
+                categoryId: food.categoryId,
+                createPersonalFood: false,
+                updatePersonalFood: false,
                 imageUrl: food.imageUrl,
                 date: nil
             )

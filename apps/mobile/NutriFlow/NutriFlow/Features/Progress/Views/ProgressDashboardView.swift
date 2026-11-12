@@ -86,6 +86,19 @@ struct ProgressDashboardView: View {
                 loadInitialIfNeeded()
             }
         }
+        .onChange(of: progressRefreshState.revision) { _, _ in
+            // Goals, food, water, and activity changes invalidate the open
+            // day detail as well. Reload its selected calendar date so a
+            // historical sheet keeps its historical goals, while today shows
+            // a newly saved goal immediately.
+            guard chartVM.showDaySheet, !chartVM.selectedDateStr.isEmpty else {
+                return
+            }
+
+            Task {
+                await chartVM.loadDayDetail(date: chartVM.selectedDateStr)
+            }
+        }
         .task(id: periodGoalsKey) {
             await goalsVM.loadPeriodGoals(endingOn: periodState.toDate)
         }
@@ -94,7 +107,7 @@ struct ProgressDashboardView: View {
                 dateStr: chartVM.selectedDateStr,
                 food: chartVM.selectedDateFood,
                 water: chartVM.selectedDateWater,
-                goals: chartVM.selectedDateGoals,
+                goals: dayDetailGoals,
                 goalVersions: chartVM.selectedDateGoalVersions,
                 state: chartVM.dayDetailState,
                 activity: chartVM.selectedDateActivity,
@@ -116,6 +129,19 @@ struct ProgressDashboardView: View {
         .sheet(isPresented: $showWeightHistory) {
             weightHistorySheet
         }
+    }
+
+    /// The Settings screen and today's detail must reflect the same active
+    /// goal immediately after `PATCH /goals` succeeds. A completed day keeps
+    /// the version resolved by its date in `selectedDateGoals`.
+    private var dayDetailGoals: UserGoals? {
+        let today = AppDate.dateOnlyFormatter().string(from: Date())
+        guard chartVM.selectedDateStr == today,
+              case .loaded(let currentGoals) = goalsVM.state
+        else {
+            return chartVM.selectedDateGoals
+        }
+        return currentGoals
     }
 
     private var periodGoalsKey: String {
