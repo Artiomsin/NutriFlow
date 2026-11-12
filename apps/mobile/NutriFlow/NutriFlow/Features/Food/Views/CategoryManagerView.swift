@@ -13,6 +13,7 @@ struct CategoryManagerView: View {
     @State private var categoryToManage: FoodCategory?
     @State private var isManagingAllPersonalDishes = false
     @State private var allPersonalDishesVM: CategoryFoodsViewModel?
+    @State private var isShowingAllSystemCategories = false
 
     private var personalCategories: [FoodCategory] {
         viewModel.categories.filter(\.isPersonal)
@@ -20,6 +21,10 @@ struct CategoryManagerView: View {
 
     private var systemCategories: [FoodCategory] {
         viewModel.categories.filter { !$0.isPersonal }
+    }
+
+    private var displayedSystemCategories: [FoodCategory] {
+        isShowingAllSystemCategories ? systemCategories : Array(systemCategories.prefix(5))
     }
 
     var body: some View {
@@ -271,16 +276,46 @@ struct CategoryManagerView: View {
 
     private var systemCategoriesStack: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("System Categories")
-                .font(.headline)
-                .foregroundStyle(AppColors.textPrimary)
+            HStack(alignment: .center, spacing: 8) {
+                Text("System Categories")
+                    .font(.headline)
+                    .foregroundStyle(AppColors.textPrimary)
+
+                if systemCategories.count > 5 {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isShowingAllSystemCategories.toggle()
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: isShowingAllSystemCategories ? "chevron.up" : "chevron.down")
+                                .font(.caption2.weight(.bold))
+                            Text(
+                                isShowingAllSystemCategories
+                                    ? "Less"
+                                    : "All (\(systemCategories.count))"
+                            )
+                            .font(.caption2.weight(.semibold))
+                        }
+                        .foregroundStyle(AppColors.accent)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(AppColors.accent.opacity(0.10), in: .rect(cornerRadius: AppRadius.medium))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: AppRadius.medium)
+                                .stroke(AppColors.accent.opacity(0.30), lineWidth: 1)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
 
             Text("\(systemCategories.count) available to everyone")
                 .font(.subheadline)
                 .foregroundStyle(AppColors.textSecondary)
 
             VStack(spacing: 10) {
-                ForEach(systemCategories) { category in
+                ForEach(displayedSystemCategories) { category in
                     categoryStackCell(
                         category,
                         isPersonal: false
@@ -452,6 +487,8 @@ private struct DeleteCategoryModal: View {
         FoodCategory(id: "system-dairy", name: "Dairy", icon: "cup.and.saucer.fill", color: "#3B82F6", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 3),
         FoodCategory(id: "system-vegetables", name: "Vegetables", icon: "carrot.fill", color: "#F59E0B", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 3),
         FoodCategory(id: "system-grains", name: "Grains", icon: "bread.fill", color: "#A855F7", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 3),
+        FoodCategory(id: "system-snacks", name: "Snacks", icon: "takeoutbag.and.cup.and.straw", color: "#EC4899", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 2),
+        FoodCategory(id: "system-beverages", name: "Beverages", icon: "cup.fill", color: "#06B6D4", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 2),
         FoodCategory(id: "personal-breakfast", name: "Breakfast", icon: "sunrise.fill", color: "#F97316", createdBy: "user-1", createdAt: "2026-05-18T08:00:00Z", foodCount: 3),
         FoodCategory(id: "personal-home", name: "Home Cooking", icon: "house.fill", color: "#10B981", createdBy: "user-1", createdAt: "2026-05-18T08:00:00Z", foodCount: 4),
         FoodCategory(id: "personal-dinner", name: "Dinner", icon: "moon.fill", color: "#6366F1", createdBy: "user-1", createdAt: "2026-05-18T09:00:00Z", foodCount: 2),

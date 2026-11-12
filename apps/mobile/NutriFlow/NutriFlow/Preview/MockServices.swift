@@ -148,6 +148,8 @@ final class MockFoodService: FoodServiceProtocol {
             FoodCategory(id: "system-dairy", name: "Dairy", icon: "cup.and.saucer.fill", color: "#3B82F6", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 3),
             FoodCategory(id: "system-vegetables", name: "Vegetables", icon: "carrot.fill", color: "#F59E0B", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 3),
             FoodCategory(id: "system-grains", name: "Grains", icon: "bread.fill", color: "#A855F7", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 3),
+            FoodCategory(id: "system-snacks", name: "Snacks", icon: "takeoutbag.and.cup.and.straw", color: "#EC4899", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 2),
+            FoodCategory(id: "system-beverages", name: "Beverages", icon: "cup.fill", color: "#06B6D4", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 2),
             FoodCategory(id: "personal-breakfast", name: "Breakfast", icon: "sunrise.fill", color: "#F97316", createdBy: "1", createdAt: "2026-05-18T08:00:00Z", foodCount: 3),
             FoodCategory(id: "personal-home", name: "Home Cooking", icon: "house.fill", color: "#10B981", createdBy: "1", createdAt: "2026-05-18T08:00:00Z", foodCount: 4),
             FoodCategory(id: "personal-dinner", name: "Dinner", icon: "moon.fill", color: "#6366F1", createdBy: "1", createdAt: "2026-05-18T09:00:00Z", foodCount: 2),

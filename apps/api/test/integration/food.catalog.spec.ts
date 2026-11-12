@@ -159,7 +159,9 @@ describe('FoodService.getAll', () => {
       { personalOnly: true, limit: 1_000, offset: 0 },
       user.id,
     );
-    const names = groups.flatMap((group) => group.foods).map((food) => food.name);
+    const names = groups
+      .flatMap((group) => group.foods)
+      .map((food) => food.name);
 
     expect(names).toContain('ZqPersonalOnlyOwn');
     expect(names).not.toContain('ZqPersonalOnlySystem');

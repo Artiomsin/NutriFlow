@@ -264,7 +264,10 @@ export class FoodService {
               )
               .limit(1);
 
-        if (matchedFood?.source === 'user' && matchedFood.createdBy === userId) {
+        if (
+          matchedFood?.source === 'user' &&
+          matchedFood.createdBy === userId
+        ) {
           foodId = matchedFood.id;
         } else {
           const [existingFork] = matchedFood
