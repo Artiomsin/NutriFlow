@@ -136,6 +136,35 @@ describe('FoodService.getAll', () => {
     const grouped = groups.find((g) => g.name === 'ZqCat');
     expect(grouped?.foods.map((f) => f.name)).toContain('ZqVisibleSystem');
   });
+
+  it('returns only the current user’s personal foods when requested', async () => {
+    const user = await createUser(tx);
+    const other = await createUser(tx);
+    await createCatalogFood(tx, {
+      name: 'ZqPersonalOnlySystem',
+      source: 'system',
+    });
+    await createCatalogFood(tx, {
+      name: 'ZqPersonalOnlyOwn',
+      source: 'user',
+      createdBy: user.id,
+    });
+    await createCatalogFood(tx, {
+      name: 'ZqPersonalOnlyOther',
+      source: 'user',
+      createdBy: other.id,
+    });
+
+    const groups = await service.getAll(
+      { personalOnly: true, limit: 1_000, offset: 0 },
+      user.id,
+    );
+    const names = groups.flatMap((group) => group.foods).map((food) => food.name);
+
+    expect(names).toContain('ZqPersonalOnlyOwn');
+    expect(names).not.toContain('ZqPersonalOnlySystem');
+    expect(names).not.toContain('ZqPersonalOnlyOther');
+  });
 });
 
 describe('FoodService.getById / getByBarcode', () => {

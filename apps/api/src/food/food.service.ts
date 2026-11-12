@@ -236,11 +236,121 @@ export class FoodService {
     const result = await this.db.transaction(async (tx) => {
       let foodId = data.foodId;
 
+      const requestedCategoryId =
+        data.categoryId === undefined
+          ? await this.resolveCategory(tx, userId, data.categoryName)
+          : data.categoryId;
+
+      if (requestedCategoryId) {
+        await this.assertVisibleCategory(tx, userId, requestedCategoryId);
+      }
+
       if (foodId && !(await this.findVisibleFood(foodId, userId, tx))) {
         throw new NotFoundException('Food not found');
       }
 
-      if (!foodId && data.name) {
+      if (data.createPersonalFood) {
+        const [matchedFood] = foodId
+          ? await tx.select().from(foods).where(eq(foods.id, foodId)).limit(1)
+          : await tx
+              .select()
+              .from(foods)
+              .where(
+                and(
+                  eq(foods.name, data.name),
+                  eq(foods.source, 'user'),
+                  eq(foods.createdBy, userId),
+                ),
+              )
+              .limit(1);
+
+        if (matchedFood?.source === 'user' && matchedFood.createdBy === userId) {
+          foodId = matchedFood.id;
+        } else {
+          const [existingFork] = matchedFood
+            ? await tx
+                .select()
+                .from(foods)
+                .where(
+                  and(
+                    eq(foods.source, 'user'),
+                    eq(foods.createdBy, userId),
+                    eq(foods.forkedFromId, matchedFood.id),
+                  ),
+                )
+                .limit(1)
+            : [undefined];
+
+          if (existingFork) {
+            foodId = existingFork.id;
+          } else {
+            const ratio = data.grams && data.grams > 0 ? 100 / data.grams : 1;
+            const per100g = (value: number, max: number) =>
+              clampNutrition(value * ratio, max);
+            const [created] = await tx
+              .insert(foods)
+              .values({
+                name: data.name,
+                brand: data.brand ?? matchedFood?.brand,
+                categoryId: requestedCategoryId,
+                barcode: data.barcode ?? matchedFood?.barcode,
+                imageUrl: data.imageUrl ?? matchedFood?.imageUrl,
+                caloriesPer100g: per100g(data.calories, 1000),
+                proteinPer100g: per100g(data.protein ?? 0, 100),
+                fatPer100g: per100g(data.fat ?? 0, 100),
+                carbsPer100g: per100g(data.carbs ?? 0, 100),
+                source: 'user',
+                createdBy: userId,
+                forkedFromId: matchedFood?.id,
+              })
+              .returning();
+            foodId = created!.id;
+          }
+        }
+
+        // A scan belongs to the person who saved it. Its explicit selection,
+        // including null for "Uncategorized", updates only that personal food.
+        if (foodId && data.categoryId !== undefined) {
+          await tx
+            .update(foods)
+            .set({ categoryId: requestedCategoryId })
+            .where(
+              and(
+                eq(foods.id, foodId),
+                eq(foods.source, 'user'),
+                eq(foods.createdBy, userId),
+              ),
+            );
+        }
+
+        // AI matches are suggestions. Only an explicit edit in the scan form
+        // is allowed to replace a person's saved product details.
+        if (foodId && data.updatePersonalFood) {
+          const ratio = data.grams && data.grams > 0 ? 100 / data.grams : 1;
+          const per100g = (value: number, max: number) =>
+            clampNutrition(value * ratio, max);
+          const updates = {
+            name: data.name,
+            caloriesPer100g: per100g(data.calories, 1000),
+            proteinPer100g: per100g(data.protein ?? 0, 100),
+            fatPer100g: per100g(data.fat ?? 0, 100),
+            carbsPer100g: per100g(data.carbs ?? 0, 100),
+            ...(data.imageUrl ? { imageUrl: data.imageUrl } : {}),
+            updatedAt: new Date(),
+          };
+
+          await tx
+            .update(foods)
+            .set(updates)
+            .where(
+              and(
+                eq(foods.id, foodId),
+                eq(foods.source, 'user'),
+                eq(foods.createdBy, userId),
+              ),
+            );
+        }
+      } else if (!foodId && data.name) {
         const [existing] = await tx
           .select()
           .from(foods)
@@ -252,12 +362,6 @@ export class FoodService {
         } else {
           // A category named by the client becomes a personal one: the shared
           // catalog only ever grows through the seed script.
-          const categoryId = await this.resolveCategory(
-            tx,
-            userId,
-            data.categoryName,
-          );
-
           const ratio = data.grams && data.grams > 0 ? 100 / data.grams : 1;
           const source = 'user';
 
@@ -269,7 +373,7 @@ export class FoodService {
             .values({
               name: data.name,
               brand: data.brand,
-              categoryId,
+              categoryId: requestedCategoryId,
               barcode: data.barcode,
               imageUrl: data.imageUrl,
               caloriesPer100g: per100g(data.calories, 1000),
@@ -306,11 +410,11 @@ export class FoodService {
       // A catalog-backed entry always derives its nutrition from the product
       // and the validated portion. This keeps Food Analysis, the iOS preview,
       // and persisted totals from drifting when a person changes the weight.
-      if (data.foodId && data.grams !== undefined) {
+      if (foodId && data.grams !== undefined) {
         const [food] = await tx
           .select()
           .from(foods)
-          .where(eq(foods.id, data.foodId))
+          .where(eq(foods.id, foodId))
           .limit(1);
 
         if (!food) {
@@ -849,9 +953,13 @@ export class FoodService {
   }
 
   async getAll(query: GetFoodsQueryDto, userId: string) {
-    const { categoryId, limit, offset } = query;
+    const { categoryId, personalOnly = false, limit, offset } = query;
 
-    const conditions: SQL[] = [this.visibilityClause(userId)!];
+    const conditions: SQL[] = [
+      personalOnly
+        ? and(eq(foods.source, 'user'), eq(foods.createdBy, userId))!
+        : this.visibilityClause(userId)!,
+    ];
 
     if (categoryId === 'null') {
       conditions.push(isNull(foods.categoryId));

@@ -64,35 +64,19 @@ final class CategoryFoodsViewModel {
         isLoadingMore = true
 
         do {
-            // The unfiltered endpoint also returns system foods. Keep loading until
-            // this request contributes a personal food (or the catalog is exhausted),
-            // otherwise a system-only page can make personal foods appear to be missing.
-            let foodCountBeforeRequest = foods.count
+            let pageLimit = nextOffset == 0 ? firstPageSize : pageSize
+            let groups = try await service.getFoods(
+                categoryId: categoryID,
+                personalOnly: categoryID == nil,
+                limit: pageLimit,
+                offset: nextOffset
+            )
 
-            repeat {
-                let pageLimit = nextOffset == 0 ? firstPageSize : pageSize
-                let groups = try await service.getFoods(
-                    categoryId: categoryID,
-                    limit: pageLimit,
-                    offset: nextOffset
-                )
+            let fetchedFoods = groups.flatMap(\.foods)
 
-                let fetchedFoods = groups.flatMap(\.foods)
-
-                nextOffset += fetchedFoods.count
-                hasMoreFoods = fetchedFoods.count == pageLimit && nextOffset <= 10_000
-
-                let visibleFoods = if categoryID == nil {
-                    fetchedFoods.filter { $0.source == "user" }
-                } else {
-                    fetchedFoods
-                }
-
-                foods.append(contentsOf: visibleFoods)
-
-            } while categoryID == nil &&
-                foods.count == foodCountBeforeRequest &&
-                hasMoreFoods
+            nextOffset += fetchedFoods.count
+            hasMoreFoods = fetchedFoods.count == pageLimit && nextOffset <= 10_000
+            foods.append(contentsOf: fetchedFoods)
 
             isLoadingMore = false
             state = .loaded

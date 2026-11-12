@@ -34,6 +34,16 @@ export const createFoodEntrySchema = z.object({
   // In POST, an omitted key and null both mean "no category"; the field is
   // encoded explicitly so the client never has to stay silent to say so.
   categoryName: z.string().max(100).nullable().optional(),
+  // The stable category ID is used by new clients. `categoryName` remains
+  // accepted for older clients and manual entry compatibility.
+  categoryId: z.string().uuid().nullable().optional(),
+  // A scan must become a private product even when its nutrients came from a
+  // shared catalog match. The match is only a suggestion, never the owner of
+  // the saved product.
+  createPersonalFood: z.boolean().optional(),
+  // Set only after the person explicitly edits the scanned product details.
+  // Routine AI scans must not overwrite a person's saved corrections.
+  updatePersonalFood: z.boolean().optional(),
   barcode: z.string().max(50).optional(),
   servingGrams: gramsNumber.optional(),
 
@@ -95,6 +105,7 @@ export type BulkUpdateFoodCategoryDto = z.infer<
 
 export const getFoodsQuerySchema = z.object({
   categoryId: z.union([z.string().uuid(), z.literal('null')]).optional(),
+  personalOnly: z.coerce.boolean().optional(),
   limit: z.coerce.number().int().min(1).max(100).optional().default(50),
   offset: z.coerce.number().int().min(0).max(10_000).optional().default(0),
 });
