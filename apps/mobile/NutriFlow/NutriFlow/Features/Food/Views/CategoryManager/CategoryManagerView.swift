@@ -124,8 +124,8 @@ struct CategoryManagerView: View {
                                             }
                                         },
                                         onSelect: { categoryToManage = $0 },
-                                        onEdit: { _ in nil },
-                                        onDelete: { _ in nil }
+                                        onEdit: { _ in },
+                                        onDelete: { _ in }
                                     )
                                 }
                             }

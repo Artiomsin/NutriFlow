@@ -9,8 +9,8 @@ struct CategorySectionView: View {
     let countBadge: Int?
     let trailingContent: AnyView?
     let onSelect: (FoodCategory) -> Void
-    let onEdit: (FoodCategory) -> Void?
-    let onDelete: (FoodCategory) -> Void?
+    let onEdit: (FoodCategory) -> Void
+    let onDelete: (FoodCategory) -> Void
 
     init(
         title: String,
@@ -20,8 +20,8 @@ struct CategorySectionView: View {
         countBadge: Int? = nil,
         @ViewBuilder trailingContent: () -> some View = { EmptyView() },
         onSelect: @escaping (FoodCategory) -> Void,
-        onEdit: @escaping (FoodCategory) -> Void? = { _ in nil },
-        onDelete: @escaping (FoodCategory) -> Void? = { _ in nil }
+        onEdit: @escaping (FoodCategory) -> Void = { _ in },
+        onDelete: @escaping (FoodCategory) -> Void = { _ in }
     ) {
         self.title = title
         self.subtitle = subtitle
@@ -60,8 +60,8 @@ struct CategorySectionView: View {
                         category: category,
                         isPersonal: isPersonal,
                         onTap: { onSelect(category) },
-                        onEdit: { onEdit?(category) },
-                        onDelete: { onDelete?(category) }
+                        onEdit: { onEdit(category) },
+                        onDelete: { onDelete(category) }
                     )
                 }
             }
