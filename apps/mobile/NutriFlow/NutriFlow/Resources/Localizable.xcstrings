@@ -7,6 +7,9 @@
     "· %@" : {
 
     },
+    "(%lld)" : {
+
+    },
     "%@ - %@" : {
       "localizations" : {
         "en" : {
@@ -150,6 +153,9 @@
 
     },
     "Added %@" : {
+
+    },
+    "All (%lld)" : {
 
     },
     "All Time Zones" : {
@@ -970,6 +976,9 @@
     "LATEST" : {
 
     },
+    "Less" : {
+
+    },
     "Load older changes" : {
 
     },
@@ -1058,6 +1067,9 @@
 
     },
     "No heart rate data for this workout." : {
+
+    },
+    "No matching categories" : {
 
     },
     "No meals logged today" : {
@@ -1193,6 +1205,9 @@
 
     },
     "ScanFood" : {
+
+    },
+    "Scope: %@" : {
 
     },
     "Search catalog" : {
@@ -1334,6 +1349,9 @@
 
     },
     "Track your workouts" : {
+
+    },
+    "Try a different search term." : {
 
     },
     "Try again" : {

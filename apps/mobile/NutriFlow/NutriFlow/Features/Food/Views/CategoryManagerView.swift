@@ -14,6 +14,32 @@ struct CategoryManagerView: View {
     @State private var isManagingAllPersonalDishes = false
     @State private var allPersonalDishesVM: CategoryFoodsViewModel?
     @State private var isShowingAllSystemCategories = false
+    @State private var categorySearchText = ""
+    @State private var searchScope: SearchScope = .all
+
+    /// Which category scopes are currently visible based on the selected search scope.
+    private var showPersonalScope: Bool {
+        searchScope != .system
+    }
+
+    private var showSystemScope: Bool {
+        searchScope != .personal
+    }
+
+    /// Whether the personal categories section has any results to display.
+    private var hasPersonalResults: Bool {
+        showPersonalScope && !filteredPersonalCategories.isEmpty
+    }
+
+    /// Whether the system categories section has any results to display.
+    private var hasSystemResults: Bool {
+        showSystemScope && !filteredSystemCategories.isEmpty
+    }
+
+    /// Whether any results are shown across all visible scopes.
+    private var hasAnyResults: Bool {
+        hasPersonalResults || hasSystemResults
+    }
 
     private var personalCategories: [FoodCategory] {
         viewModel.categories.filter(\.isPersonal)
@@ -23,8 +49,27 @@ struct CategoryManagerView: View {
         viewModel.categories.filter { !$0.isPersonal }
     }
 
+    private var filteredPersonalCategories: [FoodCategory] {
+        guard showPersonalScope else { return [] }
+        return personalCategories.filter {
+            categorySearchText.isEmpty || $0.name.localizedCaseInsensitiveContains(categorySearchText)
+        }
+    }
+
+    private var filteredSystemCategories: [FoodCategory] {
+        guard showSystemScope else { return [] }
+        let filtered = systemCategories.filter {
+            categorySearchText.isEmpty || $0.name.localizedCaseInsensitiveContains(categorySearchText)
+        }
+        // When searching, show all matches; otherwise respect the "first 5" limit
+        if !categorySearchText.isEmpty || isShowingAllSystemCategories {
+            return filtered
+        }
+        return Array(filtered.prefix(5))
+    }
+
     private var displayedSystemCategories: [FoodCategory] {
-        isShowingAllSystemCategories ? systemCategories : Array(systemCategories.prefix(5))
+        isShowingAllSystemCategories ? filteredSystemCategories : Array(filteredSystemCategories.prefix(5))
     }
 
     var body: some View {
@@ -43,12 +88,23 @@ struct CategoryManagerView: View {
                         createCategoryCard
                         managePersonalDishesCard
 
-                        if !personalCategories.isEmpty {
-                            personalCategoriesStack
-                        }
+                        if !personalCategories.isEmpty || !systemCategories.isEmpty {
+                            categorySearchBar
 
-                        if !systemCategories.isEmpty {
-                            systemCategoriesStack
+                            // Global empty state when searching and nothing found anywhere
+                            if !categorySearchText.isEmpty && !hasAnyResults {
+                                emptySearchState
+                            } else {
+                                // Show only scopes that have results when searching;
+                                // when search is empty, show both scopes normally.
+                                if showPersonalScope && (!categorySearchText.isEmpty ? hasPersonalResults : true) {
+                                    personalCategoriesStack
+                                }
+
+                                if showSystemScope && (!categorySearchText.isEmpty ? hasSystemResults : true) {
+                                    systemCategoriesStack
+                                }
+                            }
                         }
                     }
                 }
@@ -253,18 +309,122 @@ struct CategoryManagerView: View {
         categoryName.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private var categorySearchBar: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            TextField("Search categories", text: $categorySearchText)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .frame(height: 48)
+                .padding(.horizontal, 12)
+                .background(AppColors.surfaceSecondary)
+                .clipShape(.rect(cornerRadius: AppRadius.medium))
+                .overlay {
+                    RoundedRectangle(cornerRadius: AppRadius.medium)
+                        .stroke(AppColors.border, lineWidth: 1)
+                }
+
+            SearchScopePicker(
+                selection: $searchScope
+            )
+        }
+    }
+
+    /// Scope toggle buttons for filtering categories by All / Personal / System.
+    private struct SearchScopePicker: View {
+        @Binding var selection: SearchScope
+
+        var body: some View {
+            HStack(spacing: 8) {
+                ForEach(SearchScope.allCases, id: \.self) { scope in
+                    Button {
+                        selection = scope
+                    } label: {
+                        Text(scope.displayTitle)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(selection == scope ? .white : AppColors.accent)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(
+                                selection == scope
+                                ? AppColors.accent
+                                : AppColors.surfaceSecondary,
+                                in: .rect(cornerRadius: AppRadius.medium)
+                            )
+                            .overlay {
+                                RoundedRectangle(cornerRadius: AppRadius.medium)
+                                    .stroke(
+                                        selection == scope ? Color.clear : AppColors.accent.opacity(0.4),
+                                        lineWidth: 1
+                                    )
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text("Scope: \(scope.displayTitle)"))
+                    .accessibilityAddTraits(selection == scope ? .isSelected : [])
+                }
+            }
+        }
+    }
+
+    /// Search scope options for filtering categories.
+    enum SearchScope: String, CaseIterable {
+        case all, personal, system
+
+        var displayTitle: String {
+            switch self {
+            case .all: return "All"
+            case .personal: return "Personal"
+            case .system: return "System"
+            }
+        }
+    }
+
+    /// Empty state shown when search is active but nothing matches.
+    private var emptySearchState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 44, weight: .medium))
+                .foregroundStyle(AppColors.textTertiary)
+
+            Text("No matching categories")
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(AppColors.textPrimary)
+
+            Text("Try a different search term.")
+                .font(.subheadline)
+                .foregroundStyle(AppColors.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 32)
+        .background(AppColors.surface, in: .rect(cornerRadius: AppRadius.large))
+        .overlay {
+            RoundedRectangle(cornerRadius: AppRadius.large)
+                .stroke(AppColors.border.opacity(0.5), lineWidth: 1)
+        }
+        .padding(.top, 8)
+    }
+
     private var personalCategoriesStack: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Your Categories")
-                .font(.headline)
-                .foregroundStyle(AppColors.textPrimary)
+            HStack(spacing: 4) {
+                Text("Your Categories")
+                    .font(.headline)
+                    .foregroundStyle(AppColors.textPrimary)
+
+                if !categorySearchText.isEmpty {
+                    Text("(\(filteredPersonalCategories.count))")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppColors.textTertiary)
+                }
+            }
 
             Text("Only you can edit or delete these.")
                 .font(.subheadline)
                 .foregroundStyle(AppColors.textSecondary)
 
             VStack(spacing: 10) {
-                ForEach(personalCategories) { category in
+                ForEach(filteredPersonalCategories) { category in
                     categoryStackCell(
                         category,
                         isPersonal: true
@@ -281,7 +441,11 @@ struct CategoryManagerView: View {
                     .font(.headline)
                     .foregroundStyle(AppColors.textPrimary)
 
-                if systemCategories.count > 5 {
+                if !categorySearchText.isEmpty {
+                    Text("(\(filteredSystemCategories.count))")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppColors.textTertiary)
+                } else if systemCategories.count > 5 {
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) {
                             isShowingAllSystemCategories.toggle()
@@ -289,13 +453,13 @@ struct CategoryManagerView: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: isShowingAllSystemCategories ? "chevron.up" : "chevron.down")
-                                .font(.caption2.weight(.bold))
+                                .font(.caption.weight(.bold))
                             Text(
                                 isShowingAllSystemCategories
                                     ? "Less"
                                     : "All (\(systemCategories.count))"
                             )
-                            .font(.caption2.weight(.semibold))
+                            .font(.caption.weight(.semibold))
                         }
                         .foregroundStyle(AppColors.accent)
                         .padding(.horizontal, 8)
