@@ -555,6 +555,7 @@ export class FoodService {
         updatedAt: foodEntries.updatedAt,
         categoryName: foodCategories.name,
         categoryIcon: foodCategories.icon,
+        categoryColor: foodCategories.color,
         imageUrl: sql`COALESCE(${foodEntries.imageUrl}, ${foods.imageUrl})`,
         foodSource: foods.source,
       })
