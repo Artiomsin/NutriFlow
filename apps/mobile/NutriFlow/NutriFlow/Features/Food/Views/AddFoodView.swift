@@ -343,13 +343,6 @@ struct AddFoodView: View {
     }
 }
 
-#Preview {
-    NavigationStack {
-        AddFoodView(onSave: {}, viewModel: AddFoodViewModel(service: MockFoodService(), coordinator: nil, todayFoodVM: TodayFoodViewModel(service: MockFoodService(), coordinator: AppCoordinator(container: AppDependencyContainer()))))
-    }
-    
-}
-
 private struct PopularCard: View {
     let food: CatalogFood
     let preferred: PreferredUnits
@@ -474,5 +467,44 @@ private struct PopularCard: View {
         .padding(.horizontal, 6)
         .padding(.vertical, 3)
         .background(color.opacity(hasImage ? 0.25 : 0.14), in: Capsule())
+    }
+}
+
+#Preview("Add Food") {
+    AddFoodPreview()
+}
+
+private struct AddFoodPreview: View {
+    private let container: AppDependencyContainer
+
+    @State private var coordinator: AppCoordinator
+    @State private var viewModel: AddFoodViewModel
+
+    init() {
+        let container = AppDependencyContainer()
+        let coordinator = AppCoordinator(container: container)
+
+        self.container = container
+
+        _coordinator = State(initialValue: coordinator)
+        _viewModel = State(
+            initialValue: AddFoodViewModel(
+                service: MockFoodService(),
+                coordinator: coordinator,
+                todayFoodVM: TodayFoodViewModel(
+                    service: MockFoodService(),
+                    coordinator: coordinator
+                )
+            )
+        )
+    }
+
+    var body: some View {
+        NavigationStack {
+            AddFoodView(
+                onSave: {},
+                viewModel: viewModel
+            )
+        }
     }
 }

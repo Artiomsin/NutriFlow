@@ -415,7 +415,21 @@ struct ScanResultView: View {
 }
 
 #Preview {
-    NavigationStack {
+    ScanResultViewPreview()
+}
+
+private struct ScanResultViewPreview: View {
+    private let container: AppDependencyContainer
+    @State private var coordinator: AppCoordinator
+
+    init() {
+        let container = AppDependencyContainer()
+        self.container = container
+        _coordinator = State(initialValue: AppCoordinator(container: container))
+    }
+
+    var body: some View {
+        NavigationStack {
         ScanResultView(
             viewModel: ScanResultViewModel(
                 items: [
@@ -465,18 +479,18 @@ struct ScanResultView: View {
                 service: MockFoodService(),
                 todayFoodVM: TodayFoodViewModel(
                     service: MockFoodService(),
-                    coordinator: AppCoordinator(container: AppDependencyContainer())
+                    coordinator: coordinator
                 ),
                 waterViewModel: WaterViewModel(
-                    coordinator: AppCoordinator(container: AppDependencyContainer()),
+                    coordinator: coordinator,
                     service: MockWaterService()
                 ),
                 coordinator: nil
             ),
             onFinished: {}
         )
+        }
     }
-    
 }
 
 private enum SamplePhoto {
