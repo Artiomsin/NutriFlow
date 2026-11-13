@@ -11,60 +11,70 @@ struct FoodCard: View {
     @State private var prefsStore = PreferencesStore.shared
 
     var body: some View {
-        HStack(spacing: 14) {
-            imageView
+        HStack(spacing: 8) {
+            Button {
+                onEdit?()
+            } label: {
+                HStack(spacing: 14) {
+                imageView
 
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Text(entry.name)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(AppColors.textPrimary)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text(entry.name)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(AppColors.textPrimary)
+                            .lineLimit(1)
+
+                        Spacer(minLength: 4)
+
+                        HStack(spacing: 2) {
+                            Text(UnitConversion.formatEnergyValueText(kcal: entry.calories, preferred: prefsStore.preferredUnits))
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(AppColors.accent)
+                            Text(UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits))
+                                .font(.system(size: 9))
+                                .foregroundColor(AppColors.accent.opacity(0.7))
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(AppColors.accent.opacity(0.12))
+                        .clipShape(Capsule())
+                    }
+
+                    Text(formatTime(entry.createdAt))
+                        .font(.caption)
+                        .foregroundColor(AppColors.textTertiary)
+
+                    if let categoryName = entry.categoryName, !categoryName.isEmpty {
+                        Label {
+                            Text(categoryName)
+                        } icon: {
+                            Image(systemName: entry.categoryIcon ?? "tag.fill")
+                        }
+                        .font(.caption)
+                        .foregroundStyle(categoryColor)
                         .lineLimit(1)
-
-                    Spacer(minLength: 4)
-
-                    HStack(spacing: 2) {
-                        Text(UnitConversion.formatEnergyValueText(kcal: entry.calories, preferred: prefsStore.preferredUnits))
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(AppColors.accent)
-                        Text(UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits))
-                            .font(.system(size: 9))
-                            .foregroundColor(AppColors.accent.opacity(0.7))
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(AppColors.accent.opacity(0.12))
-                    .clipShape(Capsule())
-                }
 
-                Text(formatTime(entry.createdAt))
-                    .font(.caption)
-                    .foregroundColor(AppColors.textTertiary)
-
-                if let categoryName = entry.categoryName, !categoryName.isEmpty {
-                    Label {
-                        Text(categoryName)
-                    } icon: {
-                        Image(systemName: entry.categoryIcon ?? "tag.fill")
+                    HStack(spacing: 12) {
+                        MacroDot(color: Color(red: 0.22, green: 0.6, blue: 0.99),
+                                 label: "P", value: UnitConversion.formatMacro(grams: entry.protein ?? 0, preferred: prefsStore.preferredUnits))
+                        MacroDot(color: Color(red: 1.0, green: 0.58, blue: 0.18),
+                                 label: "F", value: UnitConversion.formatMacro(grams: entry.fat ?? 0, preferred: prefsStore.preferredUnits))
+                        MacroDot(color: Color(red: 0.28, green: 0.82, blue: 0.38),
+                                 label: "C", value: UnitConversion.formatMacro(grams: entry.carbs ?? 0, preferred: prefsStore.preferredUnits))
                     }
-                    .font(.caption)
-                    .foregroundStyle(AppColors.textSecondary)
-                    .lineLimit(1)
                 }
 
-                HStack(spacing: 12) {
-                    MacroDot(color: Color(red: 0.22, green: 0.6, blue: 0.99),
-                              label: "P", value: UnitConversion.formatMacro(grams: entry.protein ?? 0, preferred: prefsStore.preferredUnits))
-                    MacroDot(color: Color(red: 1.0, green: 0.58, blue: 0.18),
-                              label: "F", value: UnitConversion.formatMacro(grams: entry.fat ?? 0, preferred: prefsStore.preferredUnits))
-                    MacroDot(color: Color(red: 0.28, green: 0.82, blue: 0.38),
-                              label: "C", value: UnitConversion.formatMacro(grams: entry.carbs ?? 0, preferred: prefsStore.preferredUnits))
+                Spacer(minLength: 4)
+
                 }
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer(minLength: 4)
-
-            VStack(alignment: .trailing, spacing: 6) {
+            VStack(alignment: .trailing, spacing: 7) {
                 Button {
                     onEdit?()
                 } label: {
@@ -89,12 +99,16 @@ struct FoodCard: View {
                 }
                 .buttonStyle(.plain)
 
+                Spacer(minLength: 8)
+
                 if let grams = entry.grams, grams > 0 {
                     Text(UnitConversion.formatPortionAmount(grams: grams, unit: entry.unit, preferred: prefsStore.preferredUnits))
                         .font(.caption)
                         .foregroundColor(AppColors.textSecondary)
+                        .lineLimit(1)
                 }
             }
+            .frame(maxHeight: .infinity, alignment: .topTrailing)
         }
         .padding(12)
         .appGlassSurface(cornerRadius: 14)
@@ -106,6 +120,10 @@ struct FoodCard: View {
         } message: {
             Text("Delete \"\(entry.name)\"?")
         }
+    }
+
+    private var categoryColor: Color {
+        entry.categoryColor.flatMap(Color.init(hex:)) ?? AppColors.accent
     }
 
     @ViewBuilder
@@ -190,4 +208,28 @@ struct MacroBadge: View {
         .background(AppColors.background)
         .cornerRadius(8)
     }
+}
+
+#Preview("Food card with category") {
+    FoodCard(
+        entry: FoodEntry(
+            id: "preview-food",
+            userId: "preview-user",
+            name: "Greek yogurt",
+            calories: 150,
+            protein: 15,
+            fat: 4,
+            carbs: 10,
+            foodId: nil,
+            grams: 170,
+            unit: "g",
+            categoryName: "Breakfast",
+            categoryIcon: "sunrise.fill",
+            imageUrl: nil,
+            createdAt: "2026-11-13T08:30:00Z",
+            updatedAt: nil
+        )
+    )
+    .padding()
+    .background(AppColors.background)
 }
