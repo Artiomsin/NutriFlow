@@ -7,6 +7,7 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { ProfilesModule } from './profiles/profiles.module';
 import { FoodModule } from './food/food.module';
+import { BarcodeModule } from './food/barcode/barcode.module';
 import { WaterTrackingModule } from './water-tracking/water-tracking.module';
 import { DailySummaryModule } from './daily-summary/daily-summary.module';
 import { GoalsModule } from './goals/goals.module';
@@ -49,6 +50,7 @@ import { RedisModule } from './redis/redis.module';
     AuthModule,
     ProfilesModule,
     FoodModule,
+    BarcodeModule,
     WaterTrackingModule,
     DailySummaryModule,
     GoalsModule,

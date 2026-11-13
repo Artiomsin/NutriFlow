@@ -48,6 +48,7 @@ import type {
 } from './food.schema';
 import { currentUserDate } from '../common/time/user-date';
 import { RedisService } from '../redis/redis.service';
+import { BarcodeLookupService } from './barcode/barcode-lookup.service';
 import {
   clampNutrition,
   roundGrams,
@@ -91,6 +92,7 @@ export class FoodService {
     private readonly dailySummaryService: DailySummaryService,
     @Inject(DB) private readonly db: Db,
     private readonly redis: RedisService,
+    private readonly barcodeLookup: BarcodeLookupService,
   ) {}
 
   private visibilityClause(userId: string) {
@@ -532,6 +534,10 @@ export class FoodService {
 
       return entry;
     });
+
+    if (data.barcode) {
+      await this.barcodeLookup.invalidate(data.barcode, userId);
+    }
 
     return result;
   }
@@ -1825,6 +1831,12 @@ export class FoodService {
 
       return { ...food, servings };
     });
+
+    // A freshly saved product must be scannable immediately, even when the
+    // barcode was cached as "not found" a minute ago.
+    if (result.barcode) {
+      await this.barcodeLookup.invalidate(result.barcode, userId);
+    }
 
     return result;
   }

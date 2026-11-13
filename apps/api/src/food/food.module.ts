@@ -8,9 +8,16 @@ import { AnalysisQuotaService } from './analysis-quota.service';
 import { FoodMatcherService } from './food-matcher.service';
 import { RateLimitModule } from '../rate-limit/rate-limit.module';
 import { RedisModule } from '../redis/redis.module';
+import { BarcodeModule } from './barcode/barcode.module';
 
 @Module({
-  imports: [DailySummaryModule, UploadModule, RateLimitModule, RedisModule],
+  imports: [
+    DailySummaryModule,
+    UploadModule,
+    RateLimitModule,
+    RedisModule,
+    BarcodeModule,
+  ],
   controllers: [FoodController],
   providers: [
     FoodService,

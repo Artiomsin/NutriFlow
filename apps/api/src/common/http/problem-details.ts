@@ -13,6 +13,7 @@ export const ProblemType = {
   requestTimeout: `${problemBaseURL}/request-timeout`,
   rateLimited: `${problemBaseURL}/rate-limited`,
   foodAnalysisQuotaExceeded: `${problemBaseURL}/food-analysis-quota-exceeded`,
+  serviceUnavailable: `${problemBaseURL}/service-unavailable`,
   serverError: `${problemBaseURL}/server-error`,
 } as const;
 
@@ -79,6 +80,11 @@ function problemDefinition(
       return { type: ProblemType.requestTimeout, title: 'Request timed out' };
     case HttpStatus.TOO_MANY_REQUESTS:
       return { type: ProblemType.rateLimited, title: 'Too many requests' };
+    case HttpStatus.SERVICE_UNAVAILABLE:
+      return {
+        type: ProblemType.serviceUnavailable,
+        title: 'Service unavailable',
+      };
     default:
       return { type: ProblemType.serverError, title: 'Internal server error' };
   }

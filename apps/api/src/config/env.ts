@@ -35,6 +35,20 @@ export const env = {
     43_200_000,
   ),
 
+  // Open Food Facts barcode lookups. Reads are free and need no API key: OFF
+  // only asks for a descriptive User-Agent and limits product reads to 15 per
+  // minute per server IP, so the per-instance budget defaults to that number.
+  // Divide it by the number of API instances sharing one egress IP.
+  OFF_ENABLED: (process.env.OFF_ENABLED ?? 'true') !== 'false',
+  OFF_API_URL: process.env.OFF_API_URL ?? 'https://world.openfoodfacts.org',
+  // The public API can take a little over three seconds under normal load;
+  // five seconds avoids turning successful barcode scans into false 503s.
+  OFF_TIMEOUT_MS: getPositiveInteger('OFF_TIMEOUT_MS', 5_000),
+  OFF_USER_AGENT:
+    process.env.OFF_USER_AGENT ??
+    'NutriFlow/1.0 (https://nutriflow.app; contact@nutriflow.app)',
+  OFF_REQUESTS_PER_MINUTE: getPositiveInteger('OFF_REQUESTS_PER_MINUTE', 15),
+
   GEMINI_API_KEY: process.env.GEMINI_API_KEY ?? '',
   GROQ_API_KEY: process.env.GROQ_API_KEY ?? '',
   GROQ_MODEL: process.env.GROQ_MODEL ?? 'qwen/qwen3.8-27b',
@@ -48,6 +62,7 @@ export const env = {
   RATE_LIMIT_REFRESH: getPositiveInteger('RATE_LIMIT_REFRESH', 30),
   RATE_LIMIT_UPLOAD: getPositiveInteger('RATE_LIMIT_UPLOAD', 10),
   RATE_LIMIT_ANALYZE: getPositiveInteger('RATE_LIMIT_ANALYZE', 3),
+  RATE_LIMIT_BARCODE: getPositiveInteger('RATE_LIMIT_BARCODE', 30),
   TRUST_PROXY: getPositiveInteger('TRUST_PROXY', 1),
 
   S3_ACCESS_KEY_ID:

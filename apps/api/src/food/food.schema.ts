@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { calendarDateSchema } from '../common/validation/date.schema';
 import { roundGrams, roundNutrition } from '../common/nutrition/precision';
+import { normalizeGtin } from './barcode/gtin';
 
 export const dateString = calendarDateSchema;
 
@@ -119,7 +120,16 @@ export const createFoodSchema = z.object({
   proteinPer100g: nutritionNumber(100).optional(),
   fatPer100g: nutritionNumber(100).optional(),
   carbsPer100g: nutritionNumber(100).optional(),
-  barcode: z.string().max(50).optional(),
+  // A barcode is an identifier: reject values that cannot be a valid GTIN
+  // instead of persisting a typo that will never be found by a scanner.
+  barcode: z
+    .string()
+    .max(50)
+    .refine((value) => normalizeGtin(value) !== null, {
+      message: 'Invalid barcode',
+    })
+    .transform((value) => normalizeGtin(value) as string)
+    .optional(),
   imageUrl: z.string().max(500).optional(),
   servings: z
     .array(

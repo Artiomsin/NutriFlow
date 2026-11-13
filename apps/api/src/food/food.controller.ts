@@ -12,6 +12,7 @@ import {
   UploadedFile,
   BadRequestException,
   ParseUUIDPipe,
+  HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 
@@ -22,6 +23,8 @@ import type { AuthPayload } from '../auth/types/auth.types';
 import { FoodService } from './food.service';
 import { UploadService } from '../upload/upload.service';
 import { FoodAnalysisService } from './food-analysis.service';
+import { BarcodeLookupService } from './barcode/barcode-lookup.service';
+import { gtinValidationProblem } from './barcode/gtin';
 import { RateLimit, UserRateLimit } from '../rate-limit/rate-limit.decorators';
 import { UserRateLimitGuard } from '../rate-limit/user-rate-limit.guard';
 import { env } from '../config/env';
@@ -41,6 +44,10 @@ import {
   getFoodsQuerySchema,
 } from './food.schema';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
+import {
+  ProblemDetailsException,
+  ProblemType,
+} from '../common/http/problem-details';
 import type {
   CreateFoodEntryDto,
   UpdateFoodEntryDto,
@@ -63,6 +70,7 @@ export class FoodController {
     private readonly foodService: FoodService,
     private readonly foodAnalysisService: FoodAnalysisService,
     private readonly uploadService: UploadService,
+    private readonly barcodeLookup: BarcodeLookupService,
   ) {}
 
   // ── Upload ───────────────────────────────────────────────────
@@ -250,8 +258,71 @@ export class FoodController {
   }
 
   @Get('foods/barcode/:barcode')
-  getByBarcode(@User() user: AuthPayload, @Param('barcode') barcode: string) {
-    return this.foodService.getByBarcode(barcode, user.userId);
+  @RateLimit('barcode-ip', env.RATE_LIMIT_BARCODE, 60_000)
+  @UserRateLimit({
+    scope: 'barcode',
+    limit: env.RATE_LIMIT_BARCODE,
+    ttl: 60_000,
+  })
+  @UseGuards(UserRateLimitGuard)
+  async getByBarcode(
+    @User() user: AuthPayload,
+    @Param('barcode') barcode: string,
+  ) {
+    const result = await this.barcodeLookup.lookup(barcode, user.userId);
+
+    if (result.invalid) {
+      const problem = gtinValidationProblem(barcode);
+      throw new ProblemDetailsException({
+        type: ProblemType.validationFailed,
+        title: 'Validation failed',
+        status: HttpStatus.BAD_REQUEST,
+        detail: problem.detail,
+        fieldErrors: [{ field: 'barcode', code: problem.code }],
+      });
+    }
+
+    if (!result.found || !result.product) {
+      // A caller that scanned a real barcode should not be told the product
+      // does not exist when we simply could not reach a provider.
+      if (result.unavailable) {
+        throw new ProblemDetailsException({
+          type: ProblemType.serviceUnavailable,
+          title: 'Service unavailable',
+          status: HttpStatus.SERVICE_UNAVAILABLE,
+          detail:
+            'Barcode lookup is temporarily unavailable, please try again later',
+        });
+      }
+      throw new ProblemDetailsException({
+        type: ProblemType.notFound,
+        title: 'Not found',
+        status: HttpStatus.NOT_FOUND,
+        detail: 'Food with this barcode was not found',
+      });
+    }
+
+    const product = result.product;
+    let servings = product.servings ?? [];
+
+    // The cached payload is a snapshot. Portions are editable by the user, so
+    // for a cache hit they are re-read from the database instead of being
+    // served stale for up to the cache TTL.
+    if (result.cached && product.id) {
+      try {
+        const fresh = await this.foodService.getById(product.id, user.userId);
+        servings = fresh.servings ?? [];
+      } catch {
+        // The product is no longer visible: keep the cached snapshot.
+      }
+    }
+
+    return {
+      ...product,
+      servings,
+      provider: result.provider,
+      cached: result.cached ?? false,
+    };
   }
 
   @Get('foods/:id')

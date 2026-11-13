@@ -174,6 +174,62 @@ describe('food catalog routes', () => {
     const token = await register();
     await http().get('/api/foods/not-a-uuid').set(auth(token)).expect(400);
   });
+
+  it('reads a saved food through the barcode HTTP endpoint', async () => {
+    const token = await register();
+    const barcode = '4006381333931';
+    const name = `barcode-food-${randomUUID()}`;
+
+    await http()
+      .post('/api/foods')
+      .set(auth(token))
+      .send({ name, caloriesPer100g: 120, barcode })
+      .expect(201);
+
+    const response = await http()
+      .get(`/api/foods/barcode/${barcode}`)
+      .set(auth(token))
+      .expect(200);
+
+    expect(response.body).toMatchObject({
+      name,
+      barcode,
+      caloriesPer100g: 120,
+      source: 'user',
+      provider: 'local-database',
+      cached: false,
+    });
+  });
+
+  it('returns a field-level validation problem for an invalid barcode', async () => {
+    const token = await register();
+
+    const response = await http()
+      .get('/api/foods/barcode/123')
+      .set(auth(token))
+      .expect(400);
+
+    expect(response.body).toMatchObject({
+      type: 'https://api.nutriflow.app/problems/validation-failed',
+      status: 400,
+      fieldErrors: [{ field: 'barcode', code: 'INVALID_FORMAT' }],
+    });
+  });
+
+  it('returns a not-found problem for an unknown valid barcode', async () => {
+    const token = await register();
+
+    const response = await http()
+      .get('/api/foods/barcode/96385074')
+      .set(auth(token))
+      .expect(404);
+
+    expect(response.body).toMatchObject({
+      type: 'https://api.nutriflow.app/problems/not-found',
+      status: 404,
+      detail: 'Food with this barcode was not found',
+    });
+  });
 });
 
 describe('food upload route', () => {
