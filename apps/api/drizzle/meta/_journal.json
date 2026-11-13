@@ -113,6 +113,13 @@
       "when": 1794300000000,
       "tag": "0016_amber_amber",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794516147822,
+      "tag": "0017_category_case_insensitive_names",
+      "breakpoints": true
     }
   ]
 }

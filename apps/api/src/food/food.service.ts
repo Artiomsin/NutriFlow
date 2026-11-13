@@ -28,6 +28,11 @@ import {
 } from 'drizzle-orm';
 import { DailySummaryService } from '../daily-summary/daily-summary.service';
 import { foodCategories } from '../db/schema/foodCategories';
+import {
+  ProblemDetailsException,
+  ProblemType,
+} from '../common/http/problem-details';
+import { FieldErrorCode } from '../common/validation/field-errors';
 import { env } from '../config/env';
 import type {
   CreateFoodEntryDto,
@@ -134,6 +139,39 @@ export class FoodService {
       isNull(foodCategories.createdBy),
       eq(foodCategories.createdBy, userId),
     )!;
+  }
+
+  /** Case-insensitive name comparison: "Fruits" and "fruits" are one name. */
+  private categoryNameClause(name: string): SQL {
+    return sql`lower(${foodCategories.name}) = lower(${name})`;
+  }
+
+  /** Keeps display and uniqueness semantics aligned for every category write. */
+  private normalizeCategoryName(name: string): string {
+    return name.trim().replace(/\s+/g, ' ');
+  }
+
+  /**
+   * A name clash is a field-level problem, not a generic conflict: the app can
+   * point at the name input and localize the message from the stable code.
+   */
+  private duplicateCategoryProblem(name: string): ProblemDetailsException {
+    return new ProblemDetailsException({
+      type: ProblemType.conflict,
+      title: 'Conflict',
+      status: 409,
+      detail: `Category "${name}" already exists`,
+      fieldErrors: [{ field: 'name', code: FieldErrorCode.alreadyExists }],
+    });
+  }
+
+  private isUniqueViolation(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: unknown }).code === '23505'
+    );
   }
 
   /** Every write of a personal category goes through the owner scope. */
@@ -1096,7 +1134,7 @@ export class FoodService {
   }
 
   async createCategory(userId: string, data: CreateFoodCategoryDto) {
-    const name = data.name.trim();
+    const name = this.normalizeCategoryName(data.name);
 
     // A name already taken in either scope would put two look-alike entries in
     // the list the user sees, so both cases are rejected.
@@ -1105,22 +1143,29 @@ export class FoodService {
       .from(foodCategories)
       .where(
         and(
-          eq(foodCategories.name, name),
+          this.categoryNameClause(name),
           this.categoryVisibilityClause(userId),
         ),
       )
       .limit(1);
 
-    if (clash) {
-      throw new ConflictException(`Category "${name}" already exists`);
+    if (clash) throw this.duplicateCategoryProblem(name);
+
+    try {
+      const [category] = await this.db
+        .insert(foodCategories)
+        .values({ name, icon: data.icon, color: data.color, createdBy: userId })
+        .returning();
+
+      return category;
+    } catch (error) {
+      // Two clients can pass the check above at the same time. The unique
+      // index is the source of truth, and a collision is still a name clash.
+      if (this.isUniqueViolation(error)) {
+        throw this.duplicateCategoryProblem(name);
+      }
+      throw error;
     }
-
-    const [category] = await this.db
-      .insert(foodCategories)
-      .values({ name, icon: data.icon, color: data.color, createdBy: userId })
-      .returning();
-
-    return category;
   }
 
   async updateCategory(
@@ -1142,23 +1187,21 @@ export class FoodService {
     const patch: { name?: string; icon?: string | null; color?: string } = {};
 
     if (data.name !== undefined) {
-      const name = data.name.trim();
+      const name = this.normalizeCategoryName(data.name);
 
       const [clash] = await this.db
         .select({ id: foodCategories.id })
         .from(foodCategories)
         .where(
           and(
-            eq(foodCategories.name, name),
+            this.categoryNameClause(name),
             this.categoryVisibilityClause(userId),
             ne(foodCategories.id, id),
           ),
         )
         .limit(1);
 
-      if (clash) {
-        throw new ConflictException(`Category "${name}" already exists`);
-      }
+      if (clash) throw this.duplicateCategoryProblem(name);
 
       patch.name = name;
     }
@@ -1169,15 +1212,22 @@ export class FoodService {
     // UI fallback. A PATCH with `null` clears a custom color back to default.
     if (data.color !== undefined) patch.color = data.color ?? '#10B981';
 
-    const [updated] = await this.db
-      .update(foodCategories)
-      .set(patch)
-      .where(this.categoryOwnershipClause(userId, id))
-      .returning();
+    try {
+      const [updated] = await this.db
+        .update(foodCategories)
+        .set(patch)
+        .where(this.categoryOwnershipClause(userId, id))
+        .returning();
 
-    if (!updated) throw new NotFoundException('Category not found');
+      if (!updated) throw new NotFoundException('Category not found');
 
-    return updated;
+      return updated;
+    } catch (error) {
+      if (patch.name && this.isUniqueViolation(error)) {
+        throw this.duplicateCategoryProblem(patch.name);
+      }
+      throw error;
+    }
   }
 
   async removeCategory(userId: string, id: string) {

@@ -12,6 +12,7 @@ export const FieldErrorCode = {
   invalidFormat: 'INVALID_FORMAT',
   invalidType: 'INVALID_TYPE',
   invalidValue: 'INVALID_VALUE',
+  alreadyExists: 'ALREADY_EXISTS',
   tooShort: 'TOO_SHORT',
   tooLong: 'TOO_LONG',
   outOfRange: 'OUT_OF_RANGE',

@@ -36,11 +36,14 @@ export const foodCategories = app.table(
     // System categories keep a name unique among themselves, while a personal
     // category only has to be unique for its owner. A single global unique on
     // `name` would stop two users from both having "My breakfasts".
+    //
+    // Both indexes compare `lower(name)` because "Fruits" and "fruits" are the
+    // same entry from the user's point of view.
     systemNameUnique: uniqueIndex('uq_category_system_name')
-      .on(table.name)
+      .on(sql`lower(${table.name})`)
       .where(sql`${table.createdBy} IS NULL`),
     userNameUnique: uniqueIndex('uq_category_user_name')
-      .on(table.createdBy, table.name)
+      .on(table.createdBy, sql`lower(${table.name})`)
       .where(sql`${table.createdBy} IS NOT NULL`),
     createdByIdx: index('idx_food_categories_created_by').on(table.createdBy),
     nonBlankName: check(
