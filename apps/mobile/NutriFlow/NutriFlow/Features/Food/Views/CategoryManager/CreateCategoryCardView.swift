@@ -7,7 +7,9 @@ struct CreateCategoryCardView: View {
     @State private var selectedColor: Color = Color(hex: "#10B981") ?? AppColors.accent
 
     /// Callback with (name, icon, color) when the user taps "Add Category".
-    let onCreate: (String, String, String) -> Void
+    let errorMessage: String?
+    let onNameChanged: () -> Void
+    let onCreate: (String, String, String) async -> Bool
 
     var body: some View {
         AppCard {
@@ -27,6 +29,14 @@ struct CreateCategoryCardView: View {
                 .padding(.horizontal, 12)
                 .background(AppColors.surfaceSecondary)
                 .clipShape(.rect(cornerRadius: AppRadius.medium))
+                .onChange(of: categoryName) { onNameChanged() }
+
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundStyle(AppColors.error)
+                        .accessibilityLabel(errorMessage)
+                }
 
                 CategoryIconPicker(
                     selection: $selectedIcon,
@@ -60,10 +70,12 @@ struct CreateCategoryCardView: View {
 
         let icon = selectedIcon
         let color = selectedColor.toHex() ?? "#10B981"
-        categoryName = ""
-        selectedIcon = FoodCategoryIcons.defaultIcon
-        selectedColor = Color(hex: "#10B981") ?? AppColors.accent
 
-        onCreate(name, icon, color)
+        Task {
+            guard await onCreate(name, icon, color) else { return }
+            categoryName = ""
+            selectedIcon = FoodCategoryIcons.defaultIcon
+            selectedColor = Color(hex: "#10B981") ?? AppColors.accent
+        }
     }
 }

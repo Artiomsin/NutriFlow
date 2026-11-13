@@ -10,6 +10,7 @@ enum FieldErrorCode: String, CaseIterable, Sendable {
     case invalidFormat = "INVALID_FORMAT"
     case invalidType = "INVALID_TYPE"
     case invalidValue = "INVALID_VALUE"
+    case alreadyExists = "ALREADY_EXISTS"
     case tooShort = "TOO_SHORT"
     case tooLong = "TOO_LONG"
     case outOfRange = "OUT_OF_RANGE"

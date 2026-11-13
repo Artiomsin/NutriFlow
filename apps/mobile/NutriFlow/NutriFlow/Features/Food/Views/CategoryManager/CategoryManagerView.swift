@@ -76,10 +76,11 @@ struct CategoryManagerView: View {
                             viewModel.retryCategories()
                         }
                     } else {
-                        CreateCategoryCardView { name, icon, color in
-                            Task {
-                                await viewModel.createCategory(named: name, icon: icon, color: color)
-                            }
+                        CreateCategoryCardView(
+                            errorMessage: viewModel.categoryNameError,
+                            onNameChanged: viewModel.clearCategoryNameError
+                        ) { name, icon, color in
+                            await viewModel.createCategory(named: name, icon: icon, color: color) != nil
                         }
 
                         ManagePersonalDishesCard {
