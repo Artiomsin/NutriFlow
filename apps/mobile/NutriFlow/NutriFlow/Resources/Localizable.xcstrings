@@ -786,6 +786,16 @@
     "For example, Homemade meals" : {
 
     },
+    "form.error.already_exists" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This name is already taken."
+          }
+        }
+      }
+    },
     "form.error.invalid_email" : {
       "localizations" : {
         "en" : {
@@ -1274,9 +1284,6 @@
 
     },
     "Start typing to search" : {
-
-    },
-    "Swipe up or down to adjust the hue." : {
 
     },
     "Switch to automatic goals" : {
