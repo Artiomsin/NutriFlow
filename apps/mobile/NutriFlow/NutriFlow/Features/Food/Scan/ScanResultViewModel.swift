@@ -532,6 +532,10 @@ final class ScanResultViewModel {
         var failed: [String] = []
         var failedIds: [UUID] = []
         for item in foods {
+            // A barcode lookup brings a remote photo instead of locally picked
+            // bytes. Nothing to upload there: keep the URL the product already
+            // has. The server rejects image URLs longer than 500 characters.
+            let productImageUrl = item.source.imageUrl.flatMap { $0.count <= 500 ? $0 : nil }
             do {
                 try await service.createFoodEntry(
                     name: item.name,
@@ -546,7 +550,8 @@ final class ScanResultViewModel {
                     categoryId: item.categoryID,
                     createPersonalFood: true,
                     updatePersonalFood: item.hasManualProductEdit,
-                    imageUrl: imageUrl,
+                    imageUrl: imageUrl ?? productImageUrl,
+                    barcode: item.source.barcode,
                     date: nil
                 )
             } catch {

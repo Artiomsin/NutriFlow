@@ -1,7 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { ConfigModule } from '@nestjs/config';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 
+import {
+  ProblemDetailsException,
+  ProblemType,
+} from '../../src/common/http/problem-details';
+import { FieldErrorCode } from '../../src/common/validation/field-errors';
 import { env } from '../../src/config/env';
 import { DbModule } from '../../src/db/db.module';
 import { FoodModule } from '../../src/food/food.module';
@@ -95,10 +100,26 @@ describe('FoodService.createFood / createCategory', () => {
     expect(category?.createdBy).toBe(user.id);
 
     // A second call with the same name is a conflict now that categories are
-    // scoped per owner instead of being merged into one shared row.
+    // scoped per owner instead of being merged into one shared row. The name is
+    // a field-level problem, so the app can point at the input and localize the
+    // message from the stable code.
+    const duplicate = await service
+      .createCategory(user.id, { name: 'ZqDup' })
+      .catch((error: unknown) => error);
+
+    expect(duplicate).toBeInstanceOf(ProblemDetailsException);
+    expect((duplicate as ProblemDetailsException).getStatus()).toBe(409);
+    expect((duplicate as ProblemDetailsException).getResponse()).toMatchObject({
+      type: ProblemType.conflict,
+      status: 409,
+      fieldErrors: [{ field: 'name', code: FieldErrorCode.alreadyExists }],
+    });
+
+    // "ZqDup" and "zqdup" are one name from the user's point of view, so the
+    // case-insensitive uniqueness has to reject the second spelling as well.
     await expect(
-      service.createCategory(user.id, { name: 'ZqDup' }),
-    ).rejects.toBeInstanceOf(ConflictException);
+      service.createCategory(user.id, { name: 'zqdup' }),
+    ).rejects.toBeInstanceOf(ProblemDetailsException);
   });
 });
 

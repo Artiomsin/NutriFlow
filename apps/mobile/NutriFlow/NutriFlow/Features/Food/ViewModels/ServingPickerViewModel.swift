@@ -153,6 +153,7 @@ final class ServingPickerViewModel {
                 createPersonalFood: false,
                 updatePersonalFood: false,
                 imageUrl: food.imageUrl,
+                barcode: nil,
                 date: nil
             )
 

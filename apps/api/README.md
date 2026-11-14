@@ -64,13 +64,47 @@ RATE_LIMIT_AUTH=10
 RATE_LIMIT_REFRESH=30
 RATE_LIMIT_UPLOAD=10
 RATE_LIMIT_ANALYZE=3
+RATE_LIMIT_BARCODE=30
 ANALYSIS_DAILY_LIMIT=6
 ```
 
 The API limits ordinary requests to 120 per minute per IP, authentication to
 10 per 15 minutes per IP, refreshes to 30 per minute per IP, uploads to 10 per
-minute per user, and food analysis to 3 per minute plus its daily quota. The
-Render health endpoints are excluded from throttling.
+minute per user, food analysis to 3 per minute plus its daily quota, and
+barcode lookups to 30 per minute per user and per IP. The Render health
+endpoints are excluded from throttling.
+
+## Barcode lookups
+
+`GET /foods/barcode/:barcode` resolves a scanned GTIN in this order:
+
+1. the user's own products and the shared catalog (one indexed query);
+2. Open Food Facts, an external public database;
+3. a Redis cache in front of both, enabled while a cacheable external
+   provider is registered.
+
+Configuration:
+
+```env
+OFF_ENABLED=true
+OFF_API_URL=https://world.openfoodfacts.org
+OFF_TIMEOUT_MS=5000
+OFF_REQUESTS_PER_MINUTE=15
+OFF_USER_AGENT=NutriFlow/1.0 (https://nutriflow.app; contact@nutriflow.app)
+```
+
+Open Food Facts needs **no API key for reads**. Requests must carry a
+descriptive `User-Agent`, and product reads are limited to 15 per minute per
+server IP. `OFF_REQUESTS_PER_MINUTE` is a per-process budget, so divide it by
+the number of API instances that share one egress IP.
+
+Responses use `400` for an invalid GTIN, `404` when the barcode is valid but
+unknown, and `503` when a provider could not be reached. A miss caused by a
+provider outage is never cached as "not found".
+
+Product data from Open Food Facts is licensed under the Open Database License
+(ODbL) and its images under CC BY-SA. Clients that display OFF data must
+attribute Open Food Facts and keep derivative data share-alike.
 
 To stop the test database:
 

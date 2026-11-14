@@ -263,13 +263,20 @@ struct FoodSection: View {
 
 struct FoodSectionPreview: View {
     let configure: (TodayFoodViewModel) -> Void
+    private let container: AppDependencyContainer
+    @State private var coordinator: AppCoordinator
+
+    init(configure: @escaping (TodayFoodViewModel) -> Void) {
+        self.configure = configure
+        let container = AppDependencyContainer()
+        self.container = container
+        _coordinator = State(initialValue: AppCoordinator(container: container))
+    }
 
     var body: some View {
         let todayFoodVM = TodayFoodViewModel(
             service: MockFoodService(),
-            coordinator: AppCoordinator(
-                container: AppDependencyContainer()
-            )
+            coordinator: coordinator
         )
 
         configure(todayFoodVM)

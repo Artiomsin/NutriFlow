@@ -82,6 +82,10 @@ export const foods = app.table(
         sql`${table.barcode} IS NOT NULL AND ${table.source} IN ('system', 'usda')`,
       ),
     categoryIdIdx: index('idx_foods_category_id').on(table.categoryId),
+    // Barcode lookups scan both catalog and personal products.
+    barcodeIdx: index('idx_foods_barcode')
+      .on(table.barcode)
+      .where(sql`${table.barcode} IS NOT NULL`),
     forkedFromFk: foreignKey({
       columns: [table.forkedFromId],
       foreignColumns: [table.id],

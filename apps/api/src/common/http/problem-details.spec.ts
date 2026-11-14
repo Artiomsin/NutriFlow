@@ -16,6 +16,14 @@ describe('problem details', () => {
     });
   });
 
+  test('maps 503 to service unavailable', () => {
+    expect(defaultProblem(HttpStatus.SERVICE_UNAVAILABLE)).toEqual({
+      type: ProblemType.serviceUnavailable,
+      title: 'Service unavailable',
+      status: HttpStatus.SERVICE_UNAVAILABLE,
+    });
+  });
+
   test('never exposes a 5xx exception message as problem detail', () => {
     expect(defaultProblem(HttpStatus.INTERNAL_SERVER_ERROR)).toEqual({
       type: ProblemType.serverError,

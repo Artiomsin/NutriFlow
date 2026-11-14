@@ -1,7 +1,7 @@
 import Foundation
 
 final class MockFoodService: FoodServiceProtocol {
-    func createFoodEntry(name: String, calories: Double, protein: Double?, fat: Double?, carbs: Double?, foodId: String? = nil, grams: Double? = nil, unit: String? = nil, categoryName: String? = nil, categoryId: String? = nil, createPersonalFood: Bool = false, updatePersonalFood: Bool = false, imageUrl: String? = nil, date: String? = nil) async throws -> FoodEntry {
+    func createFoodEntry(name: String, calories: Double, protein: Double?, fat: Double?, carbs: Double?, foodId: String? = nil, grams: Double? = nil, unit: String? = nil, categoryName: String? = nil, categoryId: String? = nil, createPersonalFood: Bool = false, updatePersonalFood: Bool = false, imageUrl: String? = nil, barcode: String? = nil, date: String? = nil) async throws -> FoodEntry {
         FoodEntry(id: UUID().uuidString, userId: "1", name: name, calories: calories, protein: protein, fat: fat, carbs: carbs, foodId: foodId, grams: grams, unit: unit ?? "g", categoryName: categoryName, categoryIcon: nil,imageUrl: imageUrl, createdAt: "2026-05-18T10:00:00Z", updatedAt: nil)
     }
     func getTodayFood() async throws -> [FoodEntry] {
@@ -137,6 +137,33 @@ final class MockFoodService: FoodServiceProtocol {
     }
     func getFoodById(_ id: String) async throws -> CatalogFood {
         CatalogFood(id: id, name: "Mock Food", categoryId: "242542", categoryName: "gjhgh", brand: nil, caloriesPer100g: 100, proteinPer100g: 10, fatPer100g: 5, carbsPer100g: 10, barcode: nil, imageUrl: nil, source: "user", createdBy: nil, createdAt: "", updatedAt: "", servings: nil)
+    }
+
+    func getFoodByBarcode(_ barcode: String) async throws -> CatalogFood {
+        let foods = try await getPopularFood()
+
+        if let match = foods.first(where: { $0.barcode == barcode }) {
+            return match
+        }
+
+        return CatalogFood(
+            id: "",
+            name: "Scanned product \(barcode.suffix(4))",
+            categoryId: nil,
+            categoryName: "Snacks",
+            brand: "Mock",
+            caloriesPer100g: 250,
+            proteinPer100g: 5,
+            fatPer100g: 12,
+            carbsPer100g: 30,
+            barcode: barcode,
+            imageUrl: nil,
+            source: "off",
+            createdBy: nil,
+            createdAt: "",
+            updatedAt: "",
+            servings: nil
+        )
     }
     func createCatalogFood(_ request: CreateCatalogFoodRequest) async throws -> CatalogFood {
         CatalogFood(id: UUID().uuidString, name: request.name, categoryId: request.categoryId, categoryName: nil, brand: nil, caloriesPer100g: request.caloriesPer100g, proteinPer100g: request.proteinPer100g, fatPer100g: request.fatPer100g, carbsPer100g: request.carbsPer100g, barcode: request.barcode, imageUrl: request.imageUrl, source: "user", createdBy: nil, createdAt: "", updatedAt: "", servings: request.servings?.map { FoodServing(id: UUID().uuidString, foodId: "", name: $0.name, grams: $0.grams, createdAt: nil) })

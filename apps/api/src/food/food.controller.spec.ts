@@ -8,6 +8,8 @@ import type { UploadService } from '../upload/upload.service';
 import { FoodController } from './food.controller';
 import type { FoodAnalysisService } from './food-analysis.service';
 import type { FoodService } from './food.service';
+import type { BarcodeLookupService } from './barcode/barcode-lookup.service';
+import { ProblemType } from '../common/http/problem-details';
 
 type UploadedImage = {
   buffer: Buffer;
@@ -37,10 +39,14 @@ function setup() {
   };
   const foodAnalysisService = { analyzePhoto: mock(async () => []) };
   const uploadService = { upload: mock(async () => ({ id: 'upload-1' })) };
+  const barcodeLookup = {
+    lookup: mock(async () => ({ found: false, provider: 'none' })),
+  };
   const controller = new FoodController(
     foodService as unknown as FoodService,
     foodAnalysisService as unknown as FoodAnalysisService,
     uploadService as unknown as UploadService,
+    barcodeLookup as unknown as BarcodeLookupService,
   );
 
   return {
@@ -48,6 +54,7 @@ function setup() {
     foodService,
     foodAnalysisService,
     uploadService,
+    barcodeLookup,
   };
 }
 
@@ -211,9 +218,105 @@ describe('FoodController catalog', () => {
   });
 
   it('looks up a barcode', async () => {
-    const { controller, foodService } = setup();
-    await controller.getByBarcode(user, '12345');
-    expect(foodService.getByBarcode).toHaveBeenCalledWith('12345', 'user-1');
+    const { controller, barcodeLookup } = setup();
+    const barcodeResult = {
+      found: true,
+      provider: 'local-database',
+      product: {
+        id: 'food-1',
+        name: 'Test Product',
+        barcode: '12345',
+        caloriesPer100g: 100,
+        source: 'system',
+      },
+      cached: false,
+    };
+    (barcodeLookup.lookup as any).mockResolvedValueOnce(barcodeResult);
+    const result = await controller.getByBarcode(user, '12345');
+    expect(barcodeLookup.lookup).toHaveBeenCalledWith('12345', 'user-1');
+    expect(result.provider).toBe('local-database');
+    expect(result.name).toBe('Test Product');
+  });
+
+  it('refreshes servings for a cached barcode hit', async () => {
+    const { controller, foodService, barcodeLookup } = setup();
+    const cachedResult = {
+      found: true,
+      provider: 'local-database',
+      cached: true,
+      product: {
+        id: 'food-1',
+        name: 'Test Product',
+        barcode: '4006381333931',
+        caloriesPer100g: 100,
+        source: 'system',
+        servings: [{ id: 'old', name: 'Old portion', grams: 10 }],
+      },
+    };
+    (barcodeLookup.lookup as any).mockResolvedValueOnce(cachedResult);
+    (foodService.getById as any).mockResolvedValueOnce({
+      id: 'food-1',
+      servings: [{ id: 'new', name: 'New portion', grams: 25 }],
+    });
+
+    const result = await controller.getByBarcode(user, '4006381333931');
+
+    expect(foodService.getById).toHaveBeenCalledWith('food-1', 'user-1');
+    expect(result.servings).toEqual([
+      { id: 'new', name: 'New portion', grams: 25 },
+    ]);
+    expect(result.cached).toBe(true);
+  });
+
+  it('answers 503 when a barcode provider could not be reached', async () => {
+    const { controller, barcodeLookup } = setup();
+    (barcodeLookup.lookup as any).mockResolvedValueOnce({
+      found: false,
+      provider: 'none',
+      unavailable: true,
+    });
+
+    await expect(
+      controller.getByBarcode(user, '4006381333931'),
+    ).rejects.toMatchObject({
+      response: {
+        type: ProblemType.serviceUnavailable,
+        status: 503,
+        detail:
+          'Barcode lookup is temporarily unavailable, please try again later',
+      },
+    });
+  });
+
+  it('returns a validation problem with a barcode field error', async () => {
+    const { controller, barcodeLookup } = setup();
+    (barcodeLookup.lookup as any).mockResolvedValueOnce({ invalid: true });
+
+    await expect(controller.getByBarcode(user, '')).rejects.toMatchObject({
+      response: {
+        type: ProblemType.validationFailed,
+        status: 400,
+        fieldErrors: [{ field: 'barcode', code: 'REQUIRED' }],
+      },
+    });
+  });
+
+  it('returns a not-found problem with detail for an unknown barcode', async () => {
+    const { controller, barcodeLookup } = setup();
+    (barcodeLookup.lookup as any).mockResolvedValueOnce({
+      found: false,
+      provider: 'none',
+    });
+
+    await expect(
+      controller.getByBarcode(user, '4006381333931'),
+    ).rejects.toMatchObject({
+      response: {
+        type: ProblemType.notFound,
+        status: 404,
+        detail: 'Food with this barcode was not found',
+      },
+    });
   });
 
   it('looks up a food by id', async () => {

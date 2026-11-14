@@ -153,7 +153,7 @@ extension APIError: AppErrorConvertible {
             return .timeout
         case .rateLimited:
             return .rateLimited
-        case .serverError:
+        case .serverError, .serviceUnavailable:
             return .serverUnavailable
         case nil:
             return appError(forHTTPStatus: problem.status)

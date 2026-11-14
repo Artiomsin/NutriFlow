@@ -212,16 +212,27 @@ struct AuthView: View {
 }
 
 #Preview("AuthView") {
-    let container = AppDependencyContainer()
+    AuthViewPreview()
+}
 
-    let viewModel = AuthViewModel(
-        authService: MockAuthService(),
-        googleSignInService: container.googleSignInService,
-        coordinator: AppCoordinator(
-            container: container
+private struct AuthViewPreview: View {
+    private let container: AppDependencyContainer
+    @State private var coordinator: AppCoordinator
+
+    init() {
+        let container = AppDependencyContainer()
+        self.container = container
+        _coordinator = State(initialValue: AppCoordinator(container: container))
+    }
+
+    var body: some View {
+        let viewModel = AuthViewModel(
+            authService: MockAuthService(),
+            googleSignInService: container.googleSignInService,
+            coordinator: coordinator
         )
-    )
 
-    AuthView(viewModel: viewModel)
+        AuthView(viewModel: viewModel)
+    }
 }
 

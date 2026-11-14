@@ -27,6 +27,7 @@ final class AddFoodViewModel: Identifiable {
     var categories: [FoodCategory] = []
     var categoriesError: AppError?
     var categoryMutationError: AppError?
+    var categoryNameError: String?
     var isLoadingCategories = false
     var selectedCategory: FoodCategory?
     var photosItem: PhotosPickerItem?
@@ -197,27 +198,68 @@ final class AddFoodViewModel: Identifiable {
     }
 
     func createCategory(named name: String, icon: String? = nil, color: String? = nil) async -> FoodCategory? {
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty else { return nil }
+        let normalizedName = normalizedCategoryName(name)
+        guard !normalizedName.isEmpty else { return nil }
         categoryMutationError = nil
+        categoryNameError = nil
 
         do {
-            let category = try await service.createCategory(name: trimmedName, icon: icon, color: color)
+            let category = try await service.createCategory(name: normalizedName, icon: icon, color: color)
             categories.append(category)
             categories.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
             selectedCategory = category
             return category
         } catch {
-            categoryMutationError = ErrorMapper.map(error)
+            // The first request may have completed even when its response was lost.
+            // Reconcile a duplicate conflict with the authoritative server list.
+            if isAlreadyExists(error) {
+                await reloadCategories()
+                if let category = categories.first(where: {
+                    normalizedCategoryName($0.name).caseInsensitiveCompare(normalizedName) == .orderedSame
+                }) {
+                    selectedCategory = category
+                    return category
+                }
+            }
+
+            applyCategoryMutationError(error)
             return nil
+        }
+    }
+
+    func clearCategoryNameError() {
+        categoryNameError = nil
+    }
+
+    private func normalizedCategoryName(_ name: String) -> String {
+        name.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+    }
+
+    private func isAlreadyExists(_ error: Error) -> Bool {
+        (error as? any AppErrorConvertible)?.fieldErrors.contains {
+            $0.field == "name" && $0.code.uppercased() == FieldErrorCode.alreadyExists.rawValue
+        } == true
+    }
+
+    private func applyCategoryMutationError(_ error: Error) {
+        switch ErrorHandler.handle(error, supportedFields: ["name"]) {
+        case .fieldErrors(let errors):
+            categoryNameError = errors["name"]
+        case .general(let appError):
+            if appError == .unauthorized || appError == .sessionExpired {
+                coordinator?.goToAuth()
+                return
+            }
+            categoryMutationError = appError
         }
     }
 
     func updateCategory(_ category: FoodCategory, name: String, icon: String?, color: String?) async -> Bool {
         guard category.isPersonal else { return false }
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedName = normalizedCategoryName(name)
         guard !trimmedName.isEmpty else { return false }
         categoryMutationError = nil
+        categoryNameError = nil
 
         do {
             let updated = try await service.updateCategory(id: category.id, name: trimmedName, icon: icon, color: color)
@@ -227,7 +269,7 @@ final class AddFoodViewModel: Identifiable {
             if selectedCategory?.id == updated.id { selectedCategory = updated }
             return true
         } catch {
-            categoryMutationError = ErrorMapper.map(error)
+            applyCategoryMutationError(error)
             return false
         }
     }
@@ -247,7 +289,17 @@ final class AddFoodViewModel: Identifiable {
             await refreshAfterCategoryChange()
             return true
         } catch {
-            categoryMutationError = ErrorMapper.map(error)
+            let mapped = ErrorMapper.map(error)
+            if mapped == .notFound {
+                if selectedCategory?.id == category.id { selectedCategory = nil }
+                await refreshAfterCategoryChange()
+                return true
+            }
+            if mapped == .unauthorized || mapped == .sessionExpired {
+                coordinator?.goToAuth()
+                return false
+            }
+            categoryMutationError = mapped
             return false
         }
     }
@@ -372,6 +424,7 @@ final class AddFoodViewModel: Identifiable {
                 createPersonalFood: false,
                 updatePersonalFood: false,
                 imageUrl: imageUrl,
+                barcode: nil,
                 date: nil
             )
 

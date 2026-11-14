@@ -19,6 +19,7 @@ protocol FoodServiceProtocol: Sendable {
         createPersonalFood: Bool,
         updatePersonalFood: Bool,
         imageUrl: String?,
+        barcode: String?,
         date: String?
     ) async throws -> FoodEntry
 
@@ -68,6 +69,8 @@ protocol FoodServiceProtocol: Sendable {
     func getPopularFood() async throws -> [CatalogFood]
 
     func getFoodById(_ id: String) async throws -> CatalogFood
+
+    func getFoodByBarcode(_ barcode: String) async throws -> CatalogFood
 
     func createCatalogFood(_ request: CreateCatalogFoodRequest) async throws -> CatalogFood
 

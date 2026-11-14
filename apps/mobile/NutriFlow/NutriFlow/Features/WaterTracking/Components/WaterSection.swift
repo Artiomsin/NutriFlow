@@ -163,10 +163,19 @@ struct WaterSection: View {
 
 struct WaterSectionPreview: View {
     let configure: (WaterViewModel) -> Void
+    private let container: AppDependencyContainer
+    @State private var coordinator: AppCoordinator
+
+    init(configure: @escaping (WaterViewModel) -> Void) {
+        self.configure = configure
+        let container = AppDependencyContainer()
+        self.container = container
+        _coordinator = State(initialValue: AppCoordinator(container: container))
+    }
 
     var body: some View {
         let waterVM = WaterViewModel(
-            coordinator: AppCoordinator(container: AppDependencyContainer()),
+            coordinator: coordinator,
             service: MockWaterService()
         )
 

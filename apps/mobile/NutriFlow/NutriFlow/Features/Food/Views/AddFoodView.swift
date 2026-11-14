@@ -6,6 +6,7 @@ struct AddFoodView: View {
     let onSave: () -> Void
     let onSearchCatalog: (() -> Void)?
     let onSelectPopular: ((CatalogFood) -> Void)?
+    let onScanBarcode: (() -> Void)?
 
     @State private var viewModel: AddFoodViewModel
     @State private var prefsStore = PreferencesStore.shared
@@ -23,10 +24,11 @@ struct AddFoodView: View {
     @State private var isActive = true
     @State private var isManagingCategories = false
 
-    init(onSave: @escaping () -> Void, viewModel: AddFoodViewModel, onSearchCatalog: (() -> Void)? = nil, onSelectPopular: ((CatalogFood) -> Void)? = nil) {
+    init(onSave: @escaping () -> Void, viewModel: AddFoodViewModel, onSearchCatalog: (() -> Void)? = nil, onSelectPopular: ((CatalogFood) -> Void)? = nil, onScanBarcode: (() -> Void)? = nil) {
         self.onSave = onSave
         self.onSearchCatalog = onSearchCatalog
         self.onSelectPopular = onSelectPopular
+        self.onScanBarcode = onScanBarcode
         _viewModel = State(initialValue: viewModel)
     }
 
@@ -34,6 +36,9 @@ struct AddFoodView: View {
         ScrollView {
             VStack(spacing: 20) {
                 searchCatalogButton
+                if onScanBarcode != nil {
+                    scanBarcodeButton
+                }
                 if !viewModel.popularFoods.isEmpty { popularSection }
                 if viewModel.isLoadingPopular && viewModel.popularFoods.isEmpty {
                     ProgressView()
@@ -98,6 +103,23 @@ struct AddFoodView: View {
             HStack {
                 Image(systemName: "magnifyingglass")
                 Text("Search catalog")
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+            }
+            .padding(14)
+            .appGlassSurface()
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var scanBarcodeButton: some View {
+        Button {
+            onScanBarcode?()
+        } label: {
+            HStack {
+                Image(systemName: "barcode.viewfinder")
+                Text("Scan barcode")
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.caption)
@@ -343,13 +365,6 @@ struct AddFoodView: View {
     }
 }
 
-#Preview {
-    NavigationStack {
-        AddFoodView(onSave: {}, viewModel: AddFoodViewModel(service: MockFoodService(), coordinator: nil, todayFoodVM: TodayFoodViewModel(service: MockFoodService(), coordinator: AppCoordinator(container: AppDependencyContainer()))))
-    }
-    
-}
-
 private struct PopularCard: View {
     let food: CatalogFood
     let preferred: PreferredUnits
@@ -474,5 +489,46 @@ private struct PopularCard: View {
         .padding(.horizontal, 6)
         .padding(.vertical, 3)
         .background(color.opacity(hasImage ? 0.25 : 0.14), in: Capsule())
+    }
+}
+
+#Preview("Add Food") {
+    AddFoodPreview()
+}
+
+private struct AddFoodPreview: View {
+    private let container: AppDependencyContainer
+
+    @State private var coordinator: AppCoordinator
+    @State private var viewModel: AddFoodViewModel
+
+    init() {
+        let container = AppDependencyContainer()
+        let coordinator = AppCoordinator(container: container)
+
+        self.container = container
+
+        _coordinator = State(initialValue: coordinator)
+        _viewModel = State(
+            initialValue: AddFoodViewModel(
+                service: MockFoodService(),
+                coordinator: coordinator,
+                todayFoodVM: TodayFoodViewModel(
+                    service: MockFoodService(),
+                    coordinator: coordinator
+                )
+            )
+        )
+    }
+
+    var body: some View {
+        NavigationStack {
+            AddFoodView(
+                onSave: {},
+                viewModel: viewModel,
+                // Shown for layout preview only; scanning needs a real camera.
+                onScanBarcode: {}
+            )
+        }
     }
 }

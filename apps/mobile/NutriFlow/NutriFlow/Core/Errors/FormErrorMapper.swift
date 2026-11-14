@@ -50,6 +50,11 @@ enum FormErrorMapper {
                 localized: "form.error.invalid_value",
                 defaultValue: "Choose a valid option."
             )
+        case .alreadyExists:
+            return String(
+                localized: "form.error.already_exists",
+                defaultValue: "This name is already taken."
+            )
         case .tooShort:
             return String(
                 localized: "form.error.too_short",

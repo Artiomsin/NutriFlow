@@ -113,6 +113,20 @@
       "when": 1794300000000,
       "tag": "0016_amber_amber",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794516147822,
+      "tag": "0017_category_case_insensitive_names",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794558912915,
+      "tag": "0018_foods_barcode_index",
+      "breakpoints": true
     }
   ]
 }
