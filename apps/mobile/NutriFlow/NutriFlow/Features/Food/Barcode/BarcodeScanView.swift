@@ -66,6 +66,13 @@ struct BarcodeScanView: View {
         }
     }
 
+    private var isLookingUp: Bool {
+        if case .lookingUp = viewModel.state {
+            return true
+        }
+        return false
+    }
+
     private var scanWindow: some View {
         GeometryReader { proxy in
             let width = min(proxy.size.width - 64, 320)
@@ -77,6 +84,8 @@ struct BarcodeScanView: View {
                 width: width,
                 height: height
             )
+
+            let lineHeight = max(rect.height - 20, 2)
 
             ZStack {
                 Path { path in
@@ -95,6 +104,16 @@ struct BarcodeScanView: View {
                     .stroke(.white.opacity(0.9), lineWidth: 2)
                     .frame(width: rect.width, height: rect.height)
                     .position(x: rect.midX, y: rect.midY)
+
+                if viewModel.state == .scanning || isLookingUp {
+                    ScanLine(travel: max(lineHeight - 2, 0))
+                        .frame(
+                            width: rect.width - 24,
+                            height: lineHeight,
+                            alignment: .top
+                        )
+                        .position(x: rect.midX, y: rect.midY)
+                }
 
                 if viewModel.state == .scanning {
                     Text("Point the camera at a barcode")
@@ -126,13 +145,21 @@ struct BarcodeScanView: View {
             EmptyView()
 
         case .lookingUp(let barcode):
-            statusCard(
-                icon: "barcode.viewfinder",
-                title: "Looking up product…",
-                message: barcode
-            ) {
-                ProgressView()
-                    .tint(AppColors.accent)
+            VStack {
+                Spacer()
+
+                HStack(spacing: 8) {
+                    Text("Looking up")
+                    Text(barcode)
+                        .monospacedDigit()
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(.black.opacity(0.6), in: Capsule())
+                .padding(.bottom, 32)
             }
 
         case .invalidBarcode:
@@ -280,5 +307,39 @@ struct BarcodeScanView: View {
                 .padding(.vertical, 8)
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Sweeping indicator that keeps the scan window responsive while the lookup
+/// is in flight, instead of a system spinner over the frozen camera frame.
+private struct ScanLine: View {
+
+    let travel: CGFloat
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var offset: CGFloat = 0
+
+    var body: some View {
+        Rectangle()
+            .fill(
+                LinearGradient(
+                    colors: [.clear, AppColors.accent, .clear],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .frame(height: 2)
+            .shadow(color: AppColors.accent.opacity(0.9), radius: 6)
+            .offset(y: offset)
+            .task {
+                guard !reduceMotion, travel > 0 else { return }
+
+                offset = 0
+                withAnimation(
+                    .easeInOut(duration: 1.4).repeatForever(autoreverses: true)
+                ) {
+                    offset = travel
+                }
+            }
     }
 }
