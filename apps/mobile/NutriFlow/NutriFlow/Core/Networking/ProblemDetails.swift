@@ -11,6 +11,7 @@ enum ProblemType: String, Sendable {
     case rateLimited = "https://api.nutriflow.app/problems/rate-limited"
     case foodAnalysisQuotaExceeded = "https://api.nutriflow.app/problems/food-analysis-quota-exceeded"
     case serverError = "https://api.nutriflow.app/problems/server-error"
+    case serviceUnavailable = "https://api.nutriflow.app/problems/service-unavailable"
 }
 
 struct FieldProblem: Decodable, Equatable, Sendable {
