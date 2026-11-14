@@ -547,6 +547,7 @@ final class ScanResultViewModel {
                     createPersonalFood: true,
                     updatePersonalFood: item.hasManualProductEdit,
                     imageUrl: imageUrl,
+                    barcode: item.source.barcode,
                     date: nil
                 )
             } catch {

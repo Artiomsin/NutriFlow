@@ -424,6 +424,7 @@ final class AddFoodViewModel: Identifiable {
                 createPersonalFood: false,
                 updatePersonalFood: false,
                 imageUrl: imageUrl,
+                barcode: nil,
                 date: nil
             )
 

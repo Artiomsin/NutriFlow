@@ -6,6 +6,7 @@ enum HomeNavRoute: Hashable {
     case servingPicker(CatalogFood, Double?, String?)
     case addWater
     case scanFood
+    case scanBarcode
     case scanResult([ScanAnalysisItem], Data?)
     case workoutHistory
     case sleepHistory
@@ -63,6 +64,8 @@ struct HomeView: View {
                             navPath.append(HomeNavRoute.foodSearch)
                         }, onSelectPopular: { food in
                             navPath.append(HomeNavRoute.servingPicker(food, nil, nil))
+                        }, onScanBarcode: {
+                            navPath.append(HomeNavRoute.scanBarcode)
                         })
                     case .foodSearch:
                         searchView
@@ -84,7 +87,27 @@ struct HomeView: View {
                         ScanFoodView(service: foodService, analyticsTracker: analyticsTracker) { items, imageData in
                             navPath.append(HomeNavRoute.scanResult(items, imageData))
                         }
-                        
+
+                    case .scanBarcode:
+                        BarcodeScanView(
+                            service: foodService,
+                            analyticsTracker: analyticsTracker,
+                            onFound: { food in
+                                let route = HomeNavRoute.scanResult(
+                                    [.food(food.analysisItem())],
+                                    nil
+                                )
+
+                                if navPath.last == .scanBarcode {
+                                    // Replace the scanner so "Back" from the
+                                    // result returns to Add Food.
+                                    navPath[navPath.count - 1] = route
+                                } else {
+                                    navPath.append(route)
+                                }
+                            }
+                        )
+
                     case .scanResult(let items, let imageData):
                         let resultVM = ScanResultViewModel(
                             items: items,

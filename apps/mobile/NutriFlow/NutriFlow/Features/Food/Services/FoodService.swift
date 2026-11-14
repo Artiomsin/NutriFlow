@@ -24,6 +24,7 @@ final class FoodService: FoodServiceProtocol, Sendable {
         createPersonalFood: Bool = false,
         updatePersonalFood: Bool = false,
         imageUrl: String? = nil,
+        barcode: String? = nil,
         date: String? = nil
     ) async throws -> FoodEntry {
         let df = DateFormatter()
@@ -42,6 +43,7 @@ final class FoodService: FoodServiceProtocol, Sendable {
                 foodId: foodId,
                 grams: grams,
                 unit: unit,
+                barcode: barcode,
                 categoryName: categoryName,
                 categoryId: categoryId,
                 createPersonalFood: createPersonalFood,
@@ -183,6 +185,14 @@ final class FoodService: FoodServiceProtocol, Sendable {
     func getFoodById(_ id: String) async throws -> CatalogFood {
         let request = APIRequest<NeverBody>(
             path: FoodEndpoints.getFoodById(id),
+            method: .GET
+        )
+        return try await client.send(request)
+    }
+
+    func getFoodByBarcode(_ barcode: String) async throws -> CatalogFood {
+        let request = APIRequest<NeverBody>(
+            path: FoodEndpoints.getFoodByBarcode(barcode),
             method: .GET
         )
         return try await client.send(request)

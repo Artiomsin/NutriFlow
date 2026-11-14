@@ -9,6 +9,7 @@ struct CreateFoodRequest: Codable, Sendable {
     let foodId: String?
     let grams: Double?
     let unit: String?
+    let barcode: String?
     let categoryName: String?
     let categoryId: String?
     let createPersonalFood: Bool
@@ -18,7 +19,7 @@ struct CreateFoodRequest: Codable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case name, calories, protein, fat, carbs
-        case foodId, grams, unit, imageUrl, date, categoryName, categoryId, createPersonalFood, updatePersonalFood
+        case foodId, grams, unit, barcode, imageUrl, date, categoryName, categoryId, createPersonalFood, updatePersonalFood
     }
 
     func encode(to encoder: Encoder) throws {
@@ -34,6 +35,7 @@ struct CreateFoodRequest: Codable, Sendable {
         try container.encodeIfPresent(foodId, forKey: .foodId)
         try container.encodeIfPresent(date, forKey: .date)
         try container.encodeIfPresent(imageUrl, forKey: .imageUrl)
+        try container.encodeIfPresent(barcode, forKey: .barcode)
 
         // Explicit null means that no category is selected.
         try container.encode(categoryName, forKey: .categoryName)
@@ -131,6 +133,78 @@ extension CatalogFood {
 
         return name
     }
+
+    /// Barcode products reuse the editable scan-result screen.
+    func analysisItem(grams: Double = 100) -> FoodAnalysisItem {
+        let ratio = grams / 100
+
+        return FoodAnalysisItem(
+            name: name,
+            category: categoryName,
+            grams: grams,
+            calories: caloriesPer100g * ratio,
+            protein: proteinPer100g.map { $0 * ratio },
+            fat: fatPer100g.map { $0 * ratio },
+            carbs: carbsPer100g.map { $0 * ratio },
+            unit: "g",
+            imageUrl: imageUrl,
+            confidence: nil,
+            foodId: id.isEmpty ? nil : id,
+            barcode: barcode,
+            source: "catalog",
+            aiCalories: nil,
+            catalogCalories: caloriesPer100g * ratio,
+            catalogCaloriesPer100g: caloriesPer100g,
+            catalogProteinPer100g: proteinPer100g,
+            catalogFatPer100g: fatPer100g,
+            catalogCarbsPer100g: carbsPer100g
+        )
+    }
+}
+
+extension CatalogFood {
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case categoryId
+        case categoryName
+        case brand
+        case caloriesPer100g
+        case proteinPer100g
+        case fatPer100g
+        case carbsPer100g
+        case barcode
+        case imageUrl
+        case source
+        case createdBy
+        case createdAt
+        case updatedAt
+        case servings
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        // Barcode lookup may return an external (Open Food Facts) product that
+        // has no local id yet. Treat it as an unsaved product instead of
+        // failing to decode the whole response.
+        id = try container.decodeIfPresent(String.self, forKey: .id) ?? ""
+        name = try container.decode(String.self, forKey: .name)
+        categoryId = try container.decodeIfPresent(String.self, forKey: .categoryId)
+        categoryName = try container.decodeIfPresent(String.self, forKey: .categoryName)
+        brand = try container.decodeIfPresent(String.self, forKey: .brand)
+        caloriesPer100g = try container.decode(Double.self, forKey: .caloriesPer100g)
+        proteinPer100g = try container.decodeIfPresent(Double.self, forKey: .proteinPer100g)
+        fatPer100g = try container.decodeIfPresent(Double.self, forKey: .fatPer100g)
+        carbsPer100g = try container.decodeIfPresent(Double.self, forKey: .carbsPer100g)
+        barcode = try container.decodeIfPresent(String.self, forKey: .barcode)
+        imageUrl = try container.decodeIfPresent(String.self, forKey: .imageUrl)
+        source = try container.decode(String.self, forKey: .source)
+        createdBy = try container.decodeIfPresent(String.self, forKey: .createdBy)
+        createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt) ?? ""
+        updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt) ?? ""
+        servings = try container.decodeIfPresent([FoodServing].self, forKey: .servings)
+    }
 }
 
 struct FoodSearchResponse: Codable, Sendable {
@@ -165,6 +239,28 @@ struct FoodServing: Codable, Identifiable, Hashable, Sendable {
     let name: String
     let grams: Double
     let createdAt: String?
+}
+
+extension FoodServing {
+    enum CodingKeys: String, CodingKey {
+        case id
+        case foodId
+        case name
+        case grams
+        case createdAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = try container.decode(String.self, forKey: .id)
+        // Barcode providers return portions without foodId (they are not
+        // loaded from the servings table).
+        foodId = try container.decodeIfPresent(String.self, forKey: .foodId) ?? ""
+        name = try container.decode(String.self, forKey: .name)
+        grams = try container.decode(Double.self, forKey: .grams)
+        createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
+    }
 }
 
 struct FoodCategory: Codable, Identifiable, Hashable, Sendable {
@@ -333,6 +429,7 @@ struct FoodAnalysisItem: Codable, Identifiable, Hashable, Sendable {
     let imageUrl: String?
     let confidence: Double?
     let foodId: String?
+    let barcode: String?
     let source: String?
     let aiCalories: Double?
     let catalogCalories: Double?

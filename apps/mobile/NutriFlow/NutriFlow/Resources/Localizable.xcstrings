@@ -1142,6 +1142,9 @@
     "Personalized plan" : {
 
     },
+    "Point the camera at a barcode" : {
+
+    },
     "Popular" : {
 
     },
@@ -1203,6 +1206,9 @@
 
     },
     "Scan" : {
+
+    },
+    "Scan barcode" : {
 
     },
     "Scan Result" : {
