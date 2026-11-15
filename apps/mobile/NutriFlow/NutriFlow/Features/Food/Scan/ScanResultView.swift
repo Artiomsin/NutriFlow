@@ -137,38 +137,7 @@ struct ScanResultView: View {
                             )
                     )
 
-                    Menu {
-                        Button("None") { viewModel.setCategory(id: item.id, nil) }
-
-                        Section("My Categories") {
-                            ForEach(viewModel.categories.filter(\.isPersonal)) { category in
-                                Button {
-                                    viewModel.setCategory(id: item.id, category)
-                                } label: {
-                                    Label(category.name, systemImage: category.icon ?? "tag.fill")
-                                }
-                            }
-                        }
-
-                        Section("System Categories") {
-                            ForEach(viewModel.categories.filter { !$0.isPersonal }) { category in
-                                Button {
-                                    viewModel.setCategory(id: item.id, category)
-                                } label: {
-                                    Label(category.name, systemImage: category.icon ?? "tag.fill")
-                                }
-                            }
-                        }
-                    } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: "tag")
-                                .font(.footnote)
-                            Text(item.categoryName ?? "Category")
-                        }
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(item.categoryName == nil ? AppColors.textSecondary : AppColors.textPrimary)
-                    }
-                    .onAppear { Task { await viewModel.loadCategories() } }
+                    categoryPicker(item)
                 }
 
                 Spacer()
@@ -196,6 +165,72 @@ struct ScanResultView: View {
                 .fill(AppColors.surface)
         )
         .opacity(item.isSelected ? 1 : 0.55)
+    }
+
+    @ViewBuilder
+    private func categoryPicker(_ item: EditableScanFood) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Menu {
+                Button("None") { viewModel.setCategory(id: item.id, nil) }
+
+                Section("My Categories") {
+                    ForEach(viewModel.categories.filter(\.isPersonal)) { category in
+                        Button {
+                            viewModel.setCategory(id: item.id, category)
+                        } label: {
+                            Label(category.name, systemImage: category.icon ?? "tag.fill")
+                        }
+                    }
+                }
+
+                Section("System Categories") {
+                    ForEach(viewModel.categories.filter { !$0.isPersonal }) { category in
+                        Button {
+                            viewModel.setCategory(id: item.id, category)
+                        } label: {
+                            Label(category.name, systemImage: category.icon ?? "tag.fill")
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "tag")
+                        .font(.footnote)
+                    Text(item.categoryName ?? "Choose a category")
+                }
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(item.categoryName == nil ? AppColors.textSecondary : AppColors.textPrimary)
+            }
+
+            if item.categoryID == nil, let suggestion = item.suggestedCategoryName {
+                HStack(spacing: 5) {
+                    Image(systemName: "lightbulb")
+                    Text("Suggested by product: \(suggestion)")
+                }
+                .font(.caption)
+                .foregroundStyle(AppColors.textSecondary)
+
+                Button {
+                    Task { await viewModel.createSuggestedCategory(for: item.id) }
+                } label: {
+                    if viewModel.creatingSuggestedCategoryID == item.id {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Label("Create \(suggestion)", systemImage: "plus.circle")
+                    }
+                }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppColors.accent)
+                .disabled(viewModel.creatingSuggestedCategoryID != nil)
+                .accessibilityLabel("Create personal category \(suggestion)")
+            } else if item.categoryID == nil {
+                Text("Will be saved without a category")
+                    .font(.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+        }
+        .onAppear { Task { await viewModel.loadCategories() } }
     }
 
     private func waterRow(_ item: EditableScanWater) -> some View {

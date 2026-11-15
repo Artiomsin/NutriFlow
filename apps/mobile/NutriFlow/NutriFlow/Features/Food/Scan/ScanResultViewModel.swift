@@ -33,7 +33,10 @@ struct EditableScanFood: Identifiable, Sendable {
     var isSelected = true
     var nameText: String
     var gramsText: String
-    var categoryText: String
+    /// Category suggested by the scanned product. It is not a NutriFlow category
+    /// until it matches an existing category or the person explicitly creates it.
+    let suggestedCategoryName: String?
+    var selectedCategoryName: String?
     var categoryID: String?
     var hasManualProductEdit = false
     var hasManualNutritionEdit = false
@@ -56,7 +59,9 @@ struct EditableScanFood: Identifiable, Sendable {
         
         self.nameText = item.name ?? "Unknown food"
         self.gramsText = UnitConversion.formatDisplayValue(value, displayUnit: unit)
-        self.categoryText = item.category ?? ""
+        let suggestedCategory = item.category?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.suggestedCategoryName = suggestedCategory?.isEmpty == false ? suggestedCategory : nil
+        self.selectedCategoryName = nil
         self.categoryID = nil
         
         let baseCalories = item.bestCalories ?? item.calories ?? 0
@@ -71,7 +76,8 @@ struct EditableScanFood: Identifiable, Sendable {
         return trimmed.isEmpty ? (source.name ?? "Unknown food") : trimmed
     }
     
-    var categoryName: String? { categoryText.isEmpty ? nil : categoryText }
+    /// Only a category selected in NutriFlow is sent to the backend.
+    var categoryName: String? { selectedCategoryName }
     
     var imageURL: URL? {
         source.imageUrl.flatMap(ImageURLResolver.resolve)
@@ -256,6 +262,7 @@ final class ScanResultViewModel {
     var fieldErrors: [UUID: FormFieldErrors] = [:]
     var categories: [FoodCategory] = []
     var categoriesError: AppError?
+    var creatingSuggestedCategoryID: UUID?
     @ObservationIgnored private var uploadedImageUrl: String?
     
     private let prefsStore: PreferencesStore
@@ -419,23 +426,65 @@ final class ScanResultViewModel {
     func setCategory(id: UUID, _ category: FoodCategory?) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         guard case .food(var item) = items[index] else { return }
-        item.categoryText = category?.name ?? ""
+        item.selectedCategoryName = category?.name
         item.categoryID = category?.id
         items[index] = .food(item)
+    }
+
+    func createSuggestedCategory(for itemID: UUID) async {
+        guard creatingSuggestedCategoryID == nil,
+              let index = items.firstIndex(where: { $0.id == itemID }),
+              case .food(let item) = items[index],
+              let suggestedName = item.suggestedCategoryName else {
+            return
+        }
+
+        let normalizedName = suggestedName
+            .split(whereSeparator: { $0.isWhitespace })
+            .joined(separator: " ")
+        guard !normalizedName.isEmpty else { return }
+
+        if let existingCategory = categories.first(where: {
+            $0.name.caseInsensitiveCompare(normalizedName) == .orderedSame
+        }) {
+            setCategory(id: itemID, existingCategory)
+            return
+        }
+
+        creatingSuggestedCategoryID = itemID
+        categoriesError = nil
+        defer { creatingSuggestedCategoryID = nil }
+
+        do {
+            let category = try await service.createCategory(
+                name: normalizedName,
+                icon: nil,
+                color: nil
+            )
+            categories.append(category)
+            categories.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            setCategory(id: itemID, category)
+        } catch {
+            let mapped = ErrorMapper.map(error)
+            if mapped == .unauthorized {
+                coordinator?.goToAuth()
+            }
+            categoriesError = mapped == .cancelled ? nil : mapped
+        }
     }
 
     private func applySuggestedCategories() {
         for index in items.indices {
             guard case .food(var item) = items[index],
                   item.categoryID == nil,
-                  !item.categoryText.isEmpty,
+                  let suggestedCategoryName = item.suggestedCategoryName,
                   let category = categories.first(where: {
-                      $0.name.compare(item.categoryText, options: .caseInsensitive) == .orderedSame
+                      $0.name.compare(suggestedCategoryName, options: .caseInsensitive) == .orderedSame
                   }) else {
                 continue
             }
 
-            item.categoryText = category.name
+            item.selectedCategoryName = category.name
             item.categoryID = category.id
             items[index] = .food(item)
         }

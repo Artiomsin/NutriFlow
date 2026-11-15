@@ -281,6 +281,9 @@
     "Couldn’t save category" : {
 
     },
+    "Create %@" : {
+
+    },
     "Create a Category" : {
 
     },
@@ -288,6 +291,9 @@
 
     },
     "Create account" : {
+
+    },
+    "Create personal category %@" : {
 
     },
     "Create Profile" : {
@@ -1295,6 +1301,9 @@
     "Start typing to search" : {
 
     },
+    "Suggested by product: %@" : {
+
+    },
     "Switch to automatic goals" : {
 
     },
@@ -1434,6 +1443,9 @@
 
     },
     "Will be added to Water Tracking" : {
+
+    },
+    "Will be saved without a category" : {
 
     },
     "Workouts" : {
