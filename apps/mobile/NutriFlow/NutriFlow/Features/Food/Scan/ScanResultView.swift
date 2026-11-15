@@ -85,6 +85,24 @@ struct ScanResultView: View {
     }
 
     @ViewBuilder
+    private var resultImage: some View {
+        if let image = viewModel.previewImage {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 90, height: 90)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .padding(.bottom, 8)
+        } else if let imageURL = viewModel.selectedFoodItems.first?.imageURL {
+            NutriflowImage(url: imageURL)
+                .frame(width: 90, height: 90)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .padding(.bottom, 8)
+                .accessibilityLabel("Product photo")
+        }
+    }
+
+    @ViewBuilder
     private func fieldErrors(for itemID: UUID, fields: [String]) -> some View {
         let messages = fields.compactMap { viewModel.fieldError(for: itemID, field: $0) }
         if !messages.isEmpty {
@@ -453,11 +471,17 @@ struct ScanResultView: View {
     ScanResultViewPreview()
 }
 
+#Preview("Barcode result") {
+    ScanResultViewPreview(isBarcodeResult: true)
+}
+
 private struct ScanResultViewPreview: View {
+    private let isBarcodeResult: Bool
     private let container: AppDependencyContainer
     @State private var coordinator: AppCoordinator
 
-    init() {
+    init(isBarcodeResult: Bool = false) {
+        self.isBarcodeResult = isBarcodeResult
         let container = AppDependencyContainer()
         self.container = container
         _coordinator = State(initialValue: AppCoordinator(container: container))
@@ -477,11 +501,13 @@ private struct ScanResultViewPreview: View {
                         fat: 3.6,
                         carbs: 0,
                         unit: "g",
-                        imageUrl: nil,
-                        confidence: 0.95,
+                        imageUrl: isBarcodeResult
+                            ? "https://images.openfoodfacts.org/images/products/301/762/042/2003/front_en.599.400.jpg"
+                            : nil,
+                        confidence: isBarcodeResult ? nil : 0.95,
                         foodId: nil,
-                        barcode: nil,
-                        source: "ai",
+                        barcode: isBarcodeResult ? "3017620422003" : nil,
+                        source: isBarcodeResult ? "catalog" : "ai",
                         aiCalories: 165,
                         catalogCalories: nil,
                         catalogCaloriesPer100g: nil,
@@ -512,6 +538,8 @@ private struct ScanResultViewPreview: View {
                     )),
                     .water(WaterAnalysisItem(amountMl: 250, containers: nil, confidence: 0.95))
                 ],
+                // Canvas cannot fetch remote API images, so the barcode preview
+                // uses a local stand-in while the app loads the product URL.
                 imageData: SamplePhoto.data,
                 service: MockFoodService(),
                 todayFoodVM: TodayFoodViewModel(
