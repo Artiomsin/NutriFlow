@@ -77,7 +77,7 @@ struct WaterCard: View {
             if let date = df.date(from: value) {
                 let out = DateFormatter()
                 out.dateFormat = "HH:mm"
-                out.timeZone = TimeZone.current
+                out.timeZone = AppDate.timeZone
                 return out.string(from: date)
             }
         }

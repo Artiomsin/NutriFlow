@@ -135,10 +135,10 @@ final class TodayFoodViewModel {
         bannerError = nil
         do {
             print("[Network] TodayFoodVM deleteFood")
-            let df = DateFormatter()
-            df.locale = Locale(identifier: "en_US_POSIX")
-            df.dateFormat = "yyyy-MM-dd"
-            try await service.deleteFoodEntry(id: id, date: df.string(from: Date()))
+            try await service.deleteFoodEntry(
+                id: id,
+                date: AppDate.dateOnlyFormatter().string(from: .now)
+            )
             removeLocally(id: id)
             await reloadAfterMutation()
             notifyDataMutated()

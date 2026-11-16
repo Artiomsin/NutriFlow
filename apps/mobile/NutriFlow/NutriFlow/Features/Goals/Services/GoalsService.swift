@@ -8,17 +8,13 @@ final class GoalsService: GoalsServiceProtocol, Sendable {
     }
     
     func getGoals(date: String? = nil) async throws -> UserGoals {
-        var queryItems: [URLQueryItem] = []
+        // Always include the profile time zone. The server uses it both for an
+        // explicitly requested calendar day and for its current-day fallback.
+        var queryItems = [
+            URLQueryItem(name: "tz", value: PreferencesStore.shared.timeZone)
+        ]
         if let date {
             queryItems.append(URLQueryItem(name: "date", value: date))
-            // Day boundaries must match the profile time zone used for all
-            // calendar grouping on the client.
-            queryItems.append(
-                URLQueryItem(
-                    name: "tz",
-                    value: PreferencesStore.shared.timeZone
-                )
-            )
         }
         let request = APIRequest<NeverBody>(
             path: GoalsEndpoints.getGoals,

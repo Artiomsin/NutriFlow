@@ -135,7 +135,7 @@ struct FoodCard: View {
             if let date = dateFormatter.date(from: value) {
                 let outputFormatter = DateFormatter()
                 outputFormatter.dateFormat = "HH:mm"
-                outputFormatter.timeZone = .current
+                outputFormatter.timeZone = AppDate.timeZone
                 return outputFormatter.string(from: date)
             }
         }

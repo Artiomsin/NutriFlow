@@ -413,7 +413,7 @@ final class SleepHealthKitService: SleepHealthKitServiceProtocol {
     private static func groupSamplesByNight(
         _ samples: [HKCategorySample]
     ) -> [Date: [HKCategorySample]] {
-        let calendar = Calendar.current
+        let calendar = AppDate.calendar
         var groups: [Date: [HKCategorySample]] = [:]
 
         for sample in samples {

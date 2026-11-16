@@ -264,7 +264,7 @@ private struct NextGoalReviewCard: View {
 
     private var dateText: String {
         guard let availableDate else { return "soon" }
-        return availableDate.formatted(.dateTime.day().month(.wide))
+        return AppDate.displayFormatter("d MMMM").string(from: availableDate)
     }
 
     private var relativeText: String? {
