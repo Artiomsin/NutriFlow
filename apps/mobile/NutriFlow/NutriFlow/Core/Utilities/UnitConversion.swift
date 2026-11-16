@@ -10,6 +10,11 @@ struct UnitConversion {
     static let nutritionFractionDigits = 1
     static let portionFractionDigits = 3
 
+    /// Неразрывный пробел между числом и единицей измерения, чтобы
+    /// SwiftUI не рвал строку (например «30,9 g» не превращался в
+    /// «30,9» / «g» на узких карточках).
+    private static let nbsp = "\u{00A0}"
+
     /// Nutrition values persisted by food and goal APIs use PostgreSQL numeric(10, 1).
     static func roundedForNutritionStorage(_ value: Double) -> Double {
         let multiplier = pow(10, Double(nutritionFractionDigits))
@@ -108,17 +113,17 @@ struct UnitConversion {
             let ounces = grams / gramsPerOunce
 
             if ounces >= 16 {
-                return "\(formatImperialValue(ounces / 16)) lb"
+                return "\(formatImperialValue(ounces / 16))\(nbsp)lb"
             }
 
-            return "\(formatImperialValue(ounces)) oz"
+            return "\(formatImperialValue(ounces))\(nbsp)oz"
 
         case .metric:
             if grams >= 1000 {
-                return "\(formatKilogramValue(grams / 1000)) kg"
+                return "\(formatKilogramValue(grams / 1000))\(nbsp)kg"
             }
 
-            return "\(formatMetricValue(grams)) g"
+            return "\(formatMetricValue(grams))\(nbsp)g"
         }
     }
 

@@ -152,6 +152,7 @@ private struct FoodCardHeader: View {
             .font(.headline)
             .foregroundStyle(AppColors.textPrimary)
             .lineLimit(2)
+            .minimumScaleFactor(0.75)
             .layoutPriority(1)
     }
 }
@@ -208,14 +209,29 @@ private struct FoodCardMetadata: View {
     let categoryColor: Color
 
     var body: some View {
-        HStack(spacing: 8) {
-            Label(time, systemImage: "clock")
-                .foregroundStyle(AppColors.textTertiary)
+        HStack(spacing: 6) {
+            HStack(spacing: 4) {
+                Image(systemName: "clock")
+                    .foregroundStyle(AppColors.textTertiary)
+                    .font(.caption)
+                Text(time)
+                    .font(.caption)
+                    .foregroundStyle(AppColors.textTertiary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
 
             if let categoryName, !categoryName.isEmpty {
-                Label(categoryName, systemImage: categoryIcon ?? "tag.fill")
-                    .foregroundStyle(categoryColor)
-                    .lineLimit(1)
+                HStack(spacing: 4) {
+                    Image(systemName: categoryIcon ?? "tag.fill")
+                        .foregroundStyle(categoryColor)
+                        .font(.caption)
+                    Text(categoryName)
+                        .font(.caption)
+                        .foregroundStyle(categoryColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
             }
         }
         .font(.caption)
@@ -230,7 +246,7 @@ private struct FoodCardMacros: View {
     let preferredUnits: PreferredUnits
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             MacroDot(
                 color: Color(red: 0.22, green: 0.6, blue: 0.99),
                 label: "P",
@@ -266,8 +282,10 @@ private struct MacroDot: View {
                 .foregroundStyle(color)
 
             Text(value)
-                .font(.caption)
+                .font(.caption2)
                 .foregroundStyle(AppColors.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
         }
     }
 }
@@ -302,9 +320,9 @@ struct MacroBadge: View {
             userId: "preview-user",
             name: "Greek yogurt with berries",
             calories: 150,
-            protein: 15,
-            fat: 4,
-            carbs: 10,
+            protein: 30.33,
+            fat: 80.77,
+            carbs: 90.55,
             foodId: nil,
             grams: 170,
             unit: "g",
