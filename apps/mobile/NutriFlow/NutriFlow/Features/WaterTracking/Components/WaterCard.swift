@@ -63,24 +63,6 @@ struct WaterCard: View {
     }
 
     private func formatTime(_ value: String) -> String {
-        let formats = [
-            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
-            "yyyy-MM-dd'T'HH:mm:ss'Z'",
-            "yyyy-MM-dd'T'HH:mm:ss.SSSZ",
-            "yyyy-MM-dd'T'HH:mm:ssZ",
-        ]
-        for fmt in formats {
-            let df = DateFormatter()
-            df.dateFormat = fmt
-            df.locale = Locale(identifier: "en_US_POSIX")
-            df.timeZone = TimeZone(secondsFromGMT: 0)
-            if let date = df.date(from: value) {
-                let out = DateFormatter()
-                out.dateFormat = "HH:mm"
-                out.timeZone = AppDate.timeZone
-                return out.string(from: date)
-            }
-        }
-        return String(value.dropFirst(11).prefix(5))
+        AppDate.formatTime(value)
     }
 }

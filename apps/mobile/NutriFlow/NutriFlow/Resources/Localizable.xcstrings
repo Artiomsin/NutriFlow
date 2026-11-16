@@ -209,10 +209,10 @@
     "Calories" : {
 
     },
-    "Cancel" : {
+    "Calories (Total)" : {
 
     },
-    "Carbs" : {
+    "Cancel" : {
 
     },
     "Categories" : {
@@ -777,9 +777,6 @@
     "Failed to load. Retry" : {
 
     },
-    "Fat" : {
-
-    },
     "Fluid Ounces" : {
 
     },
@@ -1046,7 +1043,7 @@
     "Looking up" : {
 
     },
-    "Macros (Avg)" : {
+    "Macro" : {
 
     },
     "Manage Categories" : {
@@ -1199,9 +1196,6 @@
     "Progress" : {
 
     },
-    "Protein" : {
-
-    },
     "Recommendation adjustments are kept while goals adapt to your profile and weight." : {
 
     },
@@ -1296,6 +1290,9 @@
 
     },
     "Series" : {
+
+    },
+    "Series segment" : {
 
     },
     "Settings" : {
@@ -1451,7 +1448,7 @@
     "Water" : {
 
     },
-    "Water Intake" : {
+    "Water Intake (Total)" : {
 
     },
     "Water reminder" : {

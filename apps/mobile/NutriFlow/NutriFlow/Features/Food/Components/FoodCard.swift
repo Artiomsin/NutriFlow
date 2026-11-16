@@ -119,28 +119,7 @@ struct FoodCard: View {
     }
 
     private func formatTime(_ value: String) -> String {
-        let formats = [
-            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
-            "yyyy-MM-dd'T'HH:mm:ss'Z'",
-            "yyyy-MM-dd'T'HH:mm:ss.SSSZ",
-            "yyyy-MM-dd'T'HH:mm:ssZ",
-        ]
-
-        for format in formats {
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = format
-            dateFormatter.locale = Locale(identifier: "en_US_POSIX")
-            dateFormatter.timeZone = TimeZone(secondsFromGMT: 0)
-
-            if let date = dateFormatter.date(from: value) {
-                let outputFormatter = DateFormatter()
-                outputFormatter.dateFormat = "HH:mm"
-                outputFormatter.timeZone = AppDate.timeZone
-                return outputFormatter.string(from: date)
-            }
-        }
-
-        return String(value.dropFirst(11).prefix(5))
+        AppDate.formatTime(value)
     }
 }
 

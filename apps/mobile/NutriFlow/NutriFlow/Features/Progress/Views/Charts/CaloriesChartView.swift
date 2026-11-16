@@ -10,14 +10,20 @@ import Charts
 
 struct CaloriesChartView: View {
     let data: [ChartDataPoint]
+    /// Period total computed from the daily data in `ProgressChartViewModel`.
+    /// Summing already aggregated bars showed one week of calories for a month.
+    let total: Double
+    let valueDescription: String
     let canTap: Bool
     let onBarTap: ((ChartDataPoint) -> Void)?
     let initialScrollX: String
     @State private var prefsStore = PreferencesStore.shared
     @State private var selection: String?
 
-    init(data: [ChartDataPoint], canTap: Bool = false, onBarTap: ((ChartDataPoint) -> Void)? = nil, initialScrollX: String = "") {
+    init(data: [ChartDataPoint], total: Double, valueDescription: String, canTap: Bool = false, onBarTap: ((ChartDataPoint) -> Void)? = nil, initialScrollX: String = "") {
         self.data = data
+        self.total = total
+        self.valueDescription = valueDescription
         self.canTap = canTap
         self.onBarTap = onBarTap
         self.initialScrollX = initialScrollX
@@ -27,9 +33,9 @@ struct CaloriesChartView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "flame.fill").foregroundColor(.orange)
-                Text("Calories").font(.headline).foregroundColor(AppColors.textPrimary)
+                Text("Calories (Total)").font(.headline).foregroundColor(AppColors.textPrimary)
                 Spacer()
-                Text(UnitConversion.formatEnergy(kcal: totalCalories, preferred: prefsStore.preferredUnits)).font(.subheadline).foregroundColor(AppColors.textSecondary)
+                Text(UnitConversion.formatEnergy(kcal: total, preferred: prefsStore.preferredUnits)).font(.subheadline).foregroundColor(AppColors.textSecondary)
             }
             
             Chart(filteredData) { point in
@@ -60,13 +66,12 @@ struct CaloriesChartView: View {
                     DispatchQueue.main.async { selection = nil }
                 }
             }
+            Text(valueDescription)
+                .font(.caption)
+                .foregroundStyle(AppColors.textSecondary)
         }
         .padding()
         .appGlassSurface()
-    }
-
-    private var totalCalories: Double {
-        data.reduce(0) { $0 + $1.calories }
     }
 
     /// Show only points that actually have calories, so deleted-food hours

@@ -73,7 +73,10 @@ final class ProgressChartViewModel {
         AppDate.displayFormatter("d.M")
     }
     private static func monthFormatter() -> DateFormatter {
-        AppDate.displayFormatter("MMM")
+        // Month buckets can span multiple years in a custom range. Including
+        // the year keeps the categorical chart axis unique (for example,
+        // "Jan 2026" and "Jan 2027" must not collapse into one value).
+        AppDate.displayFormatter("MMM yyyy")
     }
 
     init(coordinator: AppCoordinator, service: DailySummaryServiceProtocol, periodState: PeriodState, foodService: FoodServiceProtocol? = nil, waterService: WaterTrackingServiceProtocol? = nil, goalsService: GoalsServiceProtocol? = nil, activityService: ActivityServiceProtocol? = nil, cacheService: CacheService? = nil, profileService: ProfileServiceProtocol? = nil, workoutService: WorkoutServiceProtocol? = nil, progressRefreshState: ProgressRefreshState? = nil, weightReminderScheduler: WeightReminderScheduling? = nil) {
@@ -338,54 +341,92 @@ final class ProgressChartViewModel {
         case .week:
             var grouped: [Date: [ChartDataPoint]] = [:]
             for pt in sorted {
-                let comps = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: pt.date)
-                guard let start = calendar.date(from: comps) else { continue }
+                guard let start = calendar.dateInterval(of: .weekOfYear, for: pt.date)?.start else { continue }
                 grouped[start, default: []].append(pt)
             }
             return grouped.keys.sorted().map { start in
-                let pts = grouped[start]!
                 let end = calendar.date(byAdding: .day, value: 6, to: start) ?? start
-                return ChartDataPoint(
-                    date: start,
-                    label: "\(labelFormatter.string(from: start))-\(labelFormatter.string(from: end))",
-                    calories: pts.reduce(0.0) { $0 + $1.calories } / Double(pts.count),
-                    protein: pts.reduce(0.0) { $0 + $1.protein } / Double(pts.count),
-                    fat: pts.reduce(0.0) { $0 + $1.fat } / Double(pts.count),
-                    carbs: pts.reduce(0.0) { $0 + $1.carbs } / Double(pts.count),
-                    waterMl: pts.reduce(0) { $0 + $1.waterMl } / pts.count,
-                    steps: pts.reduce(0) { $0 + $1.steps },
-                    activeCalories: pts.reduce(0) { $0 + $1.activeCalories },
-                    basalCalories: pts.reduce(0) { $0 + $1.basalCalories },
-                    distanceMeters: pts.reduce(0) { $0 + $1.distanceMeters },
-                    netCalories: pts.reduce(0) { $0 + $1.netCalories }
+                let displayedRange = clippedDisplayRange(
+                    bucketStart: start,
+                    bucketEnd: end
+                )
+                return averagedPoint(
+                    start: start,
+                    label: "\(labelFormatter.string(from: displayedRange.start))-\(labelFormatter.string(from: displayedRange.end))",
+                    points: grouped[start]!
                 )
             }
 
         case .month:
             var grouped: [Date: [ChartDataPoint]] = [:]
             for pt in sorted {
-                let comps = calendar.dateComponents([.year, .month], from: pt.date)
-                guard let start = calendar.date(from: comps) else { continue }
+                guard let start = calendar.dateInterval(of: .month, for: pt.date)?.start else { continue }
                 grouped[start, default: []].append(pt)
             }
             return grouped.keys.sorted().map { start in
-                let pts = grouped[start]!
-                return ChartDataPoint(
-                    date: start,
+                averagedPoint(
+                    start: start,
                     label: monthFormatter.string(from: start).capitalized,
-                    calories: pts.reduce(0.0) { $0 + $1.calories } / Double(pts.count),
-                    protein: pts.reduce(0.0) { $0 + $1.protein } / Double(pts.count),
-                    fat: pts.reduce(0.0) { $0 + $1.fat } / Double(pts.count),
-                    carbs: pts.reduce(0.0) { $0 + $1.carbs } / Double(pts.count),
-                    waterMl: pts.reduce(0) { $0 + $1.waterMl } / pts.count,
-                    steps: pts.reduce(0) { $0 + $1.steps },
-                    activeCalories: pts.reduce(0) { $0 + $1.activeCalories },
-                    basalCalories: pts.reduce(0) { $0 + $1.basalCalories },
-                    distanceMeters: pts.reduce(0) { $0 + $1.distanceMeters },
-                    netCalories: pts.reduce(0) { $0 + $1.netCalories }
+                    points: grouped[start]!
                 )
             }
         }
+    }
+
+    /// Keeps labels truthful for the first and last partial calendar week of a
+    /// rolling month or custom period. The value is still averaged only across
+    /// tracked days, but the label must never imply that unselected dates were
+    /// included.
+    private func clippedDisplayRange(bucketStart: Date, bucketEnd: Date) -> (start: Date, end: Date) {
+        let range = currentRange()
+        guard let selectedStart = Self.dateOnlyFormatter().date(from: range.from),
+              let selectedEnd = Self.dateOnlyFormatter().date(from: range.to) else {
+            return (bucketStart, bucketEnd)
+        }
+
+        return (
+            Swift.max(bucketStart, selectedStart),
+            Swift.min(bucketEnd, selectedEnd)
+        )
+    }
+
+    /// Collapses the daily points of a week/month into one bar.
+    ///
+    /// Every metric becomes a **daily average**, never a sum. Charts compare
+    /// values from different sources — eaten calories against burned/resting
+    /// calories, or water against a daily goal — so mixing daily averages with
+    /// weekly sums made month/custom charts show a week of `basalCalories`
+    /// (≈12 000) next to an average day of calories (≈2 000). Period totals
+    /// are reported separately from the unaggregated `chartData`.
+    private func averagedPoint(
+        start: Date,
+        label: String,
+        points: [ChartDataPoint]
+    ) -> ChartDataPoint {
+        let count = Double(max(points.count, 1))
+
+        func average(_ keyPath: KeyPath<ChartDataPoint, Double>) -> Double {
+            points.reduce(0.0) { $0 + $1[keyPath: keyPath] } / count
+        }
+
+        func averageInt(_ keyPath: KeyPath<ChartDataPoint, Int>) -> Int {
+            Int((Double(points.reduce(0) { $0 + $1[keyPath: keyPath] }) / count).rounded())
+        }
+
+        return ChartDataPoint(
+            date: start,
+            label: label,
+            calories: average(\.calories),
+            protein: average(\.protein),
+            fat: average(\.fat),
+            carbs: average(\.carbs),
+            waterMl: averageInt(\.waterMl),
+            steps: averageInt(\.steps),
+            activeCalories: average(\.activeCalories),
+            basalCalories: average(\.basalCalories),
+            distanceMeters: average(\.distanceMeters),
+            netCalories: average(\.netCalories)
+        )
     }
 
     func refreshData() async {
@@ -820,26 +861,12 @@ final class ProgressChartViewModel {
         )
     }
 
-    private static let isoFormatter: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f
-    }()
-    private static let dateTimeFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
-        return f
-    }()
-    private static let dateTimeShortFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
-        return f
-    }()
-
     private func parseDate(_ dateString: String) -> Date? {
-        if let d = Self.isoFormatter.date(from: dateString) { return d }
-        if let d = Self.dateTimeFormatter.date(from: dateString) { return d }
-        if let d = Self.dateTimeShortFormatter.date(from: dateString) { return d }
-        return Self.dateOnlyFormatter().date(from: String(dateString.prefix(10)))
+        // Timestamps arrive with an explicit offset, but parsing still has to
+        // stay on the profile calendar: a device with a non-Gregorian calendar
+        // or a locale-specific 12/24-hour format would otherwise shift or
+        // reject `createdAt` and place the entry in the wrong hourly bucket.
+        AppDate.parseISO(dateString)
+            ?? Self.dateOnlyFormatter().date(from: String(dateString.prefix(10)))
     }
 }

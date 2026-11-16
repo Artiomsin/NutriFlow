@@ -26,7 +26,9 @@ struct ActivityChartView: View {
     private struct FlattenedPoint: Identifiable {
         let id = UUID()
         let label: String
-        let series: String
+        /// A distinct series ID per uninterrupted run prevents Charts from
+        /// drawing a line through days where this metric has no source data.
+        let seriesSegment: String
         let color: Color
         let value: Double
     }
@@ -40,16 +42,16 @@ struct ActivityChartView: View {
             }
 
             HStack(spacing: 16) {
-                legendDot(color: .orange, text: "Eaten")
-                legendDot(color: .green, text: "Burned")
-                legendDot(color: .blue, text: "Rest")
+                if hasEaten { legendDot(color: .orange, text: "Eaten") }
+                if hasBurned { legendDot(color: .green, text: "Burned") }
+                if hasRest { legendDot(color: .blue, text: "Rest") }
             }
 
             Chart(flattenedPoints) { point in
                 LineMark(
                     x: .value("Date", point.label),
                     y: .value("Calories", point.value),
-                    series: .value("Series", point.series)
+                    series: .value("Series segment", point.seriesSegment)
                 )
                 .foregroundStyle(point.color)
                 .interpolationMethod(.catmullRom)
@@ -101,14 +103,52 @@ struct ActivityChartView: View {
     }
 
     private var flattenedPoints: [FlattenedPoint] {
-        filteredData.flatMap { pt in
-            [
-                FlattenedPoint(label: pt.label, series: "Eaten", color: .orange, value: pt.calories),
-                FlattenedPoint(label: pt.label, series: "Burned", color: .green, value: pt.activeCalories),
-                FlattenedPoint(label: pt.label, series: "Rest", color: .blue, value: pt.basalCalories)
-            ]
+        segmentedPoints(
+            series: "Eaten",
+            color: .orange,
+            value: \.calories
+        ) + segmentedPoints(
+            series: "Burned",
+            color: .green,
+            value: \.activeCalories
+        ) + segmentedPoints(
+            series: "Rest",
+            color: .blue,
+            value: \.basalCalories
+        )
+    }
+
+    private func segmentedPoints(
+        series: String,
+        color: Color,
+        value keyPath: KeyPath<ChartDataPoint, Double>
+    ) -> [FlattenedPoint] {
+        var segment = 0
+        var hadPreviousValue = false
+
+        return data.sorted { $0.date < $1.date }.compactMap { point in
+            let metric = point[keyPath: keyPath]
+            guard metric > 0 else {
+                if hadPreviousValue {
+                    segment += 1
+                }
+                hadPreviousValue = false
+                return nil
+            }
+
+            hadPreviousValue = true
+            return FlattenedPoint(
+                label: point.label,
+                seriesSegment: "\(series)-\(segment)",
+                color: color,
+                value: metric
+            )
         }
     }
+
+    private var hasEaten: Bool { filteredData.contains { $0.calories > 0 } }
+    private var hasBurned: Bool { filteredData.contains { $0.activeCalories > 0 } }
+    private var hasRest: Bool { filteredData.contains { $0.basalCalories > 0 } }
 
     private var maxYValue: Double {
         let max = filteredData.flatMap { [$0.calories, $0.activeCalories, $0.basalCalories] }.max() ?? 0

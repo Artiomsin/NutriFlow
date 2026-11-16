@@ -416,15 +416,38 @@ struct ProgressDashboardView: View {
                 if hasChartData(data) {
                     VStack(spacing: 20) {
                         if let firstCalories = data.first(where: { $0.calories > 0 }) {
-                            CaloriesChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: initialScrollLabel(in: data, firstDataPoint: firstCalories))
+                            CaloriesChartView(
+                                data: data,
+                                total: chartVM.totalCaloriesSum,
+                                valueDescription: periodState.type == .today ? "Bars show hourly intake" : "Bars show avg / tracked day",
+                                canTap: chartVM.canTapBars,
+                                onBarTap: { chartVM.handleBarTap(point: $0) },
+                                initialScrollX: initialScrollLabel(in: data, firstDataPoint: firstCalories)
+                            )
                         }
 
                         if let firstWater = data.first(where: { $0.waterMl > 0 }) {
-                            WaterChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: initialScrollLabel(in: data, firstDataPoint: firstWater))
+                            WaterChartView(
+                                data: data,
+                                totalMl: chartVM.totalWaterSum,
+                                valueDescription: periodState.type == .today ? "Line shows hourly intake" : "Line shows avg / tracked day",
+                                canTap: chartVM.canTapBars,
+                                onBarTap: { chartVM.handleBarTap(point: $0) },
+                                initialScrollX: initialScrollLabel(in: data, firstDataPoint: firstWater)
+                            )
                         }
 
                         if let firstMacros = data.first(where: { $0.protein > 0 || $0.fat > 0 || $0.carbs > 0 }) {
-                            NutritionChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: initialScrollLabel(in: data, firstDataPoint: firstMacros))
+                            NutritionChartView(
+                                data: data,
+                                protein: chartVM.avgProtein,
+                                fat: chartVM.avgFat,
+                                carbs: chartVM.avgCarbs,
+                                title: periodState.type == .today ? "Macros (Today)" : "Macros (Avg / tracked day)",
+                                canTap: chartVM.canTapBars,
+                                onBarTap: { chartVM.handleBarTap(point: $0) },
+                                initialScrollX: initialScrollLabel(in: data, firstDataPoint: firstMacros)
+                            )
                         }
 
                         if let firstActivity = data.first(where: { $0.calories > 0 || $0.activeCalories > 0 || $0.basalCalories > 0 }) {

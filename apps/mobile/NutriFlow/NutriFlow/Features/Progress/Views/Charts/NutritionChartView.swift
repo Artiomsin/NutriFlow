@@ -8,15 +8,42 @@
 import SwiftUI
 import Charts
 struct NutritionChartView: View {
+    private struct MacroBarPoint: Identifiable {
+        let dateLabel: String
+        let macro: String
+        let grams: Double
+
+        var id: String { "\(dateLabel)-\(macro)" }
+    }
+
     let data: [ChartDataPoint]
     let canTap: Bool
     let onBarTap: ((ChartDataPoint) -> Void)?
     let initialScrollX: String
-    @State private var prefsStore = PreferencesStore.shared
+    /// Period totals (today) or averages per tracked day. Computed once in
+    /// `ProgressChartViewModel` from the daily data; the chart must not
+    /// re-average already aggregated bars.
+    let protein: Double
+    let fat: Double
+    let carbs: Double
+    let title: String
     @State private var selection: String?
 
-    init(data: [ChartDataPoint], canTap: Bool = false, onBarTap: ((ChartDataPoint) -> Void)? = nil, initialScrollX: String = "") {
+    init(
+        data: [ChartDataPoint],
+        protein: Double,
+        fat: Double,
+        carbs: Double,
+        title: String,
+        canTap: Bool = false,
+        onBarTap: ((ChartDataPoint) -> Void)? = nil,
+        initialScrollX: String = ""
+    ) {
         self.data = data
+        self.protein = protein
+        self.fat = fat
+        self.carbs = carbs
+        self.title = title
         self.canTap = canTap
         self.onBarTap = onBarTap
         self.initialScrollX = initialScrollX
@@ -26,22 +53,34 @@ struct NutritionChartView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "chart.bar.fill").foregroundColor(.green)
-                Text("Macros (Avg)").font(.headline).foregroundColor(AppColors.textPrimary)
+                Text(title).font(.headline).foregroundColor(AppColors.textPrimary)
                 Spacer()
             }
             HStack(spacing: 20) {
-                MacroSummaryItem(title: "Protein", value: avgProtein, color: .blue)
-                MacroSummaryItem(title: "Fat", value: avgFat, color: .yellow)
-                MacroSummaryItem(title: "Carbs", value: avgCarbs, color: .green)
+                MacroSummaryItem(title: "Protein", value: protein, color: .blue)
+                MacroSummaryItem(title: "Fat", value: fat, color: .yellow)
+                MacroSummaryItem(title: "Carbs", value: carbs, color: .green)
             }
             .padding(.vertical, 8)
-            Chart(filteredData) { point in
-                BarMark(x: .value("Date", point.label), y: .value("Protein", point.protein), width: .fixed(14)).foregroundStyle(.blue)
-                BarMark(x: .value("Date", point.label), y: .value("Fat", point.fat), width: .fixed(14)).foregroundStyle(.yellow)
-                BarMark(x: .value("Date", point.label), y: .value("Carbs", point.carbs), width: .fixed(14)).foregroundStyle(.green)
+            Chart(macroBarPoints) { point in
+                // Values with the same date share one x position. Standard
+                // stacking makes one compact bar per date instead of three
+                // bars competing for width or overflowing into neighbours.
+                BarMark(
+                    x: .value("Date", point.dateLabel),
+                    y: .value("Grams", point.grams),
+                    width: .fixed(16),
+                    stacking: .standard
+                )
+                .foregroundStyle(by: .value("Macro", point.macro))
             }
             .frame(height: 180)
             .chartYScale(domain: 0 ... Double(maxMacroValue))
+            .chartForegroundStyleScale([
+                "Protein": .blue,
+                "Fat": .yellow,
+                "Carbs": .green
+            ])
             .chartLegend(position: .bottom) { HStack(spacing: 20) { LegendItem(color: .blue, label: "Protein"); LegendItem(color: .yellow, label: "Fat"); LegendItem(color: .green, label: "Carbs") } }
             .chartYAxis { AxisMarks(position: .leading) { _ in AxisGridLine().foregroundStyle(AppColors.textTertiary .opacity(0.3)); AxisValueLabel().foregroundStyle(AppColors.textTertiary ) } }
             .chartXAxis {
@@ -63,23 +102,26 @@ struct NutritionChartView: View {
         .padding().appGlassSurface()
     }
 
-    private var avgProtein: Double { average(of: \.protein) }
-    private var avgFat: Double { average(of: \.fat) }
-    private var avgCarbs: Double { average(of: \.carbs) }
-
-    private func average(of keyPath: KeyPath<ChartDataPoint, Double>) -> Double {
-        guard !data.isEmpty else { return 0 }
-        return data.reduce(0) { $0 + $1[keyPath: keyPath] } / Double(data.count)
-    }
-
     /// Show only points that actually have macro data, so deleted-food hours
     /// don't leave ghost bars on the x-axis. Display-only.
     private var filteredData: [ChartDataPoint] {
         data.filter { $0.protein > 0 || $0.fat > 0 || $0.carbs > 0 }
     }
 
+    private var macroBarPoints: [MacroBarPoint] {
+        filteredData.flatMap { point in
+            [
+                MacroBarPoint(dateLabel: point.label, macro: "Protein", grams: point.protein),
+                MacroBarPoint(dateLabel: point.label, macro: "Fat", grams: point.fat),
+                MacroBarPoint(dateLabel: point.label, macro: "Carbs", grams: point.carbs)
+            ]
+        }
+    }
+
     private var maxMacroValue: Double {
-        let maxValue = data.map { Swift.max($0.protein, Swift.max($0.fat, $0.carbs)) }.max() ?? 0
+        // A stacked bar's height is the sum of its segments, not the maximum
+        // individual macro. Scaling by an individual value would clip the bar.
+        let maxValue = data.map { $0.protein + $0.fat + $0.carbs }.max() ?? 0
         return maxValue == 0 ? 100 : maxValue * 1.2
     }
 }
