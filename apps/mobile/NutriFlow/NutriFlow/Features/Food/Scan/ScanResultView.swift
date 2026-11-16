@@ -109,7 +109,16 @@ struct ScanResultView: View {
         }
     }
 
+    @ViewBuilder
     private func itemRow(_ item: EditableScanFood) -> some View {
+        if item.isWaterTracking {
+            barcodeWaterRow(item)
+        } else {
+            foodItemRow(item)
+        }
+    }
+
+    private func foodItemRow(_ item: EditableScanFood) -> some View {
         VStack(spacing: 14) {
             HStack(spacing: 14) {
                 Button {
@@ -165,6 +174,10 @@ struct ScanResultView: View {
                 weightField(item)
             }
 
+            if item.isBarcodeProduct {
+                trackingModePicker(item)
+            }
+
             fieldErrors(
                 for: item.id,
                 fields: ["name", "grams", "calories", "protein", "fat", "carbs"]
@@ -176,6 +189,85 @@ struct ScanResultView: View {
                 .fill(AppColors.surface)
         )
         .opacity(item.isSelected ? 1 : 0.55)
+    }
+
+    private func barcodeWaterRow(_ item: EditableScanFood) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 14) {
+                Button {
+                    viewModel.toggle(id: item.id)
+                } label: {
+                    Image(systemName: item.isSelected ? "checkmark.circle.fill" : "circle")
+                        .font(.title2)
+                        .foregroundStyle(item.isSelected ? AppColors.accent : AppColors.textTertiary)
+                }
+                .buttonStyle(.plain)
+
+                itemThumbnail(item)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(item.name)
+                        .font(.headline)
+                        .foregroundStyle(AppColors.textPrimary)
+                        .lineLimit(2)
+
+                    Text("Will be added to Water Tracking")
+                        .font(.footnote)
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+
+                Spacer(minLength: 8)
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("Amount")
+                        .font(.footnote.bold())
+                        .foregroundStyle(AppColors.accent)
+
+                    HStack(spacing: 4) {
+                        TextField(
+                            "0",
+                            text: Binding(
+                                get: { item.waterAmountMlText },
+                                set: { viewModel.updateBarcodeWaterAmount(id: item.id, $0) }
+                            )
+                        )
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.center)
+                        .frame(width: 48)
+
+                        Text("ml")
+                            .font(.footnote.bold())
+                    }
+                    .padding(.horizontal, 8)
+                    .frame(height: 36)
+                    .background(
+                        AppColors.surfaceSecondary,
+                        in: RoundedRectangle(cornerRadius: AppRadius.small)
+                    )
+                }
+            }
+
+            trackingModePicker(item)
+            fieldErrors(for: item.id, fields: ["waterAmountMl"])
+        }
+        .padding(16)
+        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18))
+        .opacity(item.isSelected ? 1 : 0.55)
+    }
+
+    private func trackingModePicker(_ item: EditableScanFood) -> some View {
+        Picker(
+            "Add as",
+            selection: Binding(
+                get: { item.trackingMode },
+                set: { viewModel.setTrackingMode(id: item.id, $0) }
+            )
+        ) {
+            Text("Food").tag(EditableScanFood.TrackingMode.food)
+            Text("Water").tag(EditableScanFood.TrackingMode.water)
+        }
+        .pickerStyle(.segmented)
+        .accessibilityLabel("Add scanned product as")
     }
 
     @ViewBuilder

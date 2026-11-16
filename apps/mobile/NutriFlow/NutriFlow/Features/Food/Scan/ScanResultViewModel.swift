@@ -26,6 +26,11 @@ struct EditableScanFood: Identifiable, Sendable {
         case fat
         case carbs
     }
+
+    enum TrackingMode: Hashable, Sendable {
+        case food
+        case water
+    }
     
     let id = UUID()
     let source: FoodAnalysisItem
@@ -33,6 +38,9 @@ struct EditableScanFood: Identifiable, Sendable {
     var isSelected = true
     var nameText: String
     var gramsText: String
+    var waterAmountMlText: String
+    var trackingMode: TrackingMode = .food
+
     /// Category suggested by the scanned product. It is not a NutriFlow category
     /// until it matches an existing category or the person explicitly creates it.
     let suggestedCategoryName: String?
@@ -59,6 +67,7 @@ struct EditableScanFood: Identifiable, Sendable {
         
         self.nameText = item.name ?? "Unknown food"
         self.gramsText = UnitConversion.formatDisplayValue(value, displayUnit: unit)
+        self.waterAmountMlText = String(Int(grams.rounded()))
         let suggestedCategory = item.category?.trimmingCharacters(in: .whitespacesAndNewlines)
         self.suggestedCategoryName = suggestedCategory?.isEmpty == false ? suggestedCategory : nil
         self.selectedCategoryName = nil
@@ -81,6 +90,18 @@ struct EditableScanFood: Identifiable, Sendable {
     
     var imageURL: URL? {
         source.imageUrl.flatMap(ImageURLResolver.resolve)
+    }
+
+    var isBarcodeProduct: Bool {
+        source.barcode != nil
+    }
+
+    var isWaterTracking: Bool {
+        trackingMode == .water
+    }
+
+    var waterAmountMl: Int? {
+        Int(waterAmountMlText).flatMap { (50...2_000).contains($0) ? $0 : nil }
     }
     
     var baseUnit: String { source.unit ?? "g" }
@@ -327,7 +348,14 @@ final class ScanResultViewModel {
 
     var selectedFoodItems: [EditableScanFood] {
         selectedItems.compactMap {
-            guard case .food(let item) = $0 else { return nil }
+            guard case .food(let item) = $0, !item.isWaterTracking else { return nil }
+            return item
+        }
+    }
+
+    var selectedBarcodeWaterItems: [EditableScanFood] {
+        selectedItems.compactMap {
+            guard case .food(let item) = $0, item.isWaterTracking else { return nil }
             return item
         }
     }
@@ -360,6 +388,7 @@ final class ScanResultViewModel {
 
     var totalWaterMl: Int {
         selectedWaterItems.compactMap(\.amountMl).reduce(0, +)
+            + selectedBarcodeWaterItems.compactMap(\.waterAmountMl).reduce(0, +)
     }
     
     func updateName(id: UUID, _ text: String) {
@@ -496,6 +525,20 @@ final class ScanResultViewModel {
         clearFieldError(for: id, field: "amountMl")
         items[index] = .water(item)
     }
+
+    func updateBarcodeWaterAmount(id: UUID, _ text: String) {
+        guard let index = items.firstIndex(where: { $0.id == id }), case .food(var item) = items[index] else { return }
+        item.waterAmountMlText = text
+        clearFieldError(for: id, field: "waterAmountMl")
+        items[index] = .food(item)
+    }
+
+    func setTrackingMode(id: UUID, _ mode: EditableScanFood.TrackingMode) {
+        guard let index = items.firstIndex(where: { $0.id == id }), case .food(var item) = items[index] else { return }
+        item.trackingMode = mode
+        clearFieldError(for: id, field: "waterAmountMl")
+        items[index] = .food(item)
+    }
     
     func loadCategories() async {
         guard categories.isEmpty else { return }
@@ -561,6 +604,11 @@ final class ScanResultViewModel {
             errors.set(FormErrorMapper.message(for: FieldErrorCode.invalidValue.rawValue), for: "amountMl")
             fieldErrors[waterItem.id] = errors
         }
+        for waterItem in selectedBarcodeWaterItems where waterItem.waterAmountMl == nil {
+            var errors = FormFieldErrors()
+            errors.set(FormErrorMapper.message(for: FieldErrorCode.invalidValue.rawValue), for: "waterAmountMl")
+            fieldErrors[waterItem.id] = errors
+        }
         guard fieldErrors.isEmpty else { return false }
 
         isLoading = true
@@ -622,6 +670,19 @@ final class ScanResultViewModel {
                         failedIds.append(item.id)
                     }
                 }
+            }
+        }
+
+        for item in selectedBarcodeWaterItems {
+            guard let amountMl = item.waterAmountMl else {
+                failed.append(item.name)
+                failedIds.append(item.id)
+                continue
+            }
+
+            if !(await waterViewModel.createWater(amountMl: amountMl)) {
+                failed.append("\(item.name) (\(amountMl) ml)")
+                failedIds.append(item.id)
             }
         }
 

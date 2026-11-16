@@ -131,6 +131,9 @@
     "Add" : {
 
     },
+    "Add as" : {
+
+    },
     "Add Category" : {
 
     },
@@ -141,6 +144,9 @@
 
     },
     "Add Portion" : {
+
+    },
+    "Add scanned product as" : {
 
     },
     "Add to Diary — %@" : {
@@ -775,6 +781,9 @@
 
     },
     "Fluid Ounces" : {
+
+    },
+    "Food" : {
 
     },
     "Food name" : {
