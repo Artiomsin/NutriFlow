@@ -208,7 +208,7 @@ struct ProgressDashboardView: View {
         case .idle:
             EmptyView()
         case .loading:
-            ProgressView().tint(.white).frame(maxWidth: .infinity).padding(.vertical, 40)
+            ProgressAnalyticsSkeleton()
         case .loaded(let analytics):
             VStack(spacing: 20) {
                 AnalyticsHeroView(streak: analytics.streak, trend: analytics.trend)
@@ -410,7 +410,7 @@ struct ProgressDashboardView: View {
     private var chartsContent: some View {
         switch chartVM.chartState {
         case .idle, .loading:
-            ProgressView().tint(.white).frame(maxWidth: .infinity).padding(.vertical, 20)
+            ProgressChartsSkeleton()
         case .loaded(let data):
             ZStack {
                 if hasChartData(data) {

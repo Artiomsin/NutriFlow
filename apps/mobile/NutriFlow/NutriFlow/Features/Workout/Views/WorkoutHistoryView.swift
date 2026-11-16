@@ -16,13 +16,9 @@ struct WorkoutHistoryView: View {
         VStack(spacing: 0) {
             switch vm.state {
             case .idle:
-                ProgressView()
-                    .tint(AppColors.accent)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                WorkoutHistorySkeleton()
             case .loading:
-                ProgressView()
-                    .tint(AppColors.accent)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                WorkoutHistorySkeleton()
             case .error(let error):
                 ErrorView(
                     error: error,

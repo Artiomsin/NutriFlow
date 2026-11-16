@@ -84,8 +84,7 @@ struct ProfileDisplayView: View {
                             )
                         }
                     } else if case .loading = viewModel.state {
-                        ProgressView()
-                            .tint(.white)
+                        ProfileSkeletonContent()
                     } else if case .empty = viewModel.state {
                         VStack(spacing: 16) {
                             Image(systemName: "person.circle.fill")

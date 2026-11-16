@@ -38,8 +38,7 @@ struct SleepHistoryView: View {
                 .frame(maxWidth: .infinity, minHeight: 300)
             case .loaded, .empty:
                 if vm.isHistoryLoading && vm.history.isEmpty {
-                    ProgressView().tint(AppColors.accent)
-                        .frame(maxWidth: .infinity, minHeight: 300)
+                    SleepHistorySkeleton()
                 } else if vm.history.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "moon")
@@ -84,8 +83,7 @@ struct SleepHistoryView: View {
             .padding(.horizontal, AppSpacing.paddingHorizontal)
             .frame(maxWidth: .infinity, minHeight: 300)
         } else {
-            ProgressView().tint(AppColors.accent)
-                .frame(maxWidth: .infinity, minHeight: 300)
+            SleepHistorySkeleton()
         }
     }
 

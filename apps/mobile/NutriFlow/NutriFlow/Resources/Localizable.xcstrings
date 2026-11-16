@@ -1007,19 +1007,40 @@
     "Loading activity" : {
 
     },
+    "Loading charts" : {
+
+    },
     "Loading daily summary" : {
+
+    },
+    "Loading day details" : {
 
     },
     "Loading food entries" : {
 
     },
+    "Loading nutrition trends" : {
+
+    },
+    "Loading popular foods" : {
+
+    },
+    "Loading profile" : {
+
+    },
     "Loading sleep data" : {
+
+    },
+    "Loading sleep history" : {
 
     },
     "Loading water entries" : {
 
     },
     "Loading workout data" : {
+
+    },
+    "Loading workouts" : {
 
     },
     "Looking up" : {
