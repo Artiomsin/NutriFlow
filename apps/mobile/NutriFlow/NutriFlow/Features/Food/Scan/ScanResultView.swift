@@ -53,14 +53,7 @@ struct ScanResultView: View {
 
     private var headerSection: some View {
         VStack(spacing: 6) {
-            if let image = viewModel.previewImage {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 90, height: 90)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .padding(.bottom, 8)
-            }
+            resultImage
 
             Text("Found \(viewModel.selectedItems.count) item(s)")
                 .font(.headline)
