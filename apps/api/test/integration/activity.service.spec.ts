@@ -7,7 +7,7 @@ import {
   setSystemTime,
 } from 'bun:test';
 import { ConfigModule } from '@nestjs/config';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import { DbModule } from '../../src/db/db.module';
 import { dailyActivity } from '../../src/db/schema/dailyActivity';
@@ -140,6 +140,65 @@ describe('ActivityService.sync', () => {
     expect(rows[0]!.activeCalories).toBe(300);
     expect(rows[0]!.basalCalories).toBe(1500);
     expect(rows[0]!.distanceMeters).toBe('4000.25');
+  });
+
+  it('keeps stored metrics when a later sync omits them', async () => {
+    const user = await createUser(tx);
+
+    await service.sync(user.id, {
+      entries: [
+        {
+          date: '2026-05-03',
+          steps: 8000,
+          activeCalories: 400,
+          basalCalories: 1500,
+          distanceMeters: 5200,
+        },
+      ],
+    });
+
+    await service.sync(user.id, {
+      entries: [{ date: '2026-05-03', steps: 8100 }],
+    });
+
+    const [row] = await tx
+      .select()
+      .from(dailyActivity)
+      .where(
+        and(
+          eq(dailyActivity.userId, user.id),
+          eq(dailyActivity.date, '2026-05-03'),
+        ),
+      );
+
+    expect(row!.steps).toBe(8100);
+    expect(row!.activeCalories).toBe(400);
+    expect(row!.basalCalories).toBe(1500);
+    expect(row!.distanceMeters).toBe('5200.00');
+  });
+
+  it('does not change a stored day when only a date is sent', async () => {
+    const user = await createUser(tx);
+
+    await service.sync(user.id, {
+      entries: [{ date: '2026-05-04', steps: 9000, basalCalories: 1600 }],
+    });
+    await service.sync(user.id, {
+      entries: [{ date: '2026-05-04' }],
+    });
+
+    const [row] = await tx
+      .select()
+      .from(dailyActivity)
+      .where(
+        and(
+          eq(dailyActivity.userId, user.id),
+          eq(dailyActivity.date, '2026-05-04'),
+        ),
+      );
+
+    expect(row!.steps).toBe(9000);
+    expect(row!.basalCalories).toBe(1600);
   });
 });
 
