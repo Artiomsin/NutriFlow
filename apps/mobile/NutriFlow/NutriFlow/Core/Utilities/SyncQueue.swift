@@ -100,13 +100,16 @@ final class SyncQueue: @unchecked Sendable {
 
     /// Removes entries older than N days (date-based cleanup).
     func removeOlderThan(days: Int) {
-        let calendar = Calendar.current
-        guard let cutoff = calendar.date(byAdding: .day, value: -days, to: Date()) else { return }
+        let calendar = AppDate.calendar
+        guard let cutoffDate = calendar.date(byAdding: .day, value: -days, to: .now) else {
+            return
+        }
+        let cutoff = calendar.startOfDay(for: cutoffDate)
 
         var array = all
         array.removeAll { entry in
             guard let dateStr = entry["date"] as? String,
-                  let date = Self.isoFormatter.date(from: dateStr + "T00:00:00Z") else {
+                  let date = AppDate.dateOnlyFormatter().date(from: dateStr) else {
                 return false
             }
             return date < cutoff

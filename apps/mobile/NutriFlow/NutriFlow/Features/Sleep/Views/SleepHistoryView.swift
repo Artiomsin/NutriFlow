@@ -38,8 +38,7 @@ struct SleepHistoryView: View {
                 .frame(maxWidth: .infinity, minHeight: 300)
             case .loaded, .empty:
                 if vm.isHistoryLoading && vm.history.isEmpty {
-                    ProgressView().tint(AppColors.accent)
-                        .frame(maxWidth: .infinity, minHeight: 300)
+                    SleepHistorySkeleton()
                 } else if vm.history.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "moon")
@@ -84,8 +83,7 @@ struct SleepHistoryView: View {
             .padding(.horizontal, AppSpacing.paddingHorizontal)
             .frame(maxWidth: .infinity, minHeight: 300)
         } else {
-            ProgressView().tint(AppColors.accent)
-                .frame(maxWidth: .infinity, minHeight: 300)
+            SleepHistorySkeleton()
         }
     }
 
@@ -140,7 +138,7 @@ struct SleepHistoryView: View {
     private func nightRow(_ night: HealthKitSleep) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text(night.startDate, format: .dateTime.weekday().month().day())
+                Text(AppDate.displayFormatter("EEE, MMM d").string(from: night.startDate))
                     .font(.subheadline.weight(.semibold))
                     .foregroundColor(AppColors.textPrimary)
                 if let efficiency = night.efficiency {
@@ -196,9 +194,7 @@ private struct NightDetailView: View {
             .padding(.vertical)
         }
         .background(AppColors.background)
-        .navigationTitle(
-            Text(night.startDate, format: .dateTime.weekday().month().day())
-        )
+        .navigationTitle(AppDate.displayFormatter("EEE, MMM d").string(from: night.startDate))
         .navigationBarTitleDisplayMode(.inline)
         .onDisappear { vm.clearSelection() }
     }

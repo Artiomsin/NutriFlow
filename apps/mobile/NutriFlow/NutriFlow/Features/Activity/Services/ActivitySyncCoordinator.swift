@@ -176,9 +176,7 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
         if !PreferencesStore.shared.hasCompletedInitialBackfill {
             print("[ActivitySyncCoordinator] starting 30-day backfill")
 
-            var calendar = Calendar.current
-            let tz = TimeZone(identifier: PreferencesStore.shared.timeZone) ?? .current
-            calendar.timeZone = tz
+            let calendar = AppDate.calendar
 
             let end = Date()
             guard let start = calendar.date(

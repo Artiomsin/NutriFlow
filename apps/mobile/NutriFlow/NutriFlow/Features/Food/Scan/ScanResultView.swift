@@ -53,14 +53,7 @@ struct ScanResultView: View {
 
     private var headerSection: some View {
         VStack(spacing: 6) {
-            if let image = viewModel.previewImage {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 90, height: 90)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .padding(.bottom, 8)
-            }
+            resultImage
 
             Text("Found \(viewModel.selectedItems.count) item(s)")
                 .font(.headline)
@@ -85,6 +78,24 @@ struct ScanResultView: View {
     }
 
     @ViewBuilder
+    private var resultImage: some View {
+        if let image = viewModel.previewImage {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 90, height: 90)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .padding(.bottom, 8)
+        } else if let imageURL = viewModel.selectedFoodItems.first?.imageURL {
+            NutriflowImage(url: imageURL)
+                .frame(width: 90, height: 90)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .padding(.bottom, 8)
+                .accessibilityLabel("Product photo")
+        }
+    }
+
+    @ViewBuilder
     private func fieldErrors(for itemID: UUID, fields: [String]) -> some View {
         let messages = fields.compactMap { viewModel.fieldError(for: itemID, field: $0) }
         if !messages.isEmpty {
@@ -98,7 +109,16 @@ struct ScanResultView: View {
         }
     }
 
+    @ViewBuilder
     private func itemRow(_ item: EditableScanFood) -> some View {
+        if item.isWaterTracking {
+            barcodeWaterRow(item)
+        } else {
+            foodItemRow(item)
+        }
+    }
+
+    private func foodItemRow(_ item: EditableScanFood) -> some View {
         VStack(spacing: 14) {
             HStack(spacing: 14) {
                 Button {
@@ -137,38 +157,7 @@ struct ScanResultView: View {
                             )
                     )
 
-                    Menu {
-                        Button("None") { viewModel.setCategory(id: item.id, nil) }
-
-                        Section("My Categories") {
-                            ForEach(viewModel.categories.filter(\.isPersonal)) { category in
-                                Button {
-                                    viewModel.setCategory(id: item.id, category)
-                                } label: {
-                                    Label(category.name, systemImage: category.icon ?? "tag.fill")
-                                }
-                            }
-                        }
-
-                        Section("System Categories") {
-                            ForEach(viewModel.categories.filter { !$0.isPersonal }) { category in
-                                Button {
-                                    viewModel.setCategory(id: item.id, category)
-                                } label: {
-                                    Label(category.name, systemImage: category.icon ?? "tag.fill")
-                                }
-                            }
-                        }
-                    } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: "tag")
-                                .font(.footnote)
-                            Text(item.categoryName ?? "Category")
-                        }
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(item.categoryName == nil ? AppColors.textSecondary : AppColors.textPrimary)
-                    }
-                    .onAppear { Task { await viewModel.loadCategories() } }
+                    categoryPicker(item)
                 }
 
                 Spacer()
@@ -185,6 +174,10 @@ struct ScanResultView: View {
                 weightField(item)
             }
 
+            if item.isBarcodeProduct {
+                trackingModePicker(item)
+            }
+
             fieldErrors(
                 for: item.id,
                 fields: ["name", "grams", "calories", "protein", "fat", "carbs"]
@@ -196,6 +189,151 @@ struct ScanResultView: View {
                 .fill(AppColors.surface)
         )
         .opacity(item.isSelected ? 1 : 0.55)
+    }
+
+    private func barcodeWaterRow(_ item: EditableScanFood) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 14) {
+                Button {
+                    viewModel.toggle(id: item.id)
+                } label: {
+                    Image(systemName: item.isSelected ? "checkmark.circle.fill" : "circle")
+                        .font(.title2)
+                        .foregroundStyle(item.isSelected ? AppColors.accent : AppColors.textTertiary)
+                }
+                .buttonStyle(.plain)
+
+                itemThumbnail(item)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(item.name)
+                        .font(.headline)
+                        .foregroundStyle(AppColors.textPrimary)
+                        .lineLimit(2)
+
+                    Text("Will be added to Water Tracking")
+                        .font(.footnote)
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+
+                Spacer(minLength: 8)
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("Amount")
+                        .font(.footnote.bold())
+                        .foregroundStyle(AppColors.accent)
+
+                    HStack(spacing: 4) {
+                        TextField(
+                            "0",
+                            text: Binding(
+                                get: { item.waterAmountMlText },
+                                set: { viewModel.updateBarcodeWaterAmount(id: item.id, $0) }
+                            )
+                        )
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.center)
+                        .frame(width: 48)
+
+                        Text("ml")
+                            .font(.footnote.bold())
+                    }
+                    .padding(.horizontal, 8)
+                    .frame(height: 36)
+                    .background(
+                        AppColors.surfaceSecondary,
+                        in: RoundedRectangle(cornerRadius: AppRadius.small)
+                    )
+                }
+            }
+
+            trackingModePicker(item)
+            fieldErrors(for: item.id, fields: ["waterAmountMl"])
+        }
+        .padding(16)
+        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18))
+        .opacity(item.isSelected ? 1 : 0.55)
+    }
+
+    private func trackingModePicker(_ item: EditableScanFood) -> some View {
+        Picker(
+            "Add as",
+            selection: Binding(
+                get: { item.trackingMode },
+                set: { viewModel.setTrackingMode(id: item.id, $0) }
+            )
+        ) {
+            Text("Food").tag(EditableScanFood.TrackingMode.food)
+            Text("Water").tag(EditableScanFood.TrackingMode.water)
+        }
+        .pickerStyle(.segmented)
+        .accessibilityLabel("Add scanned product as")
+    }
+
+    @ViewBuilder
+    private func categoryPicker(_ item: EditableScanFood) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Menu {
+                Button("None") { viewModel.setCategory(id: item.id, nil) }
+
+                Section("My Categories") {
+                    ForEach(viewModel.categories.filter(\.isPersonal)) { category in
+                        Button {
+                            viewModel.setCategory(id: item.id, category)
+                        } label: {
+                            Label(category.name, systemImage: category.icon ?? "tag.fill")
+                        }
+                    }
+                }
+
+                Section("System Categories") {
+                    ForEach(viewModel.categories.filter { !$0.isPersonal }) { category in
+                        Button {
+                            viewModel.setCategory(id: item.id, category)
+                        } label: {
+                            Label(category.name, systemImage: category.icon ?? "tag.fill")
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "tag")
+                        .font(.footnote)
+                    Text(item.categoryName ?? "Choose a category")
+                }
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(item.categoryName == nil ? AppColors.textSecondary : AppColors.textPrimary)
+            }
+
+            if item.categoryID == nil, let suggestion = item.suggestedCategoryName {
+                HStack(spacing: 5) {
+                    Image(systemName: "lightbulb")
+                    Text("Suggested by product: \(suggestion)")
+                }
+                .font(.caption)
+                .foregroundStyle(AppColors.textSecondary)
+
+                Button {
+                    Task { await viewModel.createSuggestedCategory(for: item.id) }
+                } label: {
+                    if viewModel.creatingSuggestedCategoryID == item.id {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Label("Create \(suggestion)", systemImage: "plus.circle")
+                    }
+                }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppColors.accent)
+                .disabled(viewModel.creatingSuggestedCategoryID != nil)
+                .accessibilityLabel("Create personal category \(suggestion)")
+            } else if item.categoryID == nil {
+                Text("Will be saved without a category")
+                    .font(.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+        }
+        .onAppear { Task { await viewModel.loadCategories() } }
     }
 
     private func waterRow(_ item: EditableScanWater) -> some View {
@@ -418,11 +556,17 @@ struct ScanResultView: View {
     ScanResultViewPreview()
 }
 
+#Preview("Barcode result") {
+    ScanResultViewPreview(isBarcodeResult: true)
+}
+
 private struct ScanResultViewPreview: View {
+    private let isBarcodeResult: Bool
     private let container: AppDependencyContainer
     @State private var coordinator: AppCoordinator
 
-    init() {
+    init(isBarcodeResult: Bool = false) {
+        self.isBarcodeResult = isBarcodeResult
         let container = AppDependencyContainer()
         self.container = container
         _coordinator = State(initialValue: AppCoordinator(container: container))
@@ -442,11 +586,13 @@ private struct ScanResultViewPreview: View {
                         fat: 3.6,
                         carbs: 0,
                         unit: "g",
-                        imageUrl: nil,
-                        confidence: 0.95,
+                        imageUrl: isBarcodeResult
+                            ? "https://images.openfoodfacts.org/images/products/301/762/042/2003/front_en.599.400.jpg"
+                            : nil,
+                        confidence: isBarcodeResult ? nil : 0.95,
                         foodId: nil,
-                        barcode: nil,
-                        source: "ai",
+                        barcode: isBarcodeResult ? "3017620422003" : nil,
+                        source: isBarcodeResult ? "catalog" : "ai",
                         aiCalories: 165,
                         catalogCalories: nil,
                         catalogCaloriesPer100g: nil,
@@ -477,6 +623,8 @@ private struct ScanResultViewPreview: View {
                     )),
                     .water(WaterAnalysisItem(amountMl: 250, containers: nil, confidence: 0.95))
                 ],
+                // Canvas cannot fetch remote API images, so the barcode preview
+                // uses a local stand-in while the app loads the product URL.
                 imageData: SamplePhoto.data,
                 service: MockFoodService(),
                 todayFoodVM: TodayFoodViewModel(

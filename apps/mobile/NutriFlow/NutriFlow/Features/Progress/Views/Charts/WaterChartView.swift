@@ -9,14 +9,19 @@ import SwiftUI
 import Charts
 struct WaterChartView: View {
     let data: [ChartDataPoint]
+    /// Period total computed from the daily data in `ProgressChartViewModel`.
+    let totalMl: Int
+    let valueDescription: String
     let canTap: Bool
     let onBarTap: ((ChartDataPoint) -> Void)?
     let initialScrollX: String
     @State private var prefsStore = PreferencesStore.shared
     @State private var selection: String?
 
-    init(data: [ChartDataPoint], canTap: Bool = false, onBarTap: ((ChartDataPoint) -> Void)? = nil, initialScrollX: String = "") {
+    init(data: [ChartDataPoint], totalMl: Int, valueDescription: String, canTap: Bool = false, onBarTap: ((ChartDataPoint) -> Void)? = nil, initialScrollX: String = "") {
         self.data = data
+        self.totalMl = totalMl
+        self.valueDescription = valueDescription
         self.canTap = canTap
         self.onBarTap = onBarTap
         self.initialScrollX = initialScrollX
@@ -26,9 +31,9 @@ struct WaterChartView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "drop.fill").foregroundColor(.blue)
-                Text("Water Intake").font(.headline).foregroundColor(AppColors.textPrimary)
+                Text("Water Intake (Total)").font(.headline).foregroundColor(AppColors.textPrimary)
                 Spacer()
-                Text(UnitConversion.formatAmount(grams: totalWater, unit: "ml", preferred: prefsStore.preferredUnits)).font(.subheadline).foregroundColor(AppColors.textSecondary)
+                Text(UnitConversion.formatAmount(grams: totalMl, unit: "ml", preferred: prefsStore.preferredUnits)).font(.subheadline).foregroundColor(AppColors.textSecondary)
             }
             Chart(filteredData) { point in
                 LineMark(x: .value("Date", point.label), y: .value("Water", point.waterMl))
@@ -54,14 +59,15 @@ struct WaterChartView: View {
             .onChange(of: selection) { _, newVal in
                 if canTap, let label = newVal, let point = data.first(where: { $0.label == label }) {
                     onBarTap?(point)
-                    DispatchQueue.main.async { selection = nil }
+                    selection = nil
                 }
             }
+            Text(valueDescription)
+                .font(.caption)
+                .foregroundStyle(AppColors.textSecondary)
         }
         .padding().appGlassSurface()
     }
-
-    private var totalWater: Int { data.reduce(0) { $0 + $1.waterMl } }
 
     /// Show only points that actually have water, so deleted-water hours
     /// don't leave ghost points on the x-axis. Display-only.

@@ -72,7 +72,7 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
 
 
     func loadLastNight() async throws -> HealthKitSleep? {
-        let calendar = Calendar.current
+        let calendar = AppDate.calendar
 
         let todayNoon = calendar.date(
             bySettingHour: 12,
@@ -185,7 +185,7 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
         reconcile: Bool,
         daysBack: Int = 7
     ) async throws -> [HealthKitSleep] {
-        let calendar = Calendar.current
+        let calendar = AppDate.calendar
 
         let todayNoon = calendar.date(
             bySettingHour: 12,

@@ -20,10 +20,7 @@ struct DayDetailSheet: View {
                     header
                     switch state {
                     case .idle, .loading:
-                        ProgressView()
-                            .tint(AppColors.textPrimary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 60)
+                        DayDetailSkeleton()
                     case .error(let error):
                         errorView(error)
                     case .loaded:

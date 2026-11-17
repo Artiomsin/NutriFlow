@@ -39,10 +39,10 @@ struct AddFoodView: View {
                 if onScanBarcode != nil {
                     scanBarcodeButton
                 }
-                if !viewModel.popularFoods.isEmpty { popularSection }
-                if viewModel.isLoadingPopular && viewModel.popularFoods.isEmpty {
-                    ProgressView()
-                        .tint(AppColors.accent)
+                if !viewModel.popularFoods.isEmpty {
+                    popularSection
+                } else if viewModel.isLoadingPopular {
+                    PopularFoodSkeletonSection()
                 }
                 if let popularError = viewModel.popularError {
                     ErrorView(error: popularError) { viewModel.retryPopular() }

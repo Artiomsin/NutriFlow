@@ -46,7 +46,6 @@ struct DashboardTodayResponse: Codable, Sendable {
 }
 
 struct ChartDataPoint: Identifiable, Sendable {
-    let id = UUID()
     let date: Date
     let label: String
     let calories: Double
@@ -59,6 +58,10 @@ struct ChartDataPoint: Identifiable, Sendable {
     var basalCalories: Double = 0
     var distanceMeters: Double = 0
     var netCalories: Double = 0
+
+    var id: String {
+        "\(Int(date.timeIntervalSince1970))-\(label)"
+    }
 }
 
 

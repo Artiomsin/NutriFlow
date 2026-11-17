@@ -2,8 +2,6 @@ import Foundation
 
 struct AchievementService: Sendable {
 
-    private static let calendar = Calendar(identifier: .gregorian)
-
     func dailyID(_ prefix: String, date: Date = .now) -> String {
         "\(prefix)_\(Achievement.dayFormatter.string(from: date))"
     }
@@ -55,8 +53,8 @@ struct AchievementService: Sendable {
     
     
     func weeklyID(_ prefix: String, date: Date = .now) -> String {
-        let year = Self.calendar.component(.yearForWeekOfYear, from: date)
-        let week = Self.calendar.component(.weekOfYear, from: date)
+        let year = AppDate.calendar.component(.yearForWeekOfYear, from: date)
+        let week = AppDate.calendar.component(.weekOfYear, from: date)
         return "\(prefix)_\(year)-W\(week)"
     }
     

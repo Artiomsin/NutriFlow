@@ -14,6 +14,7 @@ struct ProgressDashboardView: View {
     @State private var hasLoadedProgress = false
     @State private var isInitialProgressLoading = false
     @State private var handledFullReloadRevision: UInt = 0
+    @State private var progressRefreshTask: Task<Void, Never>?
     @State private var showWeightEntry = false
     @State private var weightInput = ""
     @State private var weightEntryError: AppError?
@@ -32,16 +33,33 @@ struct ProgressDashboardView: View {
                     fromDate: periodState.fromDate,
                     toDate: periodState.toDate,
                     onPeriodChange: {
+                        guard periodState.type != $0 else { return }
                         analyticsVM.setPeriod($0)
                         chartVM.setPeriod($0)
                     },
                     onCustomRange: { from, to in
+                        guard periodState.type != .custom
+                                || periodState.fromDate != from
+                                || periodState.toDate != to else {
+                            return
+                        }
                         analyticsVM.setCustomRange(from: from, to: to)
                         chartVM.setCustomRange(from: from, to: to)
                     }
                 )
+                // Weight stays at the top of the dashboard. Changing a period
+                // can alter the trend card's content, but it must not move the
+                // card itself because other dashboard sections changed height.
+                if periodState.type == .today {
+                    todayWeightCard
+                        .id("today-weight-card")
+                        .transaction { $0.animation = nil }
+                } else {
+                    periodWeightCard
+                        .id("period-weight-card")
+                        .transaction { $0.animation = nil }
+                }
                 analyticsContent
-                weightCard
                 chartsContent
                 Spacer(minLength: 100)
             }
@@ -51,15 +69,15 @@ struct ProgressDashboardView: View {
             tabBarState: tabBarState
         )
         .refreshable {
-            let task = Task {
-                async let analytics: () = analyticsVM.refreshData()
-                async let charts: () = chartVM.refreshData()
-                async let goals: () = goalsVM.loadGoals()
-                async let weight: () = chartVM.loadWeightSummary()
-                async let periodGoals: () = goalsVM.loadPeriodGoals(endingOn: periodState.toDate)
-                (_, _, _, _, _) = await (analytics, charts, goals, weight, periodGoals)
-            }
-            await task.value
+            async let analytics: () = analyticsVM.refreshData()
+            async let charts: () = chartVM.refreshData()
+            async let goals: () = goalsVM.loadGoals()
+            async let weight: () = chartVM.loadWeightSummary(forceRefresh: true)
+            async let periodGoals: () = goalsVM.loadPeriodGoals(
+                endingOn: periodState.toDate,
+                forceRefresh: true
+            )
+            (_, _, _, _, _) = await (analytics, charts, goals, weight, periodGoals)
         }
         .onAppear {
             loadInitialIfNeeded()
@@ -67,37 +85,13 @@ struct ProgressDashboardView: View {
         .onChange(of: isActive) { _, active in
             guard active else { return }
             if hasLoadedProgress {
-                let revision = progressRefreshState.revision
-                // A time zone change moves the period boundaries, so the
-                // weight block must be refetched together with the charts.
-                let needsWeightReload =
-                    progressRefreshState.fullReloadRevision != handledFullReloadRevision
-                handledFullReloadRevision = progressRefreshState.fullReloadRevision
-                Task {
-                    async let analytics: () = analyticsVM.refreshIfNeeded(currentRevision: revision)
-                    async let charts: () = chartVM.refreshIfNeeded(
-                        currentRevision: revision,
-                        reloadWeight: needsWeightReload
-                    )
-                    async let periodGoals: () = goalsVM.loadPeriodGoals(endingOn: periodState.toDate)
-                    (_, _, _) = await (analytics, charts, periodGoals)
-                }
+                scheduleProgressRefreshIfNeeded()
             } else {
                 loadInitialIfNeeded()
             }
         }
         .onChange(of: progressRefreshState.revision) { _, _ in
-            // Goals, food, water, and activity changes invalidate the open
-            // day detail as well. Reload its selected calendar date so a
-            // historical sheet keeps its historical goals, while today shows
-            // a newly saved goal immediately.
-            guard chartVM.showDaySheet, !chartVM.selectedDateStr.isEmpty else {
-                return
-            }
-
-            Task {
-                await chartVM.loadDayDetail(date: chartVM.selectedDateStr)
-            }
+            scheduleProgressRefreshIfNeeded()
         }
         .task(id: periodGoalsKey) {
             await goalsVM.loadPeriodGoals(endingOn: periodState.toDate)
@@ -149,6 +143,35 @@ struct ProgressDashboardView: View {
     }
 
     @MainActor
+    private func scheduleProgressRefreshIfNeeded() {
+        guard isActive, hasLoadedProgress else { return }
+
+        let revision = progressRefreshState.revision
+        let needsWeightReload =
+            progressRefreshState.fullReloadRevision != handledFullReloadRevision
+        handledFullReloadRevision = progressRefreshState.fullReloadRevision
+
+        progressRefreshTask?.cancel()
+        progressRefreshTask = Task {
+            async let analytics: () = analyticsVM.refreshIfNeeded(currentRevision: revision)
+            async let charts: () = chartVM.refreshIfNeeded(
+                currentRevision: revision,
+                reloadWeight: needsWeightReload
+            )
+            async let periodGoals: () = goalsVM.loadPeriodGoals(endingOn: periodState.toDate)
+            (_, _, _) = await (analytics, charts, periodGoals)
+
+            guard !Task.isCancelled,
+                  chartVM.showDaySheet,
+                  !chartVM.selectedDateStr.isEmpty
+            else {
+                return
+            }
+            await chartVM.loadDayDetail(date: chartVM.selectedDateStr)
+        }
+    }
+
+    @MainActor
     private func loadInitialIfNeeded() {
         guard isActive, !hasLoadedProgress, !isInitialProgressLoading else {
             return
@@ -167,26 +190,26 @@ struct ProgressDashboardView: View {
             async let charts: () = chartVM.loadChartData()
             async let goals: () = goalsVM.loadGoals()
             async let weight: () = chartVM.loadWeightSummary()
-            async let periodGoals: () = goalsVM.loadPeriodGoals(endingOn: periodState.toDate)
-            (_, _, _, _, _) = await (analytics, charts, goals, weight, periodGoals)
+            (_, _, _, _) = await (analytics, charts, goals, weight)
             handledFullReloadRevision = fullReloadRevision
 
-            var didLoadDashboard = false
+            var analyticsLoaded = false
+            var chartsLoaded = false
 
             switch analyticsVM.state {
             case .loaded, .empty:
                 analyticsVM.markRevisionAsCurrent(revision)
-                didLoadDashboard = true
+                analyticsLoaded = true
             default:
                 break
             }
 
             if case .loaded = chartVM.chartState {
                 chartVM.markRevisionAsCurrent(revision)
-                didLoadDashboard = true
+                chartsLoaded = true
             }
 
-            hasLoadedProgress = didLoadDashboard
+            hasLoadedProgress = analyticsLoaded && chartsLoaded
         }
     }
 
@@ -208,10 +231,14 @@ struct ProgressDashboardView: View {
         case .idle:
             EmptyView()
         case .loading:
-            ProgressView().tint(.white).frame(maxWidth: .infinity).padding(.vertical, 40)
+            ProgressAnalyticsSkeleton()
         case .loaded(let analytics):
             VStack(spacing: 20) {
-                AnalyticsHeroView(streak: analytics.streak, trend: analytics.trend)
+                AnalyticsHeroView(
+                    streak: analytics.streak,
+                    trend: analytics.trend,
+                    showStreak: periodState.type != .today
+                )
 
                 ringsGrid(analytics: analytics)
 
@@ -234,30 +261,42 @@ struct ProgressDashboardView: View {
         }
     }
 
-    private var weightCard: some View {
-        VStack(spacing: 8) {
-            if let weightError = chartVM.weightError {
-                ErrorView(error: weightError) {
-                    Task { await chartVM.loadWeightSummary() }
-                }
-            }
-            WeightCardView(
-                points: chartVM.weightPoints,
-                latestKg: chartVM.weightLatestKg,
-                deltaKg: chartVM.weightDeltaKg,
-                weeklyRateKg: chartVM.weightWeeklyRateKg,
-                periodLabel: chartVM.weightPeriodLabel,
-                onRecordWeight: {
-                    weightInput = ""
-                    weightEntryError = nil
-                    showWeightEntry = true
-                },
-                onManageWeights: {
-                    chartVM.weightHistoryError = nil
-                    showWeightHistory = true
-                }
-            )
-        }
+    private var todayWeightCard: some View {
+        TodayWeightCardView(
+            latestKg: chartVM.weightLatestKg,
+            isLoading: chartVM.isWeightLoading,
+            error: chartVM.weightError,
+            onRetry: { Task { await chartVM.loadWeightSummary() } },
+            onRecordWeight: presentWeightEntry,
+            onManageWeights: presentWeightHistory
+        )
+    }
+
+    private var periodWeightCard: some View {
+        WeightCardView(
+            points: chartVM.weightPoints,
+            latestKg: chartVM.weightLatestKg,
+            deltaKg: chartVM.weightDeltaKg,
+            weeklyRateKg: chartVM.weightWeeklyRateKg,
+            periodLabel: chartVM.weightPeriodLabel,
+            isLoading: chartVM.isWeightLoading,
+            error: chartVM.weightError,
+            isToday: false,
+            onRetry: { Task { await chartVM.loadWeightSummary() } },
+            onRecordWeight: presentWeightEntry,
+            onManageWeights: presentWeightHistory
+        )
+    }
+
+    private func presentWeightEntry() {
+        weightInput = ""
+        weightEntryError = nil
+        showWeightEntry = true
+    }
+
+    private func presentWeightHistory() {
+        chartVM.weightHistoryError = nil
+        showWeightHistory = true
     }
 
     private func recordWeight() {
@@ -293,7 +332,7 @@ struct ProgressDashboardView: View {
 
     private func weightRecordRow(_ entry: WeightLog) -> some View {
         let isInitial = entry.source == "initial"
-        let tint = isInitial ? AppColors.textSecondary : AppColors.accent
+        let tint = isInitial ? AppColors.success : AppColors.accent
         let weightText = UnitConversion.formatBodyWeight(
             kg: entry.weightKg,
             preferred: prefsStore.preferredUnits
@@ -346,8 +385,18 @@ struct ProgressDashboardView: View {
                     }
                 }
 
-                ForEach(chartVM.weightEntries.reversed()) { entry in
-                    weightRecordRow(entry)
+                if chartVM.isWeightHistoryLoading && chartVM.weightEntries.isEmpty {
+                    ForEach(0..<4, id: \.self) { _ in
+                        weightHistorySkeletonRow
+                    }
+                } else if chartVM.weightEntries.isEmpty && chartVM.weightHistoryError == nil {
+                    Text("No weight records yet.")
+                        .font(.subheadline)
+                        .foregroundColor(AppColors.textSecondary)
+                } else {
+                    ForEach(chartVM.weightEntries.reversed()) { entry in
+                        weightRecordRow(entry)
+                    }
                 }
             }
             .scrollContentBackground(.hidden)
@@ -380,6 +429,22 @@ struct ProgressDashboardView: View {
         }
     }
 
+    private var weightHistorySkeletonRow: some View {
+        HStack(spacing: 12) {
+            SkeletonBlock(width: 30, height: 30, cornerRadius: 15)
+
+            VStack(alignment: .leading, spacing: 6) {
+                SkeletonBlock(width: 96, height: 12)
+                SkeletonBlock(width: 72, height: 10)
+            }
+
+            Spacer()
+
+            SkeletonBlock(width: 64, height: 12)
+        }
+        .skeletonShimmer()
+    }
+
     private func deleteSelectedWeight() {
         guard let entry = pendingWeightDeletion else { return }
         isDeletingWeight = true
@@ -406,25 +471,60 @@ struct ProgressDashboardView: View {
         return AppDate.displayFormatter("EEEE, MMM d").string(from: date)
     }
 
+    /// Describes what one chart point represents. Derived from the same
+    /// aggregation level the VM used to build the points, so the caption cannot
+    /// claim an average for periods that render raw days.
+    private var chartPointCaption: String {
+        switch chartVM.chartAggregationLevel {
+        case .day:
+            return periodState.type == .today ? "Hourly intake" : "Daily intake"
+        case .week, .month:
+            return "Average per tracked day"
+        }
+    }
+
     @ViewBuilder
     private var chartsContent: some View {
         switch chartVM.chartState {
         case .idle, .loading:
-            ProgressView().tint(.white).frame(maxWidth: .infinity).padding(.vertical, 20)
+            ProgressChartsSkeleton()
         case .loaded(let data):
             ZStack {
                 if hasChartData(data) {
                     VStack(spacing: 20) {
                         if let firstCalories = data.first(where: { $0.calories > 0 }) {
-                            CaloriesChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: initialScrollLabel(in: data, firstDataPoint: firstCalories))
+                            CaloriesChartView(
+                                data: data,
+                                total: chartVM.totalCaloriesSum,
+                                valueDescription: chartPointCaption,
+                                canTap: chartVM.canTapBars,
+                                onBarTap: { chartVM.handleBarTap(point: $0) },
+                                initialScrollX: initialScrollLabel(in: data, firstDataPoint: firstCalories)
+                            )
                         }
 
                         if let firstWater = data.first(where: { $0.waterMl > 0 }) {
-                            WaterChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: initialScrollLabel(in: data, firstDataPoint: firstWater))
+                            WaterChartView(
+                                data: data,
+                                totalMl: chartVM.totalWaterSum,
+                                valueDescription: chartPointCaption,
+                                canTap: chartVM.canTapBars,
+                                onBarTap: { chartVM.handleBarTap(point: $0) },
+                                initialScrollX: initialScrollLabel(in: data, firstDataPoint: firstWater)
+                            )
                         }
 
                         if let firstMacros = data.first(where: { $0.protein > 0 || $0.fat > 0 || $0.carbs > 0 }) {
-                            NutritionChartView(data: data, canTap: chartVM.canTapBars, onBarTap: { chartVM.handleBarTap(point: $0) }, initialScrollX: initialScrollLabel(in: data, firstDataPoint: firstMacros))
+                            NutritionChartView(
+                                data: data,
+                                protein: chartVM.avgProtein,
+                                fat: chartVM.avgFat,
+                                carbs: chartVM.avgCarbs,
+                                title: periodState.type == .today ? "Macros (Today)" : "Macros (Avg / tracked day)",
+                                canTap: chartVM.canTapBars,
+                                onBarTap: { chartVM.handleBarTap(point: $0) },
+                                initialScrollX: initialScrollLabel(in: data, firstDataPoint: firstMacros)
+                            )
                         }
 
                         if let firstActivity = data.first(where: { $0.calories > 0 || $0.activeCalories > 0 || $0.basalCalories > 0 }) {
@@ -471,12 +571,14 @@ struct ProgressDashboardView: View {
         firstDataPoint.label
     }
 
-private struct RingItem: Identifiable {
-        let id = UUID()
+    private struct RingItem: Identifiable {
         let icon: String
         let color: Color
         let title: String
         let pct: Int
+        let source: String // "nutrition" | "fitness" — защита от дублей id при совпадении title+icon
+
+        var id: String { "\(source)-\(title)-\(icon)" }
     }
 
     @ViewBuilder
@@ -492,11 +594,11 @@ private struct RingItem: Identifiable {
         ).filter(\.show)
 
         let nutrition: [RingItem] = [
-            RingItem(icon: "flame.fill", color: .orange, title: "Calories", pct: analytics.goalCaloriesPct ?? 0),
-            RingItem(icon: "bolt.fill", color: .indigo, title: "Protein", pct: analytics.goalProteinPct ?? 0),
-            RingItem(icon: "drop.degreesign.fill", color: .green, title: "Fat", pct: analytics.goalFatPct ?? 0),
-            RingItem(icon: "leaf.arrow.circlepath", color: .purple, title: "Carbs", pct: analytics.goalCarbsPct ?? 0),
-            RingItem(icon: "drop.fill", color: .cyan, title: "Water", pct: analytics.goalWaterPct ?? 0)
+            RingItem(icon: "flame.fill", color: .orange, title: "Calories", pct: analytics.goalCaloriesPct ?? 0, source: "nutrition"),
+            RingItem(icon: "bolt.fill", color: .indigo, title: "Protein", pct: analytics.goalProteinPct ?? 0, source: "nutrition"),
+            RingItem(icon: "drop.degreesign.fill", color: .green, title: "Fat", pct: analytics.goalFatPct ?? 0, source: "nutrition"),
+            RingItem(icon: "leaf.arrow.circlepath", color: .purple, title: "Carbs", pct: analytics.goalCarbsPct ?? 0, source: "nutrition"),
+            RingItem(icon: "drop.fill", color: .cyan, title: "Water", pct: analytics.goalWaterPct ?? 0, source: "nutrition")
         ]
 
         let items = fitnessRows.map { row in
@@ -504,7 +606,8 @@ private struct RingItem: Identifiable {
                 icon: row.kind.icon,
                 color: row.kind.color,
                 title: row.kind.title,
-                pct: row.percent
+                pct: row.percent,
+                source: "fitness"
             )
         } + nutrition
 

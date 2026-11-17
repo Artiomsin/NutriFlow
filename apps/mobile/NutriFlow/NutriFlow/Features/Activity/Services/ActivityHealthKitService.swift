@@ -55,14 +55,13 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
 
     func fetchToday() async -> DailyActivity {
         let now = Date()
-        let tz = TimeZone(identifier: PreferencesStore.shared.timeZone) ?? .current
-        var calendar = Calendar.current
-        calendar.timeZone = tz
+        let calendar = AppDate.calendar
+        let timeZone = AppDate.timeZone
         let start = calendar.startOfDay(for: now)
 
         print(
             "[HealthKit] fetchToday: " +
-            "start=\(start) end=\(now) timeZone=\(tz.identifier)"
+            "start=\(start) end=\(now) timeZone=\(timeZone.identifier)"
         )
 
         async let steps = sum(
@@ -123,9 +122,8 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
     }
 
     func fetchRange(from startDate: Date, to endDate: Date) async throws -> [DailyActivity] {
-        let tz = TimeZone(identifier: PreferencesStore.shared.timeZone) ?? .current
-        var calendar = Calendar.current
-        calendar.timeZone = tz
+        let calendar = AppDate.calendar
+        let timeZone = AppDate.timeZone
 
         var results: [DailyActivity] = []
 
@@ -143,7 +141,7 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
 
             print(
                 "[HealthKit] fetchRange day: " +
-                "start=\(dayStart) end=\(dayEnd) timeZone=\(tz.identifier)"
+                "start=\(dayStart) end=\(dayEnd) timeZone=\(timeZone.identifier)"
             )
 
             async let steps = sum(

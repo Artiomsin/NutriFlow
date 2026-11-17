@@ -181,9 +181,9 @@ enum WorkoutMapper {
         return formatter
     }
 
-    static func localDayString(from date: Date, timeZone: TimeZone = TimeZone(identifier: PreferencesStore.shared.timeZone) ?? .current) -> String {
+    static func localDayString(from date: Date, timeZone: TimeZone = AppDate.timeZone) -> String {
         let formatter = DateFormatter()
-        formatter.calendar = .current
+        formatter.calendar = Calendar(identifier: .gregorian)
         formatter.timeZone = timeZone
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.string(from: date)
@@ -303,10 +303,7 @@ enum WorkoutFormatter {
     }
 
     static func formattedDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale.current
-        formatter.dateFormat = "d MMM, HH:mm"
-        return formatter.string(from: date)
+        return AppDate.displayFormatter("d MMM, HH:mm").string(from: date)
     }
 
     static func formattedDuration(_ seconds: Double) -> String {
@@ -326,5 +323,4 @@ struct HeartRatePoint: Equatable, Sendable, Identifiable {
 
     var id: Date { startDate }
 }
-
 

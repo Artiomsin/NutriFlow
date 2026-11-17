@@ -176,7 +176,7 @@ final class AchievementNotificationService {
         guard !ids.isEmpty else { return }
 
         let cutoff = Achievement.dayFormatter.string(
-            from: Calendar.current.date(
+            from: AppDate.calendar.date(
                 byAdding: .day,
                 value: -retentionDays,
                 to: .now

@@ -31,6 +31,9 @@ final class ProgressChartViewModel {
     var weightEntries: [WeightLog] = []
     var weightError: AppError?
     var weightHistoryError: AppError?
+    var isWeightLoading = false
+    var isWeightHistoryLoading = false
+    var hasLoadedWeight = false
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let service: DailySummaryServiceProtocol
     @ObservationIgnored private let foodService: FoodServiceProtocol?
@@ -44,10 +47,18 @@ final class ProgressChartViewModel {
     @ObservationIgnored private let weightReminderScheduler: WeightReminderScheduling?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var loadTaskID = 0
+    @ObservationIgnored private var dayDetailLoadID = 0
     @ObservationIgnored private var fallbackProfileWeightKg: Double?
     @ObservationIgnored private var didLoadFallbackProfileWeight = false
     @ObservationIgnored private let periodState: PeriodState
+    // Analytics updates the shared PeriodState before asking this view model to
+    // load. Keep our own last requested period so that hand-off still reloads
+    // charts and weight for the newly selected period.
+    @ObservationIgnored private var lastRequestedPeriod: PeriodType
     @ObservationIgnored private var lastProgressRevision: UInt?
+    @ObservationIgnored private var weightLoadTask: Task<Void, Never>?
+    @ObservationIgnored private var weightLoadID = 0
+    @ObservationIgnored private var weightHistoryLoadID = 0
 
     var showDaySheet = false
     var dayDetailState: DayDetailState = .idle
@@ -73,7 +84,10 @@ final class ProgressChartViewModel {
         AppDate.displayFormatter("d.M")
     }
     private static func monthFormatter() -> DateFormatter {
-        AppDate.displayFormatter("MMM")
+        // Month buckets can span multiple years in a custom range. Including
+        // the year keeps the categorical chart axis unique (for example,
+        // "Jan 2026" and "Jan 2027" must not collapse into one value).
+        AppDate.displayFormatter("MMM yyyy")
     }
 
     init(coordinator: AppCoordinator, service: DailySummaryServiceProtocol, periodState: PeriodState, foodService: FoodServiceProtocol? = nil, waterService: WaterTrackingServiceProtocol? = nil, goalsService: GoalsServiceProtocol? = nil, activityService: ActivityServiceProtocol? = nil, cacheService: CacheService? = nil, profileService: ProfileServiceProtocol? = nil, workoutService: WorkoutServiceProtocol? = nil, progressRefreshState: ProgressRefreshState? = nil, weightReminderScheduler: WeightReminderScheduling? = nil) {
@@ -81,6 +95,7 @@ final class ProgressChartViewModel {
         self.coordinator = coordinator
         self.service = service
         self.periodState = periodState
+        self.lastRequestedPeriod = periodState.type
         self.foodService = foodService
         self.waterService = waterService
         self.goalsService = goalsService
@@ -104,6 +119,8 @@ final class ProgressChartViewModel {
     }
 
     func loadDayDetail(date: String) async {
+        dayDetailLoadID &+= 1
+        let loadID = dayDetailLoadID
         selectedDateStr = date
         selectedDateFood = []
         selectedDateWater = []
@@ -125,6 +142,7 @@ final class ProgressChartViewModel {
 
             let (f, w, g, versions, activity, workouts) = try await (food, water, goals, versionsResult, activityResult, workoutsResult)
             try Task.checkCancellation()
+            guard loadID == dayDetailLoadID else { return }
 
             selectedDateFood = f
             selectedDateWater = w
@@ -137,6 +155,7 @@ final class ProgressChartViewModel {
         } catch is CancellationError {
             return
         } catch {
+            guard loadID == dayDetailLoadID else { return }
             dayDetailState = .error(ErrorMapper.map(error))
         }
     }
@@ -256,6 +275,13 @@ final class ProgressChartViewModel {
         }
     }
 
+    /// Aggregation used for the rendered points, exposed so captions describe
+    /// what a point actually is. A rolling week renders raw daily points, not
+    /// per-day averages, so it must not be described as an average.
+    var chartAggregationLevel: AggregationLevel {
+        aggregationLevel()
+    }
+
     var periodDays: Int {
         let range = currentRange()
         guard let from = Self.dateOnlyFormatter().date(from: range.from),
@@ -338,54 +364,92 @@ final class ProgressChartViewModel {
         case .week:
             var grouped: [Date: [ChartDataPoint]] = [:]
             for pt in sorted {
-                let comps = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: pt.date)
-                guard let start = calendar.date(from: comps) else { continue }
+                guard let start = calendar.dateInterval(of: .weekOfYear, for: pt.date)?.start else { continue }
                 grouped[start, default: []].append(pt)
             }
             return grouped.keys.sorted().map { start in
-                let pts = grouped[start]!
                 let end = calendar.date(byAdding: .day, value: 6, to: start) ?? start
-                return ChartDataPoint(
-                    date: start,
-                    label: "\(labelFormatter.string(from: start))-\(labelFormatter.string(from: end))",
-                    calories: pts.reduce(0.0) { $0 + $1.calories } / Double(pts.count),
-                    protein: pts.reduce(0.0) { $0 + $1.protein } / Double(pts.count),
-                    fat: pts.reduce(0.0) { $0 + $1.fat } / Double(pts.count),
-                    carbs: pts.reduce(0.0) { $0 + $1.carbs } / Double(pts.count),
-                    waterMl: pts.reduce(0) { $0 + $1.waterMl } / pts.count,
-                    steps: pts.reduce(0) { $0 + $1.steps },
-                    activeCalories: pts.reduce(0) { $0 + $1.activeCalories },
-                    basalCalories: pts.reduce(0) { $0 + $1.basalCalories },
-                    distanceMeters: pts.reduce(0) { $0 + $1.distanceMeters },
-                    netCalories: pts.reduce(0) { $0 + $1.netCalories }
+                let displayedRange = clippedDisplayRange(
+                    bucketStart: start,
+                    bucketEnd: end
+                )
+                return averagedPoint(
+                    start: start,
+                    label: "\(labelFormatter.string(from: displayedRange.start))-\(labelFormatter.string(from: displayedRange.end))",
+                    points: grouped[start]!
                 )
             }
 
         case .month:
             var grouped: [Date: [ChartDataPoint]] = [:]
             for pt in sorted {
-                let comps = calendar.dateComponents([.year, .month], from: pt.date)
-                guard let start = calendar.date(from: comps) else { continue }
+                guard let start = calendar.dateInterval(of: .month, for: pt.date)?.start else { continue }
                 grouped[start, default: []].append(pt)
             }
             return grouped.keys.sorted().map { start in
-                let pts = grouped[start]!
-                return ChartDataPoint(
-                    date: start,
+                averagedPoint(
+                    start: start,
                     label: monthFormatter.string(from: start).capitalized,
-                    calories: pts.reduce(0.0) { $0 + $1.calories } / Double(pts.count),
-                    protein: pts.reduce(0.0) { $0 + $1.protein } / Double(pts.count),
-                    fat: pts.reduce(0.0) { $0 + $1.fat } / Double(pts.count),
-                    carbs: pts.reduce(0.0) { $0 + $1.carbs } / Double(pts.count),
-                    waterMl: pts.reduce(0) { $0 + $1.waterMl } / pts.count,
-                    steps: pts.reduce(0) { $0 + $1.steps },
-                    activeCalories: pts.reduce(0) { $0 + $1.activeCalories },
-                    basalCalories: pts.reduce(0) { $0 + $1.basalCalories },
-                    distanceMeters: pts.reduce(0) { $0 + $1.distanceMeters },
-                    netCalories: pts.reduce(0) { $0 + $1.netCalories }
+                    points: grouped[start]!
                 )
             }
         }
+    }
+
+    /// Keeps labels truthful for the first and last partial calendar week of a
+    /// rolling month or custom period. The value is still averaged only across
+    /// tracked days, but the label must never imply that unselected dates were
+    /// included.
+    private func clippedDisplayRange(bucketStart: Date, bucketEnd: Date) -> (start: Date, end: Date) {
+        let range = currentRange()
+        guard let selectedStart = Self.dateOnlyFormatter().date(from: range.from),
+              let selectedEnd = Self.dateOnlyFormatter().date(from: range.to) else {
+            return (bucketStart, bucketEnd)
+        }
+
+        return (
+            Swift.max(bucketStart, selectedStart),
+            Swift.min(bucketEnd, selectedEnd)
+        )
+    }
+
+    /// Collapses the daily points of a week/month into one bar.
+    ///
+    /// Every metric becomes a **daily average**, never a sum. Charts compare
+    /// values from different sources — eaten calories against burned/resting
+    /// calories, or water against a daily goal — so mixing daily averages with
+    /// weekly sums made month/custom charts show a week of `basalCalories`
+    /// (≈12 000) next to an average day of calories (≈2 000). Period totals
+    /// are reported separately from the unaggregated `chartData`.
+    private func averagedPoint(
+        start: Date,
+        label: String,
+        points: [ChartDataPoint]
+    ) -> ChartDataPoint {
+        let count = Double(max(points.count, 1))
+
+        func average(_ keyPath: KeyPath<ChartDataPoint, Double>) -> Double {
+            points.reduce(0.0) { $0 + $1[keyPath: keyPath] } / count
+        }
+
+        func averageInt(_ keyPath: KeyPath<ChartDataPoint, Int>) -> Int {
+            Int((Double(points.reduce(0) { $0 + $1[keyPath: keyPath] }) / count).rounded())
+        }
+
+        return ChartDataPoint(
+            date: start,
+            label: label,
+            calories: average(\.calories),
+            protein: average(\.protein),
+            fat: average(\.fat),
+            carbs: average(\.carbs),
+            waterMl: averageInt(\.waterMl),
+            steps: averageInt(\.steps),
+            activeCalories: average(\.activeCalories),
+            basalCalories: average(\.basalCalories),
+            distanceMeters: average(\.distanceMeters),
+            netCalories: average(\.netCalories)
+        )
     }
 
     func refreshData() async {
@@ -408,7 +472,7 @@ final class ProgressChartViewModel {
         guard lastProgressRevision != currentRevision else { return }
         await refreshData()
         if reloadWeight {
-            await loadWeightSummary()
+            await loadWeightSummary(forceRefresh: true)
         }
         if case .loaded = chartState {
             lastProgressRevision = currentRevision
@@ -444,19 +508,55 @@ final class ProgressChartViewModel {
     }
 
     
-    func loadWeightSummary() async {
+    func loadWeightSummary(forceRefresh: Bool = false) async {
+        guard profileService != nil else { return }
+
+        weightLoadTask?.cancel()
+        weightLoadID &+= 1
+        let loadID = weightLoadID
+
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.performWeightSummaryLoad(loadID: loadID, forceRefresh: forceRefresh)
+        }
+        weightLoadTask = task
+        await task.value
+    }
+
+    private func performWeightSummaryLoad(loadID: Int, forceRefresh: Bool) async {
         guard let profileService else { return }
 
+        isWeightLoading = true
+        defer {
+            // A newer request owns the loading flag; an older one must not
+            // clear it after it has been superseded.
+            if loadID == weightLoadID {
+                isWeightLoading = false
+            }
+        }
+
         let range = currentRange()
-        weightPeriodLabel = periodLabel()
+        let cacheKey = weightLogsCacheKey(from: range.from, to: range.to)
+        let label = periodLabel()
+        let period = periodState.type
 
-        var weights = weightPoints
+        if forceRefresh {
+            await cacheService?.remove(cacheKey)
+        }
 
+        var points: [WeightPoint]
         do {
-            let logs = try await profileService.getWeightLogs(from: range.from, to: range.to)
+            let logs: [WeightLog]
+            if !forceRefresh,
+               let cached: [WeightLog] = try? await cacheService?.get(cacheKey) {
+                logs = cached
+            } else {
+                logs = try await profileService.getWeightLogs(from: range.from, to: range.to)
+                try? await cacheService?.set(cacheKey, logs, ttl: 300)
+            }
+            guard !Task.isCancelled, loadID == weightLoadID else { return }
             weightError = nil
-            weightEntries = logs
-            weights = logs
+            points = logs
                 .compactMap { log -> WeightPoint? in
                     guard let date = Self.dateOnlyFormatter().date(from: String(log.entryDate.prefix(10))) else { return nil }
                     return WeightPoint(
@@ -467,37 +567,25 @@ final class ProgressChartViewModel {
                 }
                 .sorted { $0.date < $1.date }
         } catch {
+            if error is CancellationError { return }
+            guard loadID == weightLoadID else { return }
             let appError = ErrorMapper.map(error)
             routeAuth(appError)
             if appError != .cancelled {
                 weightError = appError
             }
+            // Keep the last good points and label so a failed refresh does not
+            // blank the card or swap it back to the empty state.
+            return
         }
 
-        weightPoints = weights
-
-        guard let latest = weights.last else {
-            weightLatestKg = nil
-            weightDeltaKg = nil
-            weightWeeklyRateKg = nil
-            if !didLoadFallbackProfileWeight {
-                didLoadFallbackProfileWeight = true
-                do {
-                    let profile = try await profileService.getMyProfile()
-                    fallbackProfileWeightKg = profile.weight
-                } catch {
-                    let appError = ErrorMapper.map(error)
-                    routeAuth(appError)
-                    if appError != .cancelled {
-                        weightError = appError
-                    }
-                }
-            }
-            // The profile stores the current weight only. It is useful as a
-            // first point for Today, but must never be drawn in a past range.
-            if periodState.type == .today, let kg = fallbackProfileWeightKg {
-                weightLatestKg = kg
-                weightPoints = [
+        // The profile stores the current weight only. It is useful as a first
+        // point for Today, but must never be drawn in a past range.
+        if points.isEmpty, period == .today {
+            await resolveFallbackProfileWeightIfNeeded()
+            guard !Task.isCancelled, loadID == weightLoadID else { return }
+            if let kg = fallbackProfileWeightKg {
+                points = [
                     WeightPoint(
                         id: Self.dateOnlyFormatter().string(from: Date()),
                         date: Date(),
@@ -505,18 +593,47 @@ final class ProgressChartViewModel {
                     )
                 ]
             }
-            return
         }
 
-        weightLatestKg = latest.kg
+        guard !Task.isCancelled, loadID == weightLoadID else { return }
 
-        if let first = weights.first {
-            weightDeltaKg = latest.kg - first.kg
+        let latest = points.last
+        let delta: Double?
+        let weeklyRate: Double?
+        if let latest, let first = points.first, points.count > 1 {
+            delta = latest.kg - first.kg
             let days = max(1, AppDate.calendar.dateComponents([.day], from: first.date, to: latest.date).day ?? 1)
-            weightWeeklyRateKg = (latest.kg - first.kg) / (Double(days) / 7.0)
+            weeklyRate = (latest.kg - first.kg) / (Double(days) / 7.0)
         } else {
-            weightDeltaKg = nil
-            weightWeeklyRateKg = nil
+            // A single point has no trend; hide CHANGE/PER WEEK instead of
+            // showing a fake ±0.0.
+            delta = nil
+            weeklyRate = nil
+        }
+
+        weightPoints = points
+        weightPeriodLabel = label
+        weightLatestKg = latest?.kg
+        weightDeltaKg = delta
+        weightWeeklyRateKg = weeklyRate
+        hasLoadedWeight = true
+    }
+
+    /// Fetches the profile weight once. It is only a fallback for Today when
+    /// there are no weight logs, so it never replaces logged history.
+    private func resolveFallbackProfileWeightIfNeeded() async {
+        guard !didLoadFallbackProfileWeight, let profileService else { return }
+        didLoadFallbackProfileWeight = true
+        do {
+            let profile = try await profileService.getMyProfile()
+            fallbackProfileWeightKg = profile.weight
+        } catch {
+            if error is CancellationError { return }
+            let appError = ErrorMapper.map(error)
+            routeAuth(appError)
+            if appError != .cancelled {
+                weightError = appError
+            }
         }
     }
 
@@ -529,6 +646,7 @@ final class ProgressChartViewModel {
             didLoadFallbackProfileWeight = true
             await cacheService?.remove("profile")
             await cacheService?.remove("goals")
+            await invalidateWeightLogsCache()
             await loadWeightSummary()
             progressRefreshState?.invalidate()
         } catch {
@@ -546,6 +664,7 @@ final class ProgressChartViewModel {
             didLoadFallbackProfileWeight = false
             await cacheService?.remove("profile")
             await cacheService?.remove("goals")
+            await invalidateWeightLogsCache()
             await loadWeightSummary()
             await loadWeightHistory()
             progressRefreshState?.invalidate()
@@ -557,10 +676,24 @@ final class ProgressChartViewModel {
 
     func loadWeightHistory() async {
         guard let profileService else { return }
+
+        weightHistoryLoadID &+= 1
+        let loadID = weightHistoryLoadID
+        isWeightHistoryLoading = true
+        defer {
+            if loadID == weightHistoryLoadID {
+                isWeightHistoryLoading = false
+            }
+        }
+
         do {
-            weightEntries = try await profileService.getWeightLogs(from: nil, to: nil)
+            let entries = try await profileService.getWeightLogs(from: nil, to: nil)
+            guard !Task.isCancelled, loadID == weightHistoryLoadID else { return }
+            weightEntries = entries
             weightHistoryError = nil
         } catch {
+            if error is CancellationError { return }
+            guard loadID == weightHistoryLoadID else { return }
             let appError = ErrorMapper.map(error)
             routeAuth(appError)
             if appError != .cancelled {
@@ -582,6 +715,14 @@ final class ProgressChartViewModel {
             let to = Self.labelFormatter().string(from: periodState.toDate)
             return "\(from) – \(to)"
         }
+    }
+
+    private func weightLogsCacheKey(from: String, to: String) -> String {
+        "weight_logs_\(from)_\(to)"
+    }
+
+    private func invalidateWeightLogsCache() async {
+        await cacheService?.removeByPrefix("weight_logs_")
     }
 
     func loadChartData(keepLoadedData: Bool = false) async {
@@ -731,24 +872,31 @@ final class ProgressChartViewModel {
     }
 
     func setPeriod(_ period: PeriodType) {
+        let previousPeriod = lastRequestedPeriod
         periodState.type = period
-        startPeriodLoad()
+        lastRequestedPeriod = period
+        // Today contains hourly points; the remaining periods contain daily buckets.
+        // Never briefly present one resolution as the other while loading.
+        startPeriodLoad(keepPreviousCharts: previousPeriod != .today && period != .today)
     }
 
     func setCustomRange(from: Date, to: Date) {
+        let previousPeriod = lastRequestedPeriod
         periodState.fromDate = from
         periodState.toDate = to
         periodState.type = .custom
-        startPeriodLoad()
+        lastRequestedPeriod = .custom
+        startPeriodLoad(keepPreviousCharts: previousPeriod != .today)
     }
 
-    private func startPeriodLoad() {
-        let keepsPreviousCharts: Bool
+    private func startPeriodLoad(keepPreviousCharts: Bool = true) {
+        let hasPreviousCharts: Bool
         if case .loaded = chartState {
-            keepsPreviousCharts = true
+            hasPreviousCharts = true
         } else {
-            keepsPreviousCharts = false
+            hasPreviousCharts = false
         }
+        let keepsPreviousCharts = keepPreviousCharts && hasPreviousCharts
 
         isPeriodLoading = keepsPreviousCharts
         loadTask?.cancel()
@@ -758,9 +906,14 @@ final class ProgressChartViewModel {
         loadTask = Task { [weak self] in
             guard let self else { return }
             await self.loadChartData(keepLoadedData: keepsPreviousCharts)
-            await self.loadWeightSummary()
             guard self.loadTaskID == taskID else { return }
+            // Weight has its own request lifecycle. Waiting for its endpoint
+            // here kept the chart overlay spinning and made the charts look
+            // blocked on the weight request.
             self.isPeriodLoading = false
+        }
+        Task { [weak self] in
+            await self?.loadWeightSummary()
         }
     }
 
@@ -820,26 +973,12 @@ final class ProgressChartViewModel {
         )
     }
 
-    private static let isoFormatter: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f
-    }()
-    private static let dateTimeFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
-        return f
-    }()
-    private static let dateTimeShortFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
-        return f
-    }()
-
     private func parseDate(_ dateString: String) -> Date? {
-        if let d = Self.isoFormatter.date(from: dateString) { return d }
-        if let d = Self.dateTimeFormatter.date(from: dateString) { return d }
-        if let d = Self.dateTimeShortFormatter.date(from: dateString) { return d }
-        return Self.dateOnlyFormatter().date(from: String(dateString.prefix(10)))
+        // Timestamps arrive with an explicit offset, but parsing still has to
+        // stay on the profile calendar: a device with a non-Gregorian calendar
+        // or a locale-specific 12/24-hour format would otherwise shift or
+        // reject `createdAt` and place the entry in the wrong hourly bucket.
+        AppDate.parseISO(dateString)
+            ?? Self.dateOnlyFormatter().date(from: String(dateString.prefix(10)))
     }
 }

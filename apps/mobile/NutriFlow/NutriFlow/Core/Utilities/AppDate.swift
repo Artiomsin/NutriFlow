@@ -34,6 +34,16 @@ enum AppDate {
         makeFormatter(format, locale: .current)
     }
 
+    static func formatTime(_ iso: String) -> String {
+        guard let date = parseISO(iso) else { return String(iso.dropFirst(11).prefix(5)) }
+        return displayFormatter("HH:mm").string(from: date)
+    }
+
+    static func formatDate(_ iso: String, format: String) -> String {
+        guard let date = parseISO(iso) else { return iso }
+        return displayFormatter(format).string(from: date)
+    }
+
     /// Parses an ISO 8601 timestamp returned by the API.
     ///
     /// Timestamps arrive with fractional seconds from Postgres, but some

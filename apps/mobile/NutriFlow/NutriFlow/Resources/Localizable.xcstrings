@@ -131,6 +131,12 @@
     "Add" : {
 
     },
+    "Add another record on a different day to see your trend." : {
+
+    },
+    "Add as" : {
+
+    },
     "Add Category" : {
 
     },
@@ -141,6 +147,9 @@
 
     },
     "Add Portion" : {
+
+    },
+    "Add scanned product as" : {
 
     },
     "Add to Diary — %@" : {
@@ -203,10 +212,10 @@
     "Calories" : {
 
     },
-    "Cancel" : {
+    "Calories (Total)" : {
 
     },
-    "Carbs" : {
+    "Cancel" : {
 
     },
     "Categories" : {
@@ -281,6 +290,9 @@
     "Couldn’t save category" : {
 
     },
+    "Create %@" : {
+
+    },
     "Create a Category" : {
 
     },
@@ -290,10 +302,25 @@
     "Create account" : {
 
     },
+    "Create personal category %@" : {
+
+    },
     "Create Profile" : {
 
     },
+    "Current period" : {
+
+    },
     "Current Time Zone" : {
+
+    },
+    "Current weight" : {
+
+    },
+    "CURRENT WEIGHT" : {
+
+    },
+    "Current weight recorded" : {
 
     },
     "Custom amount" : {
@@ -765,10 +792,13 @@
     "Failed to load. Retry" : {
 
     },
-    "Fat" : {
+    "First record in this period" : {
 
     },
     "Fluid Ounces" : {
+
+    },
+    "Food" : {
 
     },
     "Food name" : {
@@ -992,13 +1022,31 @@
     "Loading activity" : {
 
     },
+    "Loading charts" : {
+
+    },
     "Loading daily summary" : {
+
+    },
+    "Loading day details" : {
 
     },
     "Loading food entries" : {
 
     },
+    "Loading nutrition trends" : {
+
+    },
+    "Loading popular foods" : {
+
+    },
+    "Loading profile" : {
+
+    },
     "Loading sleep data" : {
+
+    },
+    "Loading sleep history" : {
 
     },
     "Loading water entries" : {
@@ -1007,10 +1055,13 @@
     "Loading workout data" : {
 
     },
+    "Loading workouts" : {
+
+    },
     "Looking up" : {
 
     },
-    "Macros (Avg)" : {
+    "Macro" : {
 
     },
     "Manage Categories" : {
@@ -1061,6 +1112,9 @@
     "No account? Register" : {
 
     },
+    "No current weight" : {
+
+    },
     "No data for this period" : {
 
     },
@@ -1109,6 +1163,9 @@
     "No weight records for this period" : {
 
     },
+    "No weight records yet." : {
+
+    },
     "No workouts yet" : {
 
     },
@@ -1154,22 +1211,19 @@
     "Preset servings" : {
 
     },
+    "Product photo" : {
+
+    },
     "Profile" : {
 
     },
     "Progress" : {
 
     },
-    "Protein" : {
-
-    },
     "Recommendation adjustments are kept while goals adapt to your profile and weight." : {
 
     },
     "Record" : {
-
-    },
-    "Record another day to see your change over time." : {
 
     },
     "Record weight" : {
@@ -1185,6 +1239,9 @@
 
     },
     "Reminders" : {
+
+    },
+    "Retry loading weight" : {
 
     },
     "Rings use the goal in effect at the end of the day." : {
@@ -1259,7 +1316,13 @@
     "Series" : {
 
     },
+    "Series segment" : {
+
+    },
     "Settings" : {
+
+    },
+    "Show %@ period" : {
 
     },
     "Show less" : {
@@ -1293,6 +1356,9 @@
 
     },
     "Start typing to search" : {
+
+    },
+    "Suggested by product: %@" : {
 
     },
     "Switch to automatic goals" : {
@@ -1335,6 +1401,9 @@
 
     },
     "Time" : {
+
+    },
+    "Today" : {
 
     },
     "Today Summary" : {
@@ -1409,7 +1478,7 @@
     "Water" : {
 
     },
-    "Water Intake" : {
+    "Water Intake (Total)" : {
 
     },
     "Water reminder" : {
@@ -1434,6 +1503,9 @@
 
     },
     "Will be added to Water Tracking" : {
+
+    },
+    "Will be saved without a category" : {
 
     },
     "Workouts" : {

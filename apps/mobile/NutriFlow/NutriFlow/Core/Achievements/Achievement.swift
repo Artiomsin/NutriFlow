@@ -8,11 +8,8 @@ struct Achievement: Sendable, Equatable {
     /// Single source for date-suffixed achievement ids (`prefix_YYYY-MM-DD`).
     /// Shared by AchievementService (generates ids) and
     /// AchievementNotificationService (prunes them).
-    static let dayFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = .current
-        return formatter
-    }()
+    /// Computed so an in-app profile time-zone change is reflected immediately.
+    static var dayFormatter: DateFormatter {
+        AppDate.dateOnlyFormatter()
+    }
 }

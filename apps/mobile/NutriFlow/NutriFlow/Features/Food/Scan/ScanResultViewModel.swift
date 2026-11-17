@@ -26,6 +26,11 @@ struct EditableScanFood: Identifiable, Sendable {
         case fat
         case carbs
     }
+
+    enum TrackingMode: Hashable, Sendable {
+        case food
+        case water
+    }
     
     let id = UUID()
     let source: FoodAnalysisItem
@@ -33,7 +38,13 @@ struct EditableScanFood: Identifiable, Sendable {
     var isSelected = true
     var nameText: String
     var gramsText: String
-    var categoryText: String
+    var waterAmountMlText: String
+    var trackingMode: TrackingMode = .food
+
+    /// Category suggested by the scanned product. It is not a NutriFlow category
+    /// until it matches an existing category or the person explicitly creates it.
+    let suggestedCategoryName: String?
+    var selectedCategoryName: String?
     var categoryID: String?
     var hasManualProductEdit = false
     var hasManualNutritionEdit = false
@@ -56,7 +67,10 @@ struct EditableScanFood: Identifiable, Sendable {
         
         self.nameText = item.name ?? "Unknown food"
         self.gramsText = UnitConversion.formatDisplayValue(value, displayUnit: unit)
-        self.categoryText = item.category ?? ""
+        self.waterAmountMlText = String(Int(grams.rounded()))
+        let suggestedCategory = item.category?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.suggestedCategoryName = suggestedCategory?.isEmpty == false ? suggestedCategory : nil
+        self.selectedCategoryName = nil
         self.categoryID = nil
         
         let baseCalories = item.bestCalories ?? item.calories ?? 0
@@ -71,10 +85,23 @@ struct EditableScanFood: Identifiable, Sendable {
         return trimmed.isEmpty ? (source.name ?? "Unknown food") : trimmed
     }
     
-    var categoryName: String? { categoryText.isEmpty ? nil : categoryText }
+    /// Only a category selected in NutriFlow is sent to the backend.
+    var categoryName: String? { selectedCategoryName }
     
     var imageURL: URL? {
         source.imageUrl.flatMap(ImageURLResolver.resolve)
+    }
+
+    var isBarcodeProduct: Bool {
+        source.barcode != nil
+    }
+
+    var isWaterTracking: Bool {
+        trackingMode == .water
+    }
+
+    var waterAmountMl: Int? {
+        Int(waterAmountMlText).flatMap { (50...2_000).contains($0) ? $0 : nil }
     }
     
     var baseUnit: String { source.unit ?? "g" }
@@ -256,6 +283,7 @@ final class ScanResultViewModel {
     var fieldErrors: [UUID: FormFieldErrors] = [:]
     var categories: [FoodCategory] = []
     var categoriesError: AppError?
+    var creatingSuggestedCategoryID: UUID?
     @ObservationIgnored private var uploadedImageUrl: String?
     
     private let prefsStore: PreferencesStore
@@ -320,7 +348,14 @@ final class ScanResultViewModel {
 
     var selectedFoodItems: [EditableScanFood] {
         selectedItems.compactMap {
-            guard case .food(let item) = $0 else { return nil }
+            guard case .food(let item) = $0, !item.isWaterTracking else { return nil }
+            return item
+        }
+    }
+
+    var selectedBarcodeWaterItems: [EditableScanFood] {
+        selectedItems.compactMap {
+            guard case .food(let item) = $0, item.isWaterTracking else { return nil }
             return item
         }
     }
@@ -353,6 +388,7 @@ final class ScanResultViewModel {
 
     var totalWaterMl: Int {
         selectedWaterItems.compactMap(\.amountMl).reduce(0, +)
+            + selectedBarcodeWaterItems.compactMap(\.waterAmountMl).reduce(0, +)
     }
     
     func updateName(id: UUID, _ text: String) {
@@ -419,23 +455,65 @@ final class ScanResultViewModel {
     func setCategory(id: UUID, _ category: FoodCategory?) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         guard case .food(var item) = items[index] else { return }
-        item.categoryText = category?.name ?? ""
+        item.selectedCategoryName = category?.name
         item.categoryID = category?.id
         items[index] = .food(item)
+    }
+
+    func createSuggestedCategory(for itemID: UUID) async {
+        guard creatingSuggestedCategoryID == nil,
+              let index = items.firstIndex(where: { $0.id == itemID }),
+              case .food(let item) = items[index],
+              let suggestedName = item.suggestedCategoryName else {
+            return
+        }
+
+        let normalizedName = suggestedName
+            .split(whereSeparator: { $0.isWhitespace })
+            .joined(separator: " ")
+        guard !normalizedName.isEmpty else { return }
+
+        if let existingCategory = categories.first(where: {
+            $0.name.caseInsensitiveCompare(normalizedName) == .orderedSame
+        }) {
+            setCategory(id: itemID, existingCategory)
+            return
+        }
+
+        creatingSuggestedCategoryID = itemID
+        categoriesError = nil
+        defer { creatingSuggestedCategoryID = nil }
+
+        do {
+            let category = try await service.createCategory(
+                name: normalizedName,
+                icon: nil,
+                color: nil
+            )
+            categories.append(category)
+            categories.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            setCategory(id: itemID, category)
+        } catch {
+            let mapped = ErrorMapper.map(error)
+            if mapped == .unauthorized {
+                coordinator?.goToAuth()
+            }
+            categoriesError = mapped == .cancelled ? nil : mapped
+        }
     }
 
     private func applySuggestedCategories() {
         for index in items.indices {
             guard case .food(var item) = items[index],
                   item.categoryID == nil,
-                  !item.categoryText.isEmpty,
+                  let suggestedCategoryName = item.suggestedCategoryName,
                   let category = categories.first(where: {
-                      $0.name.compare(item.categoryText, options: .caseInsensitive) == .orderedSame
+                      $0.name.compare(suggestedCategoryName, options: .caseInsensitive) == .orderedSame
                   }) else {
                 continue
             }
 
-            item.categoryText = category.name
+            item.selectedCategoryName = category.name
             item.categoryID = category.id
             items[index] = .food(item)
         }
@@ -446,6 +524,20 @@ final class ScanResultViewModel {
         item.amountMlText = text
         clearFieldError(for: id, field: "amountMl")
         items[index] = .water(item)
+    }
+
+    func updateBarcodeWaterAmount(id: UUID, _ text: String) {
+        guard let index = items.firstIndex(where: { $0.id == id }), case .food(var item) = items[index] else { return }
+        item.waterAmountMlText = text
+        clearFieldError(for: id, field: "waterAmountMl")
+        items[index] = .food(item)
+    }
+
+    func setTrackingMode(id: UUID, _ mode: EditableScanFood.TrackingMode) {
+        guard let index = items.firstIndex(where: { $0.id == id }), case .food(var item) = items[index] else { return }
+        item.trackingMode = mode
+        clearFieldError(for: id, field: "waterAmountMl")
+        items[index] = .food(item)
     }
     
     func loadCategories() async {
@@ -512,6 +604,11 @@ final class ScanResultViewModel {
             errors.set(FormErrorMapper.message(for: FieldErrorCode.invalidValue.rawValue), for: "amountMl")
             fieldErrors[waterItem.id] = errors
         }
+        for waterItem in selectedBarcodeWaterItems where waterItem.waterAmountMl == nil {
+            var errors = FormFieldErrors()
+            errors.set(FormErrorMapper.message(for: FieldErrorCode.invalidValue.rawValue), for: "waterAmountMl")
+            fieldErrors[waterItem.id] = errors
+        }
         guard fieldErrors.isEmpty else { return false }
 
         isLoading = true
@@ -573,6 +670,19 @@ final class ScanResultViewModel {
                         failedIds.append(item.id)
                     }
                 }
+            }
+        }
+
+        for item in selectedBarcodeWaterItems {
+            guard let amountMl = item.waterAmountMl else {
+                failed.append(item.name)
+                failedIds.append(item.id)
+                continue
+            }
+
+            if !(await waterViewModel.createWater(amountMl: amountMl)) {
+                failed.append("\(item.name) (\(amountMl) ml)")
+                failedIds.append(item.id)
             }
         }
 
