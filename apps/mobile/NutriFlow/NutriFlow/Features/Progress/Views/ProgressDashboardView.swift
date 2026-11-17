@@ -158,7 +158,10 @@ struct ProgressDashboardView: View {
                 currentRevision: revision,
                 reloadWeight: needsWeightReload
             )
-            async let periodGoals: () = goalsVM.loadPeriodGoals(endingOn: periodState.toDate)
+            async let periodGoals: () = goalsVM.loadPeriodGoals(
+                endingOn: periodState.toDate,
+                forceRefresh: true
+            )
             (_, _, _) = await (analytics, charts, periodGoals)
 
             guard !Task.isCancelled,
@@ -193,22 +196,23 @@ struct ProgressDashboardView: View {
             (_, _, _, _) = await (analytics, charts, goals, weight)
             handledFullReloadRevision = fullReloadRevision
 
-            var didLoadDashboard = false
+            var analyticsLoaded = false
+            var chartsLoaded = false
 
             switch analyticsVM.state {
             case .loaded, .empty:
                 analyticsVM.markRevisionAsCurrent(revision)
-                didLoadDashboard = true
+                analyticsLoaded = true
             default:
                 break
             }
 
             if case .loaded = chartVM.chartState {
                 chartVM.markRevisionAsCurrent(revision)
-                didLoadDashboard = true
+                chartsLoaded = true
             }
 
-            hasLoadedProgress = didLoadDashboard
+            hasLoadedProgress = analyticsLoaded && chartsLoaded
         }
     }
 
@@ -571,8 +575,9 @@ struct ProgressDashboardView: View {
         let color: Color
         let title: String
         let pct: Int
+        let source: String // "nutrition" | "fitness" — защита от дублей id при совпадении title+icon
 
-        var id: String { "\(title)-\(icon)" }
+        var id: String { "\(source)-\(title)-\(icon)" }
     }
 
     @ViewBuilder
@@ -588,11 +593,11 @@ struct ProgressDashboardView: View {
         ).filter(\.show)
 
         let nutrition: [RingItem] = [
-            RingItem(icon: "flame.fill", color: .orange, title: "Calories", pct: analytics.goalCaloriesPct ?? 0),
-            RingItem(icon: "bolt.fill", color: .indigo, title: "Protein", pct: analytics.goalProteinPct ?? 0),
-            RingItem(icon: "drop.degreesign.fill", color: .green, title: "Fat", pct: analytics.goalFatPct ?? 0),
-            RingItem(icon: "leaf.arrow.circlepath", color: .purple, title: "Carbs", pct: analytics.goalCarbsPct ?? 0),
-            RingItem(icon: "drop.fill", color: .cyan, title: "Water", pct: analytics.goalWaterPct ?? 0)
+            RingItem(icon: "flame.fill", color: .orange, title: "Calories", pct: analytics.goalCaloriesPct ?? 0, source: "nutrition"),
+            RingItem(icon: "bolt.fill", color: .indigo, title: "Protein", pct: analytics.goalProteinPct ?? 0, source: "nutrition"),
+            RingItem(icon: "drop.degreesign.fill", color: .green, title: "Fat", pct: analytics.goalFatPct ?? 0, source: "nutrition"),
+            RingItem(icon: "leaf.arrow.circlepath", color: .purple, title: "Carbs", pct: analytics.goalCarbsPct ?? 0, source: "nutrition"),
+            RingItem(icon: "drop.fill", color: .cyan, title: "Water", pct: analytics.goalWaterPct ?? 0, source: "nutrition")
         ]
 
         let items = fitnessRows.map { row in
@@ -600,7 +605,8 @@ struct ProgressDashboardView: View {
                 icon: row.kind.icon,
                 color: row.kind.color,
                 title: row.kind.title,
-                pct: row.percent
+                pct: row.percent,
+                source: "fitness"
             )
         } + nutrition
 
