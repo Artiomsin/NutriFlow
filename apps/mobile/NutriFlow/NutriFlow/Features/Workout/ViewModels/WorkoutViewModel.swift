@@ -24,6 +24,9 @@ final class WorkoutViewModel {
     private static let pageSize = 100
     
     private static let lastWorkoutTTL: TimeInterval = 300
+    /// Workout history changes rarely (full sync runs every 3 h), so it can be
+    /// cached longer than the latest-workout snapshot.
+    private static let historyCacheTTL: TimeInterval = 600
     private static let syncInterval: TimeInterval = 3 * 60 * 60
     private static let reconciliationInterval: TimeInterval = 24 * 60 * 60
     
@@ -845,7 +848,7 @@ final class WorkoutViewModel {
         }
         
         print(
-            "[WorkoutVM] sync \(isFull ? (firstEver ? "first full 365d" : "reconciliation 30d") : "incremental delta") window: \(start) -> \(end)"
+            "[WorkoutVM] sync \(isFull ? (firstEver ? "first full 30d" : "reconciliation 30d") : "incremental delta") window: \(start) -> \(end)"
         )
         
         let local: [HealthKitWorkout]
@@ -1112,7 +1115,7 @@ final class WorkoutViewModel {
                     items: mapped,
                     total: response.total
                 ),
-                ttl: Self.lastWorkoutTTL
+                ttl: Self.historyCacheTTL
             )
             
             guard historyGeneration == generation else {
@@ -1240,7 +1243,7 @@ final class WorkoutViewModel {
                     items: merged,
                     total: total
                 ),
-                ttl: Self.lastWorkoutTTL
+                ttl: Self.historyCacheTTL
             )
             
             if hasMore {
@@ -1517,13 +1520,5 @@ final class WorkoutViewModel {
             // If still disabled/unavailable, keep backend/cache data.
             await loadLatest()
         }
-    }
-    
-    func openSettings() {
-        guard let url = URL(string: UIApplication.openSettingsURLString) else {
-            return
-        }
-        
-        UIApplication.shared.open(url)
     }
 }

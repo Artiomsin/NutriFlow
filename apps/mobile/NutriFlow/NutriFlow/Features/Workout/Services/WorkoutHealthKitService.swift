@@ -1,6 +1,9 @@
 import Foundation
 import HealthKit
 
+/// Product decision: workouts are refreshed on foreground, pull-to-refresh and
+/// after returning from Settings. Background delivery stays limited to activity,
+/// so this service intentionally installs no HKObserverQuery.
 final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
 
     private let store = HealthKitAccess.shared.sharedStore
