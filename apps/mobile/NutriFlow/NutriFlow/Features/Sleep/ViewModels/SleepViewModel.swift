@@ -12,7 +12,16 @@ final class SleepViewModel {
     @ObservationIgnored private let achievementService: AchievementService?
     @ObservationIgnored private let achievementNotificationService: AchievementNotificationService?
 
+    /// State of the Sleep History screen.
     var state: SleepState = .idle
+    /// State of the Home card. Kept separate from `state` so loading history
+    /// never changes which night the card displays.
+    var lastNightState: LastNightState = .idle
+    var lastNight: HealthKitSleep?
+    /// `lastNight` can fall back to the most recent older night when there was
+    /// no sleep yesterday. The card must say so instead of presenting it as
+    /// last night's data.
+    var showsOlderNight = false
     var historyError: AppError?
     var detailError: AppError?
 
@@ -29,7 +38,7 @@ final class SleepViewModel {
 
 
     var needsHealthConnect: Bool {
-        switch state {
+        switch lastNightState {
         case .needsAccess:
             return true
 
@@ -62,20 +71,20 @@ final class SleepViewModel {
 
     func checkPermission() async {
         guard coordinator.isAvailable else {
-            state = .unavailable
+            lastNightState = .unavailable
             return
         }
 
         switch await coordinator.permissionState() {
         case .notDetermined:
-            if case .idle = state {
-                state = .needsAccess
+            if case .idle = lastNightState {
+                lastNightState = .needsAccess
             }
         case .denied:
-            state = .denied
+            lastNightState = .denied
         case .authorized:
-            if case .idle = state {
-                state = .loading
+            if case .idle = lastNightState, lastNight == nil {
+                lastNightState = .loading
             }
             await refresh()
         case .unknown:
@@ -83,27 +92,36 @@ final class SleepViewModel {
         }
     }
 
- 
-
     func connectTapped() async {
         guard coordinator.isAvailable else {
-            state = .unavailable
+            lastNightState = .unavailable
             return
         }
 
-        state = .loading
+        lastNightState = .loading
 
-        let result = await coordinator.connect()
+        do {
+            let result = try await coordinator.connect()
 
-        switch result {
-        case .authorized:
-            await refresh()
+            switch result {
+            case .authorized:
+                await refresh()
 
-        case .denied:
-            state = .denied
+            case .denied:
+                lastNightState = .denied
 
-        case .needsAccess:
-            state = .needsAccess
+            case .needsAccess:
+                lastNightState = .needsAccess
+            }
+        } catch {
+            if isHealthKitUnavailable(error) {
+                lastNightState = .unavailable
+                return
+            }
+            let mapped = ErrorMapper.map(error)
+            if mapped != .cancelled {
+                lastNightState = .error(mapped)
+            }
         }
     }
 
@@ -121,21 +139,33 @@ final class SleepViewModel {
     private func refresh() async {
         do {
             guard let night = try await coordinator.loadLastNight() else {
-                state = .empty
+                // No sleep yesterday does not mean no sleep at all. Look through
+                // the 7-day window before declaring the card empty, so an older
+                // recorded night is still shown (and History stays reachable).
+                let nights = (try? await coordinator.loadHistoryIfNeeded()) ?? []
+                if let recent = nights.max(by: { $0.endDate < $1.endDate }) {
+                    showsOlderNight = true
+                    setLastNight(recent)
+                } else {
+                    lastNight = nil
+                    showsOlderNight = false
+                    lastNightState = .empty
+                }
                 return
             }
 
+            showsOlderNight = false
             setLastNight(night)
             checkSleepAchievements(night: night)
 
         } catch {
             if isHealthKitUnavailable(error) {
-                state = .unavailable
+                lastNightState = .unavailable
                 return
             }
             let mapped = ErrorMapper.map(error)
             if mapped == .cancelled { return }
-            state = .error(mapped)
+            lastNightState = .error(mapped)
         }
     }
 
@@ -265,7 +295,8 @@ final class SleepViewModel {
    
 
     private func setLastNight(_ night: HealthKitSleep) {
-        state = .loaded([night])
+        lastNight = night
+        lastNightState = .loaded(night)
     }
 
     private func checkSleepAchievements(night: HealthKitSleep) {
@@ -319,13 +350,5 @@ final class SleepViewModel {
         timeline = []
         sleepHeartRatePoints = []
         detailError = nil
-    }
-
- 
-
-    func openSettings() {
-        if let url = URL(string: UIApplication.openSettingsURLString) {
-            UIApplication.shared.open(url)
-        }
     }
 }

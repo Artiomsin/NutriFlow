@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import UIKit
 
 @MainActor
 struct SleepHistoryView: View {
@@ -18,11 +19,13 @@ struct SleepHistoryView: View {
                     .foregroundColor(AppColors.textSecondary)
                     .frame(maxWidth: .infinity, minHeight: 300)
             case .denied:
-                Text("Sleep access is off. Enable Apple Health in Settings.")
-                    .font(.footnote)
-                    .foregroundColor(AppColors.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity, minHeight: 300)
+                VStack(spacing: 12) {
+                    Text("Sleep access is off. Enable in the Health app:\n\(HealthKitAccess.permissionPath)")
+                        .font(.footnote)
+                        .foregroundColor(AppColors.textSecondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, minHeight: 300)
             case .unavailable:
                 Text("Health data unavailable on this device")
                     .font(.footnote)
@@ -44,8 +47,9 @@ struct SleepHistoryView: View {
                         Image(systemName: "moon")
                             .font(.title2)
                             .foregroundColor(AppColors.textSecondary)
-                        Text("No sleep data yet")
-                            .foregroundColor(AppColors.textSecondary)
+                        Text("No sleep data")
+                            .font(.headline)
+                            .foregroundColor(AppColors.textPrimary)
                     }
                     .frame(maxWidth: .infinity, minHeight: 300)
                 } else {
