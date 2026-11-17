@@ -82,6 +82,10 @@ final class ProfileViewModel {
         await cacheService?.removeByPrefix("chart_summaries")
         await cacheService?.removeByPrefix("analytics_")
         await cacheService?.remove("goals_personalization")
+        // A time zone change moves every calendar-day boundary, so cached weight
+        // logs for all periods (Today/Week/Month/Custom) become stale, not just
+        // the currently selected one.
+        await cacheService?.removeByPrefix("weight_logs_")
     }
 
     func loadData(forceRefresh: Bool = false) async {
