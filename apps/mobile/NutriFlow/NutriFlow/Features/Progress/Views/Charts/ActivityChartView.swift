@@ -64,6 +64,7 @@ struct ActivityChartView: View {
                 .symbolSize(30)
             }
             .frame(height: 180)
+            .chartXScale(domain: orderedLabels)
             .chartYScale(domain: 0 ... maxYValue)
             .chartYAxis {
                 AxisMarks(position: .leading, values: .automatic(desiredCount: 5)) { _ in
@@ -100,6 +101,17 @@ struct ActivityChartView: View {
 
     private var filteredData: [ChartDataPoint] {
         data.filter { $0.calories != 0 || $0.activeCalories != 0 || $0.basalCalories != 0 }
+    }
+
+    /// Chronological x-axis order. Points are concatenated per series before
+    /// they reach the chart, so without an explicit domain Swift Charts orders
+    /// categories by each series' first appearance and an earlier date from a
+    /// later series could land after a later date.
+    private var orderedLabels: [String] {
+        var seen = Set<String>()
+        return data.sorted { $0.date < $1.date }
+            .map(\.label)
+            .filter { seen.insert($0).inserted }
     }
 
     private var flattenedPoints: [FlattenedPoint] {

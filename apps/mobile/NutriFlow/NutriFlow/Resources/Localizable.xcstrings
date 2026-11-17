@@ -131,6 +131,9 @@
     "Add" : {
 
     },
+    "Add another record on a different day to see your trend." : {
+
+    },
     "Add as" : {
 
     },
@@ -305,7 +308,19 @@
     "Create Profile" : {
 
     },
+    "Current period" : {
+
+    },
     "Current Time Zone" : {
+
+    },
+    "Current weight" : {
+
+    },
+    "CURRENT WEIGHT" : {
+
+    },
+    "Current weight recorded" : {
 
     },
     "Custom amount" : {
@@ -777,6 +792,9 @@
     "Failed to load. Retry" : {
 
     },
+    "First record in this period" : {
+
+    },
     "Fluid Ounces" : {
 
     },
@@ -1094,6 +1112,9 @@
     "No account? Register" : {
 
     },
+    "No current weight" : {
+
+    },
     "No data for this period" : {
 
     },
@@ -1140,6 +1161,9 @@
 
     },
     "No weight records for this period" : {
+
+    },
+    "No weight records yet." : {
 
     },
     "No workouts yet" : {
@@ -1202,9 +1226,6 @@
     "Record" : {
 
     },
-    "Record another day to see your change over time." : {
-
-    },
     "Record weight" : {
 
     },
@@ -1218,6 +1239,9 @@
 
     },
     "Reminders" : {
+
+    },
+    "Retry loading weight" : {
 
     },
     "Rings use the goal in effect at the end of the day." : {
@@ -1298,6 +1322,9 @@
     "Settings" : {
 
     },
+    "Show %@ period" : {
+
+    },
     "Show less" : {
 
     },
@@ -1376,6 +1403,9 @@
     "Time" : {
 
     },
+    "Today" : {
+
+    },
     "Today Summary" : {
 
     },
@@ -1425,6 +1455,9 @@
 
     },
     "Updates automatically when you travel." : {
+
+    },
+    "Updating weight" : {
 
     },
     "Use automatic goals?" : {

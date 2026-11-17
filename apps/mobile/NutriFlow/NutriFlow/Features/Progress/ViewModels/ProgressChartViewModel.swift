@@ -31,6 +31,9 @@ final class ProgressChartViewModel {
     var weightEntries: [WeightLog] = []
     var weightError: AppError?
     var weightHistoryError: AppError?
+    var isWeightLoading = false
+    var isWeightHistoryLoading = false
+    var hasLoadedWeight = false
     @ObservationIgnored private weak var coordinator: AppCoordinator?
     @ObservationIgnored private let service: DailySummaryServiceProtocol
     @ObservationIgnored private let foodService: FoodServiceProtocol?
@@ -47,7 +50,14 @@ final class ProgressChartViewModel {
     @ObservationIgnored private var fallbackProfileWeightKg: Double?
     @ObservationIgnored private var didLoadFallbackProfileWeight = false
     @ObservationIgnored private let periodState: PeriodState
+    // Analytics updates the shared PeriodState before asking this view model to
+    // load. Keep our own last requested period so that hand-off still reloads
+    // charts and weight for the newly selected period.
+    @ObservationIgnored private var lastRequestedPeriod: PeriodType
     @ObservationIgnored private var lastProgressRevision: UInt?
+    @ObservationIgnored private var weightLoadTask: Task<Void, Never>?
+    @ObservationIgnored private var weightLoadID = 0
+    @ObservationIgnored private var weightHistoryLoadID = 0
 
     var showDaySheet = false
     var dayDetailState: DayDetailState = .idle
@@ -84,6 +94,7 @@ final class ProgressChartViewModel {
         self.coordinator = coordinator
         self.service = service
         self.periodState = periodState
+        self.lastRequestedPeriod = periodState.type
         self.foodService = foodService
         self.waterService = waterService
         self.goalsService = goalsService
@@ -257,6 +268,13 @@ final class ProgressChartViewModel {
             if days <= 60 { return .week }
             return .month
         }
+    }
+
+    /// Aggregation used for the rendered points, exposed so captions describe
+    /// what a point actually is. A rolling week renders raw daily points, not
+    /// per-day averages, so it must not be described as an average.
+    var chartAggregationLevel: AggregationLevel {
+        aggregationLevel()
     }
 
     var periodDays: Int {
@@ -486,18 +504,42 @@ final class ProgressChartViewModel {
 
     
     func loadWeightSummary() async {
+        guard profileService != nil else { return }
+
+        weightLoadTask?.cancel()
+        weightLoadID &+= 1
+        let loadID = weightLoadID
+
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.performWeightSummaryLoad(loadID: loadID)
+        }
+        weightLoadTask = task
+        await task.value
+    }
+
+    private func performWeightSummaryLoad(loadID: Int) async {
         guard let profileService else { return }
 
+        isWeightLoading = true
+        defer {
+            // A newer request owns the loading flag; an older one must not
+            // clear it after it has been superseded.
+            if loadID == weightLoadID {
+                isWeightLoading = false
+            }
+        }
+
         let range = currentRange()
-        weightPeriodLabel = periodLabel()
+        let label = periodLabel()
+        let period = periodState.type
 
-        var weights = weightPoints
-
+        var points: [WeightPoint]
         do {
             let logs = try await profileService.getWeightLogs(from: range.from, to: range.to)
+            guard !Task.isCancelled, loadID == weightLoadID else { return }
             weightError = nil
-            weightEntries = logs
-            weights = logs
+            points = logs
                 .compactMap { log -> WeightPoint? in
                     guard let date = Self.dateOnlyFormatter().date(from: String(log.entryDate.prefix(10))) else { return nil }
                     return WeightPoint(
@@ -508,37 +550,25 @@ final class ProgressChartViewModel {
                 }
                 .sorted { $0.date < $1.date }
         } catch {
+            if error is CancellationError { return }
+            guard loadID == weightLoadID else { return }
             let appError = ErrorMapper.map(error)
             routeAuth(appError)
             if appError != .cancelled {
                 weightError = appError
             }
+            // Keep the last good points and label so a failed refresh does not
+            // blank the card or swap it back to the empty state.
+            return
         }
 
-        weightPoints = weights
-
-        guard let latest = weights.last else {
-            weightLatestKg = nil
-            weightDeltaKg = nil
-            weightWeeklyRateKg = nil
-            if !didLoadFallbackProfileWeight {
-                didLoadFallbackProfileWeight = true
-                do {
-                    let profile = try await profileService.getMyProfile()
-                    fallbackProfileWeightKg = profile.weight
-                } catch {
-                    let appError = ErrorMapper.map(error)
-                    routeAuth(appError)
-                    if appError != .cancelled {
-                        weightError = appError
-                    }
-                }
-            }
-            // The profile stores the current weight only. It is useful as a
-            // first point for Today, but must never be drawn in a past range.
-            if periodState.type == .today, let kg = fallbackProfileWeightKg {
-                weightLatestKg = kg
-                weightPoints = [
+        // The profile stores the current weight only. It is useful as a first
+        // point for Today, but must never be drawn in a past range.
+        if points.isEmpty, period == .today {
+            await resolveFallbackProfileWeightIfNeeded()
+            guard !Task.isCancelled, loadID == weightLoadID else { return }
+            if let kg = fallbackProfileWeightKg {
+                points = [
                     WeightPoint(
                         id: Self.dateOnlyFormatter().string(from: Date()),
                         date: Date(),
@@ -546,18 +576,47 @@ final class ProgressChartViewModel {
                     )
                 ]
             }
-            return
         }
 
-        weightLatestKg = latest.kg
+        guard !Task.isCancelled, loadID == weightLoadID else { return }
 
-        if let first = weights.first {
-            weightDeltaKg = latest.kg - first.kg
+        let latest = points.last
+        let delta: Double?
+        let weeklyRate: Double?
+        if let latest, let first = points.first, points.count > 1 {
+            delta = latest.kg - first.kg
             let days = max(1, AppDate.calendar.dateComponents([.day], from: first.date, to: latest.date).day ?? 1)
-            weightWeeklyRateKg = (latest.kg - first.kg) / (Double(days) / 7.0)
+            weeklyRate = (latest.kg - first.kg) / (Double(days) / 7.0)
         } else {
-            weightDeltaKg = nil
-            weightWeeklyRateKg = nil
+            // A single point has no trend; hide CHANGE/PER WEEK instead of
+            // showing a fake ±0.0.
+            delta = nil
+            weeklyRate = nil
+        }
+
+        weightPoints = points
+        weightPeriodLabel = label
+        weightLatestKg = latest?.kg
+        weightDeltaKg = delta
+        weightWeeklyRateKg = weeklyRate
+        hasLoadedWeight = true
+    }
+
+    /// Fetches the profile weight once. It is only a fallback for Today when
+    /// there are no weight logs, so it never replaces logged history.
+    private func resolveFallbackProfileWeightIfNeeded() async {
+        guard !didLoadFallbackProfileWeight, let profileService else { return }
+        didLoadFallbackProfileWeight = true
+        do {
+            let profile = try await profileService.getMyProfile()
+            fallbackProfileWeightKg = profile.weight
+        } catch {
+            if error is CancellationError { return }
+            let appError = ErrorMapper.map(error)
+            routeAuth(appError)
+            if appError != .cancelled {
+                weightError = appError
+            }
         }
     }
 
@@ -598,10 +657,24 @@ final class ProgressChartViewModel {
 
     func loadWeightHistory() async {
         guard let profileService else { return }
+
+        weightHistoryLoadID &+= 1
+        let loadID = weightHistoryLoadID
+        isWeightHistoryLoading = true
+        defer {
+            if loadID == weightHistoryLoadID {
+                isWeightHistoryLoading = false
+            }
+        }
+
         do {
-            weightEntries = try await profileService.getWeightLogs(from: nil, to: nil)
+            let entries = try await profileService.getWeightLogs(from: nil, to: nil)
+            guard !Task.isCancelled, loadID == weightHistoryLoadID else { return }
+            weightEntries = entries
             weightHistoryError = nil
         } catch {
+            if error is CancellationError { return }
+            guard loadID == weightHistoryLoadID else { return }
             let appError = ErrorMapper.map(error)
             routeAuth(appError)
             if appError != .cancelled {
@@ -772,24 +845,31 @@ final class ProgressChartViewModel {
     }
 
     func setPeriod(_ period: PeriodType) {
+        let previousPeriod = lastRequestedPeriod
         periodState.type = period
-        startPeriodLoad()
+        lastRequestedPeriod = period
+        // Today contains hourly points; the remaining periods contain daily buckets.
+        // Never briefly present one resolution as the other while loading.
+        startPeriodLoad(keepPreviousCharts: previousPeriod != .today && period != .today)
     }
 
     func setCustomRange(from: Date, to: Date) {
+        let previousPeriod = lastRequestedPeriod
         periodState.fromDate = from
         periodState.toDate = to
         periodState.type = .custom
-        startPeriodLoad()
+        lastRequestedPeriod = .custom
+        startPeriodLoad(keepPreviousCharts: previousPeriod != .today)
     }
 
-    private func startPeriodLoad() {
-        let keepsPreviousCharts: Bool
+    private func startPeriodLoad(keepPreviousCharts: Bool = true) {
+        let hasPreviousCharts: Bool
         if case .loaded = chartState {
-            keepsPreviousCharts = true
+            hasPreviousCharts = true
         } else {
-            keepsPreviousCharts = false
+            hasPreviousCharts = false
         }
+        let keepsPreviousCharts = keepPreviousCharts && hasPreviousCharts
 
         isPeriodLoading = keepsPreviousCharts
         loadTask?.cancel()
@@ -799,9 +879,14 @@ final class ProgressChartViewModel {
         loadTask = Task { [weak self] in
             guard let self else { return }
             await self.loadChartData(keepLoadedData: keepsPreviousCharts)
-            await self.loadWeightSummary()
             guard self.loadTaskID == taskID else { return }
+            // Weight has its own request lifecycle. Waiting for its endpoint
+            // here kept the chart overlay spinning and made the charts look
+            // blocked on the weight request.
             self.isPeriodLoading = false
+        }
+        Task { [weak self] in
+            await self?.loadWeightSummary()
         }
     }
 

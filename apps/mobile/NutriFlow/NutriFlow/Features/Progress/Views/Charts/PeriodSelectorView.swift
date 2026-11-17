@@ -15,7 +15,12 @@ struct PeriodSelectorView: View {
                 HStack(spacing: 8) {
                     ForEach(PeriodType.allCases, id: \.self) { period in
                         PeriodChip(title: period.displayName, isSelected: selectedPeriod == period) {
-                            if period == .custom { showDatePicker = true } else { onPeriodChange(period) }
+                            guard period != selectedPeriod else { return }
+                            if period == .custom {
+                                showDatePicker = true
+                            } else {
+                                onPeriodChange(period)
+                            }
                         }
                     }
                 }
@@ -54,6 +59,8 @@ struct PeriodChip: View {
                 .background(isSelected ? AppColors.accent : AppColors.surface)
                 .cornerRadius(20)
         }
+        .disabled(isSelected)
+        .accessibilityHint(isSelected ? "Current period" : "Show \(title) period")
     }
 }
 

@@ -32,16 +32,33 @@ struct ProgressDashboardView: View {
                     fromDate: periodState.fromDate,
                     toDate: periodState.toDate,
                     onPeriodChange: {
+                        guard periodState.type != $0 else { return }
                         analyticsVM.setPeriod($0)
                         chartVM.setPeriod($0)
                     },
                     onCustomRange: { from, to in
+                        guard periodState.type != .custom
+                                || periodState.fromDate != from
+                                || periodState.toDate != to else {
+                            return
+                        }
                         analyticsVM.setCustomRange(from: from, to: to)
                         chartVM.setCustomRange(from: from, to: to)
                     }
                 )
+                // Weight stays at the top of the dashboard. Changing a period
+                // can alter the trend card's content, but it must not move the
+                // card itself because other dashboard sections changed height.
+                if periodState.type == .today {
+                    todayWeightCard
+                        .id("today-weight-card")
+                        .transaction { $0.animation = nil }
+                } else {
+                    periodWeightCard
+                        .id("period-weight-card")
+                        .transaction { $0.animation = nil }
+                }
                 analyticsContent
-                weightCard
                 chartsContent
                 Spacer(minLength: 100)
             }
@@ -234,30 +251,42 @@ struct ProgressDashboardView: View {
         }
     }
 
-    private var weightCard: some View {
-        VStack(spacing: 8) {
-            if let weightError = chartVM.weightError {
-                ErrorView(error: weightError) {
-                    Task { await chartVM.loadWeightSummary() }
-                }
-            }
-            WeightCardView(
-                points: chartVM.weightPoints,
-                latestKg: chartVM.weightLatestKg,
-                deltaKg: chartVM.weightDeltaKg,
-                weeklyRateKg: chartVM.weightWeeklyRateKg,
-                periodLabel: chartVM.weightPeriodLabel,
-                onRecordWeight: {
-                    weightInput = ""
-                    weightEntryError = nil
-                    showWeightEntry = true
-                },
-                onManageWeights: {
-                    chartVM.weightHistoryError = nil
-                    showWeightHistory = true
-                }
-            )
-        }
+    private var todayWeightCard: some View {
+        TodayWeightCardView(
+            latestKg: chartVM.weightLatestKg,
+            isLoading: chartVM.isWeightLoading,
+            error: chartVM.weightError,
+            onRetry: { Task { await chartVM.loadWeightSummary() } },
+            onRecordWeight: presentWeightEntry,
+            onManageWeights: presentWeightHistory
+        )
+    }
+
+    private var periodWeightCard: some View {
+        WeightCardView(
+            points: chartVM.weightPoints,
+            latestKg: chartVM.weightLatestKg,
+            deltaKg: chartVM.weightDeltaKg,
+            weeklyRateKg: chartVM.weightWeeklyRateKg,
+            periodLabel: chartVM.weightPeriodLabel,
+            isLoading: chartVM.isWeightLoading,
+            error: chartVM.weightError,
+            isToday: false,
+            onRetry: { Task { await chartVM.loadWeightSummary() } },
+            onRecordWeight: presentWeightEntry,
+            onManageWeights: presentWeightHistory
+        )
+    }
+
+    private func presentWeightEntry() {
+        weightInput = ""
+        weightEntryError = nil
+        showWeightEntry = true
+    }
+
+    private func presentWeightHistory() {
+        chartVM.weightHistoryError = nil
+        showWeightHistory = true
     }
 
     private func recordWeight() {
@@ -293,7 +322,7 @@ struct ProgressDashboardView: View {
 
     private func weightRecordRow(_ entry: WeightLog) -> some View {
         let isInitial = entry.source == "initial"
-        let tint = isInitial ? AppColors.textSecondary : AppColors.accent
+        let tint = isInitial ? AppColors.success : AppColors.accent
         let weightText = UnitConversion.formatBodyWeight(
             kg: entry.weightKg,
             preferred: prefsStore.preferredUnits
@@ -346,8 +375,18 @@ struct ProgressDashboardView: View {
                     }
                 }
 
-                ForEach(chartVM.weightEntries.reversed()) { entry in
-                    weightRecordRow(entry)
+                if chartVM.isWeightHistoryLoading && chartVM.weightEntries.isEmpty {
+                    ForEach(0..<4, id: \.self) { _ in
+                        weightHistorySkeletonRow
+                    }
+                } else if chartVM.weightEntries.isEmpty && chartVM.weightHistoryError == nil {
+                    Text("No weight records yet.")
+                        .font(.subheadline)
+                        .foregroundColor(AppColors.textSecondary)
+                } else {
+                    ForEach(chartVM.weightEntries.reversed()) { entry in
+                        weightRecordRow(entry)
+                    }
                 }
             }
             .scrollContentBackground(.hidden)
@@ -380,6 +419,22 @@ struct ProgressDashboardView: View {
         }
     }
 
+    private var weightHistorySkeletonRow: some View {
+        HStack(spacing: 12) {
+            SkeletonBlock(width: 30, height: 30, cornerRadius: 15)
+
+            VStack(alignment: .leading, spacing: 6) {
+                SkeletonBlock(width: 96, height: 12)
+                SkeletonBlock(width: 72, height: 10)
+            }
+
+            Spacer()
+
+            SkeletonBlock(width: 64, height: 12)
+        }
+        .skeletonShimmer()
+    }
+
     private func deleteSelectedWeight() {
         guard let entry = pendingWeightDeletion else { return }
         isDeletingWeight = true
@@ -406,6 +461,18 @@ struct ProgressDashboardView: View {
         return AppDate.displayFormatter("EEEE, MMM d").string(from: date)
     }
 
+    /// Describes what one chart point represents. Derived from the same
+    /// aggregation level the VM used to build the points, so the caption cannot
+    /// claim an average for periods that render raw days.
+    private var chartPointCaption: String {
+        switch chartVM.chartAggregationLevel {
+        case .day:
+            return periodState.type == .today ? "Hourly intake" : "Daily intake"
+        case .week, .month:
+            return "Average per tracked day"
+        }
+    }
+
     @ViewBuilder
     private var chartsContent: some View {
         switch chartVM.chartState {
@@ -419,7 +486,7 @@ struct ProgressDashboardView: View {
                             CaloriesChartView(
                                 data: data,
                                 total: chartVM.totalCaloriesSum,
-                                valueDescription: periodState.type == .today ? "Bars show hourly intake" : "Bars show avg / tracked day",
+                                valueDescription: chartPointCaption,
                                 canTap: chartVM.canTapBars,
                                 onBarTap: { chartVM.handleBarTap(point: $0) },
                                 initialScrollX: initialScrollLabel(in: data, firstDataPoint: firstCalories)
@@ -430,7 +497,7 @@ struct ProgressDashboardView: View {
                             WaterChartView(
                                 data: data,
                                 totalMl: chartVM.totalWaterSum,
-                                valueDescription: periodState.type == .today ? "Line shows hourly intake" : "Line shows avg / tracked day",
+                                valueDescription: chartPointCaption,
                                 canTap: chartVM.canTapBars,
                                 onBarTap: { chartVM.handleBarTap(point: $0) },
                                 initialScrollX: initialScrollLabel(in: data, firstDataPoint: firstWater)
