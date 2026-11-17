@@ -120,16 +120,9 @@ struct WeightCardView: View {
                 Text("Weight")
                     .font(.headline)
                     .foregroundColor(AppColors.textPrimary)
-                HStack(spacing: 5) {
-                    Text(periodLabel.isEmpty && isLoading ? "Loading…" : periodLabel)
-                    if isLoading {
-                        SkeletonBlock(width: 28, height: 9, cornerRadius: 4.5)
-                            .skeletonShimmer()
-                            .accessibilityLabel("Updating weight")
-                    }
-                }
-                .font(.caption)
-                .foregroundColor(AppColors.textSecondary)
+                Text(periodLabel.isEmpty && isLoading ? "Loading…" : periodLabel)
+                    .font(.caption)
+                    .foregroundColor(AppColors.textSecondary)
             }
 
             Spacer()

@@ -158,10 +158,7 @@ struct ProgressDashboardView: View {
                 currentRevision: revision,
                 reloadWeight: needsWeightReload
             )
-            async let periodGoals: () = goalsVM.loadPeriodGoals(
-                endingOn: periodState.toDate,
-                forceRefresh: true
-            )
+            async let periodGoals: () = goalsVM.loadPeriodGoals(endingOn: periodState.toDate)
             (_, _, _) = await (analytics, charts, periodGoals)
 
             guard !Task.isCancelled,
@@ -237,7 +234,11 @@ struct ProgressDashboardView: View {
             ProgressAnalyticsSkeleton()
         case .loaded(let analytics):
             VStack(spacing: 20) {
-                AnalyticsHeroView(streak: analytics.streak, trend: analytics.trend)
+                AnalyticsHeroView(
+                    streak: analytics.streak,
+                    trend: analytics.trend,
+                    showStreak: periodState.type != .today
+                )
 
                 ringsGrid(analytics: analytics)
 

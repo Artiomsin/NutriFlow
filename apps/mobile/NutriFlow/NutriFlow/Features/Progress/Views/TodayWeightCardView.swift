@@ -54,16 +54,9 @@ struct TodayWeightCardView: View {
                 Text("Weight")
                     .font(.headline)
                     .foregroundStyle(AppColors.textPrimary)
-                HStack(spacing: 5) {
-                    Text("Today")
-                    if isLoading {
-                        SkeletonBlock(width: 28, height: 9, cornerRadius: 4.5)
-                            .skeletonShimmer()
-                            .accessibilityLabel("Updating weight")
-                    }
-                }
-                .font(.caption)
-                .foregroundStyle(AppColors.textSecondary)
+                Text("Today")
+                    .font(.caption)
+                    .foregroundStyle(AppColors.textSecondary)
             }
 
             Spacer()
