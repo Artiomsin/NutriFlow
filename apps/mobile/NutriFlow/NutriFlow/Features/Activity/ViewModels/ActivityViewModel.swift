@@ -102,18 +102,18 @@ final class ActivityViewModel {
         state = .error(appError)
     }
 
-    func retryConnection() {
-        Task { await connectTapped() }
-    }
-
-
-    func openSettings() {
-        print("[HealthKit] openSettings")
-
-        guard let url = URL(string: UIApplication.openSettingsURLString) else {
+    /// HealthKit reads can fail transiently. Keep the last good snapshot on
+    /// screen in that case, but never leave the card waiting in `.loading`
+    /// when there is nothing to show.
+    func setActivityLoadError(_ error: AppError) {
+        if case .loaded = state {
+            print("[ActivityVM] load error ignored — keeping loaded activity: \(error)")
             return
         }
+        setError(error)
+    }
 
-        UIApplication.shared.open(url)
+    func retryConnection() {
+        Task { await connectTapped() }
     }
 }

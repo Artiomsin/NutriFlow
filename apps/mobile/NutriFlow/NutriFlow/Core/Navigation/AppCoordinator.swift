@@ -148,6 +148,7 @@ final class AppCoordinator {
         container.activitySync.stop()
         WorkoutViewModel.resetSessionSyncState()
         SleepSyncCoordinator.resetSessionSyncState()
+        PreferencesStore.shared.resetSessionSyncState()
         let previousCleanup = cacheCleanupTask
         cacheCleanupTask = Task {
             await previousCleanup?.value

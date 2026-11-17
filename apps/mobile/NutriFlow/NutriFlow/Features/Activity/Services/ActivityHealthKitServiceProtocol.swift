@@ -5,7 +5,7 @@ protocol ActivityHealthKitServiceProtocol: AnyObject {
     func permissionState() async -> HealthKitAuthorization
     var onActivityChanged: (() -> Void)? { get set }
     func requestAuthorization() async throws
-    func fetchToday() async -> DailyActivity
+    func fetchToday() async -> DailyActivity?
     func fetchRange(from startDate: Date, to endDate: Date) async throws -> [DailyActivity]
     func enableBackgroundDelivery() async throws
     func startObserving()

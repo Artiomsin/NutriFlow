@@ -19,7 +19,7 @@ enum HealthKitAuthorization: Equatable, Sendable {
     case unknown
 }
 
-enum HealthFeature {
+enum HealthFeature: Hashable {
     case activity
     case sleep
     case workout
@@ -29,13 +29,21 @@ final class HealthKitAccess {
 
     static let shared = HealthKitAccess()
 
+    /// iOS has no public URL for the Health app's per-app permission screen.
+    /// Show the exact manual path instead of claiming that "Open Settings"
+    /// reaches the HealthKit switches.
+    static let permissionPath = "Health → Sharing & Access → Apps and Services → NutriFlow"
+
     private let store: HKHealthStore
 
-    private static let hasRequestedAuthorizationKey = "healthkit_authorization_requested"
-
-    private static var hasRequestedAuthorization: Bool {
-        UserDefaults.standard.bool(forKey: hasRequestedAuthorizationKey)
+    private struct CachedPermission {
+        let value: HealthKitAuthorization
+        let fetchedAt: Date
     }
+
+    private let permissionCacheLock = NSLock()
+    private var permissionCache: [HealthFeature: CachedPermission] = [:]
+    private static let permissionCacheTTL: TimeInterval = 5 * 60
 
     private static func observedDataKey(for feature: HealthFeature) -> String {
         switch feature {
@@ -80,13 +88,64 @@ final class HealthKitAccess {
             read: readTypes
         )
 
-        UserDefaults.standard.set(
-            true,
-            forKey: Self.hasRequestedAuthorizationKey
+        // The user may have changed any feature's decision in the sheet.
+        invalidatePermissionCache()
+    }
+
+    /// Permission probes hit HealthKit several times per feature. Home checks
+    /// them on every foreground, so cache the result briefly and invalidate it
+    /// when the user leaves for Settings or a request completes.
+    func permissionState(for feature: HealthFeature) async -> HealthKitAuthorization {
+        // NSLock may not be used directly inside an async function in Swift 6.
+        // The helpers below keep the lock in synchronous scopes and hold it
+        // only for a dictionary read/write.
+        if let cached = cachedPermission(for: feature) {
+            return cached
+        }
+
+        let value = await computePermissionState(for: feature)
+        storePermission(value, for: feature)
+        return value
+    }
+
+    private func cachedPermission(for feature: HealthFeature) -> HealthKitAuthorization? {
+        permissionCacheLock.lock()
+        defer { permissionCacheLock.unlock() }
+
+        guard let cached = permissionCache[feature],
+              Date().timeIntervalSince(cached.fetchedAt) < Self.permissionCacheTTL
+        else { return nil }
+
+        return cached.value
+    }
+
+    private func storePermission(
+        _ value: HealthKitAuthorization,
+        for feature: HealthFeature
+    ) {
+        permissionCacheLock.lock()
+        defer { permissionCacheLock.unlock() }
+
+        permissionCache[feature] = CachedPermission(
+            value: value,
+            fetchedAt: Date()
         )
     }
 
-    func permissionState(for feature: HealthFeature) async -> HealthKitAuthorization {
+    func invalidatePermissionCache(for feature: HealthFeature? = nil) {
+        permissionCacheLock.lock()
+        defer { permissionCacheLock.unlock() }
+
+        if let feature {
+            permissionCache[feature] = nil
+        } else {
+            permissionCache.removeAll()
+        }
+    }
+
+    private func computePermissionState(
+        for feature: HealthFeature
+    ) async -> HealthKitAuthorization {
         guard isAvailable else { return .unknown }
 
         let type: HKObjectType?
@@ -96,7 +155,9 @@ final class HealthKitAccess {
         case .sleep:
             type = HKObjectType.categoryType(forIdentifier: .sleepAnalysis)
         case .workout:
-            type = HKQuantityType(.heartRate)
+            // Probe the workout type itself. HR samples are optional; a user
+            // with workouts but no heart rate data must not look unauthorized.
+            type = HKObjectType.workoutType()
         }
         guard let type else { return .notDetermined }
 
@@ -115,24 +176,22 @@ final class HealthKitAccess {
 
         switch requestStatus {
         case .shouldRequest:
-            // The system would show its permission sheet again: the user has
-            // not granted everything. If we already asked once, access is off.
-            return Self.hasRequestedAuthorization ? .denied : .notDetermined
+            // The system is still willing to show its sheet. This is a request
+            // state, never a denial — asking again is the correct next step.
+            return .notDetermined
 
         case .unnecessary:
-            guard Self.hasRequestedAuthorization else {
-                return .notDetermined
-            }
-
-            // Decision already made. Read grant and read revocation look the
-            // same, so probe for real samples: revoked access returns nothing,
-            // while granted access keeps returning the user's data.
+            // A decision was already made, but read access cannot be reported
+            // by HealthKit. Probe a long window for real samples: revoked
+            // access returns nothing, granted access keeps returning data.
             if await probeHasData(for: feature) {
                 Self.markObservedData(for: feature)
                 return .authorized
             }
 
-            // No data right now. If we have seen data before, it was revoked.
+            // No samples in the window. Only treat access as revoked when we
+            // have actually seen data before; a granted-but-empty account must
+            // stay authorized instead of dead-ending on an empty screen.
             return Self.hasObservedData(for: feature) ? .denied : .authorized
 
         default:
@@ -144,11 +203,11 @@ final class HealthKitAccess {
         guard isAvailable else { return false }
 
         let now = Date()
-        let calendar = Calendar.current
+        let calendar = AppDate.calendar
 
         switch feature {
         case .activity:
-            let start = calendar.date(byAdding: .day, value: -7, to: now) ?? now
+            let start = calendar.date(byAdding: .day, value: -30, to: now) ?? now
             let type = HKQuantityType(.stepCount)
             let predicate = HKQuery.predicateForSamples(
                 withStart: start,
@@ -171,7 +230,7 @@ final class HealthKitAccess {
             }
 
         case .sleep:
-            let start = calendar.date(byAdding: .day, value: -7, to: now) ?? now
+            let start = calendar.date(byAdding: .day, value: -30, to: now) ?? now
             guard let type = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) else {
                 return false
             }
@@ -194,7 +253,7 @@ final class HealthKitAccess {
             }
 
         case .workout:
-            let start = calendar.date(byAdding: .day, value: -30, to: now) ?? now
+            let start = calendar.date(byAdding: .day, value: -60, to: now) ?? now
             let type = HKObjectType.workoutType()
             let predicate = HKQuery.predicateForSamples(
                 withStart: start,

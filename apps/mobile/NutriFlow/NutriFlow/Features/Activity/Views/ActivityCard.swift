@@ -68,24 +68,10 @@ struct ActivityCard: View {
             Text("Health access is off")
                 .font(.headline)
                 .foregroundColor(AppColors.textPrimary)
-            Text("Enable it in Settings to see your activity.")
+            Text("Enable in the Health app:\n\(HealthKitAccess.permissionPath)")
                 .font(.footnote)
                 .foregroundColor(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
-            Button {
-                vm.openSettings()
-            } label: {
-                Text("Open Settings")
-                    .font(.headline)
-                    .foregroundColor(AppColors.accent)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .appGlassSurface(level: .inset)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: AppRadius.medium)
-                            .stroke(AppColors.accent, lineWidth: 1.5)
-                    )
-            }
         }
         .padding()
         .frame(maxWidth: .infinity)
@@ -121,45 +107,64 @@ struct ActivityCard: View {
     private func activityContent(_ activity: DailyActivity) -> some View {
         VStack(spacing: 14){
             HStack(spacing: 16) {
-                ActivityMetric(icon: "figure.walk", value: "\(activity.steps)", unit: "steps")
-                ActivityMetric(
-                    icon: "flame.fill",
-                    value: UnitConversion.formatEnergyValueText(kcal: activity.activeCalories, preferred: prefsStore.preferredUnits),
-                    unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits)
-                )
-                ActivityMetric(
-                    icon: "location.fill",
-                    value: String(format: "%.1f", activity.distanceMeters / 1000),
-                    unit: "km"
-                )
+                if let steps = activity.steps {
+                    ActivityMetric(icon: "figure.walk", value: "\(steps)", unit: "steps")
+                }
+                if let calories = activity.activeCalories {
+                    ActivityMetric(
+                        icon: "flame.fill",
+                        value: UnitConversion.formatEnergyValueText(kcal: calories, preferred: prefsStore.preferredUnits),
+                        unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits)
+                    )
+                }
+                if let distance = activity.distanceMeters {
+                    ActivityMetric(
+                        icon: "location.fill",
+                        value: UnitConversion.formatDistanceValueText(
+                            meters: distance,
+                            preferred: prefsStore.preferredUnits
+                        ),
+                        unit: UnitConversion.formatDistanceUnit(
+                            preferred: prefsStore.preferredUnits
+                        )
+                    )
+                }
             }
-            
-            if let goal = stepGoal, goal > 0 {
+
+            if let steps = activity.steps, let goal = stepGoal, goal > 0 {
                 ActivityGoalRow(
                     icon: "figure.walk",
                     label: "Steps",
-                    current: activity.steps,
+                    current: steps,
                     goal: goal,
                     color: .green,
                     unit: "steps",
                     isEmbedded: true
                 )
             }
-            if let goal = activeCaloriesGoal, goal > 0 {
+            if let calories = activity.activeCalories,
+               let goal = activeCaloriesGoal,
+               goal > 0 {
                 ActivityGoalRow(
                     icon: "flame.fill",
                     label: "Active kcal",
-                    current: Int(activity.activeCalories.rounded()),
+                    current: Int(calories.rounded()),
                     goal: goal,
                     color: .orange,
                     unit: UnitConversion.formatEnergyUnit(preferred: prefsStore.preferredUnits),
-                    displayCurrent: UnitConversion.formatEnergyValueText(kcal: activity.activeCalories, preferred: prefsStore.preferredUnits),
+                    displayCurrent: UnitConversion.formatEnergyValueText(kcal: calories, preferred: prefsStore.preferredUnits),
                     displayGoal: UnitConversion.formatEnergyValueText(kcal: Double(goal), preferred: prefsStore.preferredUnits),
-                    progressCurrent: activity.activeCalories,
+                    progressCurrent: calories,
                     isEmbedded: true
                 )
             }
-            
+
+            if !activity.hasDisplayableMetric {
+                Text("Some HealthKit data is unavailable right now.")
+                    .font(.footnote)
+                    .foregroundColor(AppColors.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
         }
         .padding()
         .frame(maxWidth: .infinity)

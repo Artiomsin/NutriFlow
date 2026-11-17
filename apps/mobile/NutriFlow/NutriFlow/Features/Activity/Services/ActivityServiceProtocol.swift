@@ -9,6 +9,5 @@ import Foundation
 
 protocol ActivityServiceProtocol {
     func sync(entries: [DailyActivity]) async throws
-    func send(entries: [DailyActivity]) async throws
     func getRange(from: String, to: String)  async throws -> [ActivityDayPoint]
 }

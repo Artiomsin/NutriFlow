@@ -23,9 +23,15 @@ final class PreferencesStore {
         }
     }
 
-    var hasCompletedInitialBackfill: Bool = false {
+    var hasCompletedActivityBackfill: Bool = false {
         didSet {
-            saveHasCompletedInitialBackfill()
+            defaults.set(hasCompletedActivityBackfill, forKey: activityBackfillKey)
+        }
+    }
+
+    var hasCompletedSleepBackfill: Bool = false {
+        didSet {
+            defaults.set(hasCompletedSleepBackfill, forKey: sleepBackfillKey)
         }
     }
 
@@ -33,7 +39,9 @@ final class PreferencesStore {
     private let unitsKey = "preferred_units"
     private let timeZoneKey = "user_time_zone"
     private let autoUpdateTimeZoneKey = "user_auto_update_time_zone"
-    private let initialBackfillKey = "user_initial_backfill_completed"
+    private let activityBackfillKey = "user_activity_backfill_completed"
+    private let sleepBackfillKey = "user_sleep_backfill_completed"
+    private let legacyInitialBackfillKey = "user_initial_backfill_completed"
 
     private init() {
         load()
@@ -62,8 +70,12 @@ final class PreferencesStore {
         defaults.set(autoUpdateTimeZone, forKey: autoUpdateTimeZoneKey)
     }
 
-    private func saveHasCompletedInitialBackfill() {
-        defaults.set(hasCompletedInitialBackfill, forKey: initialBackfillKey)
+    /// Backfill state belongs to the signed-in account and must be cleared on
+    /// logout, otherwise the next account inherits a partial backfill.
+    func resetSessionSyncState() {
+        hasCompletedActivityBackfill = false
+        hasCompletedSleepBackfill = false
+        defaults.removeObject(forKey: legacyInitialBackfillKey)
     }
 
     private func load() {
@@ -75,6 +87,19 @@ final class PreferencesStore {
             timeZone = savedTimeZone
         }
         autoUpdateTimeZone = defaults.bool(forKey: autoUpdateTimeZoneKey)
-        hasCompletedInitialBackfill = defaults.bool(forKey: initialBackfillKey)
+
+        // Migrate the old shared flag once: an existing account has already
+        // done its backfill, so it must not repeat it, and a new account starts
+        // with both flags off after logout.
+        let legacyCompleted = defaults.bool(forKey: legacyInitialBackfillKey)
+        let activityCompleted = defaults.bool(forKey: activityBackfillKey) || legacyCompleted
+        let sleepCompleted = defaults.bool(forKey: sleepBackfillKey) || legacyCompleted
+        hasCompletedActivityBackfill = activityCompleted
+        hasCompletedSleepBackfill = sleepCompleted
+        if legacyCompleted {
+            defaults.set(true, forKey: activityBackfillKey)
+            defaults.set(true, forKey: sleepBackfillKey)
+            defaults.removeObject(forKey: legacyInitialBackfillKey)
+        }
     }
 }

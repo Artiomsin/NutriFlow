@@ -8,11 +8,25 @@
 import Foundation
 
 struct DailyActivity: Codable, Sendable {
+    /// A field is `nil` when its HealthKit query failed. Such fields are
+    /// omitted from the JSON payload; the UI shows only the metrics that
+    /// were actually read.
     let date: String
-    let steps: Int
-    let activeCalories: Double
-    let basalCalories: Double
-    let distanceMeters: Double
+    let steps: Int?
+    let activeCalories: Double?
+    let basalCalories: Double?
+    let distanceMeters: Double?
+
+    var isComplete: Bool {
+        steps != nil
+            && activeCalories != nil
+            && basalCalories != nil
+            && distanceMeters != nil
+    }
+
+    var hasDisplayableMetric: Bool {
+        steps != nil || activeCalories != nil || distanceMeters != nil
+    }
 }
 
 struct ActivitySyncRequest: Codable, Sendable{

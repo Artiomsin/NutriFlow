@@ -3,47 +3,22 @@ import Foundation
 final class ActivityService: ActivityServiceProtocol, Sendable {
     
     private let client: HTTPClient
-    private let queue = SyncQueue.shared
     
     init(client: HTTPClient){
         self.client = client
     }
     
-    /// Public entry point: enqueues entries locally, then attempts network send.
-    /// On success, clears sent entries from the queue.
+    /// Sends activity entries directly. Failures are surfaced to the caller;
+    /// there is no local retry queue, so no data from one session can be
+    /// replayed into another account.
     func sync(entries: [DailyActivity]) async throws {
-        
-        // Persist entries locally before attempting network call so they survive
-        // network failures and can be retried later.
-        let payloads = entries.map { entry in
-            [
-                "date": entry.date,
-                "steps": entry.steps,
-                "activeCalories": entry.activeCalories,
-                "basalCalories": entry.basalCalories,
-                "distanceMeters": entry.distanceMeters
-            ]
-        }
-        payloads.forEach { queue.enqueue($0) }
-        queue.trimToMaxEntries()
-        
-        do {
-            try await send(entries: entries)
-            
-            // Success: remove sent entries from the queue and cleanup old records.
-            entries.forEach { queue.remove($0.date) }
-            queue.removeOlderThan(days: 30)
-            
-            print("[ActivityService] synced \(entries.count) entries")
-        } catch {
-            print("[ActivityService] sync failed for \(entries.count) entries: \(error.localizedDescription)")
-            throw error
-        }
+        // `DailyActivity` encodes nil fields as omitted keys, which matches
+        // the backend's optional schema fields.
+        try await send(entries: entries)
+        print("[ActivityService] synced \(entries.count) entries")
     }
     
-    /// Low-level send without local enqueue. Used by the coordinator when
-    /// retrying entries that are already in the queue.
-    func send(entries: [DailyActivity]) async throws {
+    private func send(entries: [DailyActivity]) async throws {
         let request = APIRequest(
             path: ActivityEndpoints.sync,
             method: .POST,
