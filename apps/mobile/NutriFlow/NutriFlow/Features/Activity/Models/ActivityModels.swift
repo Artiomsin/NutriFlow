@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct DailyActivity: Codable, Sendable {
+struct DailyActivity: Codable, Equatable, Sendable {
     /// A field is `nil` when its HealthKit query failed. Such fields are
     /// omitted from the JSON payload; the UI shows only the metrics that
     /// were actually read.

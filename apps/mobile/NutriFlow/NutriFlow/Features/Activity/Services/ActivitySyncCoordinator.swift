@@ -14,6 +14,10 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
     private var initialSyncTask: Task<Void, Never>?
     private var didConfigureBackgroundDelivery = false
     private var latestActivity: DailyActivity?
+    /// Last payload the backend accepted. HealthKit fires an initial observer
+    /// delivery right after startObserving(), which would otherwise produce a
+    /// second identical POST three seconds after the startup sync.
+    private var lastSyncedActivity: DailyActivity?
 
     var onActivityUpdate: ((DailyActivity) -> Void)? {
         didSet {
@@ -96,6 +100,7 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
         initialSyncTask = nil
 
         latestActivity = nil
+        lastSyncedActivity = nil
         latestError = nil
 
         healthKitService.onActivityChanged = nil
@@ -319,6 +324,14 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
             return false
         }
 
+        // The startup observer delivery repeats the same reading three seconds
+        // after the initial sync. It is already in the backend, so only skip
+        // the network call - the observer completion is still acknowledged.
+        if lastSyncedActivity == activity {
+            print("[ActivitySyncCoordinator] backend sync skipped — unchanged since last successful sync")
+            return true
+        }
+
         // Partial days are still synced: fields whose HealthKit query failed
         // are encoded as `nil` and omitted from the JSON payload.
         if !activity.isComplete {
@@ -328,6 +341,7 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
         do {
             try await activityService.sync(entries: [activity])
 
+            lastSyncedActivity = activity
             print("[ActivitySyncCoordinator] backend sync success: \(activity)")
             return true
         } catch {
