@@ -20,6 +20,10 @@ final class GoalsViewModel {
     @ObservationIgnored private let progressRefreshState: ProgressRefreshState?
     @ObservationIgnored private var goalLoadTask: Task<Void, Never>?
     @ObservationIgnored private var goalLoadGeneration = 0
+    @ObservationIgnored private var periodGoalsLoadTask: Task<Void, Never>?
+    @ObservationIgnored private var periodGoalsLoadKey: String?
+    @ObservationIgnored private var periodGoalsLoadGeneration = 0
+    @ObservationIgnored private var loadedPeriodGoalsKey: String?
 
     init(coordinator: AppCoordinator, service: GoalsServiceProtocol, cacheService: CacheService? = nil, progressRefreshState: ProgressRefreshState? = nil) {
         print("GoalsViewModel init")
@@ -127,12 +131,77 @@ final class GoalsViewModel {
 
     /// Loads the goal version that was active at the end of the selected
     /// period, so historical rings are not compared with a newer goal.
-    func loadPeriodGoals(endingOn date: Date) async {
-        let loaded = try? await service.getGoals(
-            date: AppDate.dateOnlyFormatter().string(from: date)
-        )
-        guard !Task.isCancelled else { return }
-        periodGoals = loaded
+    func loadPeriodGoals(endingOn date: Date, forceRefresh: Bool = false) async {
+        let dateString = AppDate.dateOnlyFormatter().string(from: date)
+        let cacheKey = "period_goals_\(dateString)"
+
+        if !forceRefresh, loadedPeriodGoalsKey == cacheKey {
+            return
+        }
+        if !forceRefresh,
+           periodGoalsLoadKey == cacheKey,
+           let periodGoalsLoadTask {
+            await periodGoalsLoadTask.value
+            return
+        }
+
+        if forceRefresh {
+            await cacheService?.remove(cacheKey)
+            periodGoalsLoadTask?.cancel()
+        }
+
+        periodGoalsLoadGeneration &+= 1
+        let generation = periodGoalsLoadGeneration
+        periodGoalsLoadKey = cacheKey
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.performLoadPeriodGoals(
+                dateString: dateString,
+                cacheKey: cacheKey,
+                generation: generation
+            )
+        }
+        periodGoalsLoadTask = task
+        await task.value
+
+        if generation == periodGoalsLoadGeneration {
+            periodGoalsLoadTask = nil
+            periodGoalsLoadKey = nil
+        }
+    }
+
+    private func performLoadPeriodGoals(
+        dateString: String,
+        cacheKey: String,
+        generation: Int
+    ) async {
+        if let cached: UserGoals = try? await cacheService?.get(cacheKey) {
+            guard generation == periodGoalsLoadGeneration else { return }
+            periodGoals = cached
+            loadedPeriodGoalsKey = cacheKey
+            return
+        }
+
+        do {
+            #if DEBUG
+            print("[Network] GoalsVM loadPeriodGoals \(dateString)")
+            #endif
+            let loaded = try await service.getGoals(date: dateString)
+            guard !Task.isCancelled, generation == periodGoalsLoadGeneration else { return }
+            try? await cacheService?.set(cacheKey, loaded, ttl: 1_800)
+            periodGoals = loaded
+            loadedPeriodGoalsKey = cacheKey
+        } catch is CancellationError {
+            return
+        } catch {
+            guard generation == periodGoalsLoadGeneration else { return }
+            let appError = ErrorMapper.map(error)
+            routeAuth(appError)
+
+            if let stale: UserGoals = try? await cacheService?.get(cacheKey, ignoreTTL: true) {
+                periodGoals = stale
+            }
+        }
     }
 
     func fitnessGoalRows(
@@ -279,6 +348,7 @@ final class GoalsViewModel {
             }
             await cacheService?.remove("goals_personalization")
             await cacheService?.remove("goals_history")
+            await invalidatePeriodGoalsCache()
             await loadPersonalization(forceNetwork: true)
             await cacheService?.remove("summary_today")
             await cacheService?.removeByPrefix("chart_summaries")
@@ -401,6 +471,7 @@ final class GoalsViewModel {
             state = .loaded(updated)
             try? await cacheService?.set("goals", updated, ttl: 1800)
             await cacheService?.remove("goals_history")
+            await invalidatePeriodGoalsCache()
             await cacheService?.remove("summary_today")
             await cacheService?.removeByPrefix("chart_summaries")
             await cacheService?.removeByPrefix("analytics_")
@@ -442,6 +513,7 @@ final class GoalsViewModel {
             state = .loaded(updated)
             try? await cacheService?.set("goals", updated, ttl: 1800)
             await cacheService?.remove("goals_history")
+            await invalidatePeriodGoalsCache()
             await cacheService?.remove("summary_today")
             await cacheService?.removeByPrefix("chart_summaries")
             await cacheService?.removeByPrefix("analytics_")
@@ -455,5 +527,13 @@ final class GoalsViewModel {
         }
     }
 
-    
+    private func invalidatePeriodGoalsCache() async {
+        periodGoalsLoadGeneration &+= 1
+        loadedPeriodGoalsKey = nil
+        periodGoalsLoadKey = nil
+        periodGoalsLoadTask?.cancel()
+        periodGoalsLoadTask = nil
+        periodGoals = nil
+        await cacheService?.removeByPrefix("period_goals_")
+    }
 }

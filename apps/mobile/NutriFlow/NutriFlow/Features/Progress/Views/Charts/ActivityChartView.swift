@@ -24,13 +24,14 @@ struct ActivityChartView: View {
     }
 
     private struct FlattenedPoint: Identifiable {
-        let id = UUID()
         let label: String
         /// A distinct series ID per uninterrupted run prevents Charts from
         /// drawing a line through days where this metric has no source data.
         let seriesSegment: String
         let color: Color
         let value: Double
+
+        var id: String { "\(seriesSegment)-\(label)" }
     }
 
     var body: some View {
@@ -84,7 +85,7 @@ struct ActivityChartView: View {
             .onChange(of: selection) { _, newVal in
                 if canTap, let label = newVal, let point = data.first(where: { $0.label == label }) {
                     onBarTap?(point)
-                    DispatchQueue.main.async { selection = nil }
+                    selection = nil
                 }
             }
         }

@@ -59,7 +59,7 @@ struct WaterChartView: View {
             .onChange(of: selection) { _, newVal in
                 if canTap, let label = newVal, let point = data.first(where: { $0.label == label }) {
                     onBarTap?(point)
-                    DispatchQueue.main.async { selection = nil }
+                    selection = nil
                 }
             }
             Text(valueDescription)

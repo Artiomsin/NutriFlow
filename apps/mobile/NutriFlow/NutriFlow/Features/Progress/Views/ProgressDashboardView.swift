@@ -14,6 +14,7 @@ struct ProgressDashboardView: View {
     @State private var hasLoadedProgress = false
     @State private var isInitialProgressLoading = false
     @State private var handledFullReloadRevision: UInt = 0
+    @State private var progressRefreshTask: Task<Void, Never>?
     @State private var showWeightEntry = false
     @State private var weightInput = ""
     @State private var weightEntryError: AppError?
@@ -68,15 +69,15 @@ struct ProgressDashboardView: View {
             tabBarState: tabBarState
         )
         .refreshable {
-            let task = Task {
-                async let analytics: () = analyticsVM.refreshData()
-                async let charts: () = chartVM.refreshData()
-                async let goals: () = goalsVM.loadGoals()
-                async let weight: () = chartVM.loadWeightSummary()
-                async let periodGoals: () = goalsVM.loadPeriodGoals(endingOn: periodState.toDate)
-                (_, _, _, _, _) = await (analytics, charts, goals, weight, periodGoals)
-            }
-            await task.value
+            async let analytics: () = analyticsVM.refreshData()
+            async let charts: () = chartVM.refreshData()
+            async let goals: () = goalsVM.loadGoals()
+            async let weight: () = chartVM.loadWeightSummary(forceRefresh: true)
+            async let periodGoals: () = goalsVM.loadPeriodGoals(
+                endingOn: periodState.toDate,
+                forceRefresh: true
+            )
+            (_, _, _, _, _) = await (analytics, charts, goals, weight, periodGoals)
         }
         .onAppear {
             loadInitialIfNeeded()
@@ -84,37 +85,13 @@ struct ProgressDashboardView: View {
         .onChange(of: isActive) { _, active in
             guard active else { return }
             if hasLoadedProgress {
-                let revision = progressRefreshState.revision
-                // A time zone change moves the period boundaries, so the
-                // weight block must be refetched together with the charts.
-                let needsWeightReload =
-                    progressRefreshState.fullReloadRevision != handledFullReloadRevision
-                handledFullReloadRevision = progressRefreshState.fullReloadRevision
-                Task {
-                    async let analytics: () = analyticsVM.refreshIfNeeded(currentRevision: revision)
-                    async let charts: () = chartVM.refreshIfNeeded(
-                        currentRevision: revision,
-                        reloadWeight: needsWeightReload
-                    )
-                    async let periodGoals: () = goalsVM.loadPeriodGoals(endingOn: periodState.toDate)
-                    (_, _, _) = await (analytics, charts, periodGoals)
-                }
+                scheduleProgressRefreshIfNeeded()
             } else {
                 loadInitialIfNeeded()
             }
         }
         .onChange(of: progressRefreshState.revision) { _, _ in
-            // Goals, food, water, and activity changes invalidate the open
-            // day detail as well. Reload its selected calendar date so a
-            // historical sheet keeps its historical goals, while today shows
-            // a newly saved goal immediately.
-            guard chartVM.showDaySheet, !chartVM.selectedDateStr.isEmpty else {
-                return
-            }
-
-            Task {
-                await chartVM.loadDayDetail(date: chartVM.selectedDateStr)
-            }
+            scheduleProgressRefreshIfNeeded()
         }
         .task(id: periodGoalsKey) {
             await goalsVM.loadPeriodGoals(endingOn: periodState.toDate)
@@ -166,6 +143,35 @@ struct ProgressDashboardView: View {
     }
 
     @MainActor
+    private func scheduleProgressRefreshIfNeeded() {
+        guard isActive, hasLoadedProgress else { return }
+
+        let revision = progressRefreshState.revision
+        let needsWeightReload =
+            progressRefreshState.fullReloadRevision != handledFullReloadRevision
+        handledFullReloadRevision = progressRefreshState.fullReloadRevision
+
+        progressRefreshTask?.cancel()
+        progressRefreshTask = Task {
+            async let analytics: () = analyticsVM.refreshIfNeeded(currentRevision: revision)
+            async let charts: () = chartVM.refreshIfNeeded(
+                currentRevision: revision,
+                reloadWeight: needsWeightReload
+            )
+            async let periodGoals: () = goalsVM.loadPeriodGoals(endingOn: periodState.toDate)
+            (_, _, _) = await (analytics, charts, periodGoals)
+
+            guard !Task.isCancelled,
+                  chartVM.showDaySheet,
+                  !chartVM.selectedDateStr.isEmpty
+            else {
+                return
+            }
+            await chartVM.loadDayDetail(date: chartVM.selectedDateStr)
+        }
+    }
+
+    @MainActor
     private func loadInitialIfNeeded() {
         guard isActive, !hasLoadedProgress, !isInitialProgressLoading else {
             return
@@ -184,8 +190,7 @@ struct ProgressDashboardView: View {
             async let charts: () = chartVM.loadChartData()
             async let goals: () = goalsVM.loadGoals()
             async let weight: () = chartVM.loadWeightSummary()
-            async let periodGoals: () = goalsVM.loadPeriodGoals(endingOn: periodState.toDate)
-            (_, _, _, _, _) = await (analytics, charts, goals, weight, periodGoals)
+            (_, _, _, _) = await (analytics, charts, goals, weight)
             handledFullReloadRevision = fullReloadRevision
 
             var didLoadDashboard = false
@@ -561,12 +566,13 @@ struct ProgressDashboardView: View {
         firstDataPoint.label
     }
 
-private struct RingItem: Identifiable {
-        let id = UUID()
+    private struct RingItem: Identifiable {
         let icon: String
         let color: Color
         let title: String
         let pct: Int
+
+        var id: String { "\(title)-\(icon)" }
     }
 
     @ViewBuilder

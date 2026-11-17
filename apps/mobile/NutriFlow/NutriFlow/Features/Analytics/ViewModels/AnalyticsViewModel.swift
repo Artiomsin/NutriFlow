@@ -16,7 +16,7 @@ final class AnalyticsViewModel {
     @ObservationIgnored private var loadTaskID = 0
     @ObservationIgnored private var lastProgressRevision: UInt?
 
-    init(coordinator: AppCoordinator, service: AnalyticsServiceProtocol, periodState: PeriodState = PeriodState(), cacheService: CacheService? = nil) {
+    init(coordinator: AppCoordinator, service: AnalyticsServiceProtocol, periodState: PeriodState, cacheService: CacheService? = nil) {
         print("AnalyticsViewModel init")
         self.coordinator = coordinator
         self.service = service
@@ -39,18 +39,20 @@ final class AnalyticsViewModel {
 
         let cacheKey: String = {
             switch periodState.type {
-            case .week: return "analytics_week"
-            case .month: return "analytics_month"
+            case .week: return "analytics_week_\(formatDate(periodState.toDate))"
+            case .month: return "analytics_month_\(formatDate(periodState.toDate))"
             case .custom: return "analytics_custom_\(formatDate(periodState.fromDate))_\(formatDate(periodState.toDate))"
             default: return ""
             }
         }()
 
         if let cached: AnalyticsResponse = try? await cacheService?.get(cacheKey) {
+            guard !Task.isCancelled, currentID == loadTaskID else { return }
             state = .loaded(cached)
             return
         }
         if (try? await cacheService?.get(cacheKey + "_empty") as Bool?) == true {
+            guard !Task.isCancelled, currentID == loadTaskID else { return }
             state = .empty
             return
         }
@@ -68,19 +70,14 @@ final class AnalyticsViewModel {
                 print("[Network] AnalyticsVM getWeekAnalytics")
                 #endif
                 result = try await service.getWeekAnalytics()
-                cacheKey = "analytics_week"
+                cacheKey = "analytics_week_\(formatDate(periodState.toDate))"
             case .month:
                 #if DEBUG
                 print("[Network] AnalyticsVM getMonthAnalytics")
                 #endif
                 result = try await service.getMonthAnalytics()
-                cacheKey = "analytics_month"
+                cacheKey = "analytics_month_\(formatDate(periodState.toDate))"
             case .custom:
-                let days = AppDate.calendar.dateComponents([.day], from: periodState.fromDate, to: periodState.toDate).day ?? 0
-                if days < 6 {
-                    state = .idle
-                    return
-                }
                 let from = formatDate(periodState.fromDate)
                 let to = formatDate(periodState.toDate)
                 #if DEBUG
@@ -163,8 +160,8 @@ final class AnalyticsViewModel {
     func refreshData() async {
         let key: String
         switch periodState.type {
-        case .week: key = "analytics_week"
-        case .month: key = "analytics_month"
+        case .week: key = "analytics_week_\(formatDate(periodState.toDate))"
+        case .month: key = "analytics_month_\(formatDate(periodState.toDate))"
         case .custom: key = "analytics_custom_\(formatDate(periodState.fromDate))_\(formatDate(periodState.toDate))"
         default: key = ""
         }
@@ -176,6 +173,7 @@ final class AnalyticsViewModel {
     }
 
     func setPeriod(_ period: PeriodType) {
+        cancelPeriodLoad()
         periodState.type = period
         switch period {
         case .today:
@@ -198,14 +196,10 @@ final class AnalyticsViewModel {
     }
 
     func setCustomRange(from: Date, to: Date) {
+        cancelPeriodLoad()
         periodState.fromDate = from
         periodState.toDate = to
         periodState.type = .custom
-        let days = AppDate.calendar.dateComponents([.day], from: from, to: to).day ?? 0
-        if days < 6 {
-            state = .idle
-            return
-        }
         startPeriodLoad()
     }
 
@@ -222,6 +216,12 @@ final class AnalyticsViewModel {
         loadTask = Task { [weak self] in
             await self?.loadAnalytics(keepLoadedData: keepsPreviousAnalytics)
         }
+    }
+
+    private func cancelPeriodLoad() {
+        loadTask?.cancel()
+        loadTask = nil
+        loadTaskID &+= 1
     }
 
     private func formatDate(_ date: Date) -> String {

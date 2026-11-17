@@ -47,6 +47,7 @@ final class ProgressChartViewModel {
     @ObservationIgnored private let weightReminderScheduler: WeightReminderScheduling?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var loadTaskID = 0
+    @ObservationIgnored private var dayDetailLoadID = 0
     @ObservationIgnored private var fallbackProfileWeightKg: Double?
     @ObservationIgnored private var didLoadFallbackProfileWeight = false
     @ObservationIgnored private let periodState: PeriodState
@@ -118,6 +119,8 @@ final class ProgressChartViewModel {
     }
 
     func loadDayDetail(date: String) async {
+        dayDetailLoadID &+= 1
+        let loadID = dayDetailLoadID
         selectedDateStr = date
         selectedDateFood = []
         selectedDateWater = []
@@ -139,6 +142,7 @@ final class ProgressChartViewModel {
 
             let (f, w, g, versions, activity, workouts) = try await (food, water, goals, versionsResult, activityResult, workoutsResult)
             try Task.checkCancellation()
+            guard loadID == dayDetailLoadID else { return }
 
             selectedDateFood = f
             selectedDateWater = w
@@ -151,6 +155,7 @@ final class ProgressChartViewModel {
         } catch is CancellationError {
             return
         } catch {
+            guard loadID == dayDetailLoadID else { return }
             dayDetailState = .error(ErrorMapper.map(error))
         }
     }
@@ -467,7 +472,7 @@ final class ProgressChartViewModel {
         guard lastProgressRevision != currentRevision else { return }
         await refreshData()
         if reloadWeight {
-            await loadWeightSummary()
+            await loadWeightSummary(forceRefresh: true)
         }
         if case .loaded = chartState {
             lastProgressRevision = currentRevision
@@ -503,7 +508,7 @@ final class ProgressChartViewModel {
     }
 
     
-    func loadWeightSummary() async {
+    func loadWeightSummary(forceRefresh: Bool = false) async {
         guard profileService != nil else { return }
 
         weightLoadTask?.cancel()
@@ -512,13 +517,13 @@ final class ProgressChartViewModel {
 
         let task = Task { [weak self] in
             guard let self else { return }
-            await self.performWeightSummaryLoad(loadID: loadID)
+            await self.performWeightSummaryLoad(loadID: loadID, forceRefresh: forceRefresh)
         }
         weightLoadTask = task
         await task.value
     }
 
-    private func performWeightSummaryLoad(loadID: Int) async {
+    private func performWeightSummaryLoad(loadID: Int, forceRefresh: Bool) async {
         guard let profileService else { return }
 
         isWeightLoading = true
@@ -531,12 +536,24 @@ final class ProgressChartViewModel {
         }
 
         let range = currentRange()
+        let cacheKey = weightLogsCacheKey(from: range.from, to: range.to)
         let label = periodLabel()
         let period = periodState.type
 
+        if forceRefresh {
+            await cacheService?.remove(cacheKey)
+        }
+
         var points: [WeightPoint]
         do {
-            let logs = try await profileService.getWeightLogs(from: range.from, to: range.to)
+            let logs: [WeightLog]
+            if !forceRefresh,
+               let cached: [WeightLog] = try? await cacheService?.get(cacheKey) {
+                logs = cached
+            } else {
+                logs = try await profileService.getWeightLogs(from: range.from, to: range.to)
+                try? await cacheService?.set(cacheKey, logs, ttl: 300)
+            }
             guard !Task.isCancelled, loadID == weightLoadID else { return }
             weightError = nil
             points = logs
@@ -629,6 +646,7 @@ final class ProgressChartViewModel {
             didLoadFallbackProfileWeight = true
             await cacheService?.remove("profile")
             await cacheService?.remove("goals")
+            await invalidateWeightLogsCache()
             await loadWeightSummary()
             progressRefreshState?.invalidate()
         } catch {
@@ -646,6 +664,7 @@ final class ProgressChartViewModel {
             didLoadFallbackProfileWeight = false
             await cacheService?.remove("profile")
             await cacheService?.remove("goals")
+            await invalidateWeightLogsCache()
             await loadWeightSummary()
             await loadWeightHistory()
             progressRefreshState?.invalidate()
@@ -696,6 +715,14 @@ final class ProgressChartViewModel {
             let to = Self.labelFormatter().string(from: periodState.toDate)
             return "\(from) – \(to)"
         }
+    }
+
+    private func weightLogsCacheKey(from: String, to: String) -> String {
+        "weight_logs_\(from)_\(to)"
+    }
+
+    private func invalidateWeightLogsCache() async {
+        await cacheService?.removeByPrefix("weight_logs_")
     }
 
     func loadChartData(keepLoadedData: Bool = false) async {
