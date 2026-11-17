@@ -32,17 +32,12 @@ final class AnalyticsViewModel {
     func loadAnalytics(keepLoadedData: Bool = false) async {
         let currentID = loadTaskID
 
-        if periodState.type == .today {
-            state = .idle
-            return
-        }
-
         let cacheKey: String = {
             switch periodState.type {
+            case .today: return "analytics_today_\(formatDate(periodState.toDate))"
             case .week: return "analytics_week_\(formatDate(periodState.toDate))"
             case .month: return "analytics_month_\(formatDate(periodState.toDate))"
             case .custom: return "analytics_custom_\(formatDate(periodState.fromDate))_\(formatDate(periodState.toDate))"
-            default: return ""
             }
         }()
 
@@ -65,6 +60,13 @@ final class AnalyticsViewModel {
             let result: AnalyticsResponse
             let cacheKey: String
             switch periodState.type {
+            case .today:
+                let date = formatDate(periodState.toDate)
+                #if DEBUG
+                print("[Network] AnalyticsVM getTodayAnalytics")
+                #endif
+                result = try await service.getCustomRange(from: date, to: date)
+                cacheKey = "analytics_today_\(date)"
             case .week:
                 #if DEBUG
                 print("[Network] AnalyticsVM getWeekAnalytics")
@@ -85,16 +87,19 @@ final class AnalyticsViewModel {
                 #endif
                 result = try await service.getCustomRange(from: from, to: to)
                 cacheKey = "analytics_custom_\(from)_\(to)"
-            default:
-                state = .idle
-                return
             }
 
             try Task.checkCancellation()
             guard currentID == loadTaskID else { return }
 
-            let hasData = result.daysTracked > 0
+            let hasNutritionData = result.daysTracked > 0
                 && result.daily.contains { $0.calories > 0 || $0.water > 0 }
+            let hasActivityData = (result.avgSteps ?? 0) > 0
+                || (result.avgActiveCalories ?? 0) > 0
+                || (result.sleepTotalNights ?? 0) > 0
+                || (result.workoutsDone ?? 0) > 0
+                || (result.workoutMinutes ?? 0) > 0
+            let hasData = hasNutritionData || hasActivityData
 
             if hasData {
                 try? await cacheService?.set(cacheKey, result, ttl: 900)
@@ -160,10 +165,10 @@ final class AnalyticsViewModel {
     func refreshData() async {
         let key: String
         switch periodState.type {
+        case .today: key = "analytics_today_\(formatDate(periodState.toDate))"
         case .week: key = "analytics_week_\(formatDate(periodState.toDate))"
         case .month: key = "analytics_month_\(formatDate(periodState.toDate))"
         case .custom: key = "analytics_custom_\(formatDate(periodState.fromDate))_\(formatDate(periodState.toDate))"
-        default: key = ""
         }
         await cacheService?.remove(key)
         await cacheService?.remove(key + "_empty")
@@ -179,8 +184,6 @@ final class AnalyticsViewModel {
         case .today:
             periodState.fromDate = Date()
             periodState.toDate = Date()
-            state = .idle
-            return
         case .week:
             periodState.fromDate = AppDate.calendar.date(byAdding: .day, value: -6, to: Date()) ?? Date()
             periodState.toDate = Date()
