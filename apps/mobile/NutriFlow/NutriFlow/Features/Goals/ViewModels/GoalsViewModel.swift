@@ -420,7 +420,7 @@ final class GoalsViewModel {
                 cursor: cursor
             )
             if isFirstPage {
-                try? await cacheService?.set("goals_history", page, ttl: 300)
+                try? await cacheService?.set("goals_history", page, ttl: 600)
             }
             return page
         } catch {
@@ -527,7 +527,7 @@ final class GoalsViewModel {
         }
     }
 
-    private func invalidatePeriodGoalsCache() async {
+    func invalidatePeriodGoalsCache() async {
         periodGoalsLoadGeneration &+= 1
         loadedPeriodGoalsKey = nil
         periodGoalsLoadKey = nil

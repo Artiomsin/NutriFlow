@@ -68,6 +68,12 @@ final class HomeViewModel {
                 activityVM?.setActivity(activity)
             }
         }
+
+        activitySync.onActivityError = { [weak activityVM] error in
+            Task { @MainActor in
+                activityVM?.setActivityLoadError(error)
+            }
+        }
     }
 
     deinit { print("HomeViewModel deinit") }
@@ -81,7 +87,7 @@ final class HomeViewModel {
     func onAppear() async {
         await activityVM.checkPermission()
         await sleepVM.checkPermission()
-        await workoutVM.loadLatest()
+        await workoutVM.refreshPermissionState()
         await workoutVM.checkWorkoutAchievements()
     }
 
@@ -117,7 +123,9 @@ final class HomeViewModel {
         await cacheService?.remove("water_today")
         await cacheService?.remove("summary_today")
         await cacheService?.removeByPrefix("chart_summaries")
-        
+        // Period goals are also keyed by a calendar day and cached in memory.
+        // Dropping only the file would let `loadPeriodGoals` reuse the old value.
+        await goalsVM.invalidatePeriodGoalsCache()
 
         await withDiscardingTaskGroup { [self] group in
             group.addTask { await self.loadDashboardSummary(forceRefresh: true) }
@@ -125,6 +133,7 @@ final class HomeViewModel {
             group.addTask { await self.goalsVM.loadPersonalization() }
             group.addTask { await self.todayFoodVM.loadToday(forceNetwork: true) }
             group.addTask { await self.waterVM.loadToday(forceRefresh: true) }
+            group.addTask { await self.sleepVM.checkPermission() }
             
         }
         lastGoalsRevision = progressRefreshState?.revision
