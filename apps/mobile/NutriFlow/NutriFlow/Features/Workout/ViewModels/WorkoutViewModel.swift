@@ -910,55 +910,9 @@ final class WorkoutViewModel {
             return
         }
         
-        // Ghost prune runs best-effort, separately from the sync.
-        // A failure here must not roll back the sync timestamps above:
-        // otherwise every failed prune would keep lastWorkoutSyncedAt
-        // nil and re-trigger a full 365d sync on the next run.
-        if
-            isFull,
-            let pruneStart =
-                AppDate.calendar.date(
-                    byAdding: .day,
-                    value: -Self.pruneWindowDays,
-                    to: end
-                ),
-            pruneStart >= start
-        {
-            
-            let pruneIds =
-            local
-                .filter {
-                    $0.startDate >= pruneStart
-                }
-                .map {
-                    $0.id.uuidString
-                }
-            
-            do {
-                try await workoutService.deleteMissing(
-                    from: WorkoutMapper.isoString(
-                        from: pruneStart
-                    ),
-                    to: WorkoutMapper.isoString(from: end),
-                    healthKitWorkoutIds: pruneIds
-                )
-                
-                print(
-                    "[WorkoutVM] pruned ghosts within \(Self.pruneWindowDays)d"
-                )
-            } catch {
-                print(
-                    "[WorkoutVM] prune failed: \(error) " +
-                    "(ghosts retried at next reconciliation)"
-                )
-            }
-            
-        } else {
-            
-            print(
-                "[WorkoutVM] prune skipped"
-            )
-        }
+        // Do not delete backend workouts based on an absent HealthKit result:
+        // HealthKit intentionally does not reveal a read denial or a limited
+        // authorized history, so an empty query is not proof of deletion.
     }
     
     private func loadHistory() async {

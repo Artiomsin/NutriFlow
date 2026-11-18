@@ -461,20 +461,22 @@ final class WorkoutHealthKitService: NSObject, WorkoutHealthKitServiceProtocol {
     }
 
     private static func distanceMeters(for workout: HKWorkout) -> Double? {
-        for identifier in Self.distanceIdentifiers {
-            let type = HKQuantityType(identifier)
-            if let value = workout.statistics(for: type)?.sumQuantity()?.doubleValue(for: .meter()),
-               value > 0 {
-                return value
-            }
-        }
         if let total = workout.totalDistance {
             let value = total.doubleValue(for: .meter())
             if value > 0 {
                 return value
             }
         }
-        return nil
+
+        let distance = Self.distanceIdentifiers.reduce(0) { partialResult, identifier in
+            let type = HKQuantityType(identifier)
+            let value = workout.statistics(for: type)?
+                .sumQuantity()?
+                .doubleValue(for: .meter()) ?? 0
+            return partialResult + max(value, 0)
+        }
+
+        return distance > 0 ? distance : nil
     }
 
     private static func workoutName(
