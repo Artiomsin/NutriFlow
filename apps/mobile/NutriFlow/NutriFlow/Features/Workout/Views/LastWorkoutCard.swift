@@ -269,11 +269,11 @@ struct LastWorkoutCard: View {
             HStack(spacing: 6) {
                 Image(systemName: "heart.slash")
                     .foregroundColor(AppColors.textSecondary)
-                Text("Workouts access is off")
+                Text("No workout data is available")
                     .font(.footnote)
                     .foregroundColor(AppColors.textSecondary)
             }
-            Text("Enable in the Health app:\n\(HealthKitAccess.permissionPath)")
+            Text("Check access in the Health app:\n\(HealthKitAccess.permissionPath)")
                 .font(.caption2)
                 .foregroundColor(AppColors.textSecondary)
         }

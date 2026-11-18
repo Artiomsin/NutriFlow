@@ -71,11 +71,11 @@ struct SleepCard: View {
             HStack(spacing: 6) {
                 Image(systemName: "moon.zzz")
                     .foregroundColor(AppColors.textSecondary)
-                Text("Sleep access is off")
+                Text("No sleep data is available")
                     .font(.footnote)
                     .foregroundColor(AppColors.textSecondary)
             }
-            Text("Enable in the Health app:\n\(HealthKitAccess.permissionPath)")
+            Text("Check access in the Health app:\n\(HealthKitAccess.permissionPath)")
                 .font(.caption2)
                 .foregroundColor(AppColors.textSecondary)
         }

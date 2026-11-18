@@ -245,6 +245,9 @@
     "Charts" : {
 
     },
+    "Check access in the Health app:\n%@" : {
+
+    },
     "Choose an icon that makes this category easy to spot." : {
 
     },
@@ -372,9 +375,6 @@
 
     },
     "Enable in the Health app:" : {
-
-    },
-    "Enable in the Health app:\n%@" : {
 
     },
     "End" : {
@@ -974,9 +974,6 @@
     "Grams" : {
 
     },
-    "Health access is off" : {
-
-    },
     "Health data unavailable" : {
 
     },
@@ -1130,6 +1127,9 @@
     "No goal changes yet" : {
 
     },
+    "No Health data is available" : {
+
+    },
     "No heart rate data" : {
 
     },
@@ -1151,6 +1151,12 @@
     "No sleep data" : {
 
     },
+    "No sleep data is available" : {
+
+    },
+    "No sleep data is available. Check access in the Health app:\n%@" : {
+
+    },
     "No system foods in this category." : {
 
     },
@@ -1164,6 +1170,9 @@
 
     },
     "No weight records yet." : {
+
+    },
+    "No workout data is available" : {
 
     },
     "No workouts yet" : {
@@ -1343,12 +1352,6 @@
     "Sleep" : {
 
     },
-    "Sleep access is off" : {
-
-    },
-    "Sleep access is off. Enable in the Health app:\n%@" : {
-
-    },
     "Some HealthKit data is unavailable right now." : {
 
     },
@@ -1509,9 +1512,6 @@
 
     },
     "Workouts" : {
-
-    },
-    "Workouts access is off" : {
 
     },
     "Your changes weren’t saved. Please try again." : {

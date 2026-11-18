@@ -20,7 +20,7 @@ struct SleepHistoryView: View {
                     .frame(maxWidth: .infinity, minHeight: 300)
             case .denied:
                 VStack(spacing: 12) {
-                    Text("Sleep access is off. Enable in the Health app:\n\(HealthKitAccess.permissionPath)")
+                    Text("No sleep data is available. Check access in the Health app:\n\(HealthKitAccess.permissionPath)")
                         .font(.footnote)
                         .foregroundColor(AppColors.textSecondary)
                         .multilineTextAlignment(.center)

@@ -74,7 +74,7 @@ final class ActivityViewModel {
 
         switch await healthKit.permissionState() {
         case .authorized:
-            print("[HealthKit] HealthKit authorization granted")
+            print("[HealthKit] HealthKit authorization request completed")
 
         case .denied:
             state = .denied
