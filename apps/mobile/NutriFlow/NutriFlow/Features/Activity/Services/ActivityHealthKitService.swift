@@ -69,9 +69,9 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
     }
 
 
-    /// Failed queries become `nil` fields; the record is still returned so the
-    /// card can show the metrics that were read. `nil` means no metric at all
-    /// could be read.
+    /// Unavailable metrics become `nil`; the record is returned only when at
+    /// least one metric has a real HealthKit value. This prevents an empty
+    /// result from overwriting previously synced activity with zeros.
     func fetchToday() async -> DailyActivity? {
         let now = Date()
         let calendar = AppDate.calendar
@@ -165,7 +165,7 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
         return result
     }
 
-    private static func value(_ result: Result<Double, Error>) -> Double? {
+    private static func value(_ result: Result<Double?, Error>) -> Double? {
         if case .success(let value) = result { return value }
         return nil
     }
@@ -173,14 +173,14 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
     /// Distance is the sum of three queries. A failed source makes the total
     /// incomplete, so it is hidden instead of being shown as a real value.
     private static func totalDistance(
-        walking: Result<Double, Error>,
-        cycling: Result<Double, Error>,
-        swimming: Result<Double, Error>
+        walking: Result<Double?, Error>,
+        cycling: Result<Double?, Error>,
+        swimming: Result<Double?, Error>
     ) -> Double? {
         guard
-            case .success(let walking) = walking,
-            case .success(let cycling) = cycling,
-            case .success(let swimming) = swimming
+            case .success(let walking?) = walking,
+            case .success(let cycling?) = cycling,
+            case .success(let swimming?) = swimming
         else { return nil }
         return walking + cycling + swimming
     }
@@ -188,12 +188,12 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
     private static func makeActivity(
         date: String,
         results: (
-            steps: Result<Double, Error>,
-            active: Result<Double, Error>,
-            basal: Result<Double, Error>,
-            walking: Result<Double, Error>,
-            cycling: Result<Double, Error>,
-            swimming: Result<Double, Error>
+            steps: Result<Double?, Error>,
+            active: Result<Double?, Error>,
+            basal: Result<Double?, Error>,
+            walking: Result<Double?, Error>,
+            cycling: Result<Double?, Error>,
+            swimming: Result<Double?, Error>
         )
     ) -> DailyActivity {
         DailyActivity(
@@ -207,6 +207,24 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
                 swimming: results.swimming
             )
         )
+    }
+
+    func hasLimitedHistory() async -> Bool {
+        guard isAvailable else { return false }
+
+        // Before iOS 27, HealthKit does not expose whether the authorized
+        // history is truncated. Treat it as limited so a partial backfill
+        // is never recorded as complete.
+        guard #available(iOS 27.0, *) else {
+            return true
+        }
+
+        let types = Set(activityTypesToRead.map { $0 as HKObjectType })
+        do {
+            return !(try await store.earliestAuthorizedSampleDate(for: types)).isEmpty
+        } catch {
+            return true
+        }
     }
 
     func fetchRange(from startDate: Date, to endDate: Date) async throws -> [DailyActivity] {
@@ -337,13 +355,14 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
                     return
                 }
 
-                self?.onActivityChanged?()
-
-                // The coordinator acknowledges this right after reading the
-                // data. Network sync must not hold the completion handler.
+                // Store the completion before scheduling the coordinator. The
+                // coordinator can complete its read immediately, so reversing
+                // this order could leave this delivery unacknowledged.
                 self?.completionLock.lock()
                 self?.pendingCompletions.append(completionHandler)
                 self?.completionLock.unlock()
+
+                self?.onActivityChanged?()
             }
 
             store.execute(query)
@@ -377,15 +396,15 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
     }
 
 
-    /// A missing `sumQuantity` means "no samples in this window" and is a real
-    /// zero. A query error is different: it must never be written to the backend
-    /// as zero, because that would erase the user's actual activity.
+    /// A missing `sumQuantity` means this metric is unavailable. HealthKit
+    /// intentionally represents denied read access as an empty result, so it
+    /// must stay `nil` and never be written to the backend as zero.
     private func sum(
         _ identifier: HKQuantityTypeIdentifier,
         start: Date,
         end: Date,
         unit: HKUnit
-    ) async -> Result<Double, Error> {
+    ) async -> Result<Double?, Error> {
 
         let type = HKQuantityType(identifier)
 
@@ -404,15 +423,10 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
             ) { _, result, error in
 
                 if let error {
-                    // HKStatisticsQuery reports an empty window as error 11
-                    // ("No data available"), not as a successful zero. That
-                    // is a real zero, not a failed read: treating it as a
-                    // failure makes perfectly healthy metrics disappear.
                     let nsError = error as NSError
                     if nsError.domain == HKError.errorDomain,
                        nsError.code == HKError.Code.errorNoData.rawValue {
-                        print("[HealthKit] sum: no samples for \(identifier.rawValue) — using 0")
-                        continuation.resume(returning: .success(0))
+                        continuation.resume(returning: .success(nil))
                         return
                     }
 
@@ -427,7 +441,6 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
                 let value = result?
                     .sumQuantity()?
                     .doubleValue(for: unit)
-                    ?? 0
 
                 continuation.resume(returning: .success(value))
             }

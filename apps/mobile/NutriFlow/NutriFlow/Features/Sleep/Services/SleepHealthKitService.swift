@@ -135,12 +135,32 @@ final class SleepHealthKitService: SleepHealthKitServiceProtocol {
             return nil
         }
 
-        sleep.heartRateAvg = try await fetchAverageHeartRate(
+        sleep.heartRateAvg = await averageHeartRateIfAvailable(
             from: sleep.startDate,
             to: sleep.endDate
         )
 
         return sleep
+    }
+
+    func hasLimitedHistory() async -> Bool {
+        guard isAvailable, let sleepType else { return false }
+
+        // Before iOS 27, HealthKit does not expose whether the authorized
+        // history is truncated. Treat it as limited so a partial backfill
+        // is never recorded as complete.
+        guard #available(iOS 27.0, *) else {
+            return true
+        }
+
+        do {
+            let dates = try await healthStore.earliestAuthorizedSampleDate(
+                for: [sleepType]
+            )
+            return dates[sleepType] != nil
+        } catch {
+            return true
+        }
     }
 
     func fetchNights(from startDate: Date,
@@ -161,7 +181,7 @@ final class SleepHealthKitService: SleepHealthKitServiceProtocol {
         for session in sessions {
             guard var night = aggregate(session) else { continue }
 
-            night.heartRateAvg = try await fetchAverageHeartRate(
+            night.heartRateAvg = await averageHeartRateIfAvailable(
                 from: night.startDate,
                 to: night.endDate
             )
@@ -230,8 +250,14 @@ final class SleepHealthKitService: SleepHealthKitServiceProtocol {
 
         let asleepSamples = coreSamples + deepSamples + remSamples + unspecifiedSamples
 
-        let timeInBedSeconds = Self.mergedDuration(inBedSamples)
+        // Sleep samples from different sources can overlap. A person cannot be
+        // asleep for longer than they are in bed, so normalize the reported
+        // time in bed to cover the union of all asleep intervals.
         let asleepSeconds = Self.mergedDuration(asleepSamples)
+        let timeInBedSeconds = max(
+            Self.mergedDuration(inBedSamples),
+            asleepSeconds
+        )
         let awakeSeconds = Self.mergedDuration(awakeSamples)
         let coreSeconds = Self.mergedDuration(coreSamples)
         let deepSeconds = Self.mergedDuration(deepSamples)
@@ -257,7 +283,7 @@ final class SleepHealthKitService: SleepHealthKitServiceProtocol {
 
         let efficiency: Double?
         if timeInBedSeconds > 0 {
-            efficiency = (asleepSeconds / timeInBedSeconds) * 100
+            efficiency = min((asleepSeconds / timeInBedSeconds) * 100, 100)
         } else {
             let nightInterval = endDate.timeIntervalSince(startDate)
             efficiency = nightInterval > 0
@@ -374,6 +400,23 @@ final class SleepHealthKitService: SleepHealthKitServiceProtocol {
                 bytes[12], bytes[13], bytes[14], bytes[15]
             )
         )
+    }
+
+    private func averageHeartRateIfAvailable(
+        from startDate: Date,
+        to endDate: Date
+    ) async -> Double? {
+        do {
+            return try await fetchAverageHeartRate(
+                from: startDate,
+                to: endDate
+            )
+        } catch {
+            #if DEBUG
+            print("[SleepHealthKit] average heart-rate query failed: \(error)")
+            #endif
+            return nil
+        }
     }
 
     func fetchAverageHeartRate(

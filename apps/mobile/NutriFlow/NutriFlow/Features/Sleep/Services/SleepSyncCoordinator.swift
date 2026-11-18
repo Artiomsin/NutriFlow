@@ -162,7 +162,6 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
 
         let result = try await loadHistory(
             useCache: true,
-            reconcile: false,
             daysBack: daysBack
         )
 
@@ -171,10 +170,23 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
             // them. Only close the backfill once the write actually succeeded,
             // otherwise an offline first launch would never retry 30 nights.
             if result.synced {
-                PreferencesStore.shared.hasCompletedSleepBackfill = true
-                print(
-                    "[SleepSyncCoordinator] initial backfill completed: \(result.nights.count) nights"
-                )
+                // An empty result can mean no sleep or denied HealthKit read
+                // access. HealthKit does not reveal which, so do not record
+                // this backfill as complete.
+                if result.nights.isEmpty {
+                    print(
+                        "[SleepSyncCoordinator] initial backfill deferred — no readable HealthKit data"
+                    )
+                } else if await healthKitService.hasLimitedHistory() {
+                    print(
+                        "[SleepSyncCoordinator] initial backfill deferred — HealthKit history is limited"
+                    )
+                } else {
+                    PreferencesStore.shared.hasCompletedSleepBackfill = true
+                    print(
+                        "[SleepSyncCoordinator] initial backfill completed: \(result.nights.count) nights"
+                    )
+                }
             } else {
                 print(
                     "[SleepSyncCoordinator] initial backfill sync failed — will retry next launch"
@@ -186,10 +198,7 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
     }
 
     func refreshHistory() async throws -> [HealthKitSleep] {
-        let result = try await loadHistory(
-            useCache: false,
-            reconcile: true
-        )
+        let result = try await loadHistory(useCache: false)
         return result.nights
     }
 
@@ -199,7 +208,6 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
 
     private func loadHistory(
         useCache: Bool,
-        reconcile: Bool,
         daysBack: Int = 7
     ) async throws -> (nights: [HealthKitSleep], synced: Bool) {
         let calendar = AppDate.calendar
@@ -263,14 +271,6 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
             #endif
         }
 
-        if reconcile {
-            await reconcileBackend(
-                kept: sorted,
-                windowStart: windowStart,
-                windowEnd: todayNoon
-            )
-        }
-
         return (sorted, true)
     }
 
@@ -294,14 +294,12 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
                 to: night.endDate
             )
 
-        let result = try await (
-            sleep: sleepTask,
-            heartRate: heartRateTask
-        )
+        let sleep = try await sleepTask
+        let heartRate = (try? await heartRateTask) ?? []
 
         return SleepNightDetailResult(
-            sleep: result.sleep ?? night,
-            heartRate: result.heartRate
+            sleep: sleep ?? night,
+            heartRate: heartRate
         )
     }
 
@@ -345,58 +343,6 @@ final class SleepSyncCoordinator: SleepSyncProtocol {
             #endif
 
             return false
-        }
-    }
-
-    private func reconcileBackend(
-        kept: [HealthKitSleep],
-        windowStart: Date,
-        windowEnd: Date
-    ) async {
-        do {
-            let response = try await sleepService.getHistory(
-                from: SleepKey.dayKey(windowStart),
-                to: SleepKey.dayKey(windowEnd),
-                limit: 200,
-                offset: nil
-            )
-
-            let keptStarts = kept.map(\.startDate)
-
-            let stale = response.nights.filter { entry in
-                guard let backendDate = SleepKey.parseISODate(entry.startDate) else {
-                    return false
-                }
-
-                return !keptStarts.contains { nightDate in
-                    abs(nightDate.timeIntervalSince(backendDate)) < 300
-                }
-            }
-
-            guard !stale.isEmpty else {
-                return
-            }
-
-            // Delete the nights that actually exist on backend
-            // but are missing from HealthKit.
-            try await sleepService.deleteMissing(
-                from: SleepMapper.isoString(from: windowStart),
-                to: SleepMapper.isoString(from: windowEnd),
-                keptStartDates: kept.map { SleepMapper.isoString(from: $0.startDate) }
-            )
-
-            #if DEBUG
-            print(
-                "[SleepSync] reconciled: deleted \(stale.count) nights missing in HealthKit"
-            )
-            #endif
-
-        } catch {
-            #if DEBUG
-            print(
-                "[SleepSync] backend reconcile failed: \(error)"
-            )
-            #endif
         }
     }
 

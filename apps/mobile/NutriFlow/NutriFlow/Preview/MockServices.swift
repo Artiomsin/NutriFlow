@@ -785,6 +785,8 @@ final class MockSleepHealthKit: SleepHealthKitServiceProtocol {
     func fetchSleep(from startDate: Date, to endDate: Date) async throws -> HealthKitSleep? {
         sampleNight(from: startDate, variation: 0.15)
     }
+
+    func hasLimitedHistory() async -> Bool { false }
     
     
     
@@ -841,6 +843,7 @@ final class MockHealthKit: ActivityHealthKitServiceProtocol, WorkoutHealthKitSer
     func fetchRange(from startDate: Date, to endDate: Date) async throws -> [DailyActivity] {
         []
     }
+    func hasLimitedHistory() async -> Bool { false }
     func fetchWorkouts(from startDate: Date, to endDate: Date) async throws -> [HealthKitWorkout] { [Self.sampleWorkout] }
     func fetchLatestWorkout() async throws -> HealthKitWorkout? { Self.sampleWorkout }
     func enableBackgroundDelivery() async throws {}

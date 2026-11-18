@@ -216,10 +216,23 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
                 // syncToBackend swallows the error, so its result must be checked
                 // here or an offline first launch would never retry 30 days.
                 if await syncToBackend(entries) {
-                    PreferencesStore.shared.hasCompletedActivityBackfill = true
-                    print(
-                        "[ActivitySyncCoordinator] backfill completed: \(entries.count) days"
-                    )
+                    // An empty result can mean no data or denied HealthKit read
+                    // access. HealthKit does not reveal which, so do not record
+                    // this backfill as complete.
+                    if entries.isEmpty {
+                        print(
+                            "[ActivitySyncCoordinator] backfill deferred — no readable HealthKit data"
+                        )
+                    } else if await healthKitService.hasLimitedHistory() {
+                        print(
+                            "[ActivitySyncCoordinator] backfill deferred — HealthKit history is limited"
+                        )
+                    } else {
+                        PreferencesStore.shared.hasCompletedActivityBackfill = true
+                        print(
+                            "[ActivitySyncCoordinator] backfill completed: \(entries.count) days"
+                        )
+                    }
                 } else {
                     print(
                         "[ActivitySyncCoordinator] backfill sync failed — will retry next launch"
