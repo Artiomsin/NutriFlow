@@ -172,17 +172,25 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
 
     /// Distance is the sum of three queries. A failed source makes the total
     /// incomplete, so it is hidden instead of being shown as a real value.
+    /// A successful query without samples contributes zero; requiring samples
+    /// from every activity type would hide a person's walking distance whenever
+    /// they did not cycle or swim that day.
     private static func totalDistance(
         walking: Result<Double?, Error>,
         cycling: Result<Double?, Error>,
         swimming: Result<Double?, Error>
     ) -> Double? {
         guard
-            case .success(let walking?) = walking,
-            case .success(let cycling?) = cycling,
-            case .success(let swimming?) = swimming
+            case .success(let walking) = walking,
+            case .success(let cycling) = cycling,
+            case .success(let swimming) = swimming
         else { return nil }
-        return walking + cycling + swimming
+
+        guard walking != nil || cycling != nil || swimming != nil else {
+            return nil
+        }
+
+        return (walking ?? 0) + (cycling ?? 0) + (swimming ?? 0)
     }
 
     private static func makeActivity(

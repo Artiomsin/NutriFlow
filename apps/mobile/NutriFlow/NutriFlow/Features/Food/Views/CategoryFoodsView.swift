@@ -55,7 +55,7 @@ struct CategoryFoodsView: View {
 
     private var categoryAccentColor: Color {
         guard let category = displayedCategory else { return AppColors.accent }
-        return Color(hex: category.color ?? "#10B981") ?? AppColors.accent
+        return Color(hex: category.color ?? "#1A7F37") ?? AppColors.accent
     }
 
     private var personalFoods: [CatalogFood] {
@@ -138,7 +138,7 @@ struct CategoryFoodsView: View {
 
     @ViewBuilder
     private func categoryHeader(_ category: FoodCategory) -> some View {
-        let categoryColor: Color = Color(hex: category.color ?? "#10B981") ?? AppColors.accent
+        let categoryColor: Color = Color(hex: category.color ?? "#1A7F37") ?? AppColors.accent
 
         HStack(spacing: 16) {
             // Category icon — large circle on left
@@ -199,7 +199,6 @@ struct CategoryFoodsView: View {
                 .stroke(categoryColor, lineWidth: 2)
         }
         .shadow(color: categoryColor.opacity(0.08), radius: 6, x: 0, y: 2)
-        .padding(.horizontal, 2)
     }
 
     @ViewBuilder
@@ -236,7 +235,6 @@ struct CategoryFoodsView: View {
                 .stroke(AppColors.accent, lineWidth: 2)
         }
         .shadow(color: AppColors.accent.opacity(0.08), radius: 6, x: 0, y: 2)
-        .padding(.horizontal, 2)
     }
 
 
@@ -279,7 +277,6 @@ struct CategoryFoodsView: View {
 
     var body: some View {
         List {
-            // Category header — красивый блок с количеством блюд
             Section {
                 if let category = displayedCategory {
                     categoryHeader(category)
@@ -287,7 +284,7 @@ struct CategoryFoodsView: View {
                     manageAllHeader
                 }
             }
-            .listRowInsets(EdgeInsets())
+            .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
 
@@ -383,7 +380,6 @@ struct CategoryFoodsView: View {
         .animation(.easeOut(duration: 0.2), value: viewModel.isLoadingMore)
         .listRowSpacing(16)
         .listSectionSpacing(16)
-        .contentMargins(.horizontal, 16)
         .scrollContentBackground(.hidden)
         .background(AppColors.background)
         .navigationTitle(displayedCategory?.name ?? "Manage Foods")
@@ -475,7 +471,7 @@ struct CategoryFoodsView: View {
             isSelected: false,
             accentColor: categoryAccentColor
         )
-        .listRowInsets(EdgeInsets())
+        .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
         .accessibilityElement(children: .combine)
@@ -497,7 +493,7 @@ struct CategoryFoodsView: View {
         }
         .buttonStyle(.plain)
         .disabled(!canEdit)
-        .listRowInsets(EdgeInsets())
+        .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
         .accessibilityHint(canEdit
@@ -518,7 +514,7 @@ struct CategoryFoodsView: View {
     }
 
     private func categoryRow(_ destination: FoodCategory) -> some View {
-        let categoryColor: Color = Color(hex: destination.color ?? "#10B981") ?? AppColors.accent
+        let categoryColor: Color = Color(hex: destination.color ?? "#1A7F37") ?? AppColors.accent
 
         return Button {
             isChoosingDestination = false
@@ -550,6 +546,7 @@ struct CategoryFoodsView: View {
         ForEach(0..<count, id: \.self) { _ in
             CategoryFoodSkeletonRow(showsSelection: isSelecting)
             .transition(.opacity)
+            .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
         }
@@ -594,7 +591,7 @@ private struct PersonalFoodCategorySection: View {
                 } label: {
                     let category = food.categoryId.flatMap { categoriesByID[$0] }
                     let categoryColor = category.flatMap {
-                        Color(hex: $0.color ?? "#10B981")
+                        Color(hex: $0.color ?? "#1A7F37")
                     } ?? group.color
 
                     CategoryFoodCard(
@@ -609,7 +606,7 @@ private struct PersonalFoodCategorySection: View {
                     )
                 }
                 .buttonStyle(.plain)
-                .listRowInsets(EdgeInsets())
+                .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                 .accessibilityHint("Select this food to change its category.")
