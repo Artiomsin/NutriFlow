@@ -1114,10 +1114,13 @@ export class FoodService {
 
   // ── Food Categories ──────────────────────────────────────────
 
-  /** Shared catalog categories plus the ones owned by the caller. */
-  /** Shared catalog categories plus the ones owned by the caller, with visible food counts. */
-  async getCategories(userId: string) {
-    const rows = await this.db
+  /**
+   * The count is computed from the foods the caller can see, not stored on the
+   * category row. Every category response goes through this query so GET and
+   * PATCH keep the same shape.
+   */
+  private categoryWithCountQuery(userId: string) {
+    return this.db
       .select({
         category: foodCategories,
         foodCount: sql<number>`count(${foods.id})::int`,
@@ -1130,8 +1133,13 @@ export class FoodService {
           this.visibilityClause(userId),
         ),
       )
+      .groupBy(foodCategories.id);
+  }
+
+  /** Shared catalog categories plus the ones owned by the caller. */
+  async getCategories(userId: string) {
+    const rows = await this.categoryWithCountQuery(userId)
       .where(this.categoryVisibilityClause(userId))
-      .groupBy(foodCategories.id)
       .orderBy(foodCategories.name);
 
     return rows.map(({ category, foodCount }) => ({
@@ -1228,7 +1236,15 @@ export class FoodService {
 
       if (!updated) throw new NotFoundException('Category not found');
 
-      return updated;
+      // UPDATE ... RETURNING cannot include the computed count, so read the
+      // updated category back with the same aggregation getCategories() uses.
+      const [withCount] = await this.categoryWithCountQuery(userId)
+        .where(this.categoryOwnershipClause(userId, id))
+        .limit(1);
+
+      if (!withCount) throw new NotFoundException('Category not found');
+
+      return { ...withCount.category, foodCount: withCount.foodCount };
     } catch (error) {
       if (patch.name && this.isUniqueViolation(error)) {
         throw this.duplicateCategoryProblem(patch.name);

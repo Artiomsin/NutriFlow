@@ -14,6 +14,7 @@ struct ProgressDashboardView: View {
     @State private var hasLoadedProgress = false
     @State private var isInitialProgressLoading = false
     @State private var handledFullReloadRevision: UInt = 0
+    @State private var handledGoalsRevision: UInt = 0
     @State private var progressRefreshTask: Task<Void, Never>?
     @State private var showWeightEntry = false
     @State private var weightInput = ""
@@ -149,17 +150,25 @@ struct ProgressDashboardView: View {
         let revision = progressRefreshState.revision
         let needsWeightReload =
             progressRefreshState.fullReloadRevision != handledFullReloadRevision
+        let needsGoalsReload =
+            progressRefreshState.goalsRevision != handledGoalsRevision
         handledFullReloadRevision = progressRefreshState.fullReloadRevision
+        handledGoalsRevision = progressRefreshState.goalsRevision
 
         progressRefreshTask?.cancel()
         progressRefreshTask = Task {
+            if needsGoalsReload {
+                await goalsVM.invalidatePeriodGoalsCache()
+            }
+
             async let analytics: () = analyticsVM.refreshIfNeeded(currentRevision: revision)
             async let charts: () = chartVM.refreshIfNeeded(
                 currentRevision: revision,
                 reloadWeight: needsWeightReload
             )
+            async let currentGoals: () = goalsVM.loadGoals(forceRefresh: needsGoalsReload)
             async let periodGoals: () = goalsVM.loadPeriodGoals(endingOn: periodState.toDate)
-            (_, _, _) = await (analytics, charts, periodGoals)
+            (_, _, _, _) = await (analytics, charts, currentGoals, periodGoals)
 
             guard !Task.isCancelled,
                   chartVM.showDaySheet,
@@ -192,6 +201,7 @@ struct ProgressDashboardView: View {
             async let weight: () = chartVM.loadWeightSummary()
             (_, _, _, _) = await (analytics, charts, goals, weight)
             handledFullReloadRevision = fullReloadRevision
+            handledGoalsRevision = progressRefreshState.goalsRevision
 
             var analyticsLoaded = false
             var chartsLoaded = false

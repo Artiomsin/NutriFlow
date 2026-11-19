@@ -1,6 +1,42 @@
 import Foundation
 import HealthKit
 
+/// Result of a single HealthKit statistics query.
+///
+/// `.empty` means the query succeeded but there are no samples for the period
+/// yet — normal in the first seconds after midnight. It must not become an
+/// error: the day simply has zero steps so far. `.failed` means the read
+/// really failed, so the field stays `nil` and is omitted from the sync payload.
+private enum MetricRead {
+    case value(Double)
+    case empty
+    case failed(Error)
+
+    var syncedValue: Double? {
+        switch self {
+        case .value(let number): return number
+        case .empty: return 0
+        case .failed: return nil
+        }
+    }
+
+    var isFailed: Bool {
+        if case .failed = self { return true }
+        return false
+    }
+
+    var hasSamples: Bool {
+        if case .value = self { return true }
+        return false
+    }
+}
+
+/// Thrown only when not a single activity query could be executed. That is a
+/// real read failure (for example revoked access); an empty day is not.
+enum ActivityHealthKitReadError: Error {
+    case allMetricsFailed
+}
+
 final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol {
 
     private let store = HealthKitAccess.shared.sharedStore
@@ -69,10 +105,10 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
     }
 
 
-    /// Unavailable metrics become `nil`; the record is returned only when at
-    /// least one metric has a real HealthKit value. This prevents an empty
-    /// result from overwriting previously synced activity with zeros.
-    func fetchToday() async -> DailyActivity? {
+    /// A successful read always returns a record: metrics without samples yet
+    /// (normal right after midnight) are zero, metrics whose query failed are
+    /// `nil` and omitted from the payload. Throws when every query fails.
+    func fetchToday() async throws -> DailyActivity {
         let now = Date()
         let calendar = AppDate.calendar
         let timeZone = AppDate.timeZone
@@ -133,12 +169,12 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
         )
 
         var failed: [String] = []
-        if case .failure = results.steps { failed.append("steps") }
-        if case .failure = results.active { failed.append("activeEnergy") }
-        if case .failure = results.basal { failed.append("basalEnergy") }
-        if case .failure = results.walking { failed.append("walkingRunningDistance") }
-        if case .failure = results.cycling { failed.append("cyclingDistance") }
-        if case .failure = results.swimming { failed.append("swimmingDistance") }
+        if results.steps.isFailed { failed.append("steps") }
+        if results.active.isFailed { failed.append("activeEnergy") }
+        if results.basal.isFailed { failed.append("basalEnergy") }
+        if results.walking.isFailed { failed.append("walkingRunningDistance") }
+        if results.cycling.isFailed { failed.append("cyclingDistance") }
+        if results.swimming.isFailed { failed.append("swimmingDistance") }
 
         if !failed.isEmpty {
             print(
@@ -148,59 +184,65 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
             logActivityAuthorizationStatuses()
         }
 
-        // The card shows whatever could be read. `distanceMeters` stays `nil`
-        // if any of its three sources failed: a partial sum would be misleading.
+        let reads = [
+            results.steps,
+            results.active,
+            results.basal,
+            results.walking,
+            results.cycling,
+            results.swimming
+        ]
+
+        // Every query failed — this is a real read error. An empty result from
+        // all six queries (no samples after midnight) is a valid zero day.
+        guard !reads.allSatisfy({ $0.isFailed }) else {
+            print("[HealthKit] fetchToday failed — no metric could be read")
+            throw ActivityHealthKitReadError.allMetricsFailed
+        }
+
+        // Successful queries with no samples become zero; only failed queries
+        // stay nil and are omitted from the JSON payload.
         let result = Self.makeActivity(
             date: dateFormatter.string(from: now),
             results: results
         )
-
-        guard result.hasDisplayableMetric else {
-            print("[HealthKit] fetchToday skipped — no metric could be read")
-            return nil
-        }
 
         print("[HealthKit] fetchToday result: \(result)")
 
         return result
     }
 
-    private static func value(_ result: Result<Double?, Error>) -> Double? {
-        if case .success(let value) = result { return value }
-        return nil
-    }
-
     /// Distance is the sum of three queries. A failed source makes the total
     /// incomplete, so it is hidden instead of being shown as a real value.
+    /// A successful query without samples contributes zero; requiring samples
+    /// from every activity type would hide a person's walking distance whenever
+    /// they did not cycle or swim that day.
     private static func totalDistance(
-        walking: Result<Double?, Error>,
-        cycling: Result<Double?, Error>,
-        swimming: Result<Double?, Error>
+        walking: MetricRead,
+        cycling: MetricRead,
+        swimming: MetricRead
     ) -> Double? {
-        guard
-            case .success(let walking?) = walking,
-            case .success(let cycling?) = cycling,
-            case .success(let swimming?) = swimming
-        else { return nil }
-        return walking + cycling + swimming
+        let sources = [walking, cycling, swimming]
+        guard !sources.contains(where: { $0.isFailed }) else { return nil }
+        return sources.reduce(0) { $0 + ($1.syncedValue ?? 0) }
     }
 
     private static func makeActivity(
         date: String,
         results: (
-            steps: Result<Double?, Error>,
-            active: Result<Double?, Error>,
-            basal: Result<Double?, Error>,
-            walking: Result<Double?, Error>,
-            cycling: Result<Double?, Error>,
-            swimming: Result<Double?, Error>
+            steps: MetricRead,
+            active: MetricRead,
+            basal: MetricRead,
+            walking: MetricRead,
+            cycling: MetricRead,
+            swimming: MetricRead
         )
     ) -> DailyActivity {
         DailyActivity(
             date: date,
-            steps: value(results.steps).map(Int.init),
-            activeCalories: value(results.active),
-            basalCalories: value(results.basal),
+            steps: results.steps.syncedValue.map(Int.init),
+            activeCalories: results.active.syncedValue,
+            basalCalories: results.basal.syncedValue,
             distanceMeters: totalDistance(
                 walking: results.walking,
                 cycling: results.cycling,
@@ -298,14 +340,25 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
                 cycling: cyclingDistance,
                 swimming: swimmingDistance
             )
-            let entry = Self.makeActivity(
-                date: dateFormatter.string(from: dayStart),
-                results: fetched
-            )
-            if entry.hasDisplayableMetric {
-                results.append(entry)
+            let date = dateFormatter.string(from: dayStart)
+            let reads = [
+                fetched.steps,
+                fetched.active,
+                fetched.basal,
+                fetched.walking,
+                fetched.cycling,
+                fetched.swimming
+            ]
+
+            // Backfill skips days with no samples so it never writes zero
+            // activity for days the person did not carry the phone. A day with
+            // at least one real sample is synced; its empty metrics become zero.
+            if reads.contains(where: { $0.hasSamples }) {
+                results.append(
+                    Self.makeActivity(date: date, results: fetched)
+                )
             } else {
-                print("[HealthKit] fetchRange skipped day \(entry.date) — no metric could be read")
+                print("[HealthKit] fetchRange skipped day \(date) — no samples")
             }
 
             current = nextDay
@@ -396,15 +449,16 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
     }
 
 
-    /// A missing `sumQuantity` means this metric is unavailable. HealthKit
-    /// intentionally represents denied read access as an empty result, so it
-    /// must stay `nil` and never be written to the backend as zero.
+    /// `.empty` means the query ran but had no samples (a zero day).
+    /// `.failed` means an actual error, so the field is omitted from the
+    /// payload instead of being written as zero. `errorNoData` is an empty
+    /// result, not a failure — HealthKit returns it for a day with no samples.
     private func sum(
         _ identifier: HKQuantityTypeIdentifier,
         start: Date,
         end: Date,
         unit: HKUnit
-    ) async -> Result<Double?, Error> {
+    ) async -> MetricRead {
 
         let type = HKQuantityType(identifier)
 
@@ -426,7 +480,7 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
                     let nsError = error as NSError
                     if nsError.domain == HKError.errorDomain,
                        nsError.code == HKError.Code.errorNoData.rawValue {
-                        continuation.resume(returning: .success(nil))
+                        continuation.resume(returning: .empty)
                         return
                     }
 
@@ -434,15 +488,19 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
                         "[HealthKit] sum failed: " +
                         "identifier=\(identifier.rawValue) error=\(error)"
                     )
-                    continuation.resume(returning: .failure(error))
+                    continuation.resume(returning: .failed(error))
                     return
                 }
 
-                let value = result?
+                guard let value = result?
                     .sumQuantity()?
                     .doubleValue(for: unit)
+                else {
+                    continuation.resume(returning: .empty)
+                    return
+                }
 
-                continuation.resume(returning: .success(value))
+                continuation.resume(returning: .value(value))
             }
 
             store.execute(query)

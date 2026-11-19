@@ -264,9 +264,21 @@ final class AddFoodViewModel: Identifiable {
         do {
             let updated = try await service.updateCategory(id: category.id, name: trimmedName, icon: icon, color: color)
             guard let index = categories.firstIndex(where: { $0.id == updated.id }) else { return false }
-            categories[index] = updated
+
+            // A category PATCH only changes metadata - the food count cannot
+            // change - and older backends omit the computed field entirely.
+            let merged = FoodCategory(
+                id: updated.id,
+                name: updated.name,
+                icon: updated.icon,
+                color: updated.color,
+                createdBy: updated.createdBy,
+                createdAt: updated.createdAt,
+                foodCount: category.foodCount
+            )
+            categories[index] = merged
             categories.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-            if selectedCategory?.id == updated.id { selectedCategory = updated }
+            if selectedCategory?.id == updated.id { selectedCategory = merged }
             return true
         } catch {
             applyCategoryMutationError(error)

@@ -125,9 +125,12 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
         // M1: background delivery retries in-session if it failed at start().
         await configureBackgroundDeliveryOnce()
 
-        guard let activity = await healthKitService.fetchToday() else {
-            print("[ActivitySyncCoordinator] refresh skipped — HealthKit read failed")
-            notifyActivityLoadError()
+        let activity: DailyActivity
+        do {
+            activity = try await healthKitService.fetchToday()
+        } catch {
+            print("[ActivitySyncCoordinator] refresh failed — HealthKit read error: \(error)")
+            notifyActivityLoadError(error)
             return
         }
 
@@ -161,9 +164,12 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
                 return
             }
 
-            guard let activity = await self.healthKitService.fetchToday() else {
-                print("[ActivitySyncCoordinator] authorization change sync skipped — HealthKit read failed")
-                self.notifyActivityLoadError()
+            let activity: DailyActivity
+            do {
+                activity = try await self.healthKitService.fetchToday()
+            } catch {
+                print("[ActivitySyncCoordinator] authorization change sync failed — HealthKit read error: \(error)")
+                self.notifyActivityLoadError(error)
                 return
             }
 
@@ -245,9 +251,12 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
             }
         }
 
-        guard let activity = await healthKitService.fetchToday() else {
-            print("[ActivitySyncCoordinator] initial sync skipped — HealthKit read failed")
-            notifyActivityLoadError()
+        let activity: DailyActivity
+        do {
+            activity = try await healthKitService.fetchToday()
+        } catch {
+            print("[ActivitySyncCoordinator] initial sync failed — HealthKit read error: \(error)")
+            notifyActivityLoadError(error)
             return
         }
 
@@ -299,18 +308,22 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
                 return
             }
 
-            let activity = await self.healthKitService.fetchToday()
+            let activity: DailyActivity
+            do {
+                activity = try await self.healthKitService.fetchToday()
+            } catch {
+                // The read is finished either way, so acknowledge the delivery
+                // before reporting the error.
+                self.healthKitService.completePendingObservations()
+                print("[ActivitySyncCoordinator] change sync failed — HealthKit read error: \(error)")
+                self.notifyActivityLoadError(error)
+                return
+            }
 
             // Acknowledge the delivery now that the HealthKit read is done.
             // There is no local queue, so a slow or killed network sync must
             // never keep the observer completion handler pending.
             self.healthKitService.completePendingObservations()
-
-            guard let activity else {
-                print("[ActivitySyncCoordinator] change sync skipped — HealthKit read failed")
-                self.notifyActivityLoadError()
-                return
-            }
 
             guard self.isActive, !Task.isCancelled else {
                 return
@@ -411,11 +424,11 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
 
     /// A failed HealthKit read leaves the card in `.loading` forever unless the
     /// view model is told to show an error with a retry action.
-    private func notifyActivityLoadError() {
-        let error: AppError = .unknown
-        latestError = error
-        print("[ActivitySyncCoordinator] notifying activity load error: \(error)")
-        onActivityError?(error)
+    private func notifyActivityLoadError(_ error: Error) {
+        let appError = ErrorMapper.map(error)
+        latestError = appError
+        print("[ActivitySyncCoordinator] notifying activity load error: \(appError)")
+        onActivityError?(appError)
     }
 
     private func checkActivityAchievements(_ activity: DailyActivity) {

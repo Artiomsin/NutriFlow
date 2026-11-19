@@ -4,6 +4,7 @@ import Kingfisher
 
 struct AddFoodView: View {
     let onSave: () -> Void
+    let onScan: (() -> Void)?
     let onSearchCatalog: (() -> Void)?
     let onSelectPopular: ((CatalogFood) -> Void)?
     let onScanBarcode: (() -> Void)?
@@ -24,11 +25,12 @@ struct AddFoodView: View {
     @State private var isActive = true
     @State private var isManagingCategories = false
 
-    init(onSave: @escaping () -> Void, viewModel: AddFoodViewModel, onSearchCatalog: (() -> Void)? = nil, onSelectPopular: ((CatalogFood) -> Void)? = nil, onScanBarcode: (() -> Void)? = nil) {
+    init(onSave: @escaping () -> Void, viewModel: AddFoodViewModel, onSearchCatalog: (() -> Void)? = nil, onSelectPopular: ((CatalogFood) -> Void)? = nil, onScanBarcode: (() -> Void)? = nil, onScan: (() -> Void)? = nil) {
         self.onSave = onSave
         self.onSearchCatalog = onSearchCatalog
         self.onSelectPopular = onSelectPopular
         self.onScanBarcode = onScanBarcode
+        self.onScan = onScan
         _viewModel = State(initialValue: viewModel)
     }
 
@@ -36,6 +38,9 @@ struct AddFoodView: View {
         ScrollView {
             VStack(spacing: 20) {
                 searchCatalogButton
+                if onScan != nil {
+                        scanFoodButton
+                    }
                 if onScanBarcode != nil {
                     scanBarcodeButton
                 }
@@ -113,6 +118,29 @@ struct AddFoodView: View {
         .buttonStyle(.plain)
     }
 
+    private var scanFoodButton: some View {
+        Button {
+            onScan?()
+        } label: {
+            HStack {
+                Image(systemName: "camera.viewfinder")
+                    .foregroundStyle(AppColors.accent)
+
+                Text("Scan Food")
+                    .foregroundStyle(AppColors.textPrimary)
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+            .padding(14)
+            .appGlassSurface()
+        }
+        .buttonStyle(.plain)
+    }
+    
     private var scanBarcodeButton: some View {
         Button {
             onScanBarcode?()
@@ -527,7 +555,8 @@ private struct AddFoodPreview: View {
                 onSave: {},
                 viewModel: viewModel,
                 // Shown for layout preview only; scanning needs a real camera.
-                onScanBarcode: {}
+                onScanBarcode: {},
+                onScan: {}
             )
         }
     }

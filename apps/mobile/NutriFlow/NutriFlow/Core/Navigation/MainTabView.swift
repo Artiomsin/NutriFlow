@@ -10,6 +10,7 @@ struct MainTabView: View {
     @State private var tabBarState = TabBarState()
     @State private var progressRefreshState: ProgressRefreshState
     @State private var handledFullReloadRevision: UInt = 0
+    @State private var showManualGoalsRecalculationPrompt = false
 
     @State private var homeVM: HomeViewModel
     @State private var analyticsVM: AnalyticsViewModel
@@ -107,6 +108,18 @@ struct MainTabView: View {
                 .padding(.top, 8)
             }
         }
+        .confirmationDialog(
+            "Recalculate your goals?",
+            isPresented: $showManualGoalsRecalculationPrompt,
+            titleVisibility: .visible
+        ) {
+            Button("Recalculate automatically") {
+                resetGoalsToAutomatic()
+            }
+            Button("Keep manual goals", role: .cancel) { }
+        } message: {
+            Text("Your profile or current weight changed. Your manual goals are unchanged. Recalculate them from your new data?")
+        }
         .onReceive(
             NotificationCenter.default.publisher(
                 for: UIApplication.didBecomeActiveNotification
@@ -140,12 +153,36 @@ struct MainTabView: View {
                 await container.waterReminderScheduler.syncTodayReminder()
             }
         }
+        .onChange(of: progressRefreshState.manualGoalsDecisionRevision) { _, revision in
+            presentManualGoalsRecalculationPrompt(for: revision)
+        }
         .onChange(of: coordinator.pendingNotificationType) { _, _ in
             openPendingNotificationDestination()
         }
         .onAppear {
             trackActiveTab(selectedTab)
             openPendingNotificationDestination()
+        }
+    }
+
+    private func presentManualGoalsRecalculationPrompt(for revision: UInt) {
+        Task {
+            await progressGoalsVM.loadGoals(forceRefresh: true)
+
+            guard revision == progressRefreshState.manualGoalsDecisionRevision,
+                  case .loaded(let goals) = progressGoalsVM.state,
+                  goals.source == "user"
+            else {
+                return
+            }
+
+            showManualGoalsRecalculationPrompt = true
+        }
+    }
+
+    private func resetGoalsToAutomatic() {
+        Task {
+            await progressGoalsVM.resetGoalsToAutomatic()
         }
     }
 

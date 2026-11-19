@@ -998,6 +998,9 @@
     "Keep going!" : {
 
     },
+    "Keep manual goals" : {
+
+    },
     "Keep your time zone fixed." : {
 
     },
@@ -1229,6 +1232,12 @@
     "Progress" : {
 
     },
+    "Recalculate automatically" : {
+
+    },
+    "Recalculate your goals?" : {
+
+    },
     "Recommendation adjustments are kept while goals adapt to your profile and weight." : {
 
     },
@@ -1274,10 +1283,10 @@
     "Saving…" : {
 
     },
-    "Scan" : {
+    "Scan barcode" : {
 
     },
-    "Scan barcode" : {
+    "Scan Food" : {
 
     },
     "Scan Result" : {
@@ -1530,6 +1539,9 @@
 
     },
     "Your nutrition trends" : {
+
+    },
+    "Your profile or current weight changed. Your manual goals are unchanged. Recalculate them from your new data?" : {
 
     },
     "Your workouts from Apple Health will appear here." : {

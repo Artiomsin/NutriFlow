@@ -26,6 +26,7 @@ final class HomeViewModel {
     @ObservationIgnored private let activitySync: ActivitySyncProtocol
     @ObservationIgnored private let progressRefreshState: ProgressRefreshState?
     @ObservationIgnored private var lastGoalsRevision: UInt?
+    @ObservationIgnored private var lastGoalsDataRevision: UInt?
     @ObservationIgnored private var dashboardSummaryTask: Task<Void, Never>?
     @ObservationIgnored private var dashboardSummaryGeneration = 0
 
@@ -137,6 +138,7 @@ final class HomeViewModel {
             
         }
         lastGoalsRevision = progressRefreshState?.revision
+        lastGoalsDataRevision = progressRefreshState?.goalsRevision
     }
 
     func loadAll() async {
@@ -148,18 +150,26 @@ final class HomeViewModel {
             group.addTask { await self.waterVM.loadToday() }
         }
         lastGoalsRevision = progressRefreshState?.revision
+        lastGoalsDataRevision = progressRefreshState?.goalsRevision
     }
 
     func refreshGoalsIfNeeded() async {
-        guard let revision = progressRefreshState?.revision else { return }
+        guard let progressRefreshState else { return }
+        let revision = progressRefreshState.revision
         guard lastGoalsRevision != revision else { return }
+
+        let goalsChanged = lastGoalsDataRevision != progressRefreshState.goalsRevision
+        if goalsChanged {
+            await goalsVM.invalidatePeriodGoalsCache()
+        }
 
         await withDiscardingTaskGroup { [self] group in
             group.addTask { await self.loadDashboardSummary() }
-            group.addTask { await self.goalsVM.loadGoals() }
-            group.addTask { await self.goalsVM.loadPersonalization() }
+            group.addTask { await self.goalsVM.loadGoals(forceRefresh: goalsChanged) }
+            group.addTask { await self.goalsVM.loadPersonalization(forceNetwork: goalsChanged) }
         }
         lastGoalsRevision = revision
+        lastGoalsDataRevision = progressRefreshState.goalsRevision
     }
 
     func loadDashboardSummary(forceRefresh: Bool = false) async {

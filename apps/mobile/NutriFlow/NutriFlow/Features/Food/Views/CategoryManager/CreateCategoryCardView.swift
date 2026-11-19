@@ -4,7 +4,7 @@ import SwiftUI
 struct CreateCategoryCardView: View {
     @State private var categoryName = ""
     @State private var selectedIcon = FoodCategoryIcons.defaultIcon
-    @State private var selectedColor: Color = Color(hex: "#10B981") ?? AppColors.accent
+    @State private var selectedColor: Color = Color(hex: "#1A7F37") ?? AppColors.accent
 
     /// Callback with (name, icon, color) when the user taps "Add Category".
     let errorMessage: String?
@@ -69,13 +69,13 @@ struct CreateCategoryCardView: View {
         guard !name.isEmpty else { return }
 
         let icon = selectedIcon
-        let color = selectedColor.toHex() ?? "#10B981"
+        let color = selectedColor.toHex() ?? "#1A7F37"
 
         Task {
             guard await onCreate(name, icon, color) else { return }
             categoryName = ""
             selectedIcon = FoodCategoryIcons.defaultIcon
-            selectedColor = Color(hex: "#10B981") ?? AppColors.accent
+            selectedColor = Color(hex: "#1A7F37") ?? AppColors.accent
         }
     }
 }

@@ -23,7 +23,7 @@ struct ActivityCard: View {
         case .loading:
             activitySkeleton
                 .appGlassSurface(level: .prominent)
-                .modifier(SkeletonShimmer())
+                .skeletonShimmer()
         case .loaded(let activity):
             activityContent(activity)
         case .error(let error):
@@ -283,43 +283,6 @@ struct ActivityCard: View {
         }
     }
 
-    private struct SkeletonShimmer: ViewModifier {
-        @State private var isAnimating = false
-
-        func body(content: Content) -> some View {
-            content
-                .overlay {
-                    GeometryReader { geometry in
-                        Rectangle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        .clear,
-                                        .white.opacity(0.10),
-                                        .clear
-                                    ],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .frame(width: geometry.size.width * 0.5)
-                            .offset(x: isAnimating ? geometry.size.width : -geometry.size.width)
-                    }
-                    .clipped()
-                    .allowsHitTesting(false)
-                }
-                .onAppear {
-                    withAnimation(
-                        .linear(duration: 1.4)
-                        .repeatForever(autoreverses: false)
-                    ) {
-                        isAnimating = true
-                    }
-                }
-        }
-    }
-    
-    
 }
 
 private struct ActivityMetric: View {

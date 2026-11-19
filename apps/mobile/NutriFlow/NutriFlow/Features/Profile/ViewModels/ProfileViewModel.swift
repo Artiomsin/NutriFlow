@@ -280,6 +280,7 @@ final class ProfileViewModel {
             await cacheService?.remove("profile")
             await cacheService?.remove("goals")
             await invalidateAggregateCaches()
+            progressRefreshState?.invalidateGoals()
             coordinator?.goToMain()
 
         } catch {
@@ -347,6 +348,7 @@ final class ProfileViewModel {
             await cacheService?.remove("profile")
             await cacheService?.remove("goals")
             await invalidateAggregateCaches()
+            progressRefreshState?.invalidateGoalsRequiringManualDecision()
             return nil
 
         } catch {

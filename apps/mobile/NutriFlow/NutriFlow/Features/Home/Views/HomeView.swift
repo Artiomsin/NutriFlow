@@ -50,8 +50,10 @@ struct HomeView: View {
                             navPath.append(HomeNavRoute.foodSearch)
                         }, onSelectPopular: { food in
                             navPath.append(HomeNavRoute.servingPicker(food, nil, nil))
-                        }, onScanBarcode: {
+                        },onScanBarcode: {
                             navPath.append(HomeNavRoute.scanBarcode)
+                        }, onScan: {
+                            navPath.append(.scanFood)
                         })
                     case .foodSearch:
                         searchView
@@ -193,10 +195,6 @@ struct HomeView: View {
                         tabBarState.isTabBarHidden = true
                         navPath.append(HomeNavRoute.addFood)
                     },
-                    onScan: {
-                        tabBarState.isTabBarHidden = true
-                        navPath.append(HomeNavRoute.scanFood)
-                    },
                     onEditFood: { entry in
                         editingFood = entry
                     },
@@ -283,7 +281,6 @@ struct HomeView: View {
 private struct FoodSectionView: View {
     @Bindable var todayFoodVM: TodayFoodViewModel
     let onAddFood: () -> Void
-    let onScan: () -> Void
     let onEditFood: (FoodEntry) -> Void
     let onDeleteFood: (String) -> Void
     let onManageCategories: () -> Void
@@ -292,7 +289,6 @@ private struct FoodSectionView: View {
         FoodSection(
             todayFoodVM: todayFoodVM,
             onAddFood: onAddFood,
-            onScan: onScan,
             onEditFood: onEditFood,
             onDeleteFood: onDeleteFood,
             onManageCategories: onManageCategories

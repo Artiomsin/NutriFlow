@@ -9,7 +9,7 @@ struct CategoryRowView: View {
     let onDelete: (() -> Void)?
 
     var body: some View {
-        let categoryColor: Color = Color(hex: category.color ?? "#10B981") ?? AppColors.accent
+        let categoryColor: Color = Color(hex: category.color ?? "#1A7F37") ?? AppColors.accent
 
         HStack(spacing: 12) {
             CategoryIconView(

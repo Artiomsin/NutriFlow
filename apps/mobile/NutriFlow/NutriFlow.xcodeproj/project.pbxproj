@@ -294,12 +294,9 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = QFS7488RTY;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Nutriflow/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
-				INFOPLIST_KEY_NSCameraUsageDescription = "NutriFlow needs camera access to scan your food";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "NutriFlow reads your activity, workouts and sleep to track your daily progress.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "NutriFlow needs photo access to select food images";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -335,12 +332,9 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = QFS7488RTY;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Nutriflow/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
-				INFOPLIST_KEY_NSCameraUsageDescription = "NutriFlow needs camera access to scan your food";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "NutriFlow reads your activity, workouts and sleep to track your daily progress.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "NutriFlow needs photo access to select food images";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
