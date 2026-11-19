@@ -19,6 +19,8 @@ struct SkeletonBlock: View {
 }
 
 private struct SkeletonShimmer: ViewModifier {
+    let cornerRadius: CGFloat
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isShimmering = false
 
@@ -37,7 +39,7 @@ private struct SkeletonShimmer: ViewModifier {
                         .frame(width: geometry.size.width * 0.55)
                         .offset(x: isShimmering ? geometry.size.width : -geometry.size.width)
                 }
-                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                 .allowsHitTesting(false)
             }
             .task(id: reduceMotion) {
@@ -51,7 +53,7 @@ private struct SkeletonShimmer: ViewModifier {
 }
 
 extension View {
-    func skeletonShimmer() -> some View {
-        modifier(SkeletonShimmer())
+    func skeletonShimmer(cornerRadius: CGFloat = AppRadius.medium) -> some View {
+        modifier(SkeletonShimmer(cornerRadius: cornerRadius))
     }
 }
