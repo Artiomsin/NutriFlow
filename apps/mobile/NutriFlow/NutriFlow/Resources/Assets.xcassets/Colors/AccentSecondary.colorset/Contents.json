@@ -1,56 +1,56 @@
 {
-  "colors" : [
+  "colors": [
     {
-      "color" : {
-        "color-space" : "extended-srgb",
-        "components" : {
-          "alpha" : "1.000",
-          "blue" : "0x7C",
-          "green" : "0xD2",
-          "red" : "0x3D"
+      "color": {
+        "color-space": "extended-srgb",
+        "components": {
+          "alpha": "1.000",
+          "blue": "0x7C",
+          "green": "0xD2",
+          "red": "0x3D"
         }
       },
-      "idiom" : "universal"
+      "idiom": "universal"
     },
     {
-      "appearances" : [
+      "appearances": [
         {
-          "appearance" : "luminosity",
-          "value" : "light"
+          "appearance": "luminosity",
+          "value": "light"
         }
       ],
-      "color" : {
-        "color-space" : "extended-srgb",
-        "components" : {
-          "alpha" : "1.000",
-          "blue" : "0xE5",
-          "green" : "0xF3",
-          "red" : "0xDD"
+      "color": {
+        "color-space": "extended-srgb",
+        "components": {
+          "alpha": "1.000",
+          "blue": "0xEA",
+          "green": "0xF4",
+          "red": "0xE6"
         }
       },
-      "idiom" : "universal"
+      "idiom": "universal"
     },
     {
-      "appearances" : [
+      "appearances": [
         {
-          "appearance" : "luminosity",
-          "value" : "dark"
+          "appearance": "luminosity",
+          "value": "dark"
         }
       ],
-      "color" : {
-        "color-space" : "extended-srgb",
-        "components" : {
-          "alpha" : "1.000",
-          "blue" : "0x7C",
-          "green" : "0xD2",
-          "red" : "0x3D"
+      "color": {
+        "color-space": "extended-srgb",
+        "components": {
+          "alpha": "1.000",
+          "blue": "0x7C",
+          "green": "0xD2",
+          "red": "0x3D"
         }
       },
-      "idiom" : "universal"
+      "idiom": "universal"
     }
   ],
-  "info" : {
-    "author" : "xcode",
-    "version" : 1
+  "info": {
+    "author": "xcode",
+    "version": 1
   }
 }
