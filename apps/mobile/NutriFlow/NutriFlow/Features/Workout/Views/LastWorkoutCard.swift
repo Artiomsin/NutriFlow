@@ -11,7 +11,6 @@ struct LastWorkoutCard: View {
     let workout: HealthKitWorkout?
     let state: LastWorkoutState
     let healthAccessDenied: Bool
-    let onOpenSettings: () -> Void
     let onTap: () -> Void
     let onRetry: () -> Void
     var weeklyWorkoutsGoal: Int? = nil
@@ -266,18 +265,19 @@ struct LastWorkoutCard: View {
     
     
     private var deniedPrompt: some View {
-        HStack {
-            Image(systemName: "heart.slash")
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: "heart.slash")
+                    .foregroundColor(AppColors.textSecondary)
+                Text("No workout data is available")
+                    .font(.footnote)
+                    .foregroundColor(AppColors.textSecondary)
+            }
+            Text("Check access in the Health app:\n\(HealthKitAccess.permissionPath)")
+                .font(.caption2)
                 .foregroundColor(AppColors.textSecondary)
-            Text("Workouts access is off. Enable Apple Health in Settings.")
-                .font(.footnote)
-                .foregroundColor(AppColors.textSecondary)
-            Spacer()
-            Button("Settings", action: onOpenSettings)
-                .font(.caption)
-                .foregroundColor(AppColors.accent)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .appGlassSurface()
     }
@@ -320,7 +320,6 @@ private struct WorkoutLatestErrorNotice: View {
         ),
         state: .loaded,
         healthAccessDenied: false,
-        onOpenSettings: {},
         onTap: {},
         onRetry: {},
         weeklyWorkoutsGoal: 5,
@@ -338,7 +337,6 @@ private struct WorkoutLatestErrorNotice: View {
         workout: nil,
         state: .loading,
         healthAccessDenied: false,
-        onOpenSettings: {},
         onTap: {},
         onRetry: {},
         weeklyWorkoutsGoal: 5,

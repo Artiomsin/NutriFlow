@@ -44,6 +44,15 @@ struct WorkoutHistoryView: View {
             vm.trackScreenView("workout_history")
             await vm.onAppear()
         }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: UIApplication.didBecomeActiveNotification
+            )
+        ) { _ in
+            // Returning from Settings must re-check HealthKit access even if
+            // this view was never recreated.
+            Task { await vm.refreshPermissionState() }
+        }
         .refreshable {
             let task = Task { await vm.refresh() }
             await task.value
@@ -105,27 +114,13 @@ struct WorkoutHistoryView: View {
                 Image(systemName: "heart.slash")
                     .font(AppTypography.displayNumber)
                     .foregroundColor(AppColors.textSecondary)
-                Text("Workouts access is off")
+                Text("No workout data is available")
                     .font(.headline)
                     .foregroundColor(AppColors.textPrimary)
-                Text("Enable Workouts in Settings to see your training history.")
+                Text("Check access in the Health app:\n\(HealthKitAccess.permissionPath)")
                     .font(.footnote)
                     .foregroundColor(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
-                Button {
-                    openSettings()
-                } label: {
-                    Text("Open Settings")
-                        .font(.headline)
-                        .foregroundColor(AppColors.accent)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .appGlassSurface(level: .inset)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: AppRadius.medium)
-                                .stroke(AppColors.accent, lineWidth: 1.5)
-                        )
-                }
                 Button {
                     Task { await vm.onAppear() }
                 } label: {
@@ -236,12 +231,6 @@ private struct WorkoutDetailDestination: View {
     }
 }
 
-
-    private func openSettings() {
-        if let url = URL(string: UIApplication.openSettingsURLString) {
-            UIApplication.shared.open(url)
-        }
-    }
 
 private struct WorkoutRow: View {
     let workout: HealthKitWorkout

@@ -14,11 +14,26 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
     private var initialSyncTask: Task<Void, Never>?
     private var didConfigureBackgroundDelivery = false
     private var latestActivity: DailyActivity?
+    /// Last payload the backend accepted. HealthKit fires an initial observer
+    /// delivery right after startObserving(), which would otherwise produce a
+    /// second identical POST three seconds after the startup sync.
+    private var lastSyncedActivity: DailyActivity?
 
     var onActivityUpdate: ((DailyActivity) -> Void)? {
         didSet {
             guard let latestActivity else { return }
             emit(latestActivity)
+        }
+    }
+
+    /// The coordinator can start before the Home view installs its callbacks,
+    /// so the first failure is cached and replayed when the handler appears.
+    private var latestError: AppError?
+
+    var onActivityError: ((AppError) -> Void)? {
+        didSet {
+            guard let latestError else { return }
+            onActivityError?(latestError)
         }
     }
 
@@ -85,6 +100,8 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
         initialSyncTask = nil
 
         latestActivity = nil
+        lastSyncedActivity = nil
+        latestError = nil
 
         healthKitService.onActivityChanged = nil
         healthKitService.stopObserving()
@@ -108,7 +125,11 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
         // M1: background delivery retries in-session if it failed at start().
         await configureBackgroundDeliveryOnce()
 
-        let activity = await healthKitService.fetchToday()
+        guard let activity = await healthKitService.fetchToday() else {
+            print("[ActivitySyncCoordinator] refresh skipped — HealthKit read failed")
+            notifyActivityLoadError()
+            return
+        }
 
         guard isActive else {
             print("[ActivitySyncCoordinator] session ended during refresh")
@@ -122,9 +143,6 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
         }
 
         notifyActivityUpdate(activity)
-
-        // Process any pending queue entries after the refresh sync.
-        await processPendingQueue()
     }
 
     func authorizationDidChange() {
@@ -143,7 +161,11 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
                 return
             }
 
-            let activity = await self.healthKitService.fetchToday()
+            guard let activity = await self.healthKitService.fetchToday() else {
+                print("[ActivitySyncCoordinator] authorization change sync skipped — HealthKit read failed")
+                self.notifyActivityLoadError()
+                return
+            }
 
             guard self.isActive, !Task.isCancelled else { return }
 
@@ -152,9 +174,6 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
             guard self.isActive, !Task.isCancelled else { return }
 
             self.notifyActivityUpdate(activity)
-
-            // Process any pending queue entries after the authorization change sync.
-            await processPendingQueue()
 
             print("[ActivitySyncCoordinator] authorization change synced")
         }
@@ -173,7 +192,7 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
         }
 
         // M1: Backfill last 30 days on first ever launch after install/reinstall.
-        if !PreferencesStore.shared.hasCompletedInitialBackfill {
+        if !PreferencesStore.shared.hasCompletedActivityBackfill {
             print("[ActivitySyncCoordinator] starting 30-day backfill")
 
             let calendar = AppDate.calendar
@@ -193,12 +212,32 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
 
                 guard isActive else { return }
 
-                await syncToBackend(entries)
-
-                PreferencesStore.shared.hasCompletedInitialBackfill = true
-                print(
-                    "[ActivitySyncCoordinator] backfill completed: \(entries.count) days"
-                )
+                // Mark the backfill done only after the backend accepted it.
+                // syncToBackend swallows the error, so its result must be checked
+                // here or an offline first launch would never retry 30 days.
+                if await syncToBackend(entries) {
+                    // An empty result can mean no data or denied HealthKit read
+                    // access. HealthKit does not reveal which, so do not record
+                    // this backfill as complete.
+                    if entries.isEmpty {
+                        print(
+                            "[ActivitySyncCoordinator] backfill deferred — no readable HealthKit data"
+                        )
+                    } else if await healthKitService.hasLimitedHistory() {
+                        print(
+                            "[ActivitySyncCoordinator] backfill deferred — HealthKit history is limited"
+                        )
+                    } else {
+                        PreferencesStore.shared.hasCompletedActivityBackfill = true
+                        print(
+                            "[ActivitySyncCoordinator] backfill completed: \(entries.count) days"
+                        )
+                    }
+                } else {
+                    print(
+                        "[ActivitySyncCoordinator] backfill sync failed — will retry next launch"
+                    )
+                }
             } catch {
                 print(
                     "[ActivitySyncCoordinator] backfill failed: \(error)"
@@ -206,7 +245,11 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
             }
         }
 
-        let activity = await healthKitService.fetchToday()
+        guard let activity = await healthKitService.fetchToday() else {
+            print("[ActivitySyncCoordinator] initial sync skipped — HealthKit read failed")
+            notifyActivityLoadError()
+            return
+        }
 
         guard isActive else {
             print("[ActivitySyncCoordinator] session ended during initial sync")
@@ -237,33 +280,43 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
             do {
                 try await Task.sleep(for: .seconds(3))
             } catch {
+                // A cancelled debounce must still acknowledge any deliveries
+                // already received, or HealthKit may stop sending updates.
+                self?.healthKitService.completePendingObservations()
                 return
             }
 
             guard let self else { return }
             guard self.isActive, !Task.isCancelled else {
                 print("[ActivitySyncCoordinator] change sync skipped — inactive")
+                self.healthKitService.completePendingObservations()
                 return
             }
 
             guard await self.isAuthorized() else {
                 print("[ActivitySyncCoordinator] change sync skipped — not authorized")
+                self.healthKitService.completePendingObservations()
                 return
             }
 
             let activity = await self.healthKitService.fetchToday()
+
+            // Acknowledge the delivery now that the HealthKit read is done.
+            // There is no local queue, so a slow or killed network sync must
+            // never keep the observer completion handler pending.
+            self.healthKitService.completePendingObservations()
+
+            guard let activity else {
+                print("[ActivitySyncCoordinator] change sync skipped — HealthKit read failed")
+                self.notifyActivityLoadError()
+                return
+            }
 
             guard self.isActive, !Task.isCancelled else {
                 return
             }
 
             await self.syncToBackend(activity)
-
-            // Complete the HealthKit observer callback only after the data has
-            // been persisted (synced to backend or queued locally). This
-            // prevents HealthKit from considering the delivery done before we
-            // have actually saved the data.
-            self.healthKitService.completePendingObservations()
 
             guard self.isActive, !Task.isCancelled else {
                 return
@@ -277,100 +330,59 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
 
     
 
-    private func syncToBackend(_ activity: DailyActivity) async {
+    @discardableResult
+    private func syncToBackend(_ activity: DailyActivity) async -> Bool {
         guard isActive else {
             print("[ActivitySyncCoordinator] backend sync skipped — inactive")
-            return
+            return false
+        }
+
+        // The startup observer delivery repeats the same reading three seconds
+        // after the initial sync. It is already in the backend, so only skip
+        // the network call - the observer completion is still acknowledged.
+        if lastSyncedActivity == activity {
+            print("[ActivitySyncCoordinator] backend sync skipped — unchanged since last successful sync")
+            return true
+        }
+
+        // Partial days are still synced: fields whose HealthKit query failed
+        // are encoded as `nil` and omitted from the JSON payload.
+        if !activity.isComplete {
+            print("[ActivitySyncCoordinator] syncing partial day — missing fields omitted")
         }
 
         do {
             try await activityService.sync(entries: [activity])
 
+            lastSyncedActivity = activity
             print("[ActivitySyncCoordinator] backend sync success: \(activity)")
+            return true
         } catch {
             print("[ActivitySyncCoordinator] backend sync failed: \(error)")
+            return false
         }
     }
 
-    private func syncToBackend(_ entries: [DailyActivity]) async {
+    @discardableResult
+    private func syncToBackend(_ entries: [DailyActivity]) async -> Bool {
         guard isActive else {
             print("[ActivitySyncCoordinator] backend sync skipped — inactive")
-            return
+            return false
         }
 
         do {
-            // Low-level send without re-enqueueing (entries are already in queue
-            // if they came from processPendingQueue).
-            try await activityService.send(entries: entries)
+            try await activityService.sync(entries: entries)
 
             print(
                 "[ActivitySyncCoordinator] backend sync success: \(entries.count) entries"
             )
+            return true
         } catch {
             print("[ActivitySyncCoordinator] backend sync failed: \(error)")
+            return false
         }
     }
 
-
-    private let baseRetryDelay: TimeInterval = 1.0
-    private let maxRetryDelay: TimeInterval = 300.0
-
-    /// Processes pending entries from the local sync queue with exponential backoff.
-    /// Only entries whose nextRetryAt has passed are retried.
-    /// Called on app start, refresh, and after successful syncs.
-    private func processPendingQueue() async {
-        let pending = SyncQueue.shared.readyForRetry
-        guard !pending.isEmpty else { return }
-
-        let entries: [DailyActivity] = pending.compactMap { dict in
-            guard
-                let date = dict["date"] as? String,
-                let steps = dict["steps"] as? Int,
-                let activeCalories = dict["activeCalories"] as? Double,
-                let basalCalories = dict["basalCalories"] as? Double,
-                let distanceMeters = dict["distanceMeters"] as? Double
-            else {
-                return nil
-            }
-            return DailyActivity(
-                date: date,
-                steps: steps,
-                activeCalories: activeCalories,
-                basalCalories: basalCalories,
-                distanceMeters: distanceMeters
-            )
-        }
-
-        guard !entries.isEmpty else {
-            SyncQueue.shared.removeAll()
-            return
-        }
-
-        do {
-            try await activityService.send(entries: entries)
-
-            entries.forEach { SyncQueue.shared.remove($0.date) }
-            SyncQueue.shared.removeOlderThan(days: 30)
-        } catch {
-            for entry in entries {
-                var updated = SyncQueue.shared.all.first { $0["date"] as? String == entry.date } ?? [:]
-                var retryCount = (updated["retryCount"] as? Int) ?? 0
-                retryCount += 1
-                updated["retryCount"] = retryCount
-
-                let delay = min(
-                    pow(2.0, Double(retryCount)) * baseRetryDelay,
-                    maxRetryDelay
-                )
-                let nextRetry = Date().addingTimeInterval(delay)
-                updated["nextRetryAt"] = SyncQueue.isoFormatter.string(from: nextRetry)
-
-                SyncQueue.shared.update(updated)
-            }
-        }
-    }
-
-   
 
     private func configureBackgroundDeliveryOnce() async {
         guard !didConfigureBackgroundDelivery else {
@@ -392,8 +404,18 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
 
     private func notifyActivityUpdate(_ activity: DailyActivity) {
         latestActivity = activity
+        latestError = nil
         emit(activity)
         checkActivityAchievements(activity)
+    }
+
+    /// A failed HealthKit read leaves the card in `.loading` forever unless the
+    /// view model is told to show an error with a retry action.
+    private func notifyActivityLoadError() {
+        let error: AppError = .unknown
+        latestError = error
+        print("[ActivitySyncCoordinator] notifying activity load error: \(error)")
+        onActivityError?(error)
     }
 
     private func checkActivityAchievements(_ activity: DailyActivity) {
@@ -413,12 +435,13 @@ final class ActivitySyncCoordinator: ActivitySyncProtocol {
             guard let goals else { return }
 
             var items: [Achievement] = []
-            if let stepGoal = goals.dailyStepsGoal {
-                items += achievementService.checkSteps(activity.steps, goal: stepGoal)
+            if let steps = activity.steps, let stepGoal = goals.dailyStepsGoal {
+                items += achievementService.checkSteps(steps, goal: stepGoal)
             }
-            if let activeGoal = goals.dailyActiveCaloriesGoal {
+            if let calories = activity.activeCalories,
+               let activeGoal = goals.dailyActiveCaloriesGoal {
                 items += achievementService.checkActiveCalories(
-                    activity.activeCalories,
+                    calories,
                     goal: activeGoal
                 )
             }

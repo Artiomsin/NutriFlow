@@ -7,11 +7,11 @@ enum HealthKitAvailability: Equatable, Sendable {
     case unavailable
 }
 
-/// The user's permission for the app to read HealthKit data.
+/// The state of the HealthKit authorization request for a read-only feature.
 ///
-/// This intentionally holds no data-availability signal: for a read-only
-/// app HealthKit cannot distinguish "granted but no data yet" from "denied",
-/// so absence of data must never be treated as proof of denial.
+/// HealthKit deliberately doesn't reveal whether a person granted read access.
+/// Therefore `.authorized` only means that the permission request was completed;
+/// the result of a data query remains the source of truth for what can be shown.
 enum HealthKitAuthorization: Equatable, Sendable {
     case notDetermined
     case authorized
@@ -19,7 +19,7 @@ enum HealthKitAuthorization: Equatable, Sendable {
     case unknown
 }
 
-enum HealthFeature {
+enum HealthFeature: Hashable {
     case activity
     case sleep
     case workout
@@ -29,32 +29,21 @@ final class HealthKitAccess {
 
     static let shared = HealthKitAccess()
 
+    /// iOS has no public URL for the Health app's per-app permission screen.
+    /// Show the exact manual path instead of claiming that "Open Settings"
+    /// reaches the HealthKit switches.
+    static let permissionPath = "Health → Sharing & Access → Apps and Services → NutriFlow"
+
     private let store: HKHealthStore
 
-    private static let hasRequestedAuthorizationKey = "healthkit_authorization_requested"
-
-    private static var hasRequestedAuthorization: Bool {
-        UserDefaults.standard.bool(forKey: hasRequestedAuthorizationKey)
+    private struct CachedPermission {
+        let value: HealthKitAuthorization
+        let fetchedAt: Date
     }
 
-    private static func observedDataKey(for feature: HealthFeature) -> String {
-        switch feature {
-        case .activity:
-            return "healthkit_observed_data_activity"
-        case .sleep:
-            return "healthkit_observed_data_sleep"
-        case .workout:
-            return "healthkit_observed_data_workout"
-        }
-    }
-
-    private static func hasObservedData(for feature: HealthFeature) -> Bool {
-        UserDefaults.standard.bool(forKey: observedDataKey(for: feature))
-    }
-
-    private static func markObservedData(for feature: HealthFeature) {
-        UserDefaults.standard.set(true, forKey: observedDataKey(for: feature))
-    }
+    private let permissionCacheLock = NSLock()
+    private var permissionCache: [HealthFeature: CachedPermission] = [:]
+    private static let permissionCacheTTL: TimeInterval = 5 * 60
 
     private init() {
         self.store = HKHealthStore()
@@ -80,139 +69,80 @@ final class HealthKitAccess {
             read: readTypes
         )
 
-        UserDefaults.standard.set(
-            true,
-            forKey: Self.hasRequestedAuthorizationKey
+        // The user may have changed any feature's decision in the sheet.
+        invalidatePermissionCache()
+    }
+
+    /// Permission probes hit HealthKit several times per feature. Home checks
+    /// them on every foreground, so cache the result briefly and invalidate it
+    /// when the user leaves for Settings or a request completes.
+    func permissionState(for feature: HealthFeature) async -> HealthKitAuthorization {
+        // NSLock may not be used directly inside an async function in Swift 6.
+        // The helpers below keep the lock in synchronous scopes and hold it
+        // only for a dictionary read/write.
+        if let cached = cachedPermission(for: feature) {
+            return cached
+        }
+
+        let value = await computePermissionState(for: feature)
+        storePermission(value, for: feature)
+        return value
+    }
+
+    private func cachedPermission(for feature: HealthFeature) -> HealthKitAuthorization? {
+        permissionCacheLock.lock()
+        defer { permissionCacheLock.unlock() }
+
+        guard let cached = permissionCache[feature],
+              Date().timeIntervalSince(cached.fetchedAt) < Self.permissionCacheTTL
+        else { return nil }
+
+        return cached.value
+    }
+
+    private func storePermission(
+        _ value: HealthKitAuthorization,
+        for feature: HealthFeature
+    ) {
+        permissionCacheLock.lock()
+        defer { permissionCacheLock.unlock() }
+
+        permissionCache[feature] = CachedPermission(
+            value: value,
+            fetchedAt: Date()
         )
     }
 
-    func permissionState(for feature: HealthFeature) async -> HealthKitAuthorization {
-        guard isAvailable else { return .unknown }
+    func invalidatePermissionCache(for feature: HealthFeature? = nil) {
+        permissionCacheLock.lock()
+        defer { permissionCacheLock.unlock() }
 
-        let type: HKObjectType?
-        switch feature {
-        case .activity:
-            type = HKQuantityType(.stepCount)
-        case .sleep:
-            type = HKObjectType.categoryType(forIdentifier: .sleepAnalysis)
-        case .workout:
-            type = HKQuantityType(.heartRate)
-        }
-        guard let type else { return .notDetermined }
-
-        let authorizationStatus = store.authorizationStatus(for: type)
-
-        // HealthKit never reports read denial for privacy reasons. For a
-        // read-only app authorizationStatus can stay .sharingDenied even when
-        // read access was granted, so it is only trusted when it explicitly
-        // says .sharingAuthorized.
-        if authorizationStatus == .sharingAuthorized {
-            Self.markObservedData(for: feature)
-            return .authorized
-        }
-
-        let requestStatus = try? await requestStatusForAuthorization()
-
-        switch requestStatus {
-        case .shouldRequest:
-            // The system would show its permission sheet again: the user has
-            // not granted everything. If we already asked once, access is off.
-            return Self.hasRequestedAuthorization ? .denied : .notDetermined
-
-        case .unnecessary:
-            guard Self.hasRequestedAuthorization else {
-                return .notDetermined
-            }
-
-            // Decision already made. Read grant and read revocation look the
-            // same, so probe for real samples: revoked access returns nothing,
-            // while granted access keeps returning the user's data.
-            if await probeHasData(for: feature) {
-                Self.markObservedData(for: feature)
-                return .authorized
-            }
-
-            // No data right now. If we have seen data before, it was revoked.
-            return Self.hasObservedData(for: feature) ? .denied : .authorized
-
-        default:
-            return .unknown
+        if let feature {
+            permissionCache[feature] = nil
+        } else {
+            permissionCache.removeAll()
         }
     }
 
-    private func probeHasData(for feature: HealthFeature) async -> Bool {
-        guard isAvailable else { return false }
+    private func computePermissionState(
+        for _: HealthFeature
+    ) async -> HealthKitAuthorization {
+        guard isAvailable else { return .unknown }
 
-        let now = Date()
-        let calendar = Calendar.current
-
-        switch feature {
-        case .activity:
-            let start = calendar.date(byAdding: .day, value: -7, to: now) ?? now
-            let type = HKQuantityType(.stepCount)
-            let predicate = HKQuery.predicateForSamples(
-                withStart: start,
-                end: now,
-                options: .strictStartDate
-            )
-
-            return await withCheckedContinuation { continuation in
-                let query = HKStatisticsQuery(
-                    quantityType: type,
-                    quantitySamplePredicate: predicate,
-                    options: .cumulativeSum
-                ) { _, result, _ in
-                    let sum = result?
-                        .sumQuantity()?
-                        .doubleValue(for: .count()) ?? 0
-                    continuation.resume(returning: sum > 0)
-                }
-                store.execute(query)
+        do {
+            switch try await requestStatusForAuthorization() {
+            case .shouldRequest:
+                return .notDetermined
+            case .unnecessary:
+                // HealthKit doesn't reveal read permission. A completed request
+                // is the only state we can report truthfully; empty query
+                // results may mean either no samples or denied read access.
+                return .authorized
+            default:
+                return .unknown
             }
-
-        case .sleep:
-            let start = calendar.date(byAdding: .day, value: -7, to: now) ?? now
-            guard let type = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) else {
-                return false
-            }
-            let predicate = HKQuery.predicateForSamples(
-                withStart: start,
-                end: now,
-                options: .strictStartDate
-            )
-
-            return await withCheckedContinuation { continuation in
-                let query = HKSampleQuery(
-                    sampleType: type,
-                    predicate: predicate,
-                    limit: 1,
-                    sortDescriptors: nil
-                ) { _, samples, _ in
-                    continuation.resume(returning: !(samples ?? []).isEmpty)
-                }
-                store.execute(query)
-            }
-
-        case .workout:
-            let start = calendar.date(byAdding: .day, value: -30, to: now) ?? now
-            let type = HKObjectType.workoutType()
-            let predicate = HKQuery.predicateForSamples(
-                withStart: start,
-                end: now,
-                options: .strictStartDate
-            )
-
-            return await withCheckedContinuation { continuation in
-                let query = HKSampleQuery(
-                    sampleType: type,
-                    predicate: predicate,
-                    limit: 1,
-                    sortDescriptors: nil
-                ) { _, samples, _ in
-                    continuation.resume(returning: !(samples ?? []).isEmpty)
-                }
-                store.execute(query)
-            }
+        } catch {
+            return .unknown
         }
     }
 

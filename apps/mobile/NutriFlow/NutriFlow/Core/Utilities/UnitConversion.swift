@@ -184,6 +184,23 @@ struct UnitConversion {
         }
     }
 
+    private static let metersPerMile = 1609.344
+
+    /// Distance follows the same metric/imperial choice as weight units.
+    static func formatDistanceValueText(
+        meters: Double,
+        preferred: PreferredUnits
+    ) -> String {
+        let value = preferred.weight == .imperial
+            ? meters / metersPerMile
+            : meters / 1000
+        return value.formatted(.number.precision(.fractionLength(0...1)))
+    }
+
+    static func formatDistanceUnit(preferred: PreferredUnits) -> String {
+        preferred.weight == .imperial ? "mi" : "km"
+    }
+
     /// User-entered value in the display unit -> canonical grams (or ml).
     static func grams(fromDisplay value: Double, baseUnit: String, preferred: PreferredUnits) -> Double {
         let canonicalValue: Double

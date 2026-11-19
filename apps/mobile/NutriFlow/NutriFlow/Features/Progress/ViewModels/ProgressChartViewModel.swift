@@ -552,7 +552,7 @@ final class ProgressChartViewModel {
                 logs = cached
             } else {
                 logs = try await profileService.getWeightLogs(from: range.from, to: range.to)
-                try? await cacheService?.set(cacheKey, logs, ttl: 300)
+                try? await cacheService?.set(cacheKey, logs, ttl: 900)
             }
             guard !Task.isCancelled, loadID == weightLoadID else { return }
             weightError = nil

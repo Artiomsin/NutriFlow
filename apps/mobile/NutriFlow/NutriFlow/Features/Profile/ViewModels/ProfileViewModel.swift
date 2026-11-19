@@ -86,6 +86,12 @@ final class ProfileViewModel {
         // logs for all periods (Today/Week/Month/Custom) become stale, not just
         // the currently selected one.
         await cacheService?.removeByPrefix("weight_logs_")
+        await cacheService?.removeByPrefix("period_goals_")
+        await cacheService?.remove("goals_history")
+        await cacheService?.remove("workout_last")
+        await cacheService?.remove("workout_history")
+        await cacheService?.remove("sleep_last_night")
+        await cacheService?.remove("sleep_history_7d")
     }
 
     func loadData(forceRefresh: Bool = false) async {

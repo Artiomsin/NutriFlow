@@ -48,6 +48,7 @@ struct SettingsView: View {
                     LazyVStack(spacing: 24) {
                         accountSection
                         goalsSection
+                        healthAccessSection
                         unitsSection
                         notificationsSection
                         appearanceSection
@@ -107,7 +108,9 @@ struct SettingsView: View {
                 selectedTimeZone: Binding(
                     get: { PreferencesStore.shared.timeZone },
                     set: { newValue in
-                        PreferencesStore.shared.timeZone = newValue
+                        // Do not apply the new zone locally before the server
+                        // accepts it: a failed update would leave date grouping
+                        // in the app different from the backend.
                         Task {
                             await viewModel.updateTimeZone(newValue)
                         }
@@ -171,6 +174,28 @@ struct SettingsView: View {
 
             SettingsRow(icon: "target", title: "Manage Your Goals")
                 .onTapGesture { navPath.append(.goals) }
+        }
+    }
+
+    private var healthAccessSection: some View {
+        VStack(spacing: 10) {
+            sectionHeader("Apple Health", icon: "heart")
+
+            // iOS never reports read permissions for HealthKit, so any On/Off
+            // label would be a guess based on sample presence. Show the exact
+            // manual path instead; iOS Settings cannot open Health switches.
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Enable in the Health app:")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(AppColors.textPrimary)
+                Text(HealthKitAccess.permissionPath)
+                    .font(.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, AppSpacing.paddingHorizontal)
+            .padding(.vertical, 12)
+            .appGlassSurface()
         }
     }
 

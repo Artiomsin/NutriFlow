@@ -126,16 +126,41 @@ final class SleepHealthKitService: SleepHealthKitServiceProtocol {
 
         let samples = try await fetchSamples(predicate: predicate)
 
-        guard var sleep = aggregate(samples) else {
+        // Select one continuous sleep session instead of aggregating every
+        // sample in the window. Otherwise an afternoon nap is glued to the
+        // night: min(start)/max(end) span both and duration double-counts.
+        guard let session = Self.mainSession(in: samples),
+              var sleep = aggregate(session)
+        else {
             return nil
         }
 
-        sleep.heartRateAvg = try await fetchAverageHeartRate(
+        sleep.heartRateAvg = await averageHeartRateIfAvailable(
             from: sleep.startDate,
             to: sleep.endDate
         )
 
         return sleep
+    }
+
+    func hasLimitedHistory() async -> Bool {
+        guard isAvailable, let sleepType else { return false }
+
+        // Before iOS 27, HealthKit does not expose whether the authorized
+        // history is truncated. Treat it as limited so a partial backfill
+        // is never recorded as complete.
+        guard #available(iOS 27.0, *) else {
+            return true
+        }
+
+        do {
+            let dates = try await healthStore.earliestAuthorizedSampleDate(
+                for: [sleepType]
+            )
+            return dates[sleepType] != nil
+        } catch {
+            return true
+        }
     }
 
     func fetchNights(from startDate: Date,
@@ -150,15 +175,13 @@ final class SleepHealthKitService: SleepHealthKitServiceProtocol {
             options: []
         )
         let samples = try await fetchSamples(predicate: predicate)
-        let grouped = Self.groupSamplesByNight(samples)
+        let sessions = Self.splitIntoSessions(samples)
 
         var nights: [HealthKitSleep] = []
-        for nightStart in grouped.keys.sorted() {
-            guard let samples = grouped[nightStart],
-                  var night = aggregate(samples)
-            else { continue }
+        for session in sessions {
+            guard var night = aggregate(session) else { continue }
 
-            night.heartRateAvg = try await fetchAverageHeartRate(
+            night.heartRateAvg = await averageHeartRateIfAvailable(
                 from: night.startDate,
                 to: night.endDate
             )
@@ -227,8 +250,14 @@ final class SleepHealthKitService: SleepHealthKitServiceProtocol {
 
         let asleepSamples = coreSamples + deepSamples + remSamples + unspecifiedSamples
 
-        let timeInBedSeconds = Self.mergedDuration(inBedSamples)
+        // Sleep samples from different sources can overlap. A person cannot be
+        // asleep for longer than they are in bed, so normalize the reported
+        // time in bed to cover the union of all asleep intervals.
         let asleepSeconds = Self.mergedDuration(asleepSamples)
+        let timeInBedSeconds = max(
+            Self.mergedDuration(inBedSamples),
+            asleepSeconds
+        )
         let awakeSeconds = Self.mergedDuration(awakeSamples)
         let coreSeconds = Self.mergedDuration(coreSamples)
         let deepSeconds = Self.mergedDuration(deepSamples)
@@ -254,7 +283,7 @@ final class SleepHealthKitService: SleepHealthKitServiceProtocol {
 
         let efficiency: Double?
         if timeInBedSeconds > 0 {
-            efficiency = (asleepSeconds / timeInBedSeconds) * 100
+            efficiency = min((asleepSeconds / timeInBedSeconds) * 100, 100)
         } else {
             let nightInterval = endDate.timeIntervalSince(startDate)
             efficiency = nightInterval > 0
@@ -373,6 +402,23 @@ final class SleepHealthKitService: SleepHealthKitServiceProtocol {
         )
     }
 
+    private func averageHeartRateIfAvailable(
+        from startDate: Date,
+        to endDate: Date
+    ) async -> Double? {
+        do {
+            return try await fetchAverageHeartRate(
+                from: startDate,
+                to: endDate
+            )
+        } catch {
+            #if DEBUG
+            print("[SleepHealthKit] average heart-rate query failed: \(error)")
+            #endif
+            return nil
+        }
+    }
+
     func fetchAverageHeartRate(
         from startDate: Date,
         to endDate: Date
@@ -410,25 +456,52 @@ final class SleepHealthKitService: SleepHealthKitServiceProtocol {
     
     
 
-    private static func groupSamplesByNight(
+    /// Samples that belong to one night are contiguous in HealthKit. A gap
+    /// larger than this starts a new session, so a 15:00 nap and a 23:00
+    /// bedtime never become one "night".
+    private static let maxSessionGap: TimeInterval = 2 * 3600
+
+    private static func splitIntoSessions(
         _ samples: [HKCategorySample]
-    ) -> [Date: [HKCategorySample]] {
-        let calendar = AppDate.calendar
-        var groups: [Date: [HKCategorySample]] = [:]
+    ) -> [[HKCategorySample]] {
+        let sorted = samples.sorted { $0.startDate < $1.startDate }
+        var sessions: [[HKCategorySample]] = []
+        var current: [HKCategorySample] = []
+        var currentEnd: Date?
 
-        for sample in samples {
-            guard let noon = calendar.date(
-                bySettingHour: 12, minute: 0, second: 0, of: sample.startDate
-            ) else { continue }
+        for sample in sorted {
+            if let end = currentEnd,
+               sample.startDate.timeIntervalSince(end) > maxSessionGap {
+                if !current.isEmpty { sessions.append(current) }
+                current = []
+                currentEnd = nil
+            }
 
-            let windowStart = calendar.component(.hour, from: sample.startDate) < 12
-                ? (calendar.date(byAdding: .day, value: -1, to: noon) ?? noon)
-                : noon
-
-            groups[windowStart, default: []].append(sample)
+            current.append(sample)
+            currentEnd = max(currentEnd ?? sample.endDate, sample.endDate)
         }
 
-        return groups
+        if !current.isEmpty { sessions.append(current) }
+        return sessions
+    }
+
+    /// The longest continuous session is the night; shorter daytime naps stay
+    /// separate and no longer inflate its duration.
+    private static func mainSession(
+        in samples: [HKCategorySample]
+    ) -> [HKCategorySample]? {
+        splitIntoSessions(samples)
+            .max { sessionDuration($0) < sessionDuration($1) }
+            .flatMap { sessionDuration($0) > 0 ? $0 : nil }
+    }
+
+    private static func sessionDuration(
+        _ samples: [HKCategorySample]
+    ) -> TimeInterval {
+        guard let start = samples.map(\.startDate).min(),
+              let end = samples.map(\.endDate).max()
+        else { return 0 }
+        return end.timeIntervalSince(start)
     }
 
     private static func countAwakenings(

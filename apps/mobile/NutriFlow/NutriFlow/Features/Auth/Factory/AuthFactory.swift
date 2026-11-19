@@ -8,15 +8,8 @@
 import SwiftUI
 
 enum AuthFactory {
-    @MainActor @ViewBuilder
-    static func make(container: AppDependency, coordinator: AppCoordinator) -> some View {
-        let viewModel = AuthViewModel(
-            authService: container.authService,
-            googleSignInService: container.googleSignInService,
-            coordinator: coordinator,
-            activitySync: container.activitySync,
-            analyticsTracker: container.analyticsTracker
-        )
-        AuthView(viewModel: viewModel)
+    @MainActor
+    static func make(container: AppDependency, coordinator: AppCoordinator) -> AuthScreen {
+        AuthScreen(container: container, coordinator: coordinator)
     }
 }

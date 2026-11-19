@@ -245,6 +245,9 @@
     "Charts" : {
 
     },
+    "Check access in the Health app:\n%@" : {
+
+    },
     "Choose an icon that makes this category easy to spot." : {
 
     },
@@ -371,10 +374,7 @@
     "Edit Profile" : {
 
     },
-    "Enable it in Settings to see your activity." : {
-
-    },
-    "Enable Workouts in Settings to see your training history." : {
+    "Enable in the Health app:" : {
 
     },
     "End" : {
@@ -974,9 +974,6 @@
     "Grams" : {
 
     },
-    "Health access is off" : {
-
-    },
     "Health data unavailable" : {
 
     },
@@ -1005,6 +1002,9 @@
 
     },
     "Last 7 nights" : {
+
+    },
+    "Last recorded night" : {
 
     },
     "Last recorded: %@" : {
@@ -1127,6 +1127,9 @@
     "No goal changes yet" : {
 
     },
+    "No Health data is available" : {
+
+    },
     "No heart rate data" : {
 
     },
@@ -1145,10 +1148,13 @@
     "No results found" : {
 
     },
-    "No sleep data for last night yet" : {
+    "No sleep data" : {
 
     },
-    "No sleep data yet" : {
+    "No sleep data is available" : {
+
+    },
+    "No sleep data is available. Check access in the Health app:\n%@" : {
 
     },
     "No system foods in this category." : {
@@ -1164,6 +1170,9 @@
 
     },
     "No weight records yet." : {
+
+    },
+    "No workout data is available" : {
 
     },
     "No workouts yet" : {
@@ -1343,10 +1352,7 @@
     "Sleep" : {
 
     },
-    "Sleep access is off. Enable Apple Health in Settings." : {
-
-    },
-    "Sleep data unavailable" : {
+    "Some HealthKit data is unavailable right now." : {
 
     },
     "Start" : {
@@ -1380,9 +1386,6 @@
 
     },
     "Tap to change photo" : {
-
-    },
-    "Tap to see history" : {
 
     },
     "Tell us about yourself" : {
@@ -1509,12 +1512,6 @@
 
     },
     "Workouts" : {
-
-    },
-    "Workouts access is off" : {
-
-    },
-    "Workouts access is off. Enable Apple Health in Settings." : {
 
     },
     "Your changes weren’t saved. Please try again." : {

@@ -19,10 +19,9 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
 
     var onActivityChanged: (() -> Void)?
 
-    /// Completion handlers from HKObserverQuery that must be called only after
-    /// the full async flow (fetchToday + syncToBackend) has finished.
-    /// This prevents HealthKit from considering the delivery "done" before we
-    /// have actually persisted the data (either to backend or to local sync queue).
+    /// Completion handlers from HKObserverQuery. They are acknowledged as soon
+    /// as the HealthKit read finishes, before any network sync, so killing the
+    /// process during a slow request cannot lose them.
     private var pendingCompletions: [(() -> Void)] = []
     private let completionLock = NSLock()
 
@@ -44,6 +43,23 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
         await HealthKitAccess.shared.permissionState(for: .activity)
     }
 
+    /// `permissionState(for: .activity)` is decided mostly by `stepCount`, so a
+    /// revoked Write permission for one of the other five types can leave the
+    /// overall state `.authorized` while its query fails. Log every type to
+    /// make that case visible in the debugger.
+    private func logActivityAuthorizationStatuses() {
+        guard isAvailable else {
+            print("[HealthKit] authorization statuses: HealthKit unavailable")
+            return
+        }
+
+        let statuses = activityTypesToRead
+            .map { "\($0.identifier)=\(store.authorizationStatus(for: $0).rawValue)" }
+            .sorted()
+            .joined(separator: ", ")
+        print("[HealthKit] authorization statuses: \(statuses)")
+    }
+
     func requestAuthorization() async throws {
         guard isAvailable else {
             return
@@ -53,7 +69,10 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
     }
 
 
-    func fetchToday() async -> DailyActivity {
+    /// Unavailable metrics become `nil`; the record is returned only when at
+    /// least one metric has a real HealthKit value. This prevents an empty
+    /// result from overwriting previously synced activity with zeros.
+    func fetchToday() async -> DailyActivity? {
         let now = Date()
         let calendar = AppDate.calendar
         let timeZone = AppDate.timeZone
@@ -104,21 +123,108 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
             unit: .meter()
         )
 
-        let totalDistance = await walkingRunningDistance
-            + cyclingDistance
-            + swimmingDistance
-
-        let result = DailyActivity(
-            date: dateFormatter.string(from: now),
-            steps: Int(await steps),
-            activeCalories: await active,
-            basalCalories: await basal,
-            distanceMeters: totalDistance
+        let results = await (
+            steps: steps,
+            active: active,
+            basal: basal,
+            walking: walkingRunningDistance,
+            cycling: cyclingDistance,
+            swimming: swimmingDistance
         )
+
+        var failed: [String] = []
+        if case .failure = results.steps { failed.append("steps") }
+        if case .failure = results.active { failed.append("activeEnergy") }
+        if case .failure = results.basal { failed.append("basalEnergy") }
+        if case .failure = results.walking { failed.append("walkingRunningDistance") }
+        if case .failure = results.cycling { failed.append("cyclingDistance") }
+        if case .failure = results.swimming { failed.append("swimmingDistance") }
+
+        if !failed.isEmpty {
+            print(
+                "[HealthKit] fetchToday partial — failed metrics: " +
+                failed.joined(separator: ", ")
+            )
+            logActivityAuthorizationStatuses()
+        }
+
+        // The card shows whatever could be read. `distanceMeters` stays `nil`
+        // if any of its three sources failed: a partial sum would be misleading.
+        let result = Self.makeActivity(
+            date: dateFormatter.string(from: now),
+            results: results
+        )
+
+        guard result.hasDisplayableMetric else {
+            print("[HealthKit] fetchToday skipped — no metric could be read")
+            return nil
+        }
 
         print("[HealthKit] fetchToday result: \(result)")
 
         return result
+    }
+
+    private static func value(_ result: Result<Double?, Error>) -> Double? {
+        if case .success(let value) = result { return value }
+        return nil
+    }
+
+    /// Distance is the sum of three queries. A failed source makes the total
+    /// incomplete, so it is hidden instead of being shown as a real value.
+    private static func totalDistance(
+        walking: Result<Double?, Error>,
+        cycling: Result<Double?, Error>,
+        swimming: Result<Double?, Error>
+    ) -> Double? {
+        guard
+            case .success(let walking?) = walking,
+            case .success(let cycling?) = cycling,
+            case .success(let swimming?) = swimming
+        else { return nil }
+        return walking + cycling + swimming
+    }
+
+    private static func makeActivity(
+        date: String,
+        results: (
+            steps: Result<Double?, Error>,
+            active: Result<Double?, Error>,
+            basal: Result<Double?, Error>,
+            walking: Result<Double?, Error>,
+            cycling: Result<Double?, Error>,
+            swimming: Result<Double?, Error>
+        )
+    ) -> DailyActivity {
+        DailyActivity(
+            date: date,
+            steps: value(results.steps).map(Int.init),
+            activeCalories: value(results.active),
+            basalCalories: value(results.basal),
+            distanceMeters: totalDistance(
+                walking: results.walking,
+                cycling: results.cycling,
+                swimming: results.swimming
+            )
+        )
+    }
+
+    func hasLimitedHistory() async -> Bool {
+        guard isAvailable else { return false }
+
+        // Before iOS 27, HealthKit does not expose whether the authorized
+        // history is truncated. Treat it as limited so a partial backfill
+        // is never recorded as complete.
+        guard #available(iOS 27.0, *) else {
+            return true
+        }
+
+        let types = Set(activityTypesToRead.map { $0 as HKObjectType })
+        do {
+            return !(try await store.earliestAuthorizedSampleDate(for: types)).isEmpty
+        } catch {
+            return true
+        }
     }
 
     func fetchRange(from startDate: Date, to endDate: Date) async throws -> [DailyActivity] {
@@ -184,19 +290,24 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
                 unit: .meter()
             )
 
-            let totalDistance = await walkingRunningDistance
-                + cyclingDistance
-                + swimmingDistance
-
-            let entry = DailyActivity(
-                date: dateFormatter.string(from: dayStart),
-                steps: Int(await steps),
-                activeCalories: await active,
-                basalCalories: await basal,
-                distanceMeters: totalDistance
+            let fetched = await (
+                steps: steps,
+                active: active,
+                basal: basal,
+                walking: walkingRunningDistance,
+                cycling: cyclingDistance,
+                swimming: swimmingDistance
             )
+            let entry = Self.makeActivity(
+                date: dateFormatter.string(from: dayStart),
+                results: fetched
+            )
+            if entry.hasDisplayableMetric {
+                results.append(entry)
+            } else {
+                print("[HealthKit] fetchRange skipped day \(entry.date) — no metric could be read")
+            }
 
-            results.append(entry)
             current = nextDay
         }
 
@@ -244,15 +355,14 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
                     return
                 }
 
-                self?.onActivityChanged?()
-
-                // Store the completion handler and call it only after the full
-                // async flow (fetchToday + syncToBackend) has finished.
-                // This prevents HealthKit from considering the delivery done
-                // before we have persisted the data.
+                // Store the completion before scheduling the coordinator. The
+                // coordinator can complete its read immediately, so reversing
+                // this order could leave this delivery unacknowledged.
                 self?.completionLock.lock()
                 self?.pendingCompletions.append(completionHandler)
                 self?.completionLock.unlock()
+
+                self?.onActivityChanged?()
             }
 
             store.execute(query)
@@ -272,9 +382,8 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
         completePendingObservations()
     }
 
-    /// Call all stored HealthKit observer completion handlers.
-    /// Must be called only after the full async flow (fetchToday + syncToBackend)
-    /// has finished, so HealthKit knows the data has been persisted.
+    /// Acknowledges stored HealthKit observer deliveries. Call right after the
+    /// HealthKit read, before starting the network sync.
     func completePendingObservations() {
         completionLock.lock()
         let completions = pendingCompletions
@@ -287,12 +396,15 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
     }
 
 
+    /// A missing `sumQuantity` means this metric is unavailable. HealthKit
+    /// intentionally represents denied read access as an empty result, so it
+    /// must stay `nil` and never be written to the backend as zero.
     private func sum(
         _ identifier: HKQuantityTypeIdentifier,
         start: Date,
         end: Date,
         unit: HKUnit
-    ) async -> Double {
+    ) async -> Result<Double?, Error> {
 
         let type = HKQuantityType(identifier)
 
@@ -308,17 +420,29 @@ final class ActivityHealthKitService: NSObject, ActivityHealthKitServiceProtocol
                 quantityType: type,
                 quantitySamplePredicate: predicate,
                 options: .cumulativeSum
-            ) { _, result, _ in
+            ) { _, result, error in
 
-                let value =
-                    result?
-                        .sumQuantity()?
-                        .doubleValue(for: unit)
-                    ?? 0
+                if let error {
+                    let nsError = error as NSError
+                    if nsError.domain == HKError.errorDomain,
+                       nsError.code == HKError.Code.errorNoData.rawValue {
+                        continuation.resume(returning: .success(nil))
+                        return
+                    }
 
-                continuation.resume(
-                    returning: value
-                )
+                    print(
+                        "[HealthKit] sum failed: " +
+                        "identifier=\(identifier.rawValue) error=\(error)"
+                    )
+                    continuation.resume(returning: .failure(error))
+                    return
+                }
+
+                let value = result?
+                    .sumQuantity()?
+                    .doubleValue(for: unit)
+
+                continuation.resume(returning: .success(value))
             }
 
             store.execute(query)

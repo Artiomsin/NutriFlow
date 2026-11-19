@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Db } from '../db/db';
 import { DB } from '../db/db.module';
 import { dailyActivity } from '../db/schema/dailyActivity';
+import type { NewDailyActivity } from '../db/schema/dailyActivity';
 import { dailySummary } from '../db/schema/dailySummary';
 import { eq, and, sql } from 'drizzle-orm';
 import type { SyncActivityDto } from './activity.schema';
@@ -14,8 +15,10 @@ export class ActivityService {
 
   async sync(userId: string, dto: SyncActivityDto) {
     const rows = await Promise.all(
-      dto.entries.map((e) => {
-        const values = {
+      dto.entries.map(async (e) => {
+        // A new day still gets the column defaults for metrics that were not
+        // sent, so insert values keep the `?? 0` fallbacks.
+        const insertValues: NewDailyActivity = {
           userId,
           date: e.date,
           steps: e.steps ?? 0,
@@ -24,19 +27,33 @@ export class ActivityService {
           distanceMeters:
             e.distanceMeters != null ? String(e.distanceMeters) : '0',
         };
-        return this.db
-          .insert(dailyActivity)
-          .values(values)
-          .onConflictDoUpdate({
-            target: [dailyActivity.userId, dailyActivity.date],
-            set: {
-              steps: values.steps,
-              activeCalories: values.activeCalories,
-              basalCalories: values.basalCalories,
-              distanceMeters: values.distanceMeters,
-            },
-          })
-          .returning();
+
+        // On conflict only overwrite metrics that actually arrived. A missing
+        // key means the HealthKit read failed, not that the value became zero.
+        const set: Partial<NewDailyActivity> = {};
+        if (e.steps != null) set.steps = e.steps;
+        if (e.activeCalories != null) {
+          set.activeCalories = roundNutrition(e.activeCalories);
+        }
+        if (e.basalCalories != null) {
+          set.basalCalories = roundNutrition(e.basalCalories);
+        }
+        if (e.distanceMeters != null) {
+          set.distanceMeters = String(e.distanceMeters);
+        }
+
+        const insert = this.db.insert(dailyActivity).values(insertValues);
+        // Drizzle cannot build an empty SET clause. If the entry carries only
+        // a date, leave the existing row untouched.
+        const query = Object.keys(set).length
+          ? insert.onConflictDoUpdate({
+              target: [dailyActivity.userId, dailyActivity.date],
+              set,
+            })
+          : insert.onConflictDoNothing();
+
+        const [row] = await query.returning();
+        return row;
       }),
     );
     return rows.flat();

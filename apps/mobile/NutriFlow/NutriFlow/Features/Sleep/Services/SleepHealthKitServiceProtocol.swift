@@ -18,6 +18,7 @@ protocol SleepHealthKitServiceProtocol: Sendable {
     
     func fetchNights(from startDate: Date,
                         to endDate: Date) async throws -> [HealthKitSleep]
+    func hasLimitedHistory() async -> Bool
 
     func fetchHeartRateDuringSleep(
         from start: Date,

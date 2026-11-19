@@ -205,7 +205,6 @@ final class MockFoodService: FoodServiceProtocol {
 
 final class MockActivityService: ActivityServiceProtocol {
     func sync(entries: [DailyActivity]) async throws { }
-    func send(entries: [DailyActivity]) async throws { }
     func getRange(from: String, to: String) async throws -> [ActivityDayPoint] {
         let cal = Calendar.current
         let df = DateFormatter()
@@ -237,6 +236,7 @@ final class MockActivityService: ActivityServiceProtocol {
 final class MockActivitySync: ActivitySyncProtocol {
     var isSessionActive: Bool { false }
     var onActivityUpdate: ((DailyActivity) -> Void)?
+    var onActivityError: ((AppError) -> Void)?
     var goalsProvider: (() -> UserGoals?)?
     func start() {}
     func stop() {}
@@ -785,6 +785,8 @@ final class MockSleepHealthKit: SleepHealthKitServiceProtocol {
     func fetchSleep(from startDate: Date, to endDate: Date) async throws -> HealthKitSleep? {
         sampleNight(from: startDate, variation: 0.15)
     }
+
+    func hasLimitedHistory() async -> Bool { false }
     
     
     
@@ -835,12 +837,13 @@ final class MockHealthKit: ActivityHealthKitServiceProtocol, WorkoutHealthKitSer
     )
     
     func requestAuthorization() async throws {}
-    func fetchToday() async -> DailyActivity {
+    func fetchToday() async -> DailyActivity? {
         DailyActivity(date: "", steps: 0, activeCalories: 0, basalCalories: 0, distanceMeters: 0)
     }
     func fetchRange(from startDate: Date, to endDate: Date) async throws -> [DailyActivity] {
         []
     }
+    func hasLimitedHistory() async -> Bool { false }
     func fetchWorkouts(from startDate: Date, to endDate: Date) async throws -> [HealthKitWorkout] { [Self.sampleWorkout] }
     func fetchLatestWorkout() async throws -> HealthKitWorkout? { Self.sampleWorkout }
     func enableBackgroundDelivery() async throws {}

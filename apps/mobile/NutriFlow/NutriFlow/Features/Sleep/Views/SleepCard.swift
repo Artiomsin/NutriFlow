@@ -13,7 +13,7 @@ struct SleepCard: View {
     var goals: UserGoals? = nil
 
     var body: some View {
-        switch vm.state {
+        switch vm.lastNightState {
         case .idle, .loading:
             sleepSkeleton
         case .needsAccess:
@@ -24,24 +24,16 @@ struct SleepCard: View {
             unavailablePrompt
         case .empty:
             emptyPrompt
-                .contentShape(Rectangle())
-                .onTapGesture { onTap() }
         case .error(let error):
             ErrorView(
                 error: error,
                 onRetry: { Task { await vm.reloadLastNight() } }
             )
             .padding(.horizontal, AppSpacing.paddingHorizontal)
-        case .loaded(let nights):
-            if let lastNight = nights.first {
-                sleepContent(lastNight)
-                    .contentShape(Rectangle())
-                    .onTapGesture { onTap() }
-            } else {
-                emptyPrompt
-                    .contentShape(Rectangle())
-                    .onTapGesture { onTap() }
-            }
+        case .loaded(let night):
+            sleepContent(night)
+                .contentShape(Rectangle())
+                .onTapGesture { onTap() }
         }
     }
 
@@ -75,20 +67,19 @@ struct SleepCard: View {
     }
 
     private var deniedPrompt: some View {
-        HStack {
-            Image(systemName: "moon.zzz")
-                .foregroundColor(AppColors.textSecondary)
-            Text("Sleep access is off. Enable Apple Health in Settings.")
-                .font(.footnote)
-                .foregroundColor(AppColors.textSecondary)
-            Spacer()
-            Button("Settings") {
-                vm.openSettings()
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: "moon.zzz")
+                    .foregroundColor(AppColors.textSecondary)
+                Text("No sleep data is available")
+                    .font(.footnote)
+                    .foregroundColor(AppColors.textSecondary)
             }
-            .font(.caption)
-            .foregroundColor(AppColors.accent)
+            Text("Check access in the Health app:\n\(HealthKitAccess.permissionPath)")
+                .font(.caption2)
+                .foregroundColor(AppColors.textSecondary)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .appGlassSurface()
     }
@@ -108,58 +99,43 @@ struct SleepCard: View {
     }
 
     private var emptyPrompt: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
-                    Image(systemName: "moon")
-                        .foregroundColor(AppColors.textSecondary)
-                    Text("No sleep data for last night yet")
-                        .font(.footnote)
-                        .foregroundColor(AppColors.textSecondary)
-                }
-                Text("Tap to see history")
-                    .font(.caption2)
-                    .foregroundColor(AppColors.textSecondary.opacity(0.7))
-            }
-            Spacer()
-            Image(systemName: "chevron.right")
-                .font(.caption)
+        HStack(spacing: 10) {
+            Image(systemName: "moon.zzz")
+                .font(.title3)
                 .foregroundColor(AppColors.textSecondary)
+            Text("No sleep data")
+                .font(.headline)
+                .foregroundColor(AppColors.textPrimary)
+            Spacer()
         }
         .frame(maxWidth: .infinity)
-        .padding()
-        .appGlassSurface()
-    }
-
-    private var settingsPrompt: some View {
-        HStack {
-            Text("Sleep data unavailable")
-                .font(.footnote)
-                .foregroundColor(AppColors.textSecondary)
-            Spacer()
-            Button("Settings") {
-                vm.openSettings()
-            }
-            .font(.caption)
-            .foregroundColor(AppColors.accent)
-        }
-        .frame(maxWidth: .infinity)
-        .padding()
+        .padding(.vertical, 16)
+        .padding(.horizontal, AppSpacing.paddingHorizontal)
         .appGlassSurface()
     }
 
     private func sleepContent(_ sleep: HealthKitSleep) -> some View {
         VStack(spacing: 12) {
             HStack {
-                Label("Sleep", systemImage: "moon.zzz.fill")
-                    .font(.headline)
-                    .foregroundColor(AppColors.textPrimary)
+                Label(
+                    vm.showsOlderNight ? "Last recorded night" : "Sleep",
+                    systemImage: "moon.zzz.fill"
+                )
+                .font(.headline)
+                .foregroundColor(AppColors.textPrimary)
                 Spacer()
                 if let hr = sleep.heartRateAvg {
                     Label(String(format: "%.0f bpm", hr), systemImage: "heart.fill")
                         .font(.caption)
                         .foregroundColor(AppColors.textSecondary)
                 }
+            }
+
+            if vm.showsOlderNight {
+                Text(sleep.startDate.formatted(date: .abbreviated, time: .omitted))
+                    .font(.caption2)
+                    .foregroundColor(AppColors.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             HStack(spacing: 16) {

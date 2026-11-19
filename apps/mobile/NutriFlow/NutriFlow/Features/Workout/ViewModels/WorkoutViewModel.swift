@@ -24,6 +24,9 @@ final class WorkoutViewModel {
     private static let pageSize = 100
     
     private static let lastWorkoutTTL: TimeInterval = 300
+    /// Workout history changes rarely (full sync runs every 3 h), so it can be
+    /// cached longer than the latest-workout snapshot.
+    private static let historyCacheTTL: TimeInterval = 600
     private static let syncInterval: TimeInterval = 3 * 60 * 60
     private static let reconciliationInterval: TimeInterval = 24 * 60 * 60
     
@@ -845,7 +848,7 @@ final class WorkoutViewModel {
         }
         
         print(
-            "[WorkoutVM] sync \(isFull ? (firstEver ? "first full 365d" : "reconciliation 30d") : "incremental delta") window: \(start) -> \(end)"
+            "[WorkoutVM] sync \(isFull ? (firstEver ? "first full 30d" : "reconciliation 30d") : "incremental delta") window: \(start) -> \(end)"
         )
         
         let local: [HealthKitWorkout]
@@ -907,55 +910,9 @@ final class WorkoutViewModel {
             return
         }
         
-        // Ghost prune runs best-effort, separately from the sync.
-        // A failure here must not roll back the sync timestamps above:
-        // otherwise every failed prune would keep lastWorkoutSyncedAt
-        // nil and re-trigger a full 365d sync on the next run.
-        if
-            isFull,
-            let pruneStart =
-                AppDate.calendar.date(
-                    byAdding: .day,
-                    value: -Self.pruneWindowDays,
-                    to: end
-                ),
-            pruneStart >= start
-        {
-            
-            let pruneIds =
-            local
-                .filter {
-                    $0.startDate >= pruneStart
-                }
-                .map {
-                    $0.id.uuidString
-                }
-            
-            do {
-                try await workoutService.deleteMissing(
-                    from: WorkoutMapper.isoString(
-                        from: pruneStart
-                    ),
-                    to: WorkoutMapper.isoString(from: end),
-                    healthKitWorkoutIds: pruneIds
-                )
-                
-                print(
-                    "[WorkoutVM] pruned ghosts within \(Self.pruneWindowDays)d"
-                )
-            } catch {
-                print(
-                    "[WorkoutVM] prune failed: \(error) " +
-                    "(ghosts retried at next reconciliation)"
-                )
-            }
-            
-        } else {
-            
-            print(
-                "[WorkoutVM] prune skipped"
-            )
-        }
+        // Do not delete backend workouts based on an absent HealthKit result:
+        // HealthKit intentionally does not reveal a read denial or a limited
+        // authorized history, so an empty query is not proof of deletion.
     }
     
     private func loadHistory() async {
@@ -1112,7 +1069,7 @@ final class WorkoutViewModel {
                     items: mapped,
                     total: response.total
                 ),
-                ttl: Self.lastWorkoutTTL
+                ttl: Self.historyCacheTTL
             )
             
             guard historyGeneration == generation else {
@@ -1240,7 +1197,7 @@ final class WorkoutViewModel {
                     items: merged,
                     total: total
                 ),
-                ttl: Self.lastWorkoutTTL
+                ttl: Self.historyCacheTTL
             )
             
             if hasMore {
@@ -1517,13 +1474,5 @@ final class WorkoutViewModel {
             // If still disabled/unavailable, keep backend/cache data.
             await loadLatest()
         }
-    }
-    
-    func openSettings() {
-        guard let url = URL(string: UIApplication.openSettingsURLString) else {
-            return
-        }
-        
-        UIApplication.shared.open(url)
     }
 }

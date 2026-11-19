@@ -23,7 +23,6 @@ struct HomeView: View {
     @State private var navPath: [HomeNavRoute] = []
     @State private var editingFood: FoodEntry?
     @State private var foodSearchVM: FoodSearchViewModel?
-    @State private var isConnectingHealth = false
     @State private var hasLoaded = false
     @State private var categoryManagerVM: AddFoodViewModel?
     
@@ -34,19 +33,6 @@ struct HomeView: View {
         self.coordinator = coordinator
         self.tabBarState = tabBarState
         self.analyticsTracker = analyticsTracker
-    }
-    
-    private var needsHealthConnect: Bool {
-        homeViewModel.activityVM.needsHealthConnect
-        || homeViewModel.sleepVM.needsHealthConnect
-    }
-    
-    private func connectHealthKit() async {
-        isConnectingHealth = true
-        defer { isConnectingHealth = false }
-        
-        await homeViewModel.connectHealth()
-        await homeViewModel.workoutVM.loadLatest()
     }
     
     var body: some View {
@@ -169,45 +155,38 @@ struct HomeView: View {
                 )
                 .padding(.horizontal, AppSpacing.paddingHorizontal)
 
-                if needsHealthConnect {
-                    HealthKitConnectCard(isConnecting: isConnectingHealth) {
-                        await connectHealthKit()
-                    }
-                    .padding(.horizontal, AppSpacing.paddingHorizontal)
-                } else {
-                    ActivityCard(vm: homeViewModel.activityVM, stepGoal: homeViewModel.userGoals?.dailyStepsGoal, activeCaloriesGoal: homeViewModel.userGoals?.dailyActiveCaloriesGoal, onConnect: {
-                        Task { await homeViewModel.connectHealth() }
-                    }
-                    )
-                    .padding(.horizontal, AppSpacing.paddingHorizontal)
-                    LastWorkoutCard(
-                        workout: homeViewModel.workoutVM.lastWorkout,
-                        state: homeViewModel.workoutVM.lastWorkoutState,
-                        healthAccessDenied: homeViewModel.workoutVM.healthAccessDenied,
-                        onOpenSettings: {
-                            homeViewModel.workoutVM.openSettings()
-                        },
-                        onTap: {
-                            print("[Nav] tapping workout card, lastWorkout=\(homeViewModel.workoutVM.lastWorkout?.workoutType ?? "nil")")
-                            tabBarState.isTabBarHidden = true
-                            navPath.append(HomeNavRoute.workoutHistory)
-                            print("[Nav] appended workoutHistory, path=\(navPath)")
-                        },
-                        onRetry: {
-                            Task { await homeViewModel.workoutVM.loadLatest() }
-                        },
-                        weeklyWorkoutsGoal: homeViewModel.userGoals?.weeklyWorkoutsGoal,
-                        weeklyWorkoutMinutesGoal: homeViewModel.userGoals?.weeklyWorkoutMinutesGoal,
-                        weekWorkoutsCount: homeViewModel.workoutVM.weekWorkoutsCount,
-                        weekWorkoutMinutes: homeViewModel.workoutVM.weekWorkoutMinutes
-                    )
-                    .padding(.horizontal, AppSpacing.paddingHorizontal)
-                    SleepCard(vm: homeViewModel.sleepVM, onTap:  {
-                        tabBarState.isTabBarHidden = true
-                        navPath.append(HomeNavRoute.sleepHistory)
-                    }, goals: homeViewModel.userGoals)
-                    .padding(.horizontal, AppSpacing.paddingHorizontal)
+                // Each card owns its permission state. A global Connect card
+                // used to hide working activity/sleep cards whenever one
+                // feature needed access.
+                ActivityCard(vm: homeViewModel.activityVM, stepGoal: homeViewModel.userGoals?.dailyStepsGoal, activeCaloriesGoal: homeViewModel.userGoals?.dailyActiveCaloriesGoal, onConnect: {
+                    Task { await homeViewModel.connectHealth() }
                 }
+                )
+                .padding(.horizontal, AppSpacing.paddingHorizontal)
+                LastWorkoutCard(
+                    workout: homeViewModel.workoutVM.lastWorkout,
+                    state: homeViewModel.workoutVM.lastWorkoutState,
+                    healthAccessDenied: homeViewModel.workoutVM.healthAccessDenied,
+                    onTap: {
+                        print("[Nav] tapping workout card, lastWorkout=\(homeViewModel.workoutVM.lastWorkout?.workoutType ?? "nil")")
+                        tabBarState.isTabBarHidden = true
+                        navPath.append(HomeNavRoute.workoutHistory)
+                        print("[Nav] appended workoutHistory, path=\(navPath)")
+                    },
+                    onRetry: {
+                        Task { await homeViewModel.workoutVM.loadLatest() }
+                    },
+                    weeklyWorkoutsGoal: homeViewModel.userGoals?.weeklyWorkoutsGoal,
+                    weeklyWorkoutMinutesGoal: homeViewModel.userGoals?.weeklyWorkoutMinutesGoal,
+                    weekWorkoutsCount: homeViewModel.workoutVM.weekWorkoutsCount,
+                    weekWorkoutMinutes: homeViewModel.workoutVM.weekWorkoutMinutes
+                )
+                .padding(.horizontal, AppSpacing.paddingHorizontal)
+                SleepCard(vm: homeViewModel.sleepVM, onTap:  {
+                    tabBarState.isTabBarHidden = true
+                    navPath.append(HomeNavRoute.sleepHistory)
+                }, goals: homeViewModel.userGoals)
+                .padding(.horizontal, AppSpacing.paddingHorizontal)
                 FoodSectionView(
                     todayFoodVM: homeViewModel.todayFoodVM,
                     onAddFood: {
@@ -259,12 +238,13 @@ struct HomeView: View {
             await task.value
         }
         .onAppear {
+            // Health state must refresh on every return from Sleep History;
+            // only the one-time dashboard load is guarded by hasLoaded.
+            Task { await homeViewModel.onAppear() }
+
             guard !hasLoaded else { return }
             hasLoaded = true
-            Task {
-                await homeViewModel.onAppear()
-                await homeViewModel.loadAll()
-            }
+            Task { await homeViewModel.loadAll() }
         }
     }
     
@@ -452,7 +432,7 @@ extension HomeFactory {
                 cacheService: CacheService()
             )
         )
-        sleepVM.state = .loaded([HealthKitSleep(
+        let previewNight = HealthKitSleep(
             id: UUID(),
             startDate: Date().addingTimeInterval(-8 * 3600),
             endDate: Date(),
@@ -469,7 +449,10 @@ extension HomeFactory {
             efficiency: 93,
             heartRateAvg: 58,
             segments: []
-        )])
+        )
+        sleepVM.lastNight = previewNight
+        sleepVM.lastNightState = .loaded(previewNight)
+        sleepVM.state = .loaded([previewNight])
         
         let vm = HomeViewModel(
             coordinator: coordinator,

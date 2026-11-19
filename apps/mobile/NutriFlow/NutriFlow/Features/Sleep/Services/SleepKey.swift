@@ -6,8 +6,10 @@ enum SleepKey {
         AppDate.dateOnlyFormatter().string(from: date)
     }
 
+    /// Sessions are identified by their exact start/end, not by calendar day:
+    /// a nap and the following night can share a day but are separate entries.
     static func nightKey(_ night: HealthKitSleep) -> String {
-        dayKey(night.startDate)
+        night.id.uuidString
     }
 
     static func parseISODate(_ string: String) -> Date? {
