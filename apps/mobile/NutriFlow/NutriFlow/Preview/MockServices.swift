@@ -837,7 +837,7 @@ final class MockHealthKit: ActivityHealthKitServiceProtocol, WorkoutHealthKitSer
     )
     
     func requestAuthorization() async throws {}
-    func fetchToday() async -> DailyActivity? {
+    func fetchToday() async throws -> DailyActivity {
         DailyActivity(date: "", steps: 0, activeCalories: 0, basalCalories: 0, distanceMeters: 0)
     }
     func fetchRange(from startDate: Date, to endDate: Date) async throws -> [DailyActivity] {
