@@ -4,7 +4,7 @@ struct FoodSection: View {
 
     @Bindable var todayFoodVM: TodayFoodViewModel
     var onAddFood: (() -> Void)?
-    var onScan: (() -> Void)?
+    
     var onEditFood: ((FoodEntry) -> Void)?
     var onDeleteFood: ((String) -> Void)?
     var onManageCategories: (() -> Void)?
@@ -30,31 +30,25 @@ struct FoodSection: View {
             Button {
                 onManageCategories?()
             } label: {
-                Image(systemName: "tag.fill")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(AppColors.accent)
+                HStack(spacing: 5) {
+                    Image(systemName: "tag")
+                        .font(.system(size: 11, weight: .semibold))
+
+                    Text("Manage Categories")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .foregroundColor(AppColors.accent)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background {
+                    Capsule()
+                        .stroke(AppColors.accent, lineWidth: 1)
+                }
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Manage Categories")
 
-            Button {
-                onScan?()
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "camera.viewfinder")
-                        .font(.system(size: 12, weight: .bold))
-                    Text("Scan")
-                        .font(.system(size: 13, weight: .semibold))
-                }
-                .foregroundColor(AppColors.accent)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .overlay(
-                    Capsule()
-                        .stroke(AppColors.accent, lineWidth: 1.5)
-                )
-            }
-            .buttonStyle(.plain)
+            
 
             Button {
                 onAddFood?()
@@ -284,7 +278,6 @@ struct FoodSectionPreview: View {
         return FoodSection(
             todayFoodVM: todayFoodVM,
             onAddFood: {},
-            onScan: {},
             onDeleteFood: { _ in },
             onManageCategories: {}
         )
