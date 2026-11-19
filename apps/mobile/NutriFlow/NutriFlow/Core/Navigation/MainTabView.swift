@@ -46,18 +46,13 @@ struct MainTabView: View {
         self._chartVM = State(initialValue: progress.1)
         self._progressGoalsVM = State(initialValue: progress.2)
 
-        self._profileVM = State(initialValue: ProfileViewModel(
-            coordinator: coordinator,
-            authService: container.authService,
-            profileService: container.profileService,
-            userService: container.userService,
-            cacheService: container.cacheService,
-            progressRefreshState: refreshState,
-            activitySync: container.activitySync,
-            analyticsTracker: container.analyticsTracker,
-            weightReminderScheduler: container.weightReminderScheduler,
-            waterReminderScheduler: container.waterReminderScheduler
-        ))
+        self._profileVM = State(
+            initialValue: SettingsFactory.makeProfileViewModel(
+                container: container,
+                coordinator: coordinator,
+                progressRefreshState: refreshState
+            )
+        )
     }
 
     var body: some View {

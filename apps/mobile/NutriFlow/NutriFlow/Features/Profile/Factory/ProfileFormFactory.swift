@@ -8,18 +8,11 @@
 import SwiftUI
 
 enum ProfileFormFactory {
-    @MainActor @ViewBuilder
-    static func make(container: AppDependency, coordinator: AppCoordinator) -> some View {
-        let viewModel = ProfileViewModel(
-            coordinator: coordinator,
-            authService: container.authService,
-            profileService: container.profileService,
-            userService: container.userService,
-            activitySync: container.activitySync,
-            analyticsTracker: container.analyticsTracker,
-            weightReminderScheduler: container.weightReminderScheduler,
-            waterReminderScheduler: container.waterReminderScheduler
-        )
-        ProfileFormView(viewModel: viewModel)
+    @MainActor
+    static func make(
+        container: AppDependency,
+        coordinator: AppCoordinator
+    ) -> ProfileFormScreen {
+        ProfileFormScreen(container: container, coordinator: coordinator)
     }
 }
