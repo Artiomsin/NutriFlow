@@ -127,6 +127,13 @@
       "when": 1794558912915,
       "tag": "0018_foods_barcode_index",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795359782205,
+      "tag": "0019_fuzzy_ronan",
+      "breakpoints": true
     }
   ]
 }

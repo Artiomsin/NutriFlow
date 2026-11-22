@@ -13,7 +13,7 @@ struct GradientColorPicker: View {
         Color(hex: "#EAB308")!, Color(hex: "#CA8A04")!,
         Color(hex: "#84CC16")!, Color(hex: "#65A30D")!,
         Color(hex: "#22C55E")!, Color(hex: "#16A34A")!,
-        Color(hex: "#10B981")!, Color(hex: "#059669")!,
+        Color(hex: "#1A7F37")!, Color(hex: "#059669")!,
         Color(hex: "#14B8A6")!, Color(hex: "#0D9488")!,
         Color(hex: "#06B6D4")!, Color(hex: "#0891B2")!,
         Color(hex: "#0EA5E9")!, Color(hex: "#0284C7")!,
@@ -243,7 +243,7 @@ extension Color {
 }
 
 #Preview("Category color picker") {
-    @Previewable @State var color = Color(hex: "#10B981") ?? .green
+    @Previewable @State var color = Color(hex: "#1A7F37") ?? .green
 
     VStack(alignment: .leading, spacing: 12) {
         Text("Category color")

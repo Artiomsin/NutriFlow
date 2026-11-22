@@ -245,7 +245,7 @@ export class FoodService {
     if (!visible) throw new NotFoundException('Category not found');
   }
 
-  private listServings(
+  private async listServings(
     foodId: string,
     userId?: string,
     executor: Db | Transaction = this.db,
@@ -258,7 +258,8 @@ export class FoodService {
           eq(foodServings.foodId, foodId),
           this.servingVisibilityClause(userId),
         ),
-      );
+      )
+      .orderBy(foodServings.grams, foodServings.name);
   }
 
   /** Every write of a personal portion goes through the owner scope. */
@@ -1114,10 +1115,13 @@ export class FoodService {
 
   // ── Food Categories ──────────────────────────────────────────
 
-  /** Shared catalog categories plus the ones owned by the caller. */
-  /** Shared catalog categories plus the ones owned by the caller, with visible food counts. */
-  async getCategories(userId: string) {
-    const rows = await this.db
+  /**
+   * The count is computed from the foods the caller can see, not stored on the
+   * category row. Every category response goes through this query so GET and
+   * PATCH keep the same shape.
+   */
+  private categoryWithCountQuery(userId: string) {
+    return this.db
       .select({
         category: foodCategories,
         foodCount: sql<number>`count(${foods.id})::int`,
@@ -1130,8 +1134,13 @@ export class FoodService {
           this.visibilityClause(userId),
         ),
       )
+      .groupBy(foodCategories.id);
+  }
+
+  /** Shared catalog categories plus the ones owned by the caller. */
+  async getCategories(userId: string) {
+    const rows = await this.categoryWithCountQuery(userId)
       .where(this.categoryVisibilityClause(userId))
-      .groupBy(foodCategories.id)
       .orderBy(foodCategories.name);
 
     return rows.map(({ category, foodCount }) => ({
@@ -1228,7 +1237,15 @@ export class FoodService {
 
       if (!updated) throw new NotFoundException('Category not found');
 
-      return updated;
+      // UPDATE ... RETURNING cannot include the computed count, so read the
+      // updated category back with the same aggregation getCategories() uses.
+      const [withCount] = await this.categoryWithCountQuery(userId)
+        .where(this.categoryOwnershipClause(userId, id))
+        .limit(1);
+
+      if (!withCount) throw new NotFoundException('Category not found');
+
+      return { ...withCount.category, foodCount: withCount.foodCount };
     } catch (error) {
       if (patch.name && this.isUniqueViolation(error)) {
         throw this.duplicateCategoryProblem(patch.name);
@@ -1766,7 +1783,10 @@ export class FoodService {
     return { id: servingId };
   }
 
-  /** Portions are identified by name inside one product, per owner scope. */
+  /**
+   * Portions are identified by name inside the product as seen by this user:
+   * system portions and the user's own portions share one visible namespace.
+   */
   private async assertServingNameFree(
     foodId: string,
     userId: string,
@@ -1775,13 +1795,18 @@ export class FoodService {
   ) {
     const conditions = [
       eq(foodServings.foodId, foodId),
-      eq(foodServings.source, SERVING_SOURCE_USER),
-      eq(foodServings.createdBy, userId),
       eq(foodServings.name, name),
+      or(
+        eq(foodServings.source, SERVING_SOURCE_SYSTEM),
+        and(
+          eq(foodServings.source, SERVING_SOURCE_USER),
+          eq(foodServings.createdBy, userId),
+        ),
+      ),
     ];
 
     if (excludeServingId) {
-      conditions.push(sql`${foodServings.id} <> ${excludeServingId}`);
+      conditions.push(ne(foodServings.id, excludeServingId));
     }
 
     const [duplicate] = await this.db
@@ -1823,6 +1848,8 @@ export class FoodService {
             foodId: food.id,
             name: s.name,
             grams: s.grams,
+            source: SERVING_SOURCE_USER,
+            createdBy: userId,
           })),
         );
       }

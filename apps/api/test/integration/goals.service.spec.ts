@@ -7,13 +7,11 @@ import { and, eq } from 'drizzle-orm';
 import { createDb } from '../../src/db/db';
 import { DbModule } from '../../src/db/db.module';
 import { goalHistory } from '../../src/db/schema/goalHistory';
-import { goalRecommendations } from '../../src/db/schema/goalRecommendations';
 import { userGoals } from '../../src/db/schema/userGoals';
 import { userProfiles } from '../../src/db/schema/userProfiles';
 import { users } from '../../src/db/schema/users';
 import { GoalsModule } from '../../src/goals/goals.module';
 import { GoalsService } from '../../src/goals/goals.service';
-import type { GoalMetrics } from '../../src/goals/personalization/types';
 import { createTestModule } from '../utils/app';
 import { createTestDb } from '../utils/db';
 import type { TestDb, TestTx } from '../utils/db';
@@ -223,7 +221,7 @@ describe('GoalsService.resetToAutomatic', () => {
 });
 
 describe('GoalsService personalized recalculation', () => {
-  it('applies the accepted recommendation delta on the next calculation', async () => {
+  it('recalculates personalized goals from current profile on the next calculation', async () => {
     const user = await createUser(tx);
     await createProfile(tx, user.id);
     await service.calculate(user.id);
@@ -233,49 +231,9 @@ describe('GoalsService personalized recalculation', () => {
       .set({ source: 'personalized' })
       .where(eq(userGoals.userId, user.id));
 
-    const previousGoals = {
-      dailyCaloriesGoal: 2000,
-      dailyProteinGoal: null,
-      dailyFatGoal: null,
-      dailyCarbsGoal: null,
-      dailyWaterGoal: null,
-      dailyStepsGoal: null,
-      dailyActiveCaloriesGoal: null,
-      weeklyWorkoutsGoal: null,
-      weeklyWorkoutMinutesGoal: null,
-      nightlySleepMinMinutes: null,
-      nightlySleepMaxMinutes: null,
-    } as GoalMetrics;
-    const recommendedGoals = {
-      ...previousGoals,
-      dailyCaloriesGoal: 2200,
-    } as GoalMetrics;
-
-    await tx.insert(goalRecommendations).values({
-      userId: user.id,
-      status: 'accepted',
-      acceptedAt: new Date(),
-      previousGoals,
-      recommendedGoals,
-      analysisPeriodStart: '2026-01-01',
-      analysisPeriodEnd: '2026-01-14',
-      confidence: {
-        level: 'medium',
-        dataQualityScore: 0.5,
-        trackedDays: 10,
-        weightLogsCount: 2,
-        activityDays: 5,
-        workoutCount: 2,
-        sleepNights: 5,
-        adherenceStepsPct: null,
-        weightTrendKgPerWeek: null,
-      },
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    });
-
     const goals = (await service.calculate(user.id))!;
     expect(goals.source).toBe('personalized');
-    expect(goals.dailyCaloriesGoal).toBe(2959);
+    expect(goals.dailyCaloriesGoal).toBe(2759);
   });
 });
 
@@ -509,5 +467,97 @@ describe('GoalsService.getHistory', () => {
     expect(tokyo.items.map((item) => item.goal.dailyCaloriesGoal)).toEqual([
       2000,
     ]);
+  });
+});
+
+describe('GoalsService preview and manual suggestion flow', () => {
+  it('preview returns recommended metrics, basis and planned ETA for measurable goal', async () => {
+    const user = await createUser(tx);
+    await createProfile(tx, user.id, {
+      weight: 80,
+      height: 170,
+      age: 30,
+      gender: 'female',
+      goal: 'lose',
+      activityLevel: 'medium',
+      targetWeightKg: 72,
+      weeklyRateKg: null,
+      targetDate: null,
+    });
+
+    const preview = await service.preview(user.id);
+
+    expect(preview.mode).toBe('auto');
+    expect(typeof preview.recommended.dailyCaloriesGoal).toBe('number');
+    expect(typeof preview.recommended.dailyProteinGoal).toBe('number');
+    expect(preview.calories.paceSource).toBe('recommended_default');
+    expect(preview.estimatedCompletion).not.toBeNull();
+    expect(preview.estimatedCompletion?.isApproximate).toBe(true);
+    expect(typeof preview.estimatedCompletion?.plannedDate).toBe('string');
+  });
+
+  it('stores manual suggestion on calculate and supports partial suggestion apply', async () => {
+    const user = await createUser(tx);
+    await createProfile(tx, user.id, {
+      weight: 80,
+      height: 170,
+      age: 30,
+      gender: 'female',
+      goal: 'lose',
+      activityLevel: 'medium',
+    });
+
+    await service.update(user.id, { dailyCaloriesGoal: 2300 });
+    const recalculated = (await service.calculate(user.id))!;
+
+    expect(recalculated.mode).toBe('manual');
+    expect(recalculated.suggestedGoals).toBeTruthy();
+
+    const applied = (await service.applySuggestion(user.id, [
+      'dailyWaterGoal',
+    ]))!;
+
+    expect(applied.mode).toBe('manual');
+    expect(applied.dailyCaloriesGoal).toBe(2300);
+    // Partial apply may keep remaining suggested fields that still differ.
+    if (applied.suggestedGoals != null) {
+      expect(typeof applied.suggestedGoals).toBe('object');
+    }
+  });
+});
+
+describe('GoalsService.startNewCycle', () => {
+  it('starts a maintain cycle with target range and reapplies goals', async () => {
+    const user = await createUser(tx);
+    await createProfile(tx, user.id, {
+      weight: 80,
+      height: 170,
+      age: 30,
+      gender: 'female',
+      goal: 'lose',
+      activityLevel: 'medium',
+      targetWeightKg: 72,
+    });
+    await service.calculate(user.id);
+
+    const goals = await service.startNewCycle(user.id, {
+      action: 'maintain',
+      goal: 'maintain',
+      targetWeightMinKg: 79,
+      targetWeightMaxKg: 81,
+      targetWeightKg: 80,
+    });
+
+    expect(goals).toBeTruthy();
+
+    const [profile] = await tx
+      .select()
+      .from(userProfiles)
+      .where(eq(userProfiles.userId, user.id));
+    expect(profile).toBeTruthy();
+    expect(profile!.goal).toBe('maintain');
+    expect(Number(profile!.targetWeightMinKg)).toBe(79);
+    expect(Number(profile!.targetWeightMaxKg)).toBe(81);
+    expect(Number(profile!.targetWeightKg)).toBe(80);
   });
 });

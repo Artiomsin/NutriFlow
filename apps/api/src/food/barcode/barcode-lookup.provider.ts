@@ -22,6 +22,7 @@ export interface BarcodeProduct {
     readonly id: string;
     readonly name: string;
     readonly grams: number;
+    readonly source?: string;
   }>;
 }
 

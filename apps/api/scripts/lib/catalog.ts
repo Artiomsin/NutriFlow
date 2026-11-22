@@ -208,13 +208,27 @@ export async function seedDatabase(
         for (const row of rows) foodIds.set(row.name, row.id);
       }
 
-      // Refresh servings for every catalog food (replace, not append).
+      // Refresh only the catalog-owned servings for every catalog food.
+      // Personal servings that users added to these foods must survive reseed.
       const allIds = [...foodIds.values()];
       for (const part of chunk(allIds, 500)) {
-        await tx.delete(foodServings).where(inArray(foodServings.foodId, part));
+        await tx
+          .delete(foodServings)
+          .where(
+            and(
+              inArray(foodServings.foodId, part),
+              eq(foodServings.source, 'system'),
+            ),
+          );
       }
 
-      const servingRows: { foodId: string; name: string; grams: number }[] = [];
+      const servingRows: {
+        foodId: string;
+        name: string;
+        grams: number;
+        source: 'system';
+        createdBy: null;
+      }[] = [];
       for (const dish of dishes) {
         const foodId = foodIds.get(dish.name);
         if (!foodId) continue;
@@ -225,6 +239,8 @@ export async function seedDatabase(
             foodId,
             name: serving.name,
             grams: serving.grams,
+            source: 'system',
+            createdBy: null,
           });
         }
       }

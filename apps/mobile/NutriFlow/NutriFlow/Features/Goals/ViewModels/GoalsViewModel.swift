@@ -353,7 +353,7 @@ final class GoalsViewModel {
             await cacheService?.remove("summary_today")
             await cacheService?.removeByPrefix("chart_summaries")
             await cacheService?.removeByPrefix("analytics_")
-            progressRefreshState?.invalidate()
+            progressRefreshState?.invalidateGoals()
             return true
         } catch {
             let mapped = ErrorMapper.map(error)
@@ -475,7 +475,7 @@ final class GoalsViewModel {
             await cacheService?.remove("summary_today")
             await cacheService?.removeByPrefix("chart_summaries")
             await cacheService?.removeByPrefix("analytics_")
-            progressRefreshState?.invalidate()
+            progressRefreshState?.invalidateGoals()
             return true
         } catch {
             switch ErrorHandler.handle(
@@ -517,7 +517,7 @@ final class GoalsViewModel {
             await cacheService?.remove("summary_today")
             await cacheService?.removeByPrefix("chart_summaries")
             await cacheService?.removeByPrefix("analytics_")
-            progressRefreshState?.invalidate()
+            progressRefreshState?.invalidateGoals()
             return true
         } catch {
             let mapped = ErrorMapper.map(error)

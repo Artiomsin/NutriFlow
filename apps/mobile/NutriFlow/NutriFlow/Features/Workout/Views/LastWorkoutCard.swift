@@ -26,7 +26,7 @@ struct LastWorkoutCard: View {
         } else if state == .loading, workout == nil {
             workoutSkeleton
                 .appGlassSurface(level: .prominent)
-                .modifier(SkeletonShimmer())
+                .skeletonShimmer()
         } else {
             workoutContent
         }
@@ -150,46 +150,6 @@ struct LastWorkoutCard: View {
         .accessibilityLabel("Loading workout data")
     }
 
-    private struct SkeletonShimmer: ViewModifier {
-        @State private var isAnimating = false
-
-        func body(content: Content) -> some View {
-            content
-                .overlay {
-                    GeometryReader { geometry in
-                        Rectangle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        .clear,
-                                        .white.opacity(0.10),
-                                        .clear
-                                    ],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .frame(width: geometry.size.width * 0.5)
-                            .offset(
-                                x: isAnimating
-                                    ? geometry.size.width
-                                    : -geometry.size.width
-                            )
-                    }
-                    .clipped()
-                    .allowsHitTesting(false)
-                }
-                .onAppear {
-                    withAnimation(
-                        .linear(duration: 1.4)
-                            .repeatForever(autoreverses: false)
-                    ) {
-                        isAnimating = true
-                    }
-                }
-        }
-    }
-    
     private var activityGoalSkeleton: some View {
         HStack(spacing: 10) {
             // Progress column: 46 × 70

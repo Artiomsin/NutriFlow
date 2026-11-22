@@ -3,8 +3,6 @@ import SwiftUI
 
 struct DailySummarySkeletonView: View {
 
-    @State private var isAnimating = false
-
     private let skeletonColor = AppColors.textSecondary.opacity(0.12)
 
     var body: some View {
@@ -32,18 +30,7 @@ struct DailySummarySkeletonView: View {
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .appGlassSurface(level: .prominent)
-        .overlay {
-            shimmerOverlay
-        }
-        .clipShape(RoundedRectangle(cornerRadius: AppRadius.large))
-        .onAppear {
-            withAnimation(
-                .linear(duration: 1.4)
-                    .repeatForever(autoreverses: false)
-            ) {
-                isAnimating = true
-            }
-        }
+        .skeletonShimmer()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Loading daily summary")
     }
@@ -81,26 +68,5 @@ struct DailySummarySkeletonView: View {
             .frame(width: width, height: height)
     }
 
-
-    private var shimmerOverlay: some View {
-        GeometryReader { geometry in
-            LinearGradient(
-                colors: [
-                    .clear,
-                    Color.white.opacity(0.18),
-                    .clear
-                ],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-            .frame(width: geometry.size.width * 0.5)
-            .offset(
-                x: isAnimating
-                    ? geometry.size.width
-                    : -geometry.size.width * 0.5
-            )
-        }
-        .allowsHitTesting(false)
-    }
 }
 

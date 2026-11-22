@@ -648,7 +648,7 @@ final class ProgressChartViewModel {
             await cacheService?.remove("goals")
             await invalidateWeightLogsCache()
             await loadWeightSummary()
-            progressRefreshState?.invalidate()
+            progressRefreshState?.invalidateGoalsRequiringManualDecision()
         } catch {
             routeAuth(ErrorMapper.map(error))
             throw error
@@ -667,7 +667,12 @@ final class ProgressChartViewModel {
             await invalidateWeightLogsCache()
             await loadWeightSummary()
             await loadWeightHistory()
-            progressRefreshState?.invalidate()
+
+            if date == AppDate.dateOnlyFormatter().string(from: .now) {
+                progressRefreshState?.invalidateGoalsRequiringManualDecision()
+            } else {
+                progressRefreshState?.invalidateGoals()
+            }
         } catch {
             routeAuth(ErrorMapper.map(error))
             throw error

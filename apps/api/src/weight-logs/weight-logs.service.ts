@@ -69,9 +69,11 @@ export class WeightLogsService {
           .set({ weight: data.weightKg, updatedAt: new Date() })
           .where(eq(userProfiles.userId, userId));
 
-        // Custom/personalized targets remain protected by GoalsService; only
-        // calculated fields are adjusted for the newly recorded current weight.
-        await this.goalsService.calculate(userId, tx);
+        // Recalculate in mode-aware way: auto applies, manual stores suggestion.
+        await this.goalsService.calculate(userId, tx, {
+          reason: 'weight_changed',
+          trigger: 'weight_changed',
+        });
       }
       return recorded;
     });
@@ -152,11 +154,52 @@ export class WeightLogsService {
             .update(userProfiles)
             .set({ weight: Number(previous.weightKg), updatedAt: new Date() })
             .where(eq(userProfiles.userId, userId));
-          await this.goalsService.calculate(userId, tx);
+          await this.goalsService.calculate(userId, tx, {
+            reason: 'weight_changed',
+            trigger: 'weight_changed',
+          });
         }
       }
     });
 
     return { message: 'Weight log removed' };
+  }
+
+  async makeCurrent(userId: string, date: string) {
+    return this.db.transaction(async (tx) => {
+      const [profile] = await tx
+        .select({ timeZone: userProfiles.timeZone })
+        .from(userProfiles)
+        .where(eq(userProfiles.userId, userId))
+        .limit(1);
+      if (!profile) throw new NotFoundException('Profile not found');
+
+      const [log] = await tx
+        .select({
+          id: weightLogs.id,
+          weightKg: sql<number>`${weightLogs.weightKg}::float8`,
+          entryDate: weightLogs.entryDate,
+          source: weightLogs.source,
+        })
+        .from(weightLogs)
+        .where(
+          and(eq(weightLogs.userId, userId), eq(weightLogs.entryDate, date)),
+        )
+        .limit(1);
+      if (!log) throw new NotFoundException('Weight record not found');
+
+      const weight = Number(log.weightKg);
+      await tx
+        .update(userProfiles)
+        .set({ weight, updatedAt: new Date() })
+        .where(eq(userProfiles.userId, userId));
+
+      await this.goalsService.calculate(userId, tx, {
+        reason: 'weight_changed',
+        trigger: 'weight_changed',
+      });
+
+      return { ...log, madeCurrent: true, weightKg: weight };
+    });
   }
 }

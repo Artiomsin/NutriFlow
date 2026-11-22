@@ -64,7 +64,7 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
             query.append(URLQueryItem(name: "to", value: to))
         }
         let request = APIRequest<NeverBody>(
-            path: WeightLogEndpoints.create,
+            path: WeightLogEndpoints.list,
             method: .GET,
             queryItems: query
         )
@@ -77,7 +77,7 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
         }
 
         let request = APIRequest(
-            path: WeightLogEndpoints.list,
+            path: WeightLogEndpoints.create,
             method: .POST,
             body: RecordWeightRequest(weightKg: weightKg)
         )

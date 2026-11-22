@@ -5,16 +5,45 @@ import {
   numeric,
   varchar,
   timestamp,
+  jsonb,
   check,
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { users } from './users';
 import { sql } from 'drizzle-orm';
+import type { GoalMetrics } from '../../goals/personalization/types';
 
 const app = pgSchema('app');
 
 export type GoalSource = 'initial' | 'user' | 'personalized';
+export type GoalMode = 'auto' | 'manual';
+
+export type GoalMetricKey = keyof GoalMetrics;
+
+export interface ManualGoalOverride {
+  value: number;
+  setAt: string;
+}
+
+export type ManualGoalOverrides = Partial<
+  Record<GoalMetricKey, ManualGoalOverride>
+>;
+
+export interface GoalSuggestion {
+  goals: GoalMetrics;
+  reason: string;
+  suggestedAt: string;
+  basis?: Record<string, unknown> | null;
+}
+
+export interface GoalAppliedBasis {
+  currentWeightKg?: number | null;
+  profile?: Record<string, unknown> | null;
+  target?: Record<string, unknown> | null;
+  [key: string]: unknown;
+}
+
 export const userGoals = app.table(
   'user_goals',
   {
@@ -57,12 +86,26 @@ export const userGoals = app.table(
     nightlySleepMinMinutes: integer('nightly_sleep_min_minutes'),
     nightlySleepMaxMinutes: integer('nightly_sleep_max_minutes'),
 
+    mode: varchar('mode', { length: 10 })
+      .$type<GoalMode>()
+      .default('auto')
+      .notNull(),
+
     source: varchar('source', { length: 20 })
       .$type<GoalSource>()
       .default('initial'),
     // Why this version replaced the previous one. Nullable because versions
     // created before the column existed have no reason recorded.
     changeReason: varchar('change_reason', { length: 100 }),
+
+    // Pending auto-calculated suggestion for manual mode (or informational).
+    suggestedGoals: jsonb('suggested_goals').$type<GoalMetrics>(),
+    suggestionReason: varchar('suggestion_reason', { length: 100 }),
+    suggestedAt: timestamp('suggested_at', { withTimezone: true }),
+    suggestionBasis: jsonb('suggestion_basis').$type<Record<string, unknown>>(),
+    appliedBasis: jsonb('applied_basis').$type<GoalAppliedBasis>(),
+    manualOverrides: jsonb('manual_overrides').$type<ManualGoalOverrides>(),
+
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()
@@ -96,6 +139,10 @@ export const userGoals = app.table(
     sourceValues: check(
       'user_goals_source_values',
       sql`${table.source} IN ('initial', 'user', 'personalized')`,
+    ),
+    modeValues: check(
+      'user_goals_mode_values',
+      sql`${table.mode} IN ('auto', 'manual')`,
     ),
     userIdIdx: index('idx_user_goals_user_id').on(table.userId),
 

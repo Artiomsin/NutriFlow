@@ -20,7 +20,7 @@ struct CategoryEditorView: View {
 
         _name = State(initialValue: category.name)
         _icon = State(initialValue: category.icon ?? FoodCategoryIcons.defaultIcon)
-        _selectedColor = State(initialValue: Color(hex: category.color ?? "#10B981") ?? AppColors.accent)
+        _selectedColor = State(initialValue: Color(hex: category.color ?? "#1A7F37") ?? AppColors.accent)
     }
 
     private var trimmedName: String {
@@ -110,7 +110,7 @@ struct CategoryEditorView: View {
                 category,
                 name: trimmedName,
                 icon: icon,
-                color: selectedColor.toHex() ?? "#10B981"
+                color: selectedColor.toHex() ?? "#1A7F37"
             ) {
                 dismiss()
             }
