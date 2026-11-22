@@ -11,6 +11,7 @@ function setup() {
     record: mock(async () => ({ userId: 'user-1' })),
     findByRange: mock(async () => []),
     remove: mock(async () => ({ userId: 'user-1' })),
+    makeCurrent: mock(async () => ({ userId: 'user-1' })),
   };
 
   return {
@@ -43,6 +44,15 @@ describe('WeightLogsController', () => {
       to: '2026-01-31',
     });
     expect(weightLogsService.remove).toHaveBeenCalledWith(
+      'user-1',
+      '2026-01-05',
+    );
+  });
+
+  it('delegates make-current', async () => {
+    const { controller, weightLogsService } = setup();
+    await controller.makeCurrent(user, { date: '2026-01-05' } as any);
+    expect(weightLogsService.makeCurrent).toHaveBeenCalledWith(
       'user-1',
       '2026-01-05',
     );
