@@ -90,7 +90,11 @@ describe('FoodService.createFood / createCategory', () => {
 
     expect(food.source).toBe('user');
     expect(food.servings).toHaveLength(1);
-    expect(food.servings[0]?.grams).toBe(40);
+    expect(food.servings[0]).toMatchObject({
+      grams: 40,
+      source: 'user',
+      createdBy: user.id,
+    });
   });
 
   it('creates a personal category and rejects a duplicate name', async () => {

@@ -692,4 +692,81 @@ describe('FoodService servings', () => {
     expect(serving?.source).toBe('user');
     expect(serving?.createdBy).toBe(user.id);
   });
+
+  it('keeps user portions on a system food alongside system portions', async () => {
+    const user = await createUser(tx);
+    const food = await createCatalogFood(tx, {
+      name: 'Rice',
+      source: 'system',
+    });
+    await addCatalogServing(food.id, '100 g', 100);
+
+    await service.addServing(user.id, food.id, {
+      name: 'My bowl',
+      grams: 180,
+    });
+
+    const result = await service.getById(food.id, user.id);
+    expect(result.servings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: '100 g', source: 'system' }),
+        expect.objectContaining({
+          name: 'My bowl',
+          source: 'user',
+          createdBy: user.id,
+        }),
+      ]),
+    );
+  });
+
+  it('rejects a user serving name that conflicts with a visible system serving', async () => {
+    const user = await createUser(tx);
+    const food = await createCatalogFood(tx, {
+      name: 'Buckwheat',
+      source: 'system',
+    });
+    await addCatalogServing(food.id, '100 g', 100);
+
+    await expect(
+      service.addServing(user.id, food.id, { name: '100 g', grams: 150 }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('keeps a personal serving on a system food private and system servings read-only', async () => {
+    const owner = await createUser(tx);
+    const other = await createUser(tx);
+    const food = await createCatalogFood(tx, {
+      name: 'Pasta',
+      source: 'system',
+    });
+    const systemServing = await addCatalogServing(food.id, 'plate', 250);
+    const ownServing = await service.addServing(owner.id, food.id, {
+      name: 'my plate',
+      grams: 200,
+    });
+
+    const ownerView = await service.getById(food.id, owner.id);
+    expect(ownerView.servings.map((s) => s.name).sort()).toEqual([
+      'my plate',
+      'plate',
+    ]);
+
+    const otherView = await service.getById(food.id, other.id);
+    expect(otherView.servings.map((s) => s.name)).toEqual(['plate']);
+
+    await expect(
+      service.updateServing(other.id, food.id, ownServing.id, { grams: 300 }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.removeServing(other.id, food.id, ownServing.id),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.updateServing(owner.id, food.id, systemServing.id, {
+        grams: 300,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.removeServing(owner.id, food.id, systemServing.id),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
 });
