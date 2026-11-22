@@ -47,6 +47,15 @@ export class WeightLogsController {
     return this.weightLogsService.findByRange(user.userId, query);
   }
 
+  @Post(':date/make-current')
+  makeCurrent(
+    @User() user: AuthPayload,
+    @Param(new ZodValidationPipe(weightLogDateParamSchema))
+    params: WeightLogDateParamDto,
+  ) {
+    return this.weightLogsService.makeCurrent(user.userId, params.date);
+  }
+
   @Delete(':date')
   remove(
     @User() user: AuthPayload,
