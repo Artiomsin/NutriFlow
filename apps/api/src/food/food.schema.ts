@@ -134,8 +134,8 @@ export const createFoodSchema = z.object({
   servings: z
     .array(
       z.object({
-        name: z.string().min(1).max(100),
-        grams: gramsNumber,
+        name: z.string().trim().min(1).max(100),
+        grams: gramsNumber.refine((value) => value > 0),
       }),
     )
     .optional(),

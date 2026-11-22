@@ -113,9 +113,10 @@ export class LocalDatabaseBarcodeProvider extends BarcodeLookupProvider {
         id: foodServings.id,
         name: foodServings.name,
         grams: foodServings.grams,
+        source: foodServings.source,
       })
       .from(foodServings)
       .where(and(eq(foodServings.foodId, foodId), visibility))
-      .orderBy(foodServings.grams);
+      .orderBy(foodServings.grams, foodServings.name);
   }
 }

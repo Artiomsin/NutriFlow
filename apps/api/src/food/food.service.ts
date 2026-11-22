@@ -245,7 +245,7 @@ export class FoodService {
     if (!visible) throw new NotFoundException('Category not found');
   }
 
-  private listServings(
+  private async listServings(
     foodId: string,
     userId?: string,
     executor: Db | Transaction = this.db,
@@ -258,7 +258,8 @@ export class FoodService {
           eq(foodServings.foodId, foodId),
           this.servingVisibilityClause(userId),
         ),
-      );
+      )
+      .orderBy(foodServings.grams, foodServings.name);
   }
 
   /** Every write of a personal portion goes through the owner scope. */
@@ -1782,7 +1783,10 @@ export class FoodService {
     return { id: servingId };
   }
 
-  /** Portions are identified by name inside one product, per owner scope. */
+  /**
+   * Portions are identified by name inside the product as seen by this user:
+   * system portions and the user's own portions share one visible namespace.
+   */
   private async assertServingNameFree(
     foodId: string,
     userId: string,
@@ -1791,13 +1795,18 @@ export class FoodService {
   ) {
     const conditions = [
       eq(foodServings.foodId, foodId),
-      eq(foodServings.source, SERVING_SOURCE_USER),
-      eq(foodServings.createdBy, userId),
       eq(foodServings.name, name),
+      or(
+        eq(foodServings.source, SERVING_SOURCE_SYSTEM),
+        and(
+          eq(foodServings.source, SERVING_SOURCE_USER),
+          eq(foodServings.createdBy, userId),
+        ),
+      ),
     ];
 
     if (excludeServingId) {
-      conditions.push(sql`${foodServings.id} <> ${excludeServingId}`);
+      conditions.push(ne(foodServings.id, excludeServingId));
     }
 
     const [duplicate] = await this.db
@@ -1839,6 +1848,8 @@ export class FoodService {
             foodId: food.id,
             name: s.name,
             grams: s.grams,
+            source: SERVING_SOURCE_USER,
+            createdBy: userId,
           })),
         );
       }
