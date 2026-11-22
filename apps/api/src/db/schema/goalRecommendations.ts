@@ -18,7 +18,10 @@ export type RecommendationStatus =
   | 'pending'
   | 'accepted'
   | 'dismissed'
-  | 'expired';
+  | 'expired'
+  | 'no_change'
+  | 'collect_data'
+  | 'insufficient_data';
 
 export interface RecommendationConfidence {
   level: 'low' | 'medium' | 'high';
