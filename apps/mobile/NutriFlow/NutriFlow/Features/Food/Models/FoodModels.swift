@@ -233,12 +233,48 @@ extension FoodSearchResponse {
     }
 }
 
+enum FoodServingSource: String, Codable, Sendable {
+    case system
+    case user
+}
+
+struct CreateFoodServingRequest: Encodable, Sendable {
+    let name: String
+    let grams: Double
+}
+
+struct UpdateFoodServingRequest: Encodable, Sendable {
+    let name: String?
+    let grams: Double?
+
+    private enum CodingKeys: String, CodingKey {
+        case name
+        case grams
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(name, forKey: .name)
+        try container.encodeIfPresent(grams, forKey: .grams)
+    }
+}
+
+struct DeleteFoodServingResponse: Decodable, Sendable {
+    let id: String
+}
+
 struct FoodServing: Codable, Identifiable, Hashable, Sendable {
     let id: String
     let foodId: String
     let name: String
     let grams: Double
+    var source: FoodServingSource = .system
+    var createdBy: String? = nil
     let createdAt: String?
+
+    var isPersonal: Bool {
+        source == .user
+    }
 }
 
 extension FoodServing {
@@ -247,6 +283,8 @@ extension FoodServing {
         case foodId
         case name
         case grams
+        case source
+        case createdBy
         case createdAt
     }
 
@@ -259,6 +297,8 @@ extension FoodServing {
         foodId = try container.decodeIfPresent(String.self, forKey: .foodId) ?? ""
         name = try container.decode(String.self, forKey: .name)
         grams = try container.decode(Double.self, forKey: .grams)
+        source = try container.decodeIfPresent(FoodServingSource.self, forKey: .source) ?? .system
+        createdBy = try container.decodeIfPresent(String.self, forKey: .createdBy)
         createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
     }
 }

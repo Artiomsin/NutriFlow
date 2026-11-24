@@ -168,6 +168,41 @@ final class MockFoodService: FoodServiceProtocol {
     func createCatalogFood(_ request: CreateCatalogFoodRequest) async throws -> CatalogFood {
         CatalogFood(id: UUID().uuidString, name: request.name, categoryId: request.categoryId, categoryName: nil, brand: nil, caloriesPer100g: request.caloriesPer100g, proteinPer100g: request.proteinPer100g, fatPer100g: request.fatPer100g, carbsPer100g: request.carbsPer100g, barcode: request.barcode, imageUrl: request.imageUrl, source: "user", createdBy: nil, createdAt: "", updatedAt: "", servings: request.servings?.map { FoodServing(id: UUID().uuidString, foodId: "", name: $0.name, grams: $0.grams, createdAt: nil) })
     }
+    func createServing(
+        foodID: String,
+        name: String,
+        grams: Double
+    ) async throws -> FoodServing {
+        FoodServing(
+            id: UUID().uuidString,
+            foodId: foodID,
+            name: name,
+            grams: grams,
+            source: .user,
+            createdBy: "1",
+            createdAt: nil
+        )
+    }
+
+    func updateServing(
+        foodID: String,
+        servingID: String,
+        name: String?,
+        grams: Double?
+    ) async throws -> FoodServing {
+        FoodServing(
+            id: servingID,
+            foodId: foodID,
+            name: name ?? "Serving",
+            grams: grams ?? 100,
+            source: .user,
+            createdBy: "1",
+            createdAt: nil
+        )
+    }
+
+    func deleteServing(foodID: String, servingID: String) async throws { }
+
     func getCategories() async throws -> [FoodCategory] {
         [
             FoodCategory(id: "system-fruits", name: "Fruits", icon: "leaf.fill", color: "#84CC16", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 5),
