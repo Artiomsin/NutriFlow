@@ -151,7 +151,7 @@ final class GoalsService: GoalsServiceProtocol, Sendable {
         return try await client.send(request)
     }
     
-    func acceptRecommendation(id: String) async throws -> GoalMetrics {
+    func acceptRecommendation(id: String) async throws -> UserGoals {
         let request = APIRequest<NeverBody>(
             path: GoalsEndpoints.acceptRecommendation(id: id),
             method: .POST

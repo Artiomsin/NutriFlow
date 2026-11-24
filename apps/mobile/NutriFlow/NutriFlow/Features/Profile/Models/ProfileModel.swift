@@ -110,14 +110,44 @@ struct CreateProfileRequest: Encodable, Sendable {
     let goal: Goal
     let activityLevel: ActivityLevel
     let preferredUnits: PreferredUnits?
-    let timeZone: String = TimeZone.current.identifier
+    let timeZone: String
+    let targetWeightKg: Double?
+    let targetWeightMinKg: Double?
+    let targetWeightMaxKg: Double?
+    let weeklyRateKg: Double?
+    let targetDate: String?
+    let goalStartedAt: String?
 
-    let targetWeightKg: Double? = nil
-    let targetWeightMinKg: Double? = nil
-    let targetWeightMaxKg: Double? = nil
-    let weeklyRateKg: Double? = nil
-    let targetDate: String? = nil
-    let goalStartedAt: String? = nil
+    init(
+        weight: Double,
+        height: Int,
+        age: Int,
+        gender: Gender,
+        goal: Goal,
+        activityLevel: ActivityLevel,
+        preferredUnits: PreferredUnits?,
+        targetWeightKg: Double? = nil,
+        targetWeightMinKg: Double? = nil,
+        targetWeightMaxKg: Double? = nil,
+        weeklyRateKg: Double? = nil,
+        targetDate: String? = nil,
+        goalStartedAt: String? = nil
+    ) {
+        self.weight = weight
+        self.height = height
+        self.age = age
+        self.gender = gender
+        self.goal = goal
+        self.activityLevel = activityLevel
+        self.preferredUnits = preferredUnits
+        self.timeZone = TimeZone.current.identifier
+        self.targetWeightKg = targetWeightKg
+        self.targetWeightMinKg = targetWeightMinKg
+        self.targetWeightMaxKg = targetWeightMaxKg
+        self.weeklyRateKg = weeklyRateKg
+        self.targetDate = targetDate
+        self.goalStartedAt = goalStartedAt
+    }
 }
 
 struct UpdateProfileRequest: Encodable, Sendable {

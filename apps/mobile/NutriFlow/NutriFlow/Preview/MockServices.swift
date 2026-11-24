@@ -349,8 +349,8 @@ final class MockProfileService: ProfileServiceProtocol {
     func getMyProfile() async throws -> UserProfile {
         UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: 82, height: 183, age: 24, gender: .male, goal: .gain, activityLevel: .high, preferredUnits: nil, timeZone: TimeZone.current.identifier, createdAt: nil, updatedAt: nil)
     }
-    func createProfile(weight: Double, height: Int, age: Int, gender: Gender, goal: Goal, activityLevel: ActivityLevel, preferredUnits: PreferredUnits? = nil) async throws -> UserProfile {
-        UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: weight, height: height, age: age, gender: gender, goal: goal, activityLevel: activityLevel, preferredUnits: preferredUnits, timeZone: TimeZone.current.identifier, createdAt: nil, updatedAt: nil)
+    func createProfile(weight: Double, height: Int, age: Int, gender: Gender, goal: Goal, activityLevel: ActivityLevel, preferredUnits: PreferredUnits? = nil, goalPlan: UpdateGoalPlanRequest? = nil) async throws -> UserProfile {
+        UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: weight, height: height, age: age, gender: gender, goal: goal, targetWeightKg: goalPlan?.targetWeightKg, targetWeightMinKg: goalPlan?.targetWeightMinKg, targetWeightMaxKg: goalPlan?.targetWeightMaxKg, weeklyRateKg: goalPlan?.weeklyRateKg, targetDate: goalPlan?.targetDate, goalStartedAt: goalPlan?.goalStartedAt, activityLevel: activityLevel, preferredUnits: preferredUnits, timeZone: TimeZone.current.identifier, createdAt: nil, updatedAt: nil)
     }
     func updateMyProfile(height: Int?, age: Int?, gender: Gender?, goal: Goal?, activityLevel: ActivityLevel?, preferredUnits: PreferredUnits? = nil) async throws -> UserProfile {
         UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: 82, height: height, age: age, gender: gender, goal: goal, activityLevel: activityLevel, preferredUnits: preferredUnits, timeZone: TimeZone.current.identifier, createdAt: nil, updatedAt: nil)
@@ -578,20 +578,8 @@ final class MockGoalsService: GoalsServiceProtocol {
         DismissResult(dismissed: true)
     }
     
-    func acceptRecommendation(id: String) async throws -> GoalMetrics {
-        GoalMetrics(
-            dailyCaloriesGoal: 2200,
-            dailyProteinGoal: 150,
-            dailyFatGoal: 65,
-            dailyCarbsGoal: 250,
-            dailyWaterGoal: 3000,
-            dailyStepsGoal: 8000,
-            dailyActiveCaloriesGoal: 500,
-            weeklyWorkoutsGoal: 5,
-            weeklyWorkoutMinutesGoal: 155,
-            nightlySleepMinMinutes: 234,
-            nightlySleepMaxMinutes: 500
-        )
+    func acceptRecommendation(id: String) async throws -> UserGoals {
+        try await getGoals()
     }
     
     func getGoalHistory(

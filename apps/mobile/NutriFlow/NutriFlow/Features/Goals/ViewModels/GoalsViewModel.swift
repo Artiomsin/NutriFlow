@@ -10,6 +10,10 @@ final class GoalsViewModel {
     var saveError: AppError?
     var fieldErrors = FormFieldErrors()
     var historyError: AppError?
+    var preview: GoalsPreview?
+    var previewError: AppError?
+    var isLoadingPreview = false
+    var isUpdatingGoals = false
     var isProcessingPersonalization = false
     /// Goals active at the end of the selected Progress period.
     var periodGoals: UserGoals?
@@ -24,6 +28,7 @@ final class GoalsViewModel {
     @ObservationIgnored private var periodGoalsLoadKey: String?
     @ObservationIgnored private var periodGoalsLoadGeneration = 0
     @ObservationIgnored private var loadedPeriodGoalsKey: String?
+    @ObservationIgnored private var previewLoadGeneration = 0
 
     init(coordinator: AppCoordinator, service: GoalsServiceProtocol, cacheService: CacheService? = nil, progressRefreshState: ProgressRefreshState? = nil) {
         print("GoalsViewModel init")
@@ -58,6 +63,9 @@ final class GoalsViewModel {
 
         if generation == goalLoadGeneration {
             goalLoadTask = nil
+            // Preview is a companion to the current goal state, so it is refreshed
+            // whenever callers load goals rather than waiting for the future UI.
+            await loadGoalsPreview(forceRefresh: forceRefresh)
         }
     }
 
@@ -107,6 +115,51 @@ final class GoalsViewModel {
                 state = .error(mapped)
             }
         }
+    }
+
+    func loadGoalsPreview(forceRefresh: Bool = false) async {
+        let cacheKey = "goals_preview"
+        previewLoadGeneration &+= 1
+        let generation = previewLoadGeneration
+
+        if forceRefresh {
+            await cacheService?.remove(cacheKey)
+        } else if let cached: GoalsPreview = try? await cacheService?.get(cacheKey) {
+            preview = cached
+            previewError = nil
+            return
+        }
+
+        isLoadingPreview = true
+        defer {
+            if generation == previewLoadGeneration {
+                isLoadingPreview = false
+            }
+        }
+
+        do {
+            let loaded = try await service.getGoalsPreview()
+            guard generation == previewLoadGeneration else { return }
+            preview = loaded
+            previewError = nil
+            try? await cacheService?.set(cacheKey, loaded, ttl: 300)
+        } catch is CancellationError {
+            return
+        } catch {
+            guard generation == previewLoadGeneration else { return }
+            let mapped = ErrorMapper.map(error)
+            routeAuth(mapped)
+            if let stale: GoalsPreview = try? await cacheService?.get(cacheKey, ignoreTTL: true) {
+                preview = stale
+                previewError = nil
+            } else {
+                previewError = mapped
+            }
+        }
+    }
+
+    func retryGoalsPreview() {
+        Task { await loadGoalsPreview(forceRefresh: true) }
     }
 
     private func routeAuth(_ appError: AppError) {
@@ -333,29 +386,18 @@ final class GoalsViewModel {
     
     @discardableResult
     func acceptRecommendation(_ recommendation: GoalRecommendation) async -> Bool {
-        guard !isProcessingPersonalization else { return false }
+        guard !isProcessingPersonalization, !isUpdatingGoals else { return false }
         isProcessingPersonalization = true
+        isUpdatingGoals = true
         personalizationError = nil
-        defer { isProcessingPersonalization = false }
+        defer {
+            isProcessingPersonalization = false
+            isUpdatingGoals = false
+        }
 
         do {
-            let metrics = try await service.acceptRecommendation(id: recommendation.id)
-            if case .loaded(let goals) = state {
-                let updated = goals.applying(metrics, source: "personalized")
-                state = .loaded(updated)
-                try? await cacheService?.set("goals", updated, ttl: 1800)
-            } else {
-                await cacheService?.remove("goals")
-                await loadGoals()
-            }
-            await cacheService?.remove("goals_personalization")
-            await cacheService?.remove("goals_history")
-            await invalidatePeriodGoalsCache()
-            await loadPersonalization(forceNetwork: true)
-            await cacheService?.remove("summary_today")
-            await cacheService?.removeByPrefix("chart_summaries")
-            await cacheService?.removeByPrefix("analytics_")
-            progressRefreshState?.invalidateGoals()
+            let updated = try await service.acceptRecommendation(id: recommendation.id)
+            await applyUpdatedGoals(updated)
             return true
         } catch {
             let mapped = ErrorMapper.map(error)
@@ -454,6 +496,10 @@ final class GoalsViewModel {
         sleepMinMinutes: Int?,
         sleepMaxMinutes: Int?
     ) async -> Bool {
+        guard !isUpdatingGoals else { return false }
+        isUpdatingGoals = true
+        defer { isUpdatingGoals = false }
+
         saveError = nil
         fieldErrors.removeAll()
         do {
@@ -470,14 +516,7 @@ final class GoalsViewModel {
                 sleepMinMinutes: sleepMinMinutes,
                 sleepMaxMinutes: sleepMaxMinutes
             )
-            state = .loaded(updated)
-            try? await cacheService?.set("goals", updated, ttl: 1800)
-            await cacheService?.remove("goals_history")
-            await invalidatePeriodGoalsCache()
-            await cacheService?.remove("summary_today")
-            await cacheService?.removeByPrefix("chart_summaries")
-            await cacheService?.removeByPrefix("analytics_")
-            progressRefreshState?.invalidateGoals()
+            await applyUpdatedGoals(updated)
             return true
         } catch {
             switch ErrorHandler.handle(
@@ -508,24 +547,177 @@ final class GoalsViewModel {
 
     @discardableResult
     func resetGoalsToAutomatic() async -> Bool {
+        guard !isUpdatingGoals else { return false }
+        isUpdatingGoals = true
+        defer { isUpdatingGoals = false }
+
         saveError = nil
         fieldErrors.removeAll()
         do {
             let updated = try await service.resetGoalsToAutomatic()
-            state = .loaded(updated)
-            try? await cacheService?.set("goals", updated, ttl: 1800)
-            await cacheService?.remove("goals_history")
-            await invalidatePeriodGoalsCache()
-            await cacheService?.remove("summary_today")
-            await cacheService?.removeByPrefix("chart_summaries")
-            await cacheService?.removeByPrefix("analytics_")
-            progressRefreshState?.invalidateGoals()
+            await applyUpdatedGoals(updated)
             return true
         } catch {
             let mapped = ErrorMapper.map(error)
             routeAuth(mapped)
             saveError = mapped == .cancelled ? nil : mapped
             return false
+        }
+    }
+
+    @discardableResult
+    func applySuggestedGoals(metrics: [GoalMetricKey]? = nil) async -> Bool {
+        guard !isUpdatingGoals else { return false }
+        isUpdatingGoals = true
+        defer { isUpdatingGoals = false }
+
+        saveError = nil
+        fieldErrors.removeAll()
+        do {
+            let updated = try await service.applySuggestion(metrics: metrics)
+            await applyUpdatedGoals(updated)
+            return true
+        } catch {
+            handleGoalMutationError(error)
+            return false
+        }
+    }
+
+    @discardableResult
+    func dismissGoalSuggestion() async -> Bool {
+        guard !isUpdatingGoals else { return false }
+        isUpdatingGoals = true
+        defer { isUpdatingGoals = false }
+
+        saveError = nil
+        fieldErrors.removeAll()
+        do {
+            let updated = try await service.dismissSuggestion()
+            await applyUpdatedGoals(updated)
+            return true
+        } catch {
+            handleGoalMutationError(error)
+            return false
+        }
+    }
+
+    @discardableResult
+    func clearManualOverrides() async -> Bool {
+        guard !isUpdatingGoals else { return false }
+        isUpdatingGoals = true
+        defer { isUpdatingGoals = false }
+
+        saveError = nil
+        fieldErrors.removeAll()
+        do {
+            let updated = try await service.clearManualOverrides()
+            await applyUpdatedGoals(updated)
+            return true
+        } catch {
+            handleGoalMutationError(error)
+            return false
+        }
+    }
+
+    @discardableResult
+    func clearManualOverride(metric: GoalMetricKey) async -> Bool {
+        guard !isUpdatingGoals else { return false }
+        isUpdatingGoals = true
+        defer { isUpdatingGoals = false }
+
+        saveError = nil
+        fieldErrors.removeAll()
+        do {
+            let updated = try await service.clearManualOverride(metric: metric)
+            await applyUpdatedGoals(updated)
+            return true
+        } catch {
+            handleGoalMutationError(error)
+            return false
+        }
+    }
+
+    @discardableResult
+    func applyProgressAdjustment(
+        days: Int,
+        metrics: GoalMetrics?
+    ) async -> Bool {
+        guard !isUpdatingGoals else { return false }
+        isUpdatingGoals = true
+        defer { isUpdatingGoals = false }
+
+        saveError = nil
+        fieldErrors.removeAll()
+        do {
+            let updated = try await service.applyProgressAdjustment(
+                days: days,
+                metrics: metrics
+            )
+            await applyUpdatedGoals(updated)
+            return true
+        } catch {
+            handleGoalMutationError(error)
+            return false
+        }
+    }
+
+    @discardableResult
+    func startNewCycle(_ request: NewGoalCycleRequest) async -> Bool {
+        guard !isUpdatingGoals else { return false }
+        isUpdatingGoals = true
+        defer { isUpdatingGoals = false }
+
+        saveError = nil
+        fieldErrors.removeAll()
+        do {
+            let updated = try await service.startNewCycle(request)
+            await applyUpdatedGoals(updated)
+            return true
+        } catch {
+            handleGoalMutationError(error)
+            return false
+        }
+    }
+
+    private func applyUpdatedGoals(_ updated: UserGoals) async {
+        state = .loaded(updated)
+        try? await cacheService?.set("goals", updated, ttl: 1_800)
+        await cacheService?.remove("goals_history")
+        await cacheService?.remove("goals_personalization")
+        await cacheService?.remove("goals_preview")
+        await cacheService?.removeByPrefix("goals_progress_")
+        await invalidatePeriodGoalsCache()
+        await cacheService?.remove("summary_today")
+        await cacheService?.removeByPrefix("chart_summaries")
+        await cacheService?.removeByPrefix("analytics_")
+        progressRefreshState?.invalidateGoals()
+        await loadGoalsPreview(forceRefresh: true)
+        await loadPersonalization(forceNetwork: true)
+    }
+
+    private func handleGoalMutationError(_ error: Error) {
+        switch ErrorHandler.handle(
+            error,
+            supportedFields: [
+                "dailyCaloriesGoal",
+                "dailyProteinGoal",
+                "dailyFatGoal",
+                "dailyCarbsGoal",
+                "dailyWaterGoal",
+                "dailyStepsGoal",
+                "dailyActiveCaloriesGoal",
+                "weeklyWorkoutsGoal",
+                "weeklyWorkoutMinutesGoal",
+                "nightlySleepMinMinutes",
+                "nightlySleepMaxMinutes"
+            ]
+        ) {
+        case .fieldErrors(let errors):
+            fieldErrors = errors
+            saveError = nil
+        case .general(let appError):
+            routeAuth(appError)
+            saveError = appError == .cancelled ? nil : appError
         }
     }
 

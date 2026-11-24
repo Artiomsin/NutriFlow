@@ -16,11 +16,25 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
         return try await client.send(request)
     }
 
-    func createProfile(weight: Double, height: Int, age: Int, gender: Gender, goal: Goal, activityLevel: ActivityLevel, preferredUnits: PreferredUnits? = nil) async throws -> UserProfile {
+    func createProfile(weight: Double, height: Int, age: Int, gender: Gender, goal: Goal, activityLevel: ActivityLevel, preferredUnits: PreferredUnits? = nil, goalPlan: UpdateGoalPlanRequest? = nil) async throws -> UserProfile {
         let request = APIRequest(
             path: ProfileEndpoints.createProfile,
             method: .POST,
-            body: CreateProfileRequest(weight: weight, height: height, age: age, gender: gender, goal: goal, activityLevel: activityLevel, preferredUnits: preferredUnits)
+            body: CreateProfileRequest(
+                weight: weight,
+                height: height,
+                age: age,
+                gender: gender,
+                goal: goal,
+                activityLevel: activityLevel,
+                preferredUnits: preferredUnits,
+                targetWeightKg: goalPlan?.targetWeightKg,
+                targetWeightMinKg: goalPlan?.targetWeightMinKg,
+                targetWeightMaxKg: goalPlan?.targetWeightMaxKg,
+                weeklyRateKg: goalPlan?.weeklyRateKg,
+                targetDate: goalPlan?.targetDate,
+                goalStartedAt: goalPlan?.goalStartedAt
+            )
         )
         return try await client.send(request)
     }
