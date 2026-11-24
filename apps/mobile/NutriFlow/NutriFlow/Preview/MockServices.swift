@@ -306,6 +306,10 @@ final class MockDailySummaryService: DailySummaryServiceProtocol {
 }
 
 final class MockProfileService: ProfileServiceProtocol {
+    func updateGoalPlan(_ request: UpdateGoalPlanRequest) async throws -> UserProfile {
+        try await getMyProfile()
+    }
+
     func updateTimeZone(_ timeZone: String) async throws {}
     func getMyProfile() async throws -> UserProfile {
         UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: 82, height: 183, age: 24, gender: .male, goal: .gain, activityLevel: .high, preferredUnits: nil, timeZone: TimeZone.current.identifier, createdAt: nil, updatedAt: nil)
@@ -431,6 +435,65 @@ final class MockAnalyticsService: AnalyticsServiceProtocol {
 
 final class MockGoalsService: GoalsServiceProtocol {
     
+    func getGoalsPreview() async throws -> GoalsPreview {
+        GoalsPreview(
+            mode: .auto,
+            recommended: nil,
+            suggested: nil,
+            applied: nil,
+            fixedMetrics: nil,
+            manualOverrides: nil,
+            diff: nil,
+            autoDiff: nil,
+            basis: nil,
+            calories: nil,
+            willApplyAutomatically: true,
+            estimatedCompletion: nil
+        )
+    }
+
+    func applySuggestion(metrics: [GoalMetricKey]?) async throws -> UserGoals {
+        try await getGoals()
+    }
+
+    func dismissSuggestion() async throws -> UserGoals {
+        try await getGoals()
+    }
+
+    func clearManualOverrides() async throws -> UserGoals {
+        try await getGoals()
+    }
+
+    func clearManualOverride(metric: GoalMetricKey) async throws -> UserGoals {
+        try await getGoals()
+    }
+
+    func getGoalsProgress(days: Int) async throws -> GoalsProgress {
+        GoalsProgress(
+            period: nil,
+            status: nil,
+            reason: nil,
+            direction: nil,
+            confidence: nil,
+            metrics: nil,
+            recommendation: nil,
+            estimatedCompletion: nil,
+            appliedGoals: nil,
+            goal: nil
+        )
+    }
+
+    func applyProgressAdjustment(
+        days: Int,
+        metrics: GoalMetrics?
+    ) async throws -> UserGoals {
+        try await getGoals()
+    }
+
+    func startNewCycle(_ request: NewGoalCycleRequest) async throws -> UserGoals {
+        try await getGoals()
+    }
+
     func personalizeGoals() async throws -> PersonalizeResult {
         .insufficientData
         

@@ -62,6 +62,81 @@ final class GoalsService: GoalsServiceProtocol, Sendable {
         return try await client.send(request)
     }
     
+    func getGoalsPreview() async throws -> GoalsPreview {
+        let request = APIRequest<NeverBody>(
+            path: GoalsEndpoints.preview,
+            method: .GET
+        )
+        return try await client.send(request)
+    }
+
+    func applySuggestion(metrics: [GoalMetricKey]?) async throws -> UserGoals {
+        let request = APIRequest(
+            path: GoalsEndpoints.applySuggestion,
+            method: .POST,
+            body: ApplySuggestionRequest(metrics: metrics)
+        )
+        return try await client.send(request)
+    }
+
+    func dismissSuggestion() async throws -> UserGoals {
+        let request = APIRequest<NeverBody>(
+            path: GoalsEndpoints.dismissSuggestion,
+            method: .POST
+        )
+        return try await client.send(request)
+    }
+
+    func clearManualOverrides() async throws -> UserGoals {
+        let request = APIRequest<NeverBody>(
+            path: GoalsEndpoints.clearManualOverrides,
+            method: .POST
+        )
+        return try await client.send(request)
+    }
+
+    func clearManualOverride(metric: GoalMetricKey) async throws -> UserGoals {
+        let request = APIRequest(
+            path: GoalsEndpoints.clearManualOverride,
+            method: .POST,
+            body: ClearManualOverrideRequest(metric: metric)
+        )
+        return try await client.send(request)
+    }
+
+    func getGoalsProgress(days: Int) async throws -> GoalsProgress {
+        let endpoint = GoalsEndpoints.progressRequest(days: days)
+        let request = APIRequest<NeverBody>(
+            path: endpoint.path,
+            method: .GET,
+            queryItems: endpoint.query
+        )
+        return try await client.send(request)
+    }
+
+    func applyProgressAdjustment(
+        days: Int,
+        metrics: GoalMetrics?
+    ) async throws -> UserGoals {
+        let endpoint = GoalsEndpoints.progressRequest(days: days)
+        let request = APIRequest(
+            path: GoalsEndpoints.applyProgressAdjustment,
+            method: .POST,
+            queryItems: endpoint.query,
+            body: ProgressApplyRequest(days: nil, metrics: metrics)
+        )
+        return try await client.send(request)
+    }
+
+    func startNewCycle(_ requestBody: NewGoalCycleRequest) async throws -> UserGoals {
+        let request = APIRequest(
+            path: GoalsEndpoints.newCycle,
+            method: .POST,
+            body: requestBody
+        )
+        return try await client.send(request)
+    }
+
     func personalizeGoals() async throws -> PersonalizeResult {
         let request = APIRequest<NeverBody>(
             path: GoalsEndpoints.personalize, method: .POST

@@ -61,6 +61,12 @@ struct UserProfile: Codable, Identifiable, Sendable {
     let age: Int?
     let gender: Gender?
     let goal: Goal?
+    var targetWeightKg: Double? = nil
+    var targetWeightMinKg: Double? = nil
+    var targetWeightMaxKg: Double? = nil
+    var weeklyRateKg: Double? = nil
+    var targetDate: String? = nil
+    var goalStartedAt: String? = nil
     let activityLevel: ActivityLevel?
     let preferredUnits: PreferredUnits?
     let timeZone: String?
@@ -105,6 +111,13 @@ struct CreateProfileRequest: Encodable, Sendable {
     let activityLevel: ActivityLevel
     let preferredUnits: PreferredUnits?
     let timeZone: String = TimeZone.current.identifier
+
+    let targetWeightKg: Double? = nil
+    let targetWeightMinKg: Double? = nil
+    let targetWeightMaxKg: Double? = nil
+    let weeklyRateKg: Double? = nil
+    let targetDate: String? = nil
+    let goalStartedAt: String? = nil
 }
 
 struct UpdateProfileRequest: Encodable, Sendable {
@@ -122,4 +135,14 @@ struct UpdateUserRequest: Codable, Sendable {
     let password: String?
     let firstName: String?
     let lastName: String?
+}
+
+struct UpdateGoalPlanRequest: Encodable, Sendable {
+    let goal: Goal?
+    let targetWeightKg: Double?
+    let targetWeightMinKg: Double?
+    let targetWeightMaxKg: Double?
+    let weeklyRateKg: Double?
+    let targetDate: String?
+    let goalStartedAt: String?
 }

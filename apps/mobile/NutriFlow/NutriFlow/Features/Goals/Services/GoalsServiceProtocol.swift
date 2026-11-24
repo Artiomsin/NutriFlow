@@ -5,6 +5,14 @@ protocol GoalsServiceProtocol: Sendable {
     func updateGoals(calories: Double?, protein: Double?, fat: Double?, carbs: Double?, water: Int?, steps: Int?,activeCalories: Int?,workouts: Int?,workoutMinutes: Int?,sleepMinMinutes: Int?,sleepMaxMinutes: Int?) async throws -> UserGoals
     func calculateGoals() async throws -> UserGoals
     func resetGoalsToAutomatic() async throws -> UserGoals
+    func getGoalsPreview() async throws -> GoalsPreview
+    func applySuggestion(metrics: [GoalMetricKey]?) async throws -> UserGoals
+    func dismissSuggestion() async throws -> UserGoals
+    func clearManualOverrides() async throws -> UserGoals
+    func clearManualOverride(metric: GoalMetricKey) async throws -> UserGoals
+    func getGoalsProgress(days: Int) async throws -> GoalsProgress
+    func applyProgressAdjustment(days: Int, metrics: GoalMetrics?) async throws -> UserGoals
+    func startNewCycle(_ request: NewGoalCycleRequest) async throws -> UserGoals
     func personalizeGoals() async throws -> PersonalizeResult
     func getPersonalizationState() async throws -> PersonalizationState
     func acceptRecommendation(id: String) async throws -> GoalMetrics

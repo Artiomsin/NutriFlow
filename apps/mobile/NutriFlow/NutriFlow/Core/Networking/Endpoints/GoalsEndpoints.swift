@@ -15,6 +15,21 @@ enum GoalsEndpoints {
     static let resetToAutomatic = "/goals/reset-to-automatic"
     static let personalize = "/goals/personalize"
     static let personalizationState = "/goals/personalization"
+    static let preview = "/goals/preview"
+    static let applySuggestion = "/goals/apply-suggestion"
+    static let dismissSuggestion = "/goals/dismiss-suggestion"
+    static let clearManualOverrides = "/goals/clear-manual-overrides"
+    static let clearManualOverride = "/goals/clear-manual-override"
+    static let newCycle = "/goals/new-cycle"
+    static let progress = "/goals/progress"
+    static let applyProgressAdjustment = "/goals/progress/apply"
+
+    static func progressRequest(days: Int) -> (path: String, query: [URLQueryItem]) {
+        (
+            path: progress,
+            query: [URLQueryItem(name: "days", value: String(days))]
+        )
+    }
 
     static func goalHistory(
         date: String? = nil,

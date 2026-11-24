@@ -318,6 +318,8 @@ final class GoalsViewModel {
                 personalizationState = PersonalizationState(pending: nil, personalizationDue: false, nextAvailableAt: nextAvailableAt)
             case .insufficientData:
                 personalizationState = PersonalizationState(pending: nil, personalizationDue: true, nextAvailableAt: nil)
+            case .collectData, .noChange:
+                await loadPersonalization(forceNetwork: true)
             }
             personalizationError = nil
             return result

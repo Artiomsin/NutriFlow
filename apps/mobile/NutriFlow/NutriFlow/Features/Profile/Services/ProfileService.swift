@@ -34,6 +34,15 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
         return try await client.send(request)
     }
 
+    func updateGoalPlan(_ request: UpdateGoalPlanRequest) async throws -> UserProfile {
+        let apiRequest = APIRequest(
+            path: ProfileEndpoints.updateMyProfile,
+            method: .PUT,
+            body: request
+        )
+        return try await client.send(apiRequest)
+    }
+
     func updateTimeZone(_ timeZone: String) async throws {
         struct TimeZoneRequest: Encodable, Sendable {
             let timeZone: String
