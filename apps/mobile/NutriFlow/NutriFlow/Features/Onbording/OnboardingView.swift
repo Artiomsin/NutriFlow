@@ -199,7 +199,6 @@ private struct OnboardingPageCard: View {
                         .foregroundStyle(page.accent)
                 }
             }
-            .padding(.top, 30)
             .padding(22)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -207,6 +206,7 @@ private struct OnboardingPageCard: View {
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
                     .stroke(AppColors.border.opacity(0.8), lineWidth: 1)
             }
+            .padding(.top, 32)
 
             Spacer()
         }

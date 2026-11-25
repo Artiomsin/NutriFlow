@@ -75,6 +75,36 @@ enum FormErrorMapper {
                 localized: "form.error.unknown_field",
                 defaultValue: "This field is not recognized."
             )
+        case .weeklyRateMustBePositive:
+            return "Choose a weekly pace greater than 0."
+        case .targetDateInPast:
+            return "Choose today or a future date."
+        case .targetDateMustBeAfterGoalStart:
+            return "Choose a date after the start of this goal."
+        case .targetWeightRequiredForDate:
+            return "Set a target weight before choosing a target date."
+        case .targetWeightMustBeLowerThanCurrent:
+            return "For losing weight, choose a target below your current weight."
+        case .targetWeightMustBeHigherThanCurrent:
+            return "For gaining weight, choose a target above your current weight."
+        case .maintainRangePairRequired:
+            return "Enter both the lower and upper maintenance limits."
+        case .maintainRangeOrderInvalid:
+            return "The upper maintenance limit must be greater than the lower limit."
+        case .maintainRangeWidthOutOfRange:
+            return "Make the maintenance range 0.5–10 kg wide."
+        case .maintainRangeTooFarFromCurrent:
+            return "Keep the maintenance range within 15 kg of your current weight."
+        case .targetWeightOutsideMaintainRange:
+            return "Keep the target weight inside the maintenance range."
+        case .targetWeightTooFarFromCurrent:
+            return "Keep the maintenance target within 10 kg of your current weight."
+        case .maintainRangeNotAllowed:
+            return "A maintenance range is available only for a maintain goal."
+        case .goalRequiredForNewCycle:
+            return "Choose a direction for the new goal."
+        case .tempoAdjustmentRequired:
+            return "Change the pace, date, or target weight to adjust this goal."
         }
     }
 
@@ -83,7 +113,14 @@ enum FormErrorMapper {
     /// Keep required errors generic: they already explain the action clearly.
     static func message(for problem: FieldProblem) -> String {
         let code = problem.code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        guard code != FieldErrorCode.required.rawValue else {
+        let usesFieldRangeCopy = [
+            FieldErrorCode.outOfRange.rawValue,
+            FieldErrorCode.invalidFormat.rawValue,
+            FieldErrorCode.invalidType.rawValue,
+            FieldErrorCode.invalidValue.rawValue
+        ].contains(code)
+
+        guard usesFieldRangeCopy else {
             return message(for: problem.code)
         }
 
