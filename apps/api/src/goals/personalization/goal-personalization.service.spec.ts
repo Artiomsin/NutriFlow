@@ -156,8 +156,7 @@ describe('GoalPersonalizationService.stabilization v2', () => {
     const { service } = setup({
       selectQueue: [
         [], // findPending
-        [{ createdAt: oldDate }], // getLastEvaluationAt: userGoals
-        [{ createdAt: recentDate, acceptedAt: null, dismissedAt: null }], // lastRec
+        [{ createdAt: recentDate, acceptedAt: null, dismissedAt: null }], // lastRec (goalRecommendations)
       ],
     });
 
@@ -180,9 +179,9 @@ describe('GoalPersonalizationService.stabilization v2', () => {
       },
       selectQueue: [
         [], // findPending
-        [{ createdAt: oldDate }], // goals
-        [], // lastRec (old/none)
-        [], // recentEvaluations
+        [], // lastRec (goalRecommendations)
+        [], // userProfiles (no goalStartedAt)
+        [{ createdAt: oldDate }], // goals (fallback)
       ],
       insertQueue: [[{ id: 'marker-1', status: 'insufficient_data' }]],
     });
@@ -208,9 +207,9 @@ describe('GoalPersonalizationService.stabilization v2', () => {
       },
       selectQueue: [
         [], // findPending
-        [{ createdAt: oldDate }],
-        [],
-        [], // recentEvaluations
+        [], // lastRec (goalRecommendations)
+        [], // userProfiles (no goalStartedAt)
+        [{ createdAt: oldDate }], // goals (fallback)
       ],
       insertQueue: [[{ id: 'marker-2', status: 'collect_data' }]],
     });
@@ -238,8 +237,9 @@ describe('GoalPersonalizationService.stabilization v2', () => {
       },
       selectQueue: [
         [], // findPending
-        [{ createdAt: oldDate }],
-        [],
+        [], // lastRec (goalRecommendations)
+        [], // userProfiles (no goalStartedAt)
+        [{ createdAt: oldDate }], // goals (fallback)
         [], // recentEvaluations
         [{ acceptedAt: recentAccepted, reasons: [], status: 'accepted' }], // cooldown acceptedRows
       ],
@@ -279,8 +279,9 @@ describe('GoalPersonalizationService.stabilization v2', () => {
       },
       selectQueue: [
         [], // findPending
-        [{ createdAt: oldDate }],
-        [],
+        [], // lastRec (goalRecommendations)
+        [], // userProfiles (no goalStartedAt)
+        [{ createdAt: oldDate }], // goals (fallback)
         [], // recentEvaluations
         [{ acceptedAt: recentAccepted, reasons: [], status: 'accepted' }], // cooldown acceptedRows
       ],
@@ -309,8 +310,9 @@ describe('GoalPersonalizationService.stabilization v2', () => {
       },
       selectQueue: [
         [], // findPending
-        [{ createdAt: oldDate }],
-        [],
+        [], // lastRec (goalRecommendations)
+        [], // userProfiles (no goalStartedAt)
+        [{ createdAt: oldDate }], // goals (fallback)
         [
           // recentEvaluations: no same action+reason
           {
@@ -323,7 +325,6 @@ describe('GoalPersonalizationService.stabilization v2', () => {
           },
         ],
         [], // cooldown accepted
-        [], // cooldown recentGoals
       ],
       insertQueue: [[{ id: 'marker-4', status: 'no_change' }]],
     });
@@ -350,8 +351,9 @@ describe('GoalPersonalizationService.stabilization v2', () => {
       },
       selectQueue: [
         [], // findPending
-        [{ createdAt: oldDate }],
-        [],
+        [], // lastRec (goalRecommendations)
+        [], // userProfiles (no goalStartedAt)
+        [{ createdAt: oldDate }], // goals (fallback)
         [
           {
             status: 'no_change',
@@ -363,7 +365,6 @@ describe('GoalPersonalizationService.stabilization v2', () => {
           },
         ],
         [], // cooldown accepted
-        [], // cooldown recentGoals
       ],
       insertQueue: [[{ id: 'rec-pending', status: 'pending' }]],
     });
@@ -400,8 +401,9 @@ describe('GoalPersonalizationService.stabilization v2', () => {
       },
       selectQueue: [
         [], // findPending
-        [{ createdAt: oldDate }],
-        [],
+        [], // lastRec (goalRecommendations)
+        [], // userProfiles (no goalStartedAt)
+        [{ createdAt: oldDate }], // goals (fallback)
         [
           {
             status: 'no_change',
@@ -409,7 +411,6 @@ describe('GoalPersonalizationService.stabilization v2', () => {
           },
         ],
         [], // cooldown accepted
-        [], // cooldown recentGoals
       ],
       insertQueue: [[{ id: 'marker-5', status: 'collect_data' }]],
     });
@@ -446,8 +447,9 @@ describe('GoalPersonalizationService.stabilization v2', () => {
       },
       selectQueue: [
         [], // findPending
-        [{ createdAt: oldDate }],
-        [],
+        [], // lastRec (goalRecommendations)
+        [], // userProfiles (no goalStartedAt)
+        [{ createdAt: oldDate }], // goals (fallback)
         [
           {
             status: 'no_change',
@@ -455,7 +457,6 @@ describe('GoalPersonalizationService.stabilization v2', () => {
           },
         ],
         [], // cooldown accepted
-        [], // cooldown recentGoals
       ],
       insertQueue: [[{ id: 'rec-eased', status: 'pending' }]],
     });
@@ -464,5 +465,66 @@ describe('GoalPersonalizationService.stabilization v2', () => {
     // With poor adherence adjust_plan should not be applied aggressively; it becomes ease_plan
     // and since suggestedAdjustment still exists in this mocked progress, it creates pending.
     expect(result.status).toBe('created');
+  });
+
+  it('getPersonalizationState uses goalStartedAt from profile when no recommendations exist', async () => {
+    const { service } = setup({
+      selectQueue: [
+        [], // findPending
+        [], // lastRec (goalRecommendations)
+        [{ goalStartedAt: recentDate }], // userProfiles
+      ],
+    });
+
+    const state = await service.getPersonalizationState('user-1');
+    expect(state.personalizationDue).toBe(false);
+    expect(state.nextAvailableAt).not.toBeNull();
+    expect(state.pending).toBeNull();
+  });
+
+  it('getPersonalizationState is due when profile goalStartedAt is older than 7 days', async () => {
+    const { service } = setup({
+      selectQueue: [
+        [], // findPending
+        [], // lastRec (goalRecommendations)
+        [{ goalStartedAt: oldDate }], // userProfiles
+      ],
+    });
+
+    const state = await service.getPersonalizationState('user-1');
+    expect(state.personalizationDue).toBe(true);
+    expect(state.nextAvailableAt).toBeNull();
+    expect(state.pending).toBeNull();
+  });
+
+  it('weight log does not shift nextAvailableAt: profile goalStartedAt wins over recent goals createdAt', async () => {
+    // userGoals.version created just now (e.g. after weight log), but plan started long ago.
+    const { service } = setup({
+      selectQueue: [
+        [], // findPending
+        [], // lastRec (goalRecommendations)
+        [{ goalStartedAt: oldDate }], // userProfiles — userGoals never queried
+      ],
+    });
+
+    const state = await service.getPersonalizationState('user-1');
+    expect(state.personalizationDue).toBe(true);
+    expect(state.nextAvailableAt).toBeNull();
+  });
+
+  it('getPersonalizationState falls back to goals createdAt when profile has no goalStartedAt', async () => {
+    const { service } = setup({
+      selectQueue: [
+        [], // findPending
+        [], // lastRec (goalRecommendations)
+        [], // userProfiles (no row / no goalStartedAt)
+        [{ createdAt: recentDate }], // goals (fallback)
+      ],
+    });
+
+    const state = await service.getPersonalizationState('user-1');
+    expect(state.personalizationDue).toBe(false);
+    expect(state.nextAvailableAt).not.toBeNull();
+    expect(state.pending).toBeNull();
   });
 });

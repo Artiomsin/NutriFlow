@@ -3,6 +3,7 @@ import type { Db } from '../../db/db';
 import { DB } from '../../db/db.module';
 import { userGoals } from '../../db/schema/userGoals';
 import { goalRecommendations } from '../../db/schema/goalRecommendations';
+import { userProfiles } from '../../db/schema/userProfiles';
 import type { GoalMetrics } from './types';
 import {
   recordGoalHistory,
@@ -521,13 +522,6 @@ export class GoalPersonalizationService {
   }
 
   private async getLastEvaluationAt(userId: string): Promise<Date> {
-    const [goalsRow] = await this.db
-      .select()
-      .from(userGoals)
-      .where(and(eq(userGoals.userId, userId), isNull(userGoals.endedAt)))
-      .orderBy(desc(userGoals.startedAt))
-      .limit(1);
-
     const [lastRec] = await this.db
       .select()
       .from(goalRecommendations)
@@ -538,6 +532,23 @@ export class GoalPersonalizationService {
     if (lastRec?.acceptedAt) return lastRec.acceptedAt;
     if (lastRec?.dismissedAt) return lastRec.dismissedAt;
     if (lastRec) return lastRec.createdAt;
+
+    const [profile] = await this.db
+      .select({ goalStartedAt: userProfiles.goalStartedAt })
+      .from(userProfiles)
+      .where(eq(userProfiles.userId, userId))
+      .limit(1);
+
+    if (profile?.goalStartedAt) {
+      return new Date(profile.goalStartedAt);
+    }
+
+    const [goalsRow] = await this.db
+      .select()
+      .from(userGoals)
+      .where(and(eq(userGoals.userId, userId), isNull(userGoals.endedAt)))
+      .orderBy(desc(userGoals.startedAt))
+      .limit(1);
 
     return goalsRow?.createdAt ?? new Date();
   }

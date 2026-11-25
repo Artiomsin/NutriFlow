@@ -8,6 +8,7 @@ import { createE2eApp } from '../utils/e2e';
 import { createTestDb } from '../utils/db';
 import type { TestDb, TestTx } from '../utils/db';
 import { userGoals } from '../../src/db/schema/userGoals';
+import { userProfiles } from '../../src/db/schema/userProfiles';
 import { dailySummary } from '../../src/db/schema/dailySummary';
 import { dailyActivity } from '../../src/db/schema/dailyActivity';
 import { weightLogs } from '../../src/db/schema/weightLogs';
@@ -233,6 +234,30 @@ describe('goals routes', () => {
       .set(auth(token))
       .expect(200);
     expect(state.body.personalizationDue).toBeBoolean();
+    expect(state.body.pending).toBeNull();
+  });
+
+  it('does not reset personalization due date when goals version is recreated', async () => {
+    const token = await register();
+    await createProfile(token);
+    const profile = await getProfile(token);
+    const userId = profile.userId;
+
+    // Plan started long ago, but a recent weight log left a fresh goals row.
+    // Before the fix the service used goals.createdAt and reported not_due.
+    const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+    await tx
+      .update(userProfiles)
+      .set({ goalStartedAt: twoWeeksAgo })
+      .where(eq(userProfiles.userId, userId));
+
+    const state = await http()
+      .get('/api/goals/personalization')
+      .set(auth(token))
+      .expect(200);
+
+    // Must be due from goalStartedAt, not from the freshly created goals row.
+    expect(state.body.personalizationDue).toBe(true);
     expect(state.body.pending).toBeNull();
   });
 
