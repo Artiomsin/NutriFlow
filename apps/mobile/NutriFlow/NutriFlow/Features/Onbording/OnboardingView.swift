@@ -3,8 +3,13 @@ import SwiftUI
 struct OnboardingView: View {
     let onComplete: () -> Void
 
-    @State private var currentPage = 0
+    @State private var currentPage: Int
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    init(onComplete: @escaping () -> Void, initialPage: Int = 0) {
+        self.onComplete = onComplete
+        _currentPage = State(initialValue: initialPage)
+    }
 
     private let pages: [OnboardingPageData] = [
         .init(
@@ -238,6 +243,10 @@ private struct OnboardingPageData: Identifiable {
     let accent: Color
 }
 
-#Preview("Onboarding") {
+#Preview("Onboarding — Start") {
     OnboardingView(onComplete: {})
+}
+
+#Preview("Onboarding — Final CTA") {
+    OnboardingView(onComplete: {}, initialPage: 3)
 }
