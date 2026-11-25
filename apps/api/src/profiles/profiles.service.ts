@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import type { Db } from '../db/db';
 import { DB } from '../db/db.module';
@@ -12,6 +7,8 @@ import { eq } from 'drizzle-orm';
 import { GoalsService } from '../goals/goals.service';
 import { weightLogs } from '../db/schema/weightLogs';
 import { formatDateInTimeZone } from '../common/time/user-date';
+import { validationProblem } from '../common/http/problem-details';
+import { FieldErrorCode } from '../common/validation/field-errors';
 
 import type { CreateProfileDto, UpdateProfileDto } from './profiles.schema';
 
@@ -245,20 +242,30 @@ export class ProfilesService {
     const validatePastTargetDate = opts?.validatePastTargetDate ?? true;
 
     if (weeklyRateKg != null && weeklyRateKg <= 0) {
-      throw new BadRequestException('weeklyRateKg must be positive');
+      throw validationProblem([
+        {
+          field: 'weeklyRateKg',
+          code: FieldErrorCode.weeklyRateMustBePositive,
+        },
+      ]);
     }
 
     if (validatePastTargetDate && targetDate != null) {
       const today = new Date().toISOString().slice(0, 10);
       if (targetDate < today) {
-        throw new BadRequestException('targetDate must not be in the past');
+        throw validationProblem([
+          { field: 'targetDate', code: FieldErrorCode.targetDateInPast },
+        ]);
       }
     }
 
     if (targetDate != null && targetWeightKg == null && goal !== 'maintain') {
-      throw new BadRequestException(
-        'targetWeightKg is required when targetDate is set',
-      );
+      throw validationProblem([
+        {
+          field: 'targetWeightKg',
+          code: FieldErrorCode.targetWeightRequiredForDate,
+        },
+      ]);
     }
 
     if (goal === 'lose') {
@@ -267,9 +274,12 @@ export class ProfilesService {
         weight != null &&
         targetWeightKg >= weight
       ) {
-        throw new BadRequestException(
-          'targetWeightKg must be less than current weight for lose goal',
-        );
+        throw validationProblem([
+          {
+            field: 'targetWeightKg',
+            code: FieldErrorCode.targetWeightMustBeLowerThanCurrent,
+          },
+        ]);
       }
     }
 
@@ -279,30 +289,42 @@ export class ProfilesService {
         weight != null &&
         targetWeightKg <= weight
       ) {
-        throw new BadRequestException(
-          'targetWeightKg must be greater than current weight for gain goal',
-        );
+        throw validationProblem([
+          {
+            field: 'targetWeightKg',
+            code: FieldErrorCode.targetWeightMustBeHigherThanCurrent,
+          },
+        ]);
       }
     }
 
     const hasMin = targetWeightMinKg != null;
     const hasMax = targetWeightMaxKg != null;
     if (hasMin !== hasMax) {
-      throw new BadRequestException(
-        'targetWeightMinKg and targetWeightMaxKg must be provided together',
-      );
+      throw validationProblem([
+        {
+          field: hasMin ? 'targetWeightMaxKg' : 'targetWeightMinKg',
+          code: FieldErrorCode.maintainRangePairRequired,
+        },
+      ]);
     }
     if (hasMin && hasMax) {
       if (targetWeightMinKg! >= targetWeightMaxKg!) {
-        throw new BadRequestException(
-          'targetWeightMaxKg must be greater than targetWeightMinKg',
-        );
+        throw validationProblem([
+          {
+            field: 'targetWeightMaxKg',
+            code: FieldErrorCode.maintainRangeOrderInvalid,
+          },
+        ]);
       }
       const width = targetWeightMaxKg! - targetWeightMinKg!;
       if (width < 0.5 || width > 10) {
-        throw new BadRequestException(
-          'Maintain range width should be between 0.5 and 10 kg',
-        );
+        throw validationProblem([
+          {
+            field: 'targetWeightMaxKg',
+            code: FieldErrorCode.maintainRangeWidthOutOfRange,
+          },
+        ]);
       }
     }
 
@@ -313,9 +335,12 @@ export class ProfilesService {
             targetWeightMaxKg! < weight - 15 ||
             targetWeightMinKg! > weight + 15
           ) {
-            throw new BadRequestException(
-              'Maintain range should be reasonably close to current weight',
-            );
+            throw validationProblem([
+              {
+                field: 'targetWeightMinKg',
+                code: FieldErrorCode.maintainRangeTooFarFromCurrent,
+              },
+            ]);
           }
         }
         if (targetWeightKg != null) {
@@ -323,24 +348,33 @@ export class ProfilesService {
             targetWeightKg < targetWeightMinKg! ||
             targetWeightKg > targetWeightMaxKg!
           ) {
-            throw new BadRequestException(
-              'targetWeightKg must be within maintain range when range is provided',
-            );
+            throw validationProblem([
+              {
+                field: 'targetWeightKg',
+                code: FieldErrorCode.targetWeightOutsideMaintainRange,
+              },
+            ]);
           }
         }
       } else if (targetWeightKg != null && weight != null) {
         const diff = Math.abs(targetWeightKg - weight);
         if (diff > 10) {
-          throw new BadRequestException(
-            'For maintain goal, targetWeightKg should be within 10kg of current weight',
-          );
+          throw validationProblem([
+            {
+              field: 'targetWeightKg',
+              code: FieldErrorCode.targetWeightTooFarFromCurrent,
+            },
+          ]);
         }
       }
       // Maintain with a rate usually means no pace; ignore/allow but it's not meaningful.
     } else if (hasMin || hasMax) {
-      throw new BadRequestException(
-        'Maintain range is only supported for maintain goal',
-      );
+      throw validationProblem([
+        {
+          field: 'targetWeightMinKg',
+          code: FieldErrorCode.maintainRangeNotAllowed,
+        },
+      ]);
     }
 
     // If targetDate is set, ensure it's after goalStartedAt when both present.
@@ -350,7 +384,12 @@ export class ProfilesService {
           ? input.goalStartedAt.toISOString().slice(0, 10)
           : String(input.goalStartedAt).slice(0, 10);
       if (targetDate <= started) {
-        throw new BadRequestException('targetDate must be after goalStartedAt');
+        throw validationProblem([
+          {
+            field: 'targetDate',
+            code: FieldErrorCode.targetDateMustBeAfterGoalStart,
+          },
+        ]);
       }
     }
   }
