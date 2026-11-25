@@ -14,7 +14,7 @@ enum FormErrorMapper {
 
             guard !field.isEmpty else { continue }
 
-            errors.set(message(for: problem.code), for: field)
+            errors.set(message(for: FieldProblem(field: field, code: problem.code)), for: field)
         }
 
         return errors
@@ -76,6 +76,42 @@ enum FormErrorMapper {
                 defaultValue: "This field is not recognized."
             )
         }
+    }
+
+    /// Adds the missing context that the current API contract does not carry in
+    /// `FieldProblem` (it contains only a field name and stable error code).
+    /// Keep required errors generic: they already explain the action clearly.
+    static func message(for problem: FieldProblem) -> String {
+        let code = problem.code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard code != FieldErrorCode.required.rawValue else {
+            return message(for: problem.code)
+        }
+
+        switch problem.field.trimmingCharacters(in: .whitespacesAndNewlines) {
+        case "weight":
+            return "Enter a weight between \(displayWeight(20)) and \(displayWeight(400))."
+        case "height":
+            return "Enter a height between 80 and 250 cm."
+        case "age":
+            return "Enter an age between 13 and 120."
+        case "targetWeightKg":
+            return "Enter a target between \(displayWeight(20)) and \(displayWeight(400)) that matches your selected direction."
+        case "targetWeightMinKg", "targetWeightMaxKg":
+            return "Enter both limits between \(displayWeight(20)) and \(displayWeight(400)). The range must be 0.5–10 kg wide."
+        case "weeklyRateKg":
+            return "Enter a pace between 0.1 and 2 kg per week."
+        case "targetDate":
+            return "Choose a date at least 14 days from today."
+        default:
+            return message(for: problem.code)
+        }
+    }
+
+    private static func displayWeight(_ kilograms: Double) -> String {
+        let units = PreferencesStore.shared.preferredUnits
+        let value = UnitConversion.formatBodyWeight(kg: kilograms, preferred: units)
+        let unit = UnitConversion.bodyWeightUnitLabel(preferred: units)
+        return "\(value) \(unit)"
     }
 
     private static var unknownMessage: String {

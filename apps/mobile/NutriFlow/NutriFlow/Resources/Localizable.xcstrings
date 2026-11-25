@@ -122,9 +122,6 @@
     "Achievement notifications" : {
 
     },
-    "Activity Level" : {
-
-    },
     "Activity, sleep, and workouts will appear here once connected." : {
 
     },
@@ -159,6 +156,9 @@
 
     },
     "Added %@" : {
+
+    },
+    "Adjust plan" : {
 
     },
     "All (%lld)" : {
@@ -200,10 +200,16 @@
     "Automatic Time Zone" : {
 
     },
+    "Back" : {
+
+    },
     "Based on your recent activity" : {
 
     },
     "BPM" : {
+
+    },
+    "Calculating a safe starting plan…" : {
 
     },
     "Calculating…" : {
@@ -248,6 +254,12 @@
     "Check access in the Health app:\n%@" : {
 
     },
+    "Choose a date at least two weeks from today." : {
+
+    },
+    "Choose a direction first" : {
+
+    },
     "Choose an icon that makes this category easy to spot." : {
 
     },
@@ -258,6 +270,9 @@
 
     },
     "Color" : {
+
+    },
+    "Comfort range" : {
 
     },
     "Connect Apple Health to see sleep history" : {
@@ -306,9 +321,6 @@
 
     },
     "Create personal category %@" : {
-
-    },
-    "Create Profile" : {
 
     },
     "Current period" : {
@@ -789,6 +801,9 @@
         }
       }
     },
+    "Estimated completion" : {
+
+    },
     "Failed to load. Retry" : {
 
     },
@@ -944,16 +959,13 @@
     "Gender" : {
 
     },
-    "Get Started" : {
-
-    },
     "Glass card" : {
 
     },
     "Glass Effects" : {
 
     },
-    "Goal" : {
+    "Go back and choose lose, maintain, or gain." : {
 
     },
     "Goal Activity" : {
@@ -1103,9 +1115,6 @@
     "Need at least 2 other nights to compare" : {
 
     },
-    "Next" : {
-
-    },
     "Next goal review" : {
 
     },
@@ -1190,6 +1199,9 @@
     "NutriFlow" : {
 
     },
+    "NUTRIFLOW" : {
+
+    },
     "OK" : {
 
     },
@@ -1202,6 +1214,16 @@
     "Ounces" : {
 
     },
+    "Page %lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Page %1$lld of %2$lld"
+          }
+        }
+      }
+    },
     "Password successfully changed." : {
 
     },
@@ -1212,6 +1234,9 @@
 
     },
     "Personalized plan" : {
+
+    },
+    "Pick a common pace or enter a custom value." : {
 
     },
     "Point the camera at a barcode" : {
@@ -1337,6 +1362,12 @@
     "Series segment" : {
 
     },
+    "Set a target date · Optional" : {
+
+    },
+    "Set up my plan" : {
+
+    },
     "Settings" : {
 
     },
@@ -1358,6 +1389,12 @@
     "Sign in with Google" : {
 
     },
+    "Skip" : {
+
+    },
+    "Skips the introduction and continues to sign in." : {
+
+    },
     "Sleep" : {
 
     },
@@ -1372,6 +1409,16 @@
     },
     "Start typing to search" : {
 
+    },
+    "STEP %lld OF %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "STEP %1$lld OF %2$lld"
+          }
+        }
+      }
     },
     "Suggested by product: %@" : {
 
@@ -1397,7 +1444,7 @@
     "Tap to change photo" : {
 
     },
-    "Tell us about yourself" : {
+    "Target date" : {
 
     },
     "The chart and automatic goals will be updated if this is today’s current record." : {
@@ -1499,7 +1546,13 @@
     "Water: %@" : {
 
     },
+    "We couldn’t load your starting plan." : {
+
+    },
     "We need a little more recent data before creating another recommendation." : {
+
+    },
+    "Weekly pace · Optional" : {
 
     },
     "Weight" : {

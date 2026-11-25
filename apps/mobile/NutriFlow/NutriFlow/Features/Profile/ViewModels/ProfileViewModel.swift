@@ -4,6 +4,14 @@ import Observation
 @Observable
 @MainActor
 final class ProfileViewModel {
+    enum LiveValidationField {
+        case weight
+        case height
+        case age
+        case targetWeight
+        case maintainRange
+        case weeklyPace
+    }
     
     var state: ProfileState = .loading
     
@@ -87,6 +95,11 @@ final class ProfileViewModel {
 
     func trackScreen(_ screen: String) {
         analyticsTracker?.track(.screenView(screen: screen))
+    }
+
+    /// Called only after the person has reviewed the calculated starting goals.
+    func completeInitialPlanReview() {
+        coordinator?.goToMain()
     }
 
     private func invalidateAggregateCaches() async {
@@ -243,20 +256,21 @@ final class ProfileViewModel {
         }
     }
 
-    func createProfile() async {
+    @discardableResult
+    func createProfile() async -> Bool {
         fieldErrors.removeAll()
 
         let weightValue = canonicalWeight()
         let heightValue = canonicalHeight()
         let ageValue = Int(age)
 
-        if weightValue == nil {
+        if weightValue == nil || !(20...400).contains(weightValue ?? 0) {
             setValidationError(for: "weight", isMissing: isBlank(weight))
         }
-        if heightValue == nil {
+        if heightValue == nil || !(80...250).contains(heightValue ?? 0) {
             setValidationError(for: "height", isMissing: isBlank(height))
         }
-        if ageValue == nil {
+        if ageValue == nil || !(13...120).contains(ageValue ?? 0) {
             setValidationError(for: "age", isMissing: isBlank(age))
         }
         if gender == nil { setRequiredError(for: "gender") }
@@ -273,7 +287,7 @@ final class ProfileViewModel {
               let goal,
               let activityLevel else {
             state = .empty
-            return
+            return false
         }
 
         state = .saving(nil)
@@ -298,7 +312,7 @@ final class ProfileViewModel {
             await cacheService?.remove("goals")
             await invalidateAggregateCaches()
             progressRefreshState?.invalidateGoals()
-            coordinator?.goToMain()
+            return true
 
         } catch {
             switch ErrorHandler.handle(
@@ -309,7 +323,13 @@ final class ProfileViewModel {
                     "age",
                     "gender",
                     "goal",
-                    "activityLevel"
+                    "activityLevel",
+                    "targetWeightKg",
+                    "targetWeightMinKg",
+                    "targetWeightMaxKg",
+                    "weeklyRateKg",
+                    "targetDate",
+                    "goalStartedAt"
                 ]
             ) {
             case .fieldErrors(let errors):
@@ -320,7 +340,92 @@ final class ProfileViewModel {
                 routeAuth(appError)
                 state = .error(appError)
             }
+            return false
         }
+    }
+
+    /// Validates non-empty values while the person is editing. Required-field
+    /// errors remain reserved for an attempt to continue through the form.
+    func validateLiveValue(_ field: LiveValidationField) {
+        switch field {
+        case .weight:
+            validateOptionalNumber(
+                weight,
+                field: "weight",
+                value: canonicalWeight(),
+                range: 20...400
+            )
+        case .height:
+            validateOptionalNumber(
+                height,
+                field: "height",
+                value: canonicalHeight().map(Double.init),
+                range: 80...250
+            )
+        case .age:
+            validateOptionalNumber(
+                age,
+                field: "age",
+                value: Int(age).map(Double.init),
+                range: 13...120
+            )
+        case .targetWeight:
+            fieldErrors.clear("targetWeightKg")
+            guard !isBlank(targetWeight) else { return }
+            guard let target = canonicalPlanWeight(targetWeight) else {
+                setValidationError(for: "targetWeightKg", isMissing: false)
+                return
+            }
+            guard (20...400).contains(target) else {
+                setWeightRangeError(for: "targetWeightKg")
+                return
+            }
+            let currentWeight = originalWeightKg ?? canonicalWeight()
+            if (goal == .lose && currentWeight.map { target >= $0 } == true) ||
+                (goal == .gain && currentWeight.map { target <= $0 } == true) {
+                setValidationError(for: "targetWeightKg", isMissing: false)
+            }
+        case .maintainRange:
+            fieldErrors.clear("targetWeightMinKg")
+            fieldErrors.clear("targetWeightMaxKg")
+            guard !isBlank(maintainWeightMin) || !isBlank(maintainWeightMax) else { return }
+            guard let minimum = canonicalPlanWeight(maintainWeightMin),
+                  let maximum = canonicalPlanWeight(maintainWeightMax),
+                  minimum < maximum,
+                  (0.5...10).contains(maximum - minimum) else {
+                setValidationError(for: "targetWeightMinKg", isMissing: false)
+                setValidationError(for: "targetWeightMaxKg", isMissing: false)
+                return
+            }
+        case .weeklyPace:
+            fieldErrors.clear("weeklyRateKg")
+            guard !isBlank(weeklyRateKg) else { return }
+            guard let pace = normalized(weeklyRateKg), (0...2).contains(pace), pace > 0 else {
+                setValidationError(for: "weeklyRateKg", isMissing: false)
+                return
+            }
+        }
+    }
+
+    private func validateOptionalNumber(
+        _ text: String,
+        field: String,
+        value: Double?,
+        range: ClosedRange<Double>
+    ) {
+        fieldErrors.clear(field)
+        guard !isBlank(text) else { return }
+        guard let value, range.contains(value) else {
+            setValidationError(for: field, isMissing: false)
+            return
+        }
+    }
+
+    private func setWeightRangeError(for field: String) {
+        let minimum = UnitConversion.formatBodyWeight(kg: 20, preferred: preferredUnits)
+        let maximum = UnitConversion.formatBodyWeight(kg: 400, preferred: preferredUnits)
+        let unit = UnitConversion.bodyWeightUnitLabel(preferred: preferredUnits)
+        fieldErrors.set("Enter a weight between \(minimum) and \(maximum) \(unit).", for: field)
     }
 
     /// Saves the target plan after local validation, keeping API field errors in the same form state.
@@ -368,13 +473,13 @@ final class ProfileViewModel {
         let date = targetDate.trimmingCharacters(in: .whitespacesAndNewlines)
         let selectedGoal = goal
 
-        if !isBlank(targetWeight), target == nil { setValidationError(for: "targetWeightKg", isMissing: false) }
-        if !isBlank(maintainWeightMin), minimum == nil { setValidationError(for: "targetWeightMinKg", isMissing: false) }
-        if !isBlank(maintainWeightMax), maximum == nil { setValidationError(for: "targetWeightMaxKg", isMissing: false) }
+        if !isBlank(targetWeight), target == nil || !(20...400).contains(target ?? 0) { setValidationError(for: "targetWeightKg", isMissing: false) }
+        if !isBlank(maintainWeightMin), minimum == nil || !(20...400).contains(minimum ?? 0) { setValidationError(for: "targetWeightMinKg", isMissing: false) }
+        if !isBlank(maintainWeightMax), maximum == nil || !(20...400).contains(maximum ?? 0) { setValidationError(for: "targetWeightMaxKg", isMissing: false) }
         if !isBlank(weeklyRateKg), rate == nil || rate == 0 || (rate ?? 0) > 2 {
             setValidationError(for: "weeklyRateKg", isMissing: false)
         }
-        if !date.isEmpty, (!Self.isDateOnly(date) || date < Self.todayDateOnly) {
+        if !date.isEmpty, (!Self.isDateOnly(date) || date < Self.minimumTargetDateOnly) {
             setValidationError(for: "targetDate", isMissing: false)
         }
 
@@ -448,6 +553,12 @@ final class ProfileViewModel {
         AppDate.dateOnlyFormatter().string(from: .now)
     }
 
+    private static var minimumTargetDateOnly: String {
+        let today = Calendar.current.startOfDay(for: .now)
+        let earliest = Calendar.current.date(byAdding: .day, value: 14, to: today) ?? today
+        return AppDate.dateOnlyFormatter().string(from: earliest)
+    }
+
     private static func isDateOnly(_ value: String) -> Bool {
         let formatter = AppDate.dateOnlyFormatter()
         return formatter.string(from: formatter.date(from: value) ?? .distantPast) == value
@@ -459,7 +570,9 @@ final class ProfileViewModel {
 
     private func setRequiredError(for field: String) {
         fieldErrors.set(
-            FormErrorMapper.message(for: FieldErrorCode.required.rawValue),
+            FormErrorMapper.message(
+                for: FieldProblem(field: field, code: FieldErrorCode.required.rawValue)
+            ),
             for: field
         )
     }
@@ -470,7 +583,7 @@ final class ProfileViewModel {
             : FieldErrorCode.invalidValue
 
         fieldErrors.set(
-            FormErrorMapper.message(for: code.rawValue),
+            FormErrorMapper.message(for: FieldProblem(field: field, code: code.rawValue)),
             for: field
         )
     }
