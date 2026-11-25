@@ -70,6 +70,15 @@ final class GoalsService: GoalsServiceProtocol, Sendable {
         return try await client.send(request)
     }
 
+    func previewDraft(_ body: GoalsPreviewDraftRequest) async throws -> GoalsPreview {
+        let request = APIRequest(
+            path: GoalsEndpoints.previewDraft,
+            method: .POST,
+            body: body
+        )
+        return try await client.send(request)
+    }
+
     func applySuggestion(metrics: [GoalMetricKey]?) async throws -> UserGoals {
         let request = APIRequest(
             path: GoalsEndpoints.applySuggestion,

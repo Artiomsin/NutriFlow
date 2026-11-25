@@ -188,6 +188,23 @@ struct NewGoalCycleRequest: Encodable, Sendable {
     let goalStartedAt: String?
 }
 
+/// Payload for the stateless onboarding preview. Nothing is persisted until
+/// the person confirms the plan with `createProfile`.
+struct GoalsPreviewDraftRequest: Encodable, Sendable {
+    let weight: Double
+    let height: Int
+    let age: Int
+    let gender: Gender
+    let goal: Goal
+    let activityLevel: ActivityLevel
+    let targetWeightKg: Double?
+    let targetWeightMinKg: Double?
+    let targetWeightMaxKg: Double?
+    let weeklyRateKg: Double?
+    let targetDate: String?
+    let timeZone: String?
+}
+
 struct GoalCalculationBasis: Codable, Sendable {
     let currentWeightKg: Double?
     let targetWeightKg: Double?

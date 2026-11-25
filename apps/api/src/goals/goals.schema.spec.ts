@@ -5,10 +5,15 @@ import {
   clearManualOverrideSchema,
   goalsQuerySchema,
   newCycleSchema,
+  previewDraftSchema,
   progressApplySchema,
   progressQuerySchema,
   updateGoalsSchema,
 } from './goals.schema';
+import {
+  FieldErrorCode,
+  fieldErrorsFromIssues,
+} from '../common/validation/field-errors';
 
 describe('goals.schema', () => {
   it('accepts an empty updateGoals patch and explicit nulls', () => {
@@ -117,13 +122,20 @@ describe('goals.schema', () => {
   });
 
   it('rejects past targetDate in newCycleSchema', () => {
-    const result = newCycleSchema.safeParse({
+    const input = {
       action: 'set_new_goal',
       goal: 'lose',
       targetWeightKg: 70,
       targetDate: '2000-01-01',
-    });
+    };
+    const result = newCycleSchema.safeParse(input);
     expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(fieldErrorsFromIssues(result.error.issues, input)).toContainEqual({
+        field: 'targetDate',
+        code: FieldErrorCode.targetDateInPast,
+      });
+    }
   });
 
   it('accepts maintain range fields in newCycleSchema', () => {
@@ -135,5 +147,28 @@ describe('goals.schema', () => {
       targetWeightKg: 70,
     });
     expect(result.success).toBe(true);
+  });
+
+  it('validates previewDraft payload without a stored profile', () => {
+    expect(
+      previewDraftSchema.safeParse({
+        weight: 80,
+        height: 180,
+        age: 30,
+        gender: 'male',
+        goal: 'lose',
+        activityLevel: 'medium',
+      }).success,
+    ).toBe(true);
+    expect(
+      previewDraftSchema.safeParse({
+        weight: 0,
+        height: 180,
+        age: 30,
+        gender: 'male',
+        goal: 'lose',
+        activityLevel: 'medium',
+      }).success,
+    ).toBe(false);
   });
 });

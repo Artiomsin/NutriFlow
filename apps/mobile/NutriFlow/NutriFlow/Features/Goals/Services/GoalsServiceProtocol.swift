@@ -6,6 +6,7 @@ protocol GoalsServiceProtocol: Sendable {
     func calculateGoals() async throws -> UserGoals
     func resetGoalsToAutomatic() async throws -> UserGoals
     func getGoalsPreview() async throws -> GoalsPreview
+    func previewDraft(_ request: GoalsPreviewDraftRequest) async throws -> GoalsPreview
     func applySuggestion(metrics: [GoalMetricKey]?) async throws -> UserGoals
     func dismissSuggestion() async throws -> UserGoals
     func clearManualOverrides() async throws -> UserGoals

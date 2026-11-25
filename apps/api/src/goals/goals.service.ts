@@ -17,10 +17,13 @@ import type {
 import { userProfiles } from '../db/schema/userProfiles';
 import { and, desc, eq, gt, isNull, lt, or, sql } from 'drizzle-orm';
 import { formatDateInTimeZone, zonedDayRange } from '../common/time/user-date';
+import { validationProblem } from '../common/http/problem-details';
+import { FieldErrorCode } from '../common/validation/field-errors';
 import type {
   GoalsHistoryQueryDto,
   UpdateGoalsDto,
   NewCycleDto,
+  GoalsPreviewDraftDto,
 } from './goals.schema';
 import type { GoalMetrics } from './personalization/types';
 import {
@@ -267,7 +270,12 @@ export class GoalsService {
     const effectiveRecommended =
       constrainedSuggestion?.suggested ?? calculation.metrics;
     const estimatedCompletion = this.computePlannedEstimatedCompletion(
-      profile,
+      {
+        goal: profile.goal,
+        targetWeightKg: profile.targetWeightKg,
+        currentWeightKg: profile.weight,
+        timeZone: profile.timeZone,
+      },
       calculation,
     );
 
@@ -301,6 +309,76 @@ export class GoalsService {
       preservedFixedFields: constrainedSuggestion?.preservedFixedFields ?? [],
       recalculatedFields: constrainedSuggestion?.recalculatedFields ?? [],
       willApplyAutomatically: mode === 'auto',
+      estimatedCompletion,
+    };
+  }
+
+  /**
+   * Calculates a plan from an onboarding draft without reading or writing a
+   * profile row. The caller owns the data until the final createProfile call.
+   */
+  previewDraft(data: GoalsPreviewDraftDto) {
+    this.validateProfileTargetFields({
+      weight: data.weight,
+      goal: data.goal,
+      targetWeightKg: data.targetWeightKg ?? null,
+      targetWeightMinKg: data.targetWeightMinKg ?? null,
+      targetWeightMaxKg: data.targetWeightMaxKg ?? null,
+      weeklyRateKg: data.weeklyRateKg ?? null,
+      targetDate: data.targetDate ?? null,
+      goalStartedAt: data.goalStartedAt ?? null,
+    });
+
+    const calculation = calculateRecommendedMetrics({
+      weightKg: data.weight,
+      heightCm: data.height,
+      age: data.age,
+      gender: data.gender,
+      goal: data.goal,
+      activityLevel: data.activityLevel,
+      targetWeightKg: data.targetWeightKg ?? null,
+      weeklyRateKg: data.weeklyRateKg ?? null,
+      targetDate: data.targetDate ?? null,
+      goalStartedAt: data.goalStartedAt ?? null,
+    });
+
+    const estimatedCompletion = this.computePlannedEstimatedCompletion(
+      {
+        goal: data.goal,
+        targetWeightKg: data.targetWeightKg ?? null,
+        currentWeightKg: data.weight,
+        timeZone: data.timeZone ?? 'UTC',
+      },
+      calculation,
+    );
+
+    const diff = diffGoalMetrics(null, calculation.metrics);
+
+    return {
+      mode: 'auto' as const,
+      recommended: calculation.metrics,
+      suggested: calculation.metrics,
+      applied: null,
+      fixedMetrics: [],
+      manualOverrides: null,
+      diff,
+      autoDiff: diff,
+      basis: calculation.basis,
+      calories: {
+        bmr: calculation.calories.bmr,
+        tdee: calculation.calories.tdee,
+        dailyCalories: calculation.calories.dailyCalories,
+        rawDailyCalories: calculation.calories.rawDailyCalories,
+        dailyDeltaKcal: calculation.calories.dailyDeltaKcal,
+        targetRateKgPerWeek: calculation.calories.targetRateKgPerWeek,
+        paceSource: calculation.calories.paceSource,
+        minSafeCalories: calculation.calories.minSafeCalories,
+        maxSafeCalories: calculation.calories.maxSafeCalories,
+        warnings: calculation.calories.warnings ?? [],
+        conflicts: [],
+        limitedBySafety: calculation.calories.limitedBySafety,
+      },
+      willApplyAutomatically: true,
       estimatedCompletion,
     };
   }
@@ -834,7 +912,12 @@ export class GoalsService {
 
     const calculation = calculateRecommendedMetrics(input);
     const estimatedCompletion = this.computePlannedEstimatedCompletion(
-      profile,
+      {
+        goal: profile.goal,
+        targetWeightKg: profile.targetWeightKg,
+        currentWeightKg: profile.weight,
+        timeZone: profile.timeZone,
+      },
       calculation,
     );
     const existing = await this.findActiveRow(userId, executor);
@@ -1012,18 +1095,28 @@ export class GoalsService {
       targetDate,
     } = input;
     if (weeklyRateKg != null && weeklyRateKg <= 0) {
-      throw new BadRequestException('weeklyRateKg must be positive');
+      throw validationProblem([
+        {
+          field: 'weeklyRateKg',
+          code: FieldErrorCode.weeklyRateMustBePositive,
+        },
+      ]);
     }
     if (targetDate != null) {
       const today = new Date().toISOString().slice(0, 10);
       if (targetDate < today) {
-        throw new BadRequestException('targetDate must not be in the past');
+        throw validationProblem([
+          { field: 'targetDate', code: FieldErrorCode.targetDateInPast },
+        ]);
       }
     }
     if (targetDate != null && targetWeightKg == null && goal !== 'maintain') {
-      throw new BadRequestException(
-        'targetWeightKg is required when targetDate is set',
-      );
+      throw validationProblem([
+        {
+          field: 'targetWeightKg',
+          code: FieldErrorCode.targetWeightRequiredForDate,
+        },
+      ]);
     }
     if (
       goal === 'lose' &&
@@ -1031,9 +1124,12 @@ export class GoalsService {
       weight != null &&
       targetWeightKg >= weight
     ) {
-      throw new BadRequestException(
-        'targetWeightKg must be less than current weight for lose goal',
-      );
+      throw validationProblem([
+        {
+          field: 'targetWeightKg',
+          code: FieldErrorCode.targetWeightMustBeLowerThanCurrent,
+        },
+      ]);
     }
     if (
       goal === 'gain' &&
@@ -1041,29 +1137,41 @@ export class GoalsService {
       weight != null &&
       targetWeightKg <= weight
     ) {
-      throw new BadRequestException(
-        'targetWeightKg must be greater than current weight for gain goal',
-      );
+      throw validationProblem([
+        {
+          field: 'targetWeightKg',
+          code: FieldErrorCode.targetWeightMustBeHigherThanCurrent,
+        },
+      ]);
     }
 
     const hasMin = targetWeightMinKg != null;
     const hasMax = targetWeightMaxKg != null;
     if (hasMin !== hasMax) {
-      throw new BadRequestException(
-        'targetWeightMinKg and targetWeightMaxKg must be provided together',
-      );
+      throw validationProblem([
+        {
+          field: hasMin ? 'targetWeightMaxKg' : 'targetWeightMinKg',
+          code: FieldErrorCode.maintainRangePairRequired,
+        },
+      ]);
     }
     if (hasMin && hasMax) {
       if (targetWeightMinKg! >= targetWeightMaxKg!) {
-        throw new BadRequestException(
-          'targetWeightMaxKg must be greater than targetWeightMinKg',
-        );
+        throw validationProblem([
+          {
+            field: 'targetWeightMaxKg',
+            code: FieldErrorCode.maintainRangeOrderInvalid,
+          },
+        ]);
       }
       const width = targetWeightMaxKg! - targetWeightMinKg!;
       if (width < 0.5 || width > 10) {
-        throw new BadRequestException(
-          'Maintain range width should be between 0.5 and 10 kg',
-        );
+        throw validationProblem([
+          {
+            field: 'targetWeightMaxKg',
+            code: FieldErrorCode.maintainRangeWidthOutOfRange,
+          },
+        ]);
       }
     }
 
@@ -1074,9 +1182,12 @@ export class GoalsService {
             targetWeightMaxKg! < weight - 15 ||
             targetWeightMinKg! > weight + 15
           ) {
-            throw new BadRequestException(
-              'Maintain range should be reasonably close to current weight',
-            );
+            throw validationProblem([
+              {
+                field: 'targetWeightMinKg',
+                code: FieldErrorCode.maintainRangeTooFarFromCurrent,
+              },
+            ]);
           }
         }
         if (targetWeightKg != null) {
@@ -1084,22 +1195,31 @@ export class GoalsService {
             targetWeightKg < targetWeightMinKg! ||
             targetWeightKg > targetWeightMaxKg!
           ) {
-            throw new BadRequestException(
-              'targetWeightKg must be within maintain range when range is provided',
-            );
+            throw validationProblem([
+              {
+                field: 'targetWeightKg',
+                code: FieldErrorCode.targetWeightOutsideMaintainRange,
+              },
+            ]);
           }
         }
       } else if (targetWeightKg != null && weight != null) {
         if (Math.abs(targetWeightKg - weight) > 10) {
-          throw new BadRequestException(
-            'For maintain goal, targetWeightKg should be within 10kg of current weight',
-          );
+          throw validationProblem([
+            {
+              field: 'targetWeightKg',
+              code: FieldErrorCode.targetWeightTooFarFromCurrent,
+            },
+          ]);
         }
       }
     } else if (hasMin || hasMax) {
-      throw new BadRequestException(
-        'Maintain range is only supported for maintain goal',
-      );
+      throw validationProblem([
+        {
+          field: 'targetWeightMinKg',
+          code: FieldErrorCode.maintainRangeNotAllowed,
+        },
+      ]);
     }
 
     if (targetDate != null && input.goalStartedAt != null) {
@@ -1108,7 +1228,12 @@ export class GoalsService {
           ? input.goalStartedAt.toISOString().slice(0, 10)
           : String(input.goalStartedAt).slice(0, 10);
       if (targetDate <= started) {
-        throw new BadRequestException('targetDate must be after goalStartedAt');
+        throw validationProblem([
+          {
+            field: 'targetDate',
+            code: FieldErrorCode.targetDateMustBeAfterGoalStart,
+          },
+        ]);
       }
     }
   }
@@ -1143,14 +1268,19 @@ export class GoalsService {
   }
 
   private computePlannedEstimatedCompletion(
-    profile: typeof userProfiles.$inferSelect,
+    input: {
+      goal: string | null;
+      targetWeightKg: number | string | null;
+      currentWeightKg: number | string | null;
+      timeZone: string | null;
+    },
     calculation: GoalCalculationResult,
   ) {
-    const goal = profile.goal as 'lose' | 'gain' | 'maintain' | null;
+    const goal = input.goal as 'lose' | 'gain' | 'maintain' | null;
     const targetWeightKg =
-      profile.targetWeightKg == null ? null : Number(profile.targetWeightKg);
+      input.targetWeightKg == null ? null : Number(input.targetWeightKg);
     const currentWeightKg =
-      profile.weight == null ? null : Number(profile.weight);
+      input.currentWeightKg == null ? null : Number(input.currentWeightKg);
     const targetRateKgPerWeek = calculation.calories.targetRateKgPerWeek;
 
     if (
@@ -1167,7 +1297,7 @@ export class GoalsService {
 
     const remainingToTarget = targetWeightKg - currentWeightKg; // signed
     const distance = Math.abs(remainingToTarget);
-    const tz = profile.timeZone ?? 'UTC';
+    const tz = input.timeZone ?? 'UTC';
     const today = formatDateInTimeZone(new Date(), tz);
     const addDays = (dateStr: string, days: number): string => {
       const d = new Date(`${dateStr}T00:00:00Z`);

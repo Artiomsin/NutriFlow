@@ -16,6 +16,7 @@ function setup() {
     calculate: mock(async () => ({ userId: 'user-1' })),
     resetToAutomatic: mock(async () => ({ userId: 'user-1' })),
     preview: mock(async () => ({ recommended: {} })),
+    previewDraft: mock(async () => ({ recommended: {} })),
     applySuggestion: mock(async () => ({ userId: 'user-1' })),
     dismissSuggestion: mock(async () => ({ userId: 'user-1' })),
     clearManualOverrides: mock(async () => ({ userId: 'user-1' })),
@@ -70,6 +71,14 @@ describe('GoalsController', () => {
       tz: 'Europe/Moscow',
     });
 
+    await controller.previewDraft({
+      weight: 80,
+      height: 180,
+      age: 30,
+      gender: 'male',
+      goal: 'lose',
+      activityLevel: 'medium',
+    });
     await controller.update(user, { dailyCaloriesGoal: 2200 });
     await controller.calculate(user);
     await controller.resetToAutomatic(user);
@@ -93,6 +102,14 @@ describe('GoalsController', () => {
       'Europe/Moscow',
     );
 
+    expect(goalsService.previewDraft).toHaveBeenCalledWith({
+      weight: 80,
+      height: 180,
+      age: 30,
+      gender: 'male',
+      goal: 'lose',
+      activityLevel: 'medium',
+    });
     expect(goalsService.update).toHaveBeenCalledWith('user-1', {
       dailyCaloriesGoal: 2200,
     });

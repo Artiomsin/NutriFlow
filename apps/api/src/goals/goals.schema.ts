@@ -4,6 +4,20 @@ import {
   calendarDateSchema,
   timeZoneSchema,
 } from '../common/validation/date.schema';
+import { FieldErrorCode } from '../common/validation/field-errors';
+
+function addSemanticIssue(
+  ctx: z.RefinementCtx,
+  field: string,
+  fieldErrorCode: (typeof FieldErrorCode)[keyof typeof FieldErrorCode],
+) {
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    path: [field],
+    message: 'Invalid goal plan field',
+    params: { fieldErrorCode },
+  });
+}
 
 export const goalsQuerySchema = z.object({
   date: calendarDateSchema.optional(),
@@ -11,6 +25,28 @@ export const goalsQuerySchema = z.object({
 });
 
 export type GoalsQueryDto = z.infer<typeof goalsQuerySchema>;
+
+/**
+ * Onboarding preview input. It mirrors the profile-create payload so the
+ * onboarding can calculate a plan before any profile row exists.
+ */
+export const previewDraftSchema = z.object({
+  weight: z.number().finite().min(20).max(400),
+  height: z.number().int().min(50).max(300),
+  age: z.number().int().min(1).max(120),
+  gender: z.enum(['male', 'female']),
+  goal: z.enum(['lose', 'gain', 'maintain']),
+  activityLevel: z.enum(['low', 'medium', 'high']),
+  timeZone: timeZoneSchema.optional(),
+  targetWeightKg: z.number().finite().min(20).max(400).nullable().optional(),
+  targetWeightMinKg: z.number().finite().min(20).max(400).nullable().optional(),
+  targetWeightMaxKg: z.number().finite().min(20).max(400).nullable().optional(),
+  weeklyRateKg: z.number().finite().positive().max(2).nullable().optional(),
+  targetDate: calendarDateSchema.nullable().optional(),
+  goalStartedAt: z.coerce.date().optional(),
+});
+
+export type GoalsPreviewDraftDto = z.infer<typeof previewDraftSchema>;
 
 export const goalsHistoryQuerySchema = z.object({
   // When present, returns every version that was in effect during that
@@ -180,11 +216,7 @@ export const newCycleSchema = z
   })
   .superRefine((value, ctx) => {
     if (value.action === 'set_new_goal' && !value.goal) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['goal'],
-        message: 'goal is required for set_new_goal',
-      });
+      addSemanticIssue(ctx, 'goal', FieldErrorCode.goalRequiredForNewCycle);
     }
     if (value.action === 'adjust_tempo') {
       if (
@@ -192,22 +224,13 @@ export const newCycleSchema = z
         value.targetDate === undefined &&
         value.targetWeightKg === undefined
       ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['action'],
-          message:
-            'adjust_tempo requires at least one of weeklyRateKg, targetDate, targetWeightKg',
-        });
+        addSemanticIssue(ctx, 'action', FieldErrorCode.tempoAdjustmentRequired);
       }
     }
     if (value.targetDate != null) {
       const today = new Date().toISOString().slice(0, 10);
       if (value.targetDate < today) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['targetDate'],
-          message: 'targetDate must not be in the past',
-        });
+        addSemanticIssue(ctx, 'targetDate', FieldErrorCode.targetDateInPast);
       }
     }
   });

@@ -98,6 +98,60 @@ describe('goals routes', () => {
     await http().get('/api/goals').set(auth(token)).expect(404);
   });
 
+  it('calculates an onboarding preview without creating a profile', async () => {
+    const token = await register();
+    const res = await http()
+      .post('/api/goals/preview/draft')
+      .set(auth(token))
+      .send({
+        weight: 80,
+        height: 180,
+        age: 30,
+        gender: 'male',
+        goal: 'lose',
+        activityLevel: 'medium',
+        targetWeightKg: 75,
+        weeklyRateKg: 0.5,
+      })
+      .expect(201);
+
+    const body = res.body as {
+      recommended?: { dailyCaloriesGoal?: number };
+      basis?: { currentWeightKg?: number };
+    };
+    expect(body.recommended?.dailyCaloriesGoal).toBeGreaterThan(0);
+    expect(body.basis?.currentWeightKg).toBe(80);
+
+    await http().get('/api/profiles/me').set(auth(token)).expect(404);
+  });
+
+  it('rejects an onboarding preview with an unsafe target', async () => {
+    const token = await register();
+    const res = await http()
+      .post('/api/goals/preview/draft')
+      .set(auth(token))
+      .send({
+        weight: 80,
+        height: 180,
+        age: 30,
+        gender: 'male',
+        goal: 'lose',
+        activityLevel: 'medium',
+        targetWeightKg: 85,
+      })
+      .expect(400);
+
+    expect(res.body).toMatchObject({
+      status: 400,
+      fieldErrors: [
+        {
+          field: 'targetWeightKg',
+          code: 'TARGET_WEIGHT_MUST_BE_LOWER_THAN_CURRENT',
+        },
+      ],
+    });
+  });
+
   it('creates goals via PATCH and returns history', async () => {
     const token = await register();
 

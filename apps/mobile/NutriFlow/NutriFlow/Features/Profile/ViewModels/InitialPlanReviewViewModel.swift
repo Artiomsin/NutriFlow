@@ -10,27 +10,22 @@ final class InitialPlanReviewViewModel {
 
     @ObservationIgnored private let service: GoalsServiceProtocol
     @ObservationIgnored private weak var coordinator: AppCoordinator?
-    @ObservationIgnored private let cacheService: CacheService?
 
     init(
         coordinator: AppCoordinator,
-        service: GoalsServiceProtocol,
-        cacheService: CacheService? = nil
+        service: GoalsServiceProtocol
     ) {
         self.coordinator = coordinator
         self.service = service
-        self.cacheService = cacheService
     }
 
-    func load() async {
+    func load(draft: GoalsPreviewDraftRequest) async {
         isLoading = true
         error = nil
         defer { isLoading = false }
 
         do {
-            let preview = try await service.getGoalsPreview()
-            self.preview = preview
-            try? await cacheService?.set("goals_preview", preview, ttl: 300)
+            preview = try await service.previewDraft(draft)
         } catch is CancellationError {
             return
         } catch {
@@ -42,7 +37,7 @@ final class InitialPlanReviewViewModel {
         }
     }
 
-    func retry() {
-        Task { await load() }
+    func retry(draft: GoalsPreviewDraftRequest) {
+        Task { await load(draft: draft) }
     }
 }

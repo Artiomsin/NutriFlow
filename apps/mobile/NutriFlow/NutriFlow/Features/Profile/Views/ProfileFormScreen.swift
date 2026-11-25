@@ -22,8 +22,7 @@ struct ProfileFormScreen: View {
         _reviewViewModel = State(
             initialValue: InitialPlanReviewViewModel(
                 coordinator: coordinator,
-                service: container.goalsService,
-                cacheService: container.cacheService
+                service: container.goalsService
             )
         )
     }

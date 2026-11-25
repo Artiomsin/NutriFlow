@@ -6,7 +6,8 @@ struct ProfileOnboardingView: View {
     @Bindable var reviewViewModel: InitialPlanReviewViewModel
 
     @State private var step: ProfileStep = .about
-    @State private var profileCreated = false
+    @State private var previewDraft: GoalsPreviewDraftRequest?
+    @State private var isTransitioning = false
 
     private enum ProfileStep: Int, CaseIterable {
         case about
@@ -62,6 +63,20 @@ struct ProfileOnboardingView: View {
                     .padding(.top, 28)
                     .padding(.bottom, 24)
                 }
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 50)
+                        .onEnded { value in
+                            let horizontal = value.translation.width
+                            let vertical = value.translation.height
+                            guard abs(horizontal) > abs(vertical) * 1.5 else { return }
+
+                            if horizontal < 0 {
+                                advanceBySwipe()
+                            } else {
+                                goBack()
+                            }
+                        }
+                )
 
                 actionBar
             }
@@ -259,6 +274,10 @@ struct ProfileOnboardingView: View {
                     description: Text("Go back and choose lose, maintain, or gain.")
                 )
             }
+
+            if let error = reviewViewModel.error {
+                ErrorMessageView(text: error.localizedDescription)
+            }
         }
     }
 
@@ -328,7 +347,7 @@ struct ProfileOnboardingView: View {
             get: { !viewModel.targetDate.isEmpty },
             set: { isEnabled in
                 viewModel.targetDate = isEnabled
-                    ? AppDate.dateOnlyFormatter().string(from: .now)
+                    ? AppDate.dateOnlyFormatter().string(from: earliestTargetDate)
                     : ""
             }
         )
@@ -337,7 +356,8 @@ struct ProfileOnboardingView: View {
     private var selectedTargetDate: Binding<Date> {
         Binding(
             get: {
-                AppDate.dateOnlyFormatter().date(from: viewModel.targetDate) ?? .now
+                AppDate.dateOnlyFormatter().date(from: viewModel.targetDate)
+                    ?? earliestTargetDate
             },
             set: { date in
                 viewModel.targetDate = AppDate.dateOnlyFormatter().string(from: date)
@@ -395,6 +415,10 @@ struct ProfileOnboardingView: View {
                 if let calories = metrics?.dailyCaloriesGoal {
                     PlanMetricRow(title: "Daily calories", value: "\(Int(calories.rounded())) kcal")
                 }
+                if let rate = preview.calories?.targetRateKgPerWeek
+                    ?? preview.basis?.weeklyRateKg {
+                    PlanMetricRow(title: "Weekly pace", value: weeklyPaceText(rate))
+                }
                 HStack(spacing: 12) {
                     PlanMetricRow(title: "Protein", value: grams(metrics?.dailyProteinGoal))
                     PlanMetricRow(title: "Fat", value: grams(metrics?.dailyFatGoal))
@@ -402,28 +426,11 @@ struct ProfileOnboardingView: View {
                 }
 
                 if let completion = preview.estimatedCompletion {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Estimated completion")
-                            .font(.headline)
-                            .foregroundStyle(AppColors.textPrimary)
-                        Text(completion.plannedDate ?? completion.byTrendDate ?? "Calculated from your pace")
-                            .foregroundStyle(AppColors.textSecondary)
-                    }
-                    .padding(18)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(AppColors.surfaceSecondary, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                }
-
-                if let warnings = preview.calories?.warnings, !warnings.isEmpty {
-                    ForEach(warnings, id: \.self) { warning in
-                        Label(warning, systemImage: "exclamationmark.triangle.fill")
-                            .font(.subheadline)
-                            .foregroundStyle(AppColors.warning)
-                    }
+                    completionSummary(preview: preview, completion: completion)
                 }
 
                 Button("Adjust plan") {
-                    step = .goal
+                    step = .plan
                 }
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AppColors.accent)
@@ -443,7 +450,9 @@ struct ProfileOnboardingView: View {
                         .multilineTextAlignment(.center)
                 }
                 Button("Try again") {
-                    reviewViewModel.retry()
+                    if let previewDraft {
+                        reviewViewModel.retry(draft: previewDraft)
+                    }
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -456,11 +465,131 @@ struct ProfileOnboardingView: View {
         return "\(Int(value.rounded())) g"
     }
 
+    private func weeklyPaceText(_ rate: Double) -> String {
+        let absolute = abs(rate)
+        guard absolute > 0 else { return "Maintain weight" }
+        let value = absolute.formatted(
+            .number.precision(.fractionLength(0...2))
+        )
+        return "\(value) kg/week"
+    }
+
+    private func formattedDate(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let date = AppDate.dateOnlyFormatter().date(from: value)
+            ?? AppDate.parseISO(value)
+        guard let date else { return value }
+        return AppDate.displayFormatter("d MMMM yyyy").string(from: date)
+    }
+
+    private func completionSummary(
+        preview: GoalsPreview,
+        completion: GoalEstimatedCompletion
+    ) -> some View {
+        let targetDate = formattedDate(preview.basis?.targetDate)
+        let estimatedDate = formattedDate(
+            completion.plannedDate ?? completion.byTrendDate
+        )
+
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("Your timeline")
+                .font(.headline)
+                .foregroundStyle(AppColors.textPrimary)
+
+            if let targetDate {
+                timelineRow(
+                    title: "Your target date",
+                    value: targetDate,
+                    systemImage: "calendar"
+                )
+            }
+
+            timelineRow(
+                title: "Estimated at this pace",
+                value: estimatedDate ?? "Calculated from your pace",
+                systemImage: "chart.line.uptrend.xyaxis"
+            )
+
+            Label(
+                completionExplanation(preview: preview, completion: completion),
+                systemImage: "info.circle.fill"
+            )
+            .font(.footnote)
+            .foregroundStyle(AppColors.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            AppColors.surfaceSecondary,
+            in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(AppColors.textTertiary.opacity(0.5), lineWidth: 1)
+        }
+    }
+
+    private func timelineRow(
+        title: String,
+        value: String,
+        systemImage: String
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Image(systemName: systemImage)
+                .foregroundStyle(AppColors.accent)
+                .frame(width: 18)
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(AppColors.textSecondary)
+            Spacer(minLength: 12)
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppColors.textPrimary)
+                .multilineTextAlignment(.trailing)
+        }
+    }
+
+    private func completionExplanation(
+        preview: GoalsPreview,
+        completion: GoalEstimatedCompletion
+    ) -> String {
+        let warnings = Set(preview.calories?.warnings ?? [])
+        let pace = preview.calories?.targetRateKgPerWeek
+            ?? completion.targetRateKgPerWeek
+            ?? preview.basis?.weeklyRateKg
+
+        if preview.basis?.weeklyRateKg != nil && completion.plannedDate != nil {
+            return "You chose a target date, but the selected weekly pace takes priority, so the estimate follows the pace."
+        }
+
+        if warnings.contains("target_rate_limited_to_safe_maximum")
+            || warnings.contains("derived_rate_limited_to_safe_maximum") {
+            return "Your date would require a faster pace than we consider safe, so the plan uses a safer pace of \(pace.map(weeklyPaceText) ?? "the recommended rate")."
+        }
+
+        if warnings.contains("target_rate_increased_to_safe_minimum")
+            || warnings.contains("derived_rate_increased_to_safe_minimum") {
+            return "Your date would require a slower pace than our safe minimum, so the plan uses \(pace.map(weeklyPaceText) ?? "the recommended rate") instead."
+        }
+
+        switch preview.calories?.paceSource {
+        case "explicit_rate":
+            return "Your selected weekly pace takes priority over the target date, so the estimate follows that pace."
+        case "target_date":
+            return "We calculated the weekly pace needed to work toward your target date. This is still an estimate."
+        case "recommended_default":
+            return "No weekly pace was selected, so this estimate uses a safe recommended pace."
+        default:
+            return "This is an estimate based on your current weight, target, and selected pace."
+        }
+    }
+
     private var actionBar: some View {
         VStack(spacing: 12) {
-            if step != .about && step != .review {
+            if step != .about {
                 Button("Back") {
-                    step = ProfileStep(rawValue: step.rawValue - 1) ?? .about
+                    goBack()
                 }
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AppColors.textSecondary)
@@ -468,7 +597,8 @@ struct ProfileOnboardingView: View {
 
             Button(action: advance) {
                 HStack(spacing: 10) {
-                    if viewModel.state.isSaving || (step == .review && reviewViewModel.isLoading) {
+                    if isTransitioning || viewModel.state.isSaving ||
+                        (step == .plan || step == .review) && reviewViewModel.isLoading {
                         ProgressView()
                             .tint(AppColors.accentOnPrimary)
                     }
@@ -483,7 +613,9 @@ struct ProfileOnboardingView: View {
             }
             .buttonStyle(.plain)
             .disabled(
+                isTransitioning ||
                 viewModel.state.isSaving ||
+                (step == .plan && reviewViewModel.isLoading) ||
                 (step == .review && (reviewViewModel.isLoading || reviewViewModel.preview == nil))
             )
         }
@@ -501,31 +633,56 @@ struct ProfileOnboardingView: View {
     }
 
     private func advance() {
+        guard !isTransitioning else { return }
+
         switch step {
-        case .about, .goal:
-            step = ProfileStep(rawValue: step.rawValue + 1) ?? .plan
+        case .about:
+            viewModel.fieldErrors.removeAll()
+            guard viewModel.validateProfileIdentity() else { return }
+            step = .goal
+
+        case .goal:
+            viewModel.fieldErrors.removeAll()
+            guard viewModel.validateGoalSelection() else { return }
+            step = .plan
 
         case .plan:
+            guard viewModel.validatePlanDraft(),
+                  let draft = viewModel.makePreviewDraft() else {
+                moveToFirstInvalidStep()
+                return
+            }
+            previewDraft = draft
+            isTransitioning = true
             Task {
-                let saved: Bool
-                if profileCreated {
-                    saved = await viewModel.saveGoalPlan()
-                } else {
-                    saved = await viewModel.createProfile()
-                    profileCreated = saved
-                }
-
-                guard saved else {
-                    moveToFirstInvalidStep()
-                    return
-                }
+                defer { isTransitioning = false }
+                await reviewViewModel.load(draft: draft)
+                guard reviewViewModel.preview != nil else { return }
                 step = .review
-                await reviewViewModel.load()
             }
 
         case .review:
-            viewModel.completeInitialPlanReview()
+            guard !isTransitioning else { return }
+            isTransitioning = true
+            Task {
+                defer { isTransitioning = false }
+                guard await viewModel.createProfile() else {
+                    moveToFirstInvalidStep()
+                    return
+                }
+                viewModel.completeInitialPlanReview()
+            }
         }
+    }
+
+    private func advanceBySwipe() {
+        guard step != .review else { return }
+        advance()
+    }
+
+    private func goBack() {
+        guard step != .about, !isTransitioning else { return }
+        step = ProfileStep(rawValue: step.rawValue - 1) ?? .about
     }
 
     private func moveToFirstInvalidStep() {
@@ -534,6 +691,8 @@ struct ProfileOnboardingView: View {
             step = .about
         } else if errors["goal"] != nil {
             step = .goal
+        } else {
+            step = .plan
         }
     }
 }
@@ -644,15 +803,7 @@ private struct ChoiceChip: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(isSelected ? AppColors.accentOnPrimary : AppColors.textPrimary)
-                .padding(.horizontal, 16)
-                .frame(minHeight: 44)
-                .background(isSelected ? AppColors.accent : AppColors.surfaceSecondary, in: Capsule())
-        }
-        .buttonStyle(.plain)
+        SelectableChip(title: title, isSelected: isSelected, action: action)
     }
 }
 
@@ -663,12 +814,29 @@ struct SelectableChip: View {
 
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(isSelected ? AppColors.accentOnPrimary : AppColors.textPrimary)
-                .padding(.horizontal, 16)
-                .frame(minHeight: 44)
-                .background(isSelected ? AppColors.accent : AppColors.surfaceSecondary, in: Capsule())
+            HStack(spacing: 6) {
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.caption.weight(.bold))
+                }
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+            }
+            .foregroundStyle(isSelected ? AppColors.accentOnPrimary : AppColors.textPrimary)
+            .padding(.horizontal, 16)
+            .frame(minHeight: 44)
+            .background(
+                Capsule()
+                    .fill(isSelected ? AppColors.accent : AppColors.surface)
+            )
+            .overlay {
+                Capsule()
+                    .stroke(
+                        isSelected ? AppColors.accent : AppColors.textTertiary.opacity(0.7),
+                        lineWidth: isSelected ? 1.5 : 1
+                    )
+            }
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
     }
@@ -709,19 +877,22 @@ private struct GoalChoice: View {
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                isSelected ? AppColors.accent.opacity(0.12) : AppColors.surface,
+                isSelected ? AppColors.accent.opacity(0.14) : AppColors.surface,
                 in: RoundedRectangle(cornerRadius: 20, style: .continuous)
             )
             .overlay {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(isSelected ? AppColors.accent : AppColors.border, lineWidth: 1)
+                    .stroke(
+                        isSelected ? AppColors.accent : AppColors.textTertiary.opacity(0.5),
+                        lineWidth: isSelected ? 2 : 1
+                    )
             }
         }
         .buttonStyle(.plain)
     }
 }
 
-#Preview("Profile personalization") {
+#Preview("Onboarding · Light") {
     let container = AppDependencyContainer()
     let coordinator = AppCoordinator(container: container)
     let viewModel = ProfileViewModel(
@@ -740,4 +911,27 @@ private struct GoalChoice: View {
         viewModel: viewModel,
         reviewViewModel: reviewViewModel
     )
+    .preferredColorScheme(.light)
+}
+
+#Preview("Onboarding · Dark") {
+    let container = AppDependencyContainer()
+    let coordinator = AppCoordinator(container: container)
+    let viewModel = ProfileViewModel(
+        coordinator: coordinator,
+        authService: MockAuthService(),
+        profileService: MockProfileService(),
+        userService: MockUserService()
+    )
+
+    let reviewViewModel = InitialPlanReviewViewModel(
+        coordinator: coordinator,
+        service: MockGoalsService()
+    )
+
+    ProfileOnboardingView(
+        viewModel: viewModel,
+        reviewViewModel: reviewViewModel
+    )
+    .preferredColorScheme(.dark)
 }

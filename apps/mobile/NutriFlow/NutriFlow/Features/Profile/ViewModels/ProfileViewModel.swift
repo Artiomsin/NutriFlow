@@ -259,36 +259,20 @@ final class ProfileViewModel {
     @discardableResult
     func createProfile() async -> Bool {
         fieldErrors.removeAll()
-
-        let weightValue = canonicalWeight()
-        let heightValue = canonicalHeight()
-        let ageValue = Int(age)
-
-        if weightValue == nil || !(20...400).contains(weightValue ?? 0) {
-            setValidationError(for: "weight", isMissing: isBlank(weight))
-        }
-        if heightValue == nil || !(80...250).contains(heightValue ?? 0) {
-            setValidationError(for: "height", isMissing: isBlank(height))
-        }
-        if ageValue == nil || !(13...120).contains(ageValue ?? 0) {
-            setValidationError(for: "age", isMissing: isBlank(age))
-        }
-        if gender == nil { setRequiredError(for: "gender") }
-        if goal == nil { setRequiredError(for: "goal") }
-        if activityLevel == nil { setRequiredError(for: "activityLevel") }
-
-        let goalPlan = makeGoalPlanRequest(currentWeightKg: weightValue)
-
-        guard fieldErrors.isEmpty,
-              let weight = weightValue,
-              let height = heightValue,
-              let age = ageValue,
+        guard validateProfileIdentity(),
+              validateGoalSelection(),
+              validatePlanDraft(),
+              let weight = canonicalWeight(),
+              let height = canonicalHeight(),
+              let age = Int(age),
               let gender,
               let goal,
               let activityLevel else {
             state = .empty
             return false
         }
+
+        let goalPlan = makeGoalPlanRequest(currentWeightKg: weight)
 
         state = .saving(nil)
 
@@ -426,6 +410,71 @@ final class ProfileViewModel {
         let maximum = UnitConversion.formatBodyWeight(kg: 400, preferred: preferredUnits)
         let unit = UnitConversion.bodyWeightUnitLabel(preferred: preferredUnits)
         fieldErrors.set("Enter a weight between \(minimum) and \(maximum) \(unit).", for: field)
+    }
+
+    /// Validates the body metrics shown on the first onboarding step.
+    @discardableResult
+    func validateProfileIdentity() -> Bool {
+        let weightValue = canonicalWeight()
+        let heightValue = canonicalHeight()
+        let ageValue = Int(age)
+
+        if weightValue == nil || !(20...400).contains(weightValue ?? 0) {
+            setValidationError(for: "weight", isMissing: isBlank(weight))
+        }
+        if heightValue == nil || !(80...250).contains(heightValue ?? 0) {
+            setValidationError(for: "height", isMissing: isBlank(height))
+        }
+        if ageValue == nil || !(13...120).contains(ageValue ?? 0) {
+            setValidationError(for: "age", isMissing: isBlank(age))
+        }
+        if gender == nil { setRequiredError(for: "gender") }
+        if activityLevel == nil { setRequiredError(for: "activityLevel") }
+        return fieldErrors.isEmpty
+    }
+
+    /// Validates the goal selection shown on the second onboarding step.
+    @discardableResult
+    func validateGoalSelection() -> Bool {
+        if goal == nil { setRequiredError(for: "goal") }
+        return fieldErrors.isEmpty
+    }
+
+    /// Validates plan fields without consulting the API.
+    @discardableResult
+    func validatePlanDraft() -> Bool {
+        makeGoalPlanRequest(currentWeightKg: canonicalWeight()) != nil
+    }
+
+    /// Stateless payload for POST /goals/preview/draft.
+    func makePreviewDraft() -> GoalsPreviewDraftRequest? {
+        guard validateProfileIdentity(),
+              validateGoalSelection(),
+              validatePlanDraft(),
+              let weight = canonicalWeight(),
+              let height = canonicalHeight(),
+              let age = Int(age),
+              let gender,
+              let goal,
+              let activityLevel else {
+            return nil
+        }
+
+        let plan = makeGoalPlanRequest(currentWeightKg: weight)
+        return GoalsPreviewDraftRequest(
+            weight: weight,
+            height: height,
+            age: age,
+            gender: gender,
+            goal: goal,
+            activityLevel: activityLevel,
+            targetWeightKg: plan?.targetWeightKg,
+            targetWeightMinKg: plan?.targetWeightMinKg,
+            targetWeightMaxKg: plan?.targetWeightMaxKg,
+            weeklyRateKg: plan?.weeklyRateKg,
+            targetDate: plan?.targetDate,
+            timeZone: TimeZone.current.identifier
+        )
     }
 
     /// Saves the target plan after local validation, keeping API field errors in the same form state.

@@ -16,6 +16,7 @@ enum GoalsEndpoints {
     static let personalize = "/goals/personalize"
     static let personalizationState = "/goals/personalization"
     static let preview = "/goals/preview"
+    static let previewDraft = "/goals/preview/draft"
     static let applySuggestion = "/goals/apply-suggestion"
     static let dismissSuggestion = "/goals/dismiss-suggestion"
     static let clearManualOverrides = "/goals/clear-manual-overrides"

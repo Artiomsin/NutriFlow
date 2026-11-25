@@ -471,6 +471,25 @@ final class MockAnalyticsService: AnalyticsServiceProtocol {
 final class MockGoalsService: GoalsServiceProtocol {
     
     func getGoalsPreview() async throws -> GoalsPreview {
+        try await previewDraft(
+            GoalsPreviewDraftRequest(
+                weight: 80,
+                height: 180,
+                age: 30,
+                gender: .male,
+                goal: .maintain,
+                activityLevel: .medium,
+                targetWeightKg: nil,
+                targetWeightMinKg: nil,
+                targetWeightMaxKg: nil,
+                weeklyRateKg: nil,
+                targetDate: nil,
+                timeZone: nil
+            )
+        )
+    }
+
+    func previewDraft(_ request: GoalsPreviewDraftRequest) async throws -> GoalsPreview {
         GoalsPreview(
             mode: .auto,
             recommended: nil,
