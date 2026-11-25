@@ -2,205 +2,242 @@ import SwiftUI
 
 struct OnboardingView: View {
     let onComplete: () -> Void
+
     @State private var currentPage = 0
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private let pages: [OnboardingPageData] = [
-        OnboardingPageData(
+        .init(
             icon: "fork.knife",
-            title: "Track your nutrition",
-            subtitle: "AI-powered macros",
-            description: "Just snap a photo of your food — the AI will detect calories, protein, fat, and carbs automatically.",
-            statValue: 0.98.formatted(.percent.precision(.fractionLength(0))),
-            statLabel: "accuracy",
-            feature: "Database of 2M+ foods"
+            eyebrow: "YOUR DAILY BASELINE",
+            title: "Food logging that fits real life",
+            description: "Log meals quickly, understand your macros, and keep the day moving.",
+            highlights: ["Smart meal logging", "Clear macro breakdown"],
+            accent: AppColors.accent
         ),
-        OnboardingPageData(
-            icon: "drop",
-            title: "Smart hydrator",
-            subtitle: "Drink water mindfully",
-            description: "A personal water goal based on your weight, activity, and weather. Hourly reminders.",
-            statValue: "2.5L",
-            statLabel: "average goal",
-            feature: "HealthKit sync"
+        .init(
+            icon: "drop.fill",
+            eyebrow: "SMALL HABITS",
+            title: "Hydration, without the mental load",
+            description: "See a simple daily water target and stay on track one glass at a time.",
+            highlights: ["Personal daily target", "Gentle reminders"],
+            accent: AppColors.info
         ),
-        OnboardingPageData(
+        .init(
             icon: "chart.line.uptrend.xyaxis",
-            title: "Deep analytics",
-            subtitle: "See your progress",
-            description: "Beautiful charts for weight, body fat, and muscle mass. 30-day forecasts.",
-            statValue: "24/7",
-            statLabel: "monitoring",
-            feature: "PDF export"
+            eyebrow: "PROGRESS, EXPLAINED",
+            title: "See the trend behind every day",
+            description: "Your progress is presented as a clear story, not a wall of numbers.",
+            highlights: ["Weight trends", "Goal forecasts"],
+            accent: AppColors.success
         ),
-        OnboardingPageData(
-            icon: "crown",
-            title: "Achievements",
-            subtitle: "Daily motivation",
-            description: "Earn badges, compete with friends, and get personal challenges.",
-            statValue: "150+",
-            statLabel: "achievements",
-            feature: "Weekly tournaments"
+        .init(
+            icon: "sparkles",
+            eyebrow: "READY WHEN YOU ARE",
+            title: "Build a plan you can keep",
+            description: "Set up your profile next. NutriFlow will tailor goals around your routine.",
+            highlights: ["Personalized goals", "Adjust as life changes"],
+            accent: AppColors.accentSecondary
         )
     ]
-    
+
     var body: some View {
         ZStack {
             AppColors.background
                 .ignoresSafeArea()
-            
+
+            ambientBackground
+
             VStack(spacing: 0) {
-                ModernPageIndicator(currentPage: currentPage, totalPages: pages.count)
-                    .padding(.top, 60)
-                    .padding(.horizontal, 24)
-                
-                Spacer(minLength: 20)
-                
+                header
+
                 TabView(selection: $currentPage) {
-                    ForEach(pages.indices, id: \.self) { index in
-                        DarkOnboardingCard(page: pages[index])
+                    ForEach(Array(pages.enumerated()), id: \.element.id) { index, page in
+                        OnboardingPageCard(page: page, isActive: currentPage == index)
                             .tag(index)
+                            .padding(.horizontal, 24)
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                
-                Spacer(minLength: 30)
+                .animation(reduceMotion ? nil : .snappy, value: currentPage)
 
-                Button {
-                    if currentPage < pages.count - 1 {
-                        currentPage += 1
-                    } else {
-                        UserDefaults.standard.set(true, forKey: "onboardingShown")
-                        onComplete()
-                    }
-                } label: {
-                    HStack(spacing: 12) {
-                        Text(currentPage < pages.count - 1 ? "Next" : "Get Started")
-                            .font(.system(size: 17, weight: .semibold, design: .rounded))
-
-                        Image(systemName: currentPage < pages.count - 1 ? "arrow.right" : "checkmark")
-                            .font(.system(size: 16, weight: .semibold))
-                    }
-                    .foregroundColor(AppColors.textPrimary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(AppColors.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: 28))
-                    .shadow(color: AppColors.accent.opacity(0.3), radius: 12, x: 0, y: 5)
-                }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 50)
+                footer
             }
+            .padding(.top, 12)
+            .padding(.bottom, 20)
         }
-       // .preferredColorScheme(.dark)
+        .tint(AppColors.accent)
+    }
+
+    private var ambientBackground: some View {
+        GeometryReader { proxy in
+            Circle()
+                .fill(pages[currentPage].accent.opacity(0.18))
+                .frame(width: proxy.size.width * 0.9)
+                .blur(radius: 40)
+                .offset(x: proxy.size.width * 0.38, y: -proxy.size.height * 0.22)
+
+            Circle()
+                .fill(AppColors.glassHighlight.opacity(0.15))
+                .frame(width: proxy.size.width * 0.7)
+                .blur(radius: 48)
+                .offset(x: -proxy.size.width * 0.4, y: proxy.size.height * 0.7)
+        }
+        .allowsHitTesting(false)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.45), value: currentPage)
+    }
+
+    private var header: some View {
+        HStack {
+            Text("NUTRIFLOW")
+                .font(.caption.weight(.bold))
+                .tracking(1.8)
+                .foregroundStyle(AppColors.textSecondary)
+
+            Spacer()
+
+            Button("Skip", action: finish)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppColors.textSecondary)
+                .accessibilityHint("Skips the introduction and continues to sign in.")
+        }
+        .padding(.horizontal, 24)
+    }
+
+    private var footer: some View {
+        VStack(spacing: 20) {
+            OnboardingPageIndicator(
+                currentPage: currentPage,
+                totalPages: pages.count,
+                tint: pages[currentPage].accent
+            )
+
+            Button(action: advance) {
+                HStack(spacing: 10) {
+                    Text(currentPage == pages.indices.last ? "Set up my plan" : "Continue")
+                    Image(systemName: currentPage == pages.indices.last ? "arrow.right" : "chevron.right")
+                }
+                .font(.headline)
+                .foregroundStyle(AppColors.accentOnPrimary)
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 56)
+                .background(pages[currentPage].accent, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(currentPage == pages.indices.last ? "Set up my plan" : "Continue")
+            .padding(.horizontal, 24)
+        }
+    }
+
+    private func advance() {
+        guard currentPage < pages.count - 1 else {
+            finish()
+            return
+        }
+
+        withAnimation(reduceMotion ? nil : .snappy) {
+            currentPage += 1
+        }
+    }
+
+    private func finish() {
+        UserDefaults.standard.set(true, forKey: "onboardingShown")
+        onComplete()
     }
 }
 
-struct ModernPageIndicator: View {
+private struct OnboardingPageCard: View {
+    let page: OnboardingPageData
+    let isActive: Bool
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Spacer(minLength: 20)
+
+            Image(systemName: page.icon)
+                .font(.system(size: 48, weight: .medium))
+                .foregroundStyle(page.accent)
+                .frame(width: 96, height: 96)
+                .background(page.accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .accessibilityHidden(true)
+                .scaleEffect(isActive || reduceMotion ? 1 : 0.85)
+                .opacity(isActive ? 1 : 0.5)
+
+            Spacer(minLength: 44)
+
+            Text(page.eyebrow)
+                .font(.caption.weight(.bold))
+                .tracking(1.4)
+                .foregroundStyle(page.accent)
+
+            Text(page.title)
+                .font(.system(.largeTitle, design: .rounded).weight(.bold))
+                .foregroundStyle(AppColors.textPrimary)
+                .padding(.top, 12)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(page.description)
+                .font(.body)
+                .foregroundStyle(AppColors.textSecondary)
+                .lineSpacing(4)
+                .padding(.top, 14)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 14) {
+                ForEach(page.highlights, id: \.self) { highlight in
+                    Label(highlight, systemImage: "checkmark.circle.fill")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(AppColors.textPrimary)
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(page.accent)
+                }
+            }
+            .padding(.top, 30)
+            .padding(22)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(AppColors.border.opacity(0.8), lineWidth: 1)
+            }
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct OnboardingPageIndicator: View {
     let currentPage: Int
     let totalPages: Int
-    
+    let tint: Color
+
     var body: some View {
         HStack(spacing: 8) {
             ForEach(0..<totalPages, id: \.self) { index in
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(index == currentPage ? AppColors.accent : AppColors.textSecondary.opacity(0.3))
+                Capsule()
+                    .fill(index == currentPage ? tint : AppColors.textSecondary.opacity(0.25))
                     .frame(width: index == currentPage ? 28 : 8, height: 8)
-                    .animation(.spring(response: 0.5, dampingFraction: 0.7), value: currentPage)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .center)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Page \(currentPage + 1) of \(totalPages)")
     }
 }
 
-struct DarkOnboardingCard: View {
-    let page: OnboardingPageData
-    @State private var isAnimating = false
-    
-    var body: some View {
-        VStack(spacing: 28) {
-            Image(systemName: page.icon)
-                .font(.system(size: 60, weight: .medium))
-                .foregroundColor(AppColors.accent)
-                .scaleEffect(isAnimating ? 1 : 0.8)
-                .opacity(isAnimating ? 1 : 0)
-            
-            VStack(spacing: 12) {
-                Text(page.title)
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundColor(AppColors.textPrimary)
-                    .multilineTextAlignment(.center)
-                
-                Text(page.subtitle)
-                    .font(.system(size: 17, weight: .medium, design: .rounded))
-                    .foregroundColor(AppColors.accent.opacity(0.9))
-                    .multilineTextAlignment(.center)
-                
-                Text(page.description)
-                    .font(.system(size: 15, design: .rounded))
-                    .foregroundColor(AppColors.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(5)
-                    .padding(.horizontal, 32)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .opacity(isAnimating ? 1 : 0)
-            .offset(y: isAnimating ? 0 : 20)
-            
-            HStack(spacing: 16) {
-                VStack(spacing: 4) {
-                    Text(page.statValue)
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
-                        .foregroundColor(AppColors.textPrimary)
-                    Text(page.statLabel)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(AppColors.textSecondary)
-                }
-                .frame(maxWidth: .infinity)
-                
-                Rectangle()
-                    .fill(AppColors.border)
-                    .frame(width: 1, height: 40)
-                
-                HStack(spacing: 8) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 12))
-                        .foregroundColor(AppColors.accent)
-                    Text(page.feature)
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundColor(AppColors.textPrimary)
-                }
-                .frame(maxWidth: .infinity)
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(AppColors.surface)
-            )
-            .padding(.horizontal, 24)
-            .opacity(isAnimating ? 1 : 0)
-            .offset(y: isAnimating ? 0 : 30)
-        }
-        .padding(.vertical, 20)
-        .onAppear {
-            withAnimation(.spring(response: 0.7, dampingFraction: 0.8)) {
-                isAnimating = true
-            }
-        }
-    }
-}
-
-struct OnboardingPageData {
+private struct OnboardingPageData: Identifiable {
+    let id = UUID()
     let icon: String
+    let eyebrow: String
     let title: String
-    let subtitle: String
     let description: String
-    let statValue: String
-    let statLabel: String
-    let feature: String
+    let highlights: [String]
+    let accent: Color
 }
 
-#Preview("Dark onboarding") {
+#Preview("Onboarding") {
     OnboardingView(onComplete: {})
-       // .preferredColorScheme(.dark)
 }
