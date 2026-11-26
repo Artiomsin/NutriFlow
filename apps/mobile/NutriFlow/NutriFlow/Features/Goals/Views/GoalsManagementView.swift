@@ -7,6 +7,7 @@ struct GoalsManagementView: View {
     }
 
     @Bindable var goalsVM: GoalsViewModel
+    let onEditPlan: () -> Void
 
     @State private var isSaving = false
     @State private var isResettingGoals = false
@@ -35,10 +36,44 @@ struct GoalsManagementView: View {
         return nil
     }
 
+    /// A personalized recommendation is recorded as history/source. It does
+    /// not create a third operating mode alongside automatic and manual.
+    private var isManualMode: Bool {
+        currentGoals?.mode == .manual || currentGoals?.source == "user"
+    }
+
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
                 header
+
+                Button(action: onEditPlan) {
+                    HStack(spacing: 14) {
+                        Image(systemName: "target")
+                            .font(.title3)
+                            .foregroundStyle(AppColors.accent)
+                            .frame(width: 30)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Goal plan")
+                                .font(.headline)
+                                .foregroundStyle(AppColors.textPrimary)
+                            Text("Direction, target weight, pace and date")
+                                .font(.footnote)
+                                .foregroundStyle(AppColors.textSecondary)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(AppColors.textTertiary)
+                    }
+                    .padding(16)
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .appGlassSurface()
 
                 if case .error(let error) = goalsVM.state {
                     ErrorView(error: error) { goalsVM.retryGoals() }
@@ -103,7 +138,7 @@ struct GoalsManagementView: View {
             }
             Button("Cancel", role: .cancel) { }
         } message: {
-            Text("Your manual or personalized targets will be replaced using your current profile and weight.")
+            Text("Your manual targets will be replaced using your current profile and weight.")
         }
     }
 
@@ -122,8 +157,8 @@ struct GoalsManagementView: View {
 
     @ViewBuilder
     private var sourceBadge: some View {
-        if let goals = currentGoals {
-            Text(sourceLabel(goals.source))
+        if currentGoals != nil {
+            Text(isManualMode ? "Manual" : "Automatic")
                 .font(.caption.weight(.semibold))
                 .foregroundColor(AppColors.accent)
                 .padding(.horizontal, 10)
@@ -389,7 +424,7 @@ struct GoalsManagementView: View {
 
     @ViewBuilder
     private var automaticGoalsControl: some View {
-        if let goals = currentGoals, goals.source == "user" {
+        if isManualMode {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "arrow.triangle.2.circlepath")
@@ -428,35 +463,6 @@ struct GoalsManagementView: View {
                     .background(AppColors.accent.opacity(0.10))
                     .clipShape(RoundedRectangle(cornerRadius: AppRadius.small))
                 }
-                .disabled(isSaving || isResettingGoals)
-            }
-            .padding(12)
-            .appGlassSurface()
-        } else if currentGoals?.source == "personalized" {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "sparkles")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppColors.accent)
-                        .frame(width: 30, height: 30)
-                        .background(AppColors.accent.opacity(0.12))
-                        .clipShape(Circle())
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Personalized plan")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppColors.textPrimary)
-                        Text("Recommendation adjustments are kept while goals adapt to your profile and weight.")
-                            .font(.caption)
-                            .foregroundStyle(AppColors.textSecondary)
-                    }
-                }
-
-                Button("Use standard automatic goals") {
-                    showResetConfirmation = true
-                }
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(AppColors.accent)
                 .disabled(isSaving || isResettingGoals)
             }
             .padding(12)
@@ -629,14 +635,6 @@ struct GoalsManagementView: View {
         historyNextCursor = page.nextCursor
     }
 
-    private func sourceLabel(_ source: String?) -> String {
-        switch source?.lowercased() {
-        case "initial": return "Automatic"
-        case "user": return "Manual"
-        case "personalized": return "Personalized"
-        default: return "Auto"
-        }
-    }
 }
 
 #Preview("Goals Management") {
@@ -652,7 +650,7 @@ struct GoalsManagementView: View {
         source: "personalized", createdAt: nil, updatedAt: nil
     ))
     return NavigationStack {
-        GoalsManagementView(goalsVM: goalsVM)
+        GoalsManagementView(goalsVM: goalsVM, onEditPlan: {})
     }
     .background(AppColors.background)
     

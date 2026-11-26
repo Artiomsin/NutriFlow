@@ -5,6 +5,7 @@ enum SettingsNavRoute: Hashable {
     case profile
     case editProfile
     case goals
+    case goalPlan
     case changePassword
 }
 
@@ -82,7 +83,11 @@ struct SettingsView: View {
                 case .editProfile:
                     EditProfileView(viewModel: viewModel)
                 case .goals:
-                    GoalsManagementView(goalsVM: goalsVM)
+                    GoalsManagementView(goalsVM: goalsVM) {
+                        navPath.append(.goalPlan)
+                    }
+                case .goalPlan:
+                    GoalPlanView(profileVM: viewModel, goalsVM: goalsVM)
                 case .changePassword:
                     ChangePasswordView(
                         viewModel: ChangePasswordViewModel(

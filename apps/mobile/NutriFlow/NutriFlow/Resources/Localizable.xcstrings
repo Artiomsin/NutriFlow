@@ -73,6 +73,9 @@
         }
       }
     },
+    "%@ direction" : {
+
+    },
     "%@ efficiency" : {
 
     },
@@ -108,9 +111,6 @@
 
     },
     "%lld-day streak" : {
-
-    },
-    "+%lld more goals updated" : {
 
     },
     "0" : {
@@ -188,10 +188,19 @@
     "Apply" : {
 
     },
+    "Apply changes" : {
+
+    },
     "Are you sure you want to delete this water entry?" : {
 
     },
     "Assign a category while adding a food. System categories are shared; yours stay private." : {
+
+    },
+    "At least two weeks from today" : {
+
+    },
+    "Automatic" : {
 
     },
     "Automatic calculation is off" : {
@@ -201,9 +210,6 @@
 
     },
     "Back" : {
-
-    },
-    "Based on your recent activity" : {
 
     },
     "BPM" : {
@@ -248,10 +254,16 @@
     "Change the name to save" : {
 
     },
+    "Changing this starts a separate goal cycle." : {
+
+    },
     "Charts" : {
 
     },
     "Check access in the Health app:\n%@" : {
+
+    },
+    "Choose a common pace or enter a custom value in kg per week." : {
 
     },
     "Choose a date at least two weeks from today." : {
@@ -368,7 +380,10 @@
     "Delete weight record" : {
 
     },
-    "Dismiss" : {
+    "Direction" : {
+
+    },
+    "Direction, target weight, pace and date" : {
 
     },
     "Done" : {
@@ -968,7 +983,7 @@
     "Goal Activity" : {
 
     },
-    "Goal recommendations" : {
+    "Goal plan" : {
 
     },
     "Goal update" : {
@@ -1001,7 +1016,16 @@
     "Hours" : {
 
     },
+    "If you set one limit, set both. The range must be 0.5–10 kg wide." : {
+
+    },
     "Initial weight" : {
+
+    },
+    "Keep current cycle" : {
+
+    },
+    "Keep current goals" : {
 
     },
     "Keep going!" : {
@@ -1076,6 +1100,9 @@
     "Macro" : {
 
     },
+    "Maintenance range · optional" : {
+
+    },
     "Manage Categories" : {
 
     },
@@ -1089,6 +1116,9 @@
 
     },
     "Manage your daily targets" : {
+
+    },
+    "Manual" : {
 
     },
     "Manual record" : {
@@ -1134,6 +1164,9 @@
 
     },
     "No goal changes yet" : {
+
+    },
+    "No goal values would change. You can keep your current goals." : {
 
     },
     "No Health data is available" : {
@@ -1202,6 +1235,9 @@
     "OK" : {
 
     },
+    "Only the values listed above will change. All other goals stay the same." : {
+
+    },
     "Open Settings" : {
 
     },
@@ -1228,9 +1264,6 @@
 
     },
     "Personal" : {
-
-    },
-    "Personalized plan" : {
 
     },
     "Pick a common pace or enter a custom value." : {
@@ -1260,9 +1293,6 @@
     "Recalculate your goals?" : {
 
     },
-    "Recommendation adjustments are kept while goals adapt to your profile and weight." : {
-
-    },
     "Record" : {
 
     },
@@ -1282,6 +1312,9 @@
 
     },
     "Retry loading weight" : {
+
+    },
+    "Review the exact changes before applying them" : {
 
     },
     "Rings use the goal in effect at the end of the day." : {
@@ -1362,6 +1395,9 @@
     "Set a target date · Optional" : {
 
     },
+    "Set either a pace, a date, or both. When both are set, pace takes priority for the estimate." : {
+
+    },
     "Set up my plan" : {
 
     },
@@ -1401,6 +1437,12 @@
     "Start" : {
 
     },
+    "Start a new goal cycle?" : {
+
+    },
+    "Start new cycle" : {
+
+    },
     "Start tracking to see statistics" : {
 
     },
@@ -1418,6 +1460,9 @@
       }
     },
     "Suggested by product: %@" : {
+
+    },
+    "Suggested goal update" : {
 
     },
     "Switch to automatic goals" : {
@@ -1439,6 +1484,9 @@
 
     },
     "Tap to change photo" : {
+
+    },
+    "Target and schedule" : {
 
     },
     "Target date" : {
@@ -1501,6 +1549,9 @@
     "Try selecting another filter." : {
 
     },
+    "Typical daily activity" : {
+
+    },
     "Unassign Category" : {
 
     },
@@ -1510,16 +1561,19 @@
     "Update my goals to match my stats" : {
 
     },
+    "Update the plan for your current goal, or choose a new direction to start a new cycle." : {
+
+    },
     "Updates automatically when you travel." : {
 
     },
     "Use automatic goals?" : {
 
     },
-    "Use standard automatic goals" : {
+    "Use subtle glass on supported interface elements." : {
 
     },
-    "Use subtle glass on supported interface elements." : {
+    "Used to calculate your daily energy needs." : {
 
     },
     "Value" : {
@@ -1582,13 +1636,16 @@
     "Your goals have evolved over time" : {
 
     },
-    "Your manual or personalized targets will be replaced using your current profile and weight." : {
-
-    },
     "Your manual targets stay fixed when your weight changes." : {
 
     },
+    "Your manual targets will be replaced using your current profile and weight." : {
+
+    },
     "Your nutrition trends" : {
+
+    },
+    "Your previous goal will remain in history. New daily goals will be calculated for the direction and plan below." : {
 
     },
     "Your profile or current weight changed. Your manual goals are unchanged. Recalculate them from your new data?" : {
