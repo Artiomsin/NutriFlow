@@ -103,6 +103,13 @@ struct RecommendationConfidence: Codable, Sendable {
     let weightTrendKgPerWeek: Double?
 }
 
+struct SuggestedGoalPlan: Codable, Sendable, Equatable {
+    let weeklyRateKg: Double?
+    let targetDate: String?
+    let previousWeeklyRateKg: Double?
+    let previousTargetDate: String?
+}
+
 struct GoalRecommendation: Codable, Sendable {
     let id: String
     let userId: String?
@@ -117,6 +124,7 @@ struct GoalRecommendation: Codable, Sendable {
     let expiresAt: String
     let acceptedAt: String?
     let dismissedAt: String?
+    let suggestedPlan: SuggestedGoalPlan?
 }
 
 struct PersonalizationState: Codable, Sendable {

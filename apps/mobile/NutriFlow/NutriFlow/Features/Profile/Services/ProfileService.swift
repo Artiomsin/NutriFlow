@@ -43,7 +43,15 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
         let request = APIRequest(
             path: ProfileEndpoints.updateMyProfile,
             method: .PUT,
-            body: UpdateProfileRequest(height: height, age: age, gender: gender, goal: goal, activityLevel: activityLevel, preferredUnits: preferredUnits)
+            body: UpdateProfileRequest(
+                height: height,
+                age: age,
+                gender: gender,
+                goal: goal,
+                activityLevel: activityLevel,
+                preferredUnits: preferredUnits,
+                timeZone: nil
+            )
         )
         return try await client.send(request)
     }

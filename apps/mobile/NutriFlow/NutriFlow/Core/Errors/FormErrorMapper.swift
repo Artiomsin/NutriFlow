@@ -103,6 +103,8 @@ enum FormErrorMapper {
             return "A maintenance range is available only for a maintain goal."
         case .goalRequiredForNewCycle:
             return "Choose a direction for the new goal."
+        case .goalChangeRequiresNewCycle:
+            return "Changing direction starts a new goal cycle."
         case .tempoAdjustmentRequired:
             return "Change the pace, date, or target weight to adjust this goal."
         }

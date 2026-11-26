@@ -47,6 +47,7 @@ final class ProfileViewModel {
     private var originalTargetWeightKg: Double?
     private var originalMaintainWeightMinKg: Double?
     private var originalMaintainWeightMaxKg: Double?
+    private var originalGoal: Goal?
     @ObservationIgnored private var lastSavedUnits: PreferredUnits = .default
 
     @ObservationIgnored private let authService: AuthServiceProtocol
@@ -500,6 +501,7 @@ final class ProfileViewModel {
             switch ErrorHandler.handle(
                 error,
                 supportedFields: [
+                    "goal",
                     "targetWeightKg", "targetWeightMinKg", "targetWeightMaxKg",
                     "weeklyRateKg", "targetDate", "goalStartedAt"
                 ]
@@ -512,6 +514,27 @@ final class ProfileViewModel {
             }
             return false
         }
+    }
+
+    func makeNewGoalCycleRequest() -> NewGoalCycleRequest? {
+        guard let plan = makeGoalPlanRequest(currentWeightKg: canonicalWeight()) else {
+            return nil
+        }
+
+        return NewGoalCycleRequest(
+            action: .setNewGoal,
+            goal: plan.goal,
+            targetWeightKg: plan.targetWeightKg,
+            targetWeightMinKg: plan.targetWeightMinKg,
+            targetWeightMaxKg: plan.targetWeightMaxKg,
+            weeklyRateKg: plan.weeklyRateKg,
+            targetDate: plan.targetDate,
+            goalStartedAt: nil
+        )
+    }
+
+    var hasChangedGoalDirection: Bool {
+        goal != originalGoal
     }
 
     private func makeGoalPlanRequest(currentWeightKg: Double?) -> UpdateGoalPlanRequest? {
@@ -647,7 +670,9 @@ final class ProfileViewModel {
                 height: canonicalHeight(),
                 age: Int(age),
                 gender: gender,
-                goal: goal,
+                // Goal direction starts a separate lifecycle and must be changed
+                // only through the Goal plan flow / new-cycle endpoint.
+                goal: nil,
                 activityLevel: activityLevel,
                 preferredUnits: preferredUnits
             )
@@ -665,7 +690,7 @@ final class ProfileViewModel {
             // errors. Anything else falls back to the general error channel.
             let result = ErrorHandler.handle(
                 error,
-                supportedFields: ["height", "age", "gender"]
+                supportedFields: ["height", "age", "gender", "activityLevel"]
             )
 
             if case .general(let appError) = result {
@@ -824,6 +849,7 @@ final class ProfileViewModel {
         age = profile.age.map { String($0) } ?? ""
         gender = profile.gender
         goal = profile.goal
+        originalGoal = profile.goal
         activityLevel = profile.activityLevel
         originalTargetWeightKg = profile.targetWeightKg
         originalMaintainWeightMinKg = profile.targetWeightMinKg
@@ -903,6 +929,7 @@ final class ProfileViewModel {
         goalStartedAt = nil
         gender = nil
         goal = nil
+        originalGoal = nil
         activityLevel = nil
         originalWeightKg = nil
         originalWeightText = nil

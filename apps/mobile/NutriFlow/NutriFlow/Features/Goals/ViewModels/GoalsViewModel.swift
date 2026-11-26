@@ -398,6 +398,7 @@ final class GoalsViewModel {
         do {
             let updated = try await service.acceptRecommendation(id: recommendation.id)
             await applyUpdatedGoals(updated)
+            await cacheService?.remove("profile")
             return true
         } catch {
             let mapped = ErrorMapper.map(error)
@@ -672,6 +673,7 @@ final class GoalsViewModel {
         do {
             let updated = try await service.startNewCycle(request)
             await applyUpdatedGoals(updated)
+            await cacheService?.remove("profile")
             return true
         } catch {
             handleGoalMutationError(error)

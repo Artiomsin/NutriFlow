@@ -29,5 +29,6 @@ enum FieldErrorCode: String, CaseIterable, Sendable {
     case targetWeightTooFarFromCurrent = "TARGET_WEIGHT_TOO_FAR_FROM_CURRENT"
     case maintainRangeNotAllowed = "MAINTAIN_RANGE_NOT_ALLOWED"
     case goalRequiredForNewCycle = "GOAL_REQUIRED_FOR_NEW_CYCLE"
+    case goalChangeRequiresNewCycle = "GOAL_CHANGE_REQUIRES_NEW_CYCLE"
     case tempoAdjustmentRequired = "TEMPO_ADJUSTMENT_REQUIRED"
 }

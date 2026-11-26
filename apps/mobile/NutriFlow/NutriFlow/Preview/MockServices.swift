@@ -587,7 +587,8 @@ final class MockGoalsService: GoalsServiceProtocol {
                 createdAt: "2026-09-17T08:00:00Z",
                 expiresAt: "2026-09-24T08:00:00Z",
                 acceptedAt: nil,
-                dismissedAt: nil
+                dismissedAt: nil,
+                suggestedPlan: nil
             ),
             personalizationDue: false,
             nextAvailableAt: nil

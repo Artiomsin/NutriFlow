@@ -157,7 +157,7 @@ struct UpdateProfileRequest: Encodable, Sendable {
     let goal: Goal?
     let activityLevel: ActivityLevel?
     let preferredUnits: PreferredUnits?
-    let timeZone: String = TimeZone.current.identifier
+    let timeZone: String?
 }
 
 struct UpdateUserRequest: Codable, Sendable {
@@ -175,4 +175,27 @@ struct UpdateGoalPlanRequest: Encodable, Sendable {
     let weeklyRateKg: Double?
     let targetDate: String?
     let goalStartedAt: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case goal
+        case targetWeightKg
+        case targetWeightMinKg
+        case targetWeightMaxKg
+        case weeklyRateKg
+        case targetDate
+        case goalStartedAt
+    }
+
+    /// Goal-plan saving is a full replacement, not a patch. Encode `nil` as
+    /// JSON `null` so clearing an optional value also clears it on the API.
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(goal, forKey: .goal)
+        try container.encode(targetWeightKg, forKey: .targetWeightKg)
+        try container.encode(targetWeightMinKg, forKey: .targetWeightMinKg)
+        try container.encode(targetWeightMaxKg, forKey: .targetWeightMaxKg)
+        try container.encode(weeklyRateKg, forKey: .weeklyRateKg)
+        try container.encode(targetDate, forKey: .targetDate)
+        try container.encode(goalStartedAt, forKey: .goalStartedAt)
+    }
 }
