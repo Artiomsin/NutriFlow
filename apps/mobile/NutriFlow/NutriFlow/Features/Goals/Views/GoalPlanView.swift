@@ -19,8 +19,32 @@ struct GoalPlanView: View {
     @State private var isSaving = false
     @State private var showNewCycleConfirmation = false
     @State private var pendingNewCycle: NewGoalCycleRequest?
+    @State private var startedCycleGoals: UserGoals?
 
     var body: some View {
+        Group {
+            if let startedCycleGoals {
+                GoalCycleStartedView(
+                    goals: startedCycleGoals,
+                    goal: profileVM.goal,
+                    targetWeight: profileVM.targetWeight,
+                    maintainWeightMin: profileVM.maintainWeightMin,
+                    maintainWeightMax: profileVM.maintainWeightMax,
+                    weeklyRateKg: profileVM.weeklyRateKg,
+                    targetDate: profileVM.targetDate,
+                    estimatedCompletionDate: goalsVM.preview?.estimatedCompletion?.plannedDate,
+                    preferredUnits: profileVM.preferredUnits,
+                    onDone: { dismiss() }
+                )
+            } else {
+                planEditor
+            }
+        }
+        .background(AppColors.background)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var planEditor: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 24) {
                 Text("Goal plan")
@@ -39,9 +63,13 @@ struct GoalPlanView: View {
             .padding(.horizontal, AppSpacing.paddingHorizontal)
             .padding(.vertical, 24)
         }
-        .background(AppColors.background)
-        .navigationBarTitleDisplayMode(.inline)
         .scrollDismissesKeyboard(.interactively)
+        // This screen can be opened again after a cycle was created elsewhere.
+        // Always use the server's active cycle rather than values left in the
+        // shared profile form from a previous visit.
+        .task {
+            await profileVM.loadData(forceRefresh: true)
+        }
         .confirmationDialog(
             "Start a new goal cycle?",
             isPresented: $showNewCycleConfirmation,
@@ -383,7 +411,10 @@ struct GoalPlanView: View {
             defer { isSaving = false }
             if await goalsVM.startNewCycle(request) {
                 await profileVM.loadData(forceRefresh: true)
-                dismiss()
+                if case .loaded(let goals) = goalsVM.state {
+                    startedCycleGoals = goals
+                }
+                pendingNewCycle = nil
             }
         }
     }

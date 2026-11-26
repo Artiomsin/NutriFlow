@@ -121,6 +121,12 @@ struct GoalsManagementView: View {
             seedDrafts()
             await loadHistory()
         }
+        // Starting a new cycle updates GoalsViewModel while this view remains
+        // in the navigation stack. Mirror that fresh response into the local
+        // editing fields before the user returns to this screen.
+        .onChange(of: currentGoals) { _, _ in
+            seedDrafts()
+        }
         .onChange(of: successMessage) { _, message in
             guard message != nil else { return }
             Task {
