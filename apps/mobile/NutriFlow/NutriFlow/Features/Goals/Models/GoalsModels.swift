@@ -27,6 +27,77 @@ struct UserGoals: Codable, Sendable, Equatable {
     var fixedMetrics: [GoalMetricKey]? = nil
     var suggestion: GoalSuggestion? = nil
     var hasPendingSuggestion: Bool? = nil
+
+    private enum CodingKeys: String, CodingKey {
+        case id, userId
+        case dailyCaloriesGoal, dailyProteinGoal, dailyFatGoal, dailyCarbsGoal, dailyWaterGoal
+        case dailyStepsGoal, dailyActiveCaloriesGoal
+        case weeklyWorkoutsGoal, weeklyWorkoutMinutesGoal
+        case nightlySleepMinMinutes, nightlySleepMaxMinutes
+        case source, createdAt, updatedAt
+        case mode, manualOverrides, fixedMetrics, suggestion, hasPendingSuggestion
+    }
+
+    init(
+        id: String?,
+        userId: String?,
+        dailyCaloriesGoal: Double?,
+        dailyProteinGoal: Double?,
+        dailyFatGoal: Double?,
+        dailyCarbsGoal: Double?,
+        dailyWaterGoal: Int?,
+        dailyStepsGoal: Int?,
+        dailyActiveCaloriesGoal: Int?,
+        weeklyWorkoutsGoal: Int?,
+        weeklyWorkoutMinutesGoal: Int?,
+        nightlySleepMinMinutes: Int?,
+        nightlySleepMaxMinutes: Int?,
+        source: String?,
+        createdAt: String?,
+        updatedAt: String?
+    ) {
+        self.id = id
+        self.userId = userId
+        self.dailyCaloriesGoal = dailyCaloriesGoal
+        self.dailyProteinGoal = dailyProteinGoal
+        self.dailyFatGoal = dailyFatGoal
+        self.dailyCarbsGoal = dailyCarbsGoal
+        self.dailyWaterGoal = dailyWaterGoal
+        self.dailyStepsGoal = dailyStepsGoal
+        self.dailyActiveCaloriesGoal = dailyActiveCaloriesGoal
+        self.weeklyWorkoutsGoal = weeklyWorkoutsGoal
+        self.weeklyWorkoutMinutesGoal = weeklyWorkoutMinutesGoal
+        self.nightlySleepMinMinutes = nightlySleepMinMinutes
+        self.nightlySleepMaxMinutes = nightlySleepMaxMinutes
+        self.source = source
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(String.self, forKey: .id)
+        userId = try container.decodeIfPresent(String.self, forKey: .userId)
+        dailyCaloriesGoal = try container.decodeIfPresent(Double.self, forKey: .dailyCaloriesGoal)
+        dailyProteinGoal = try container.decodeIfPresent(Double.self, forKey: .dailyProteinGoal)
+        dailyFatGoal = try container.decodeIfPresent(Double.self, forKey: .dailyFatGoal)
+        dailyCarbsGoal = try container.decodeIfPresent(Double.self, forKey: .dailyCarbsGoal)
+        dailyWaterGoal = try container.decodeIfPresent(Int.self, forKey: .dailyWaterGoal)
+        dailyStepsGoal = try container.decodeIfPresent(Int.self, forKey: .dailyStepsGoal)
+        dailyActiveCaloriesGoal = try container.decodeIfPresent(Int.self, forKey: .dailyActiveCaloriesGoal)
+        weeklyWorkoutsGoal = try container.decodeIfPresent(Int.self, forKey: .weeklyWorkoutsGoal)
+        weeklyWorkoutMinutesGoal = try container.decodeIfPresent(Int.self, forKey: .weeklyWorkoutMinutesGoal)
+        nightlySleepMinMinutes = try container.decodeIfPresent(Int.self, forKey: .nightlySleepMinMinutes)
+        nightlySleepMaxMinutes = try container.decodeIfPresent(Int.self, forKey: .nightlySleepMaxMinutes)
+        source = try container.decodeIfPresent(String.self, forKey: .source)
+        createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
+        updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
+        mode = try container.decodeIfPresent(GoalMode.self, forKey: .mode)
+        manualOverrides = try decodeManualOverrides(from: container, forKey: .manualOverrides)
+        fixedMetrics = try container.decodeIfPresent([GoalMetricKey].self, forKey: .fixedMetrics)
+        suggestion = try container.decodeIfPresent(GoalSuggestion.self, forKey: .suggestion)
+        hasPendingSuggestion = try container.decodeIfPresent(Bool.self, forKey: .hasPendingSuggestion)
+    }
 }
 
 enum GoalMode: String, Codable, Sendable, Equatable {
@@ -34,7 +105,7 @@ enum GoalMode: String, Codable, Sendable, Equatable {
     case manual
 }
 
-enum GoalMetricKey: String, Codable, CaseIterable, Sendable, Equatable {
+enum GoalMetricKey: String, Codable, CodingKey, CaseIterable, Sendable, Equatable {
     case dailyCaloriesGoal
     case dailyProteinGoal
     case dailyFatGoal
@@ -258,6 +329,72 @@ struct GoalsPreview: Codable, Sendable {
     let calories: GoalCalculationDetails?
     let willApplyAutomatically: Bool?
     let estimatedCompletion: GoalEstimatedCompletion?
+
+    private enum CodingKeys: String, CodingKey {
+        case mode, recommended, suggested, applied, fixedMetrics, manualOverrides
+        case diff, autoDiff, basis, calories, willApplyAutomatically, estimatedCompletion
+    }
+
+    init(
+        mode: GoalMode?,
+        recommended: GoalMetrics?,
+        suggested: GoalMetrics?,
+        applied: GoalMetrics?,
+        fixedMetrics: [GoalMetricKey]?,
+        manualOverrides: [GoalMetricKey: ManualGoalOverride]?,
+        diff: [GoalMetricChange]?,
+        autoDiff: [GoalMetricChange]?,
+        basis: GoalCalculationBasis?,
+        calories: GoalCalculationDetails?,
+        willApplyAutomatically: Bool?,
+        estimatedCompletion: GoalEstimatedCompletion?
+    ) {
+        self.mode = mode
+        self.recommended = recommended
+        self.suggested = suggested
+        self.applied = applied
+        self.fixedMetrics = fixedMetrics
+        self.manualOverrides = manualOverrides
+        self.diff = diff
+        self.autoDiff = autoDiff
+        self.basis = basis
+        self.calories = calories
+        self.willApplyAutomatically = willApplyAutomatically
+        self.estimatedCompletion = estimatedCompletion
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        mode = try container.decodeIfPresent(GoalMode.self, forKey: .mode)
+        recommended = try container.decodeIfPresent(GoalMetrics.self, forKey: .recommended)
+        suggested = try container.decodeIfPresent(GoalMetrics.self, forKey: .suggested)
+        applied = try container.decodeIfPresent(GoalMetrics.self, forKey: .applied)
+        fixedMetrics = try container.decodeIfPresent([GoalMetricKey].self, forKey: .fixedMetrics)
+        manualOverrides = try decodeManualOverrides(from: container, forKey: .manualOverrides)
+        diff = try container.decodeIfPresent([GoalMetricChange].self, forKey: .diff)
+        autoDiff = try container.decodeIfPresent([GoalMetricChange].self, forKey: .autoDiff)
+        basis = try container.decodeIfPresent(GoalCalculationBasis.self, forKey: .basis)
+        calories = try container.decodeIfPresent(GoalCalculationDetails.self, forKey: .calories)
+        willApplyAutomatically = try container.decodeIfPresent(Bool.self, forKey: .willApplyAutomatically)
+        estimatedCompletion = try container.decodeIfPresent(GoalEstimatedCompletion.self, forKey: .estimatedCompletion)
+    }
+}
+
+private func decodeManualOverrides<Key: CodingKey>(
+    from container: KeyedDecodingContainer<Key>,
+    forKey key: Key
+) throws -> [GoalMetricKey: ManualGoalOverride]? {
+    guard let rawOverrides = try container.decodeIfPresent(
+        [String: ManualGoalOverride].self,
+        forKey: key
+    ) else {
+        return nil
+    }
+
+    return rawOverrides.reduce(into: [:]) { overrides, entry in
+        guard let metric = GoalMetricKey(rawValue: entry.key) else { return }
+        overrides[metric] = entry.value
+    }
 }
 
 struct ProgressPeriod: Codable, Sendable {
