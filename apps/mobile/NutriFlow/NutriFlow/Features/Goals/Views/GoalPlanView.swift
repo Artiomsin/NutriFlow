@@ -19,20 +19,22 @@ struct GoalPlanView: View {
     @State private var isSaving = false
     @State private var showNewCycleConfirmation = false
     @State private var pendingNewCycle: NewGoalCycleRequest?
-    @State private var startedCycleGoals: UserGoals?
+    @State private var savedPlanGoals: UserGoals?
+    @State private var startedNewCycle = false
 
     var body: some View {
         Group {
-            if let startedCycleGoals {
+            if let savedPlanGoals {
                 GoalCycleStartedView(
-                    goals: startedCycleGoals,
+                    goals: savedPlanGoals,
+                    startedNewCycle: startedNewCycle,
                     goal: profileVM.goal,
                     targetWeight: profileVM.targetWeight,
                     maintainWeightMin: profileVM.maintainWeightMin,
                     maintainWeightMax: profileVM.maintainWeightMax,
                     weeklyRateKg: profileVM.weeklyRateKg,
                     targetDate: profileVM.targetDate,
-                    estimatedCompletionDate: goalsVM.preview?.estimatedCompletion?.plannedDate,
+                    preview: goalsVM.preview,
                     preferredUnits: profileVM.preferredUnits,
                     onDone: { dismiss() }
                 )
@@ -398,7 +400,7 @@ struct GoalPlanView: View {
             isSaving = true
             defer { isSaving = false }
             if await profileVM.saveGoalPlan() {
-                dismiss()
+                await presentSavedPlanResult(startedNewCycle: false)
             }
         }
     }
@@ -410,12 +412,20 @@ struct GoalPlanView: View {
             isSaving = true
             defer { isSaving = false }
             if await goalsVM.startNewCycle(request) {
-                await profileVM.loadData(forceRefresh: true)
-                if case .loaded(let goals) = goalsVM.state {
-                    startedCycleGoals = goals
-                }
+                await presentSavedPlanResult(startedNewCycle: true)
                 pendingNewCycle = nil
             }
         }
+    }
+
+    private func presentSavedPlanResult(startedNewCycle: Bool) async {
+        await profileVM.loadData(forceRefresh: true)
+        await goalsVM.loadGoals(forceRefresh: true)
+        guard case .loaded(let goals) = goalsVM.state else {
+            dismiss()
+            return
+        }
+        self.startedNewCycle = startedNewCycle
+        savedPlanGoals = goals
     }
 }

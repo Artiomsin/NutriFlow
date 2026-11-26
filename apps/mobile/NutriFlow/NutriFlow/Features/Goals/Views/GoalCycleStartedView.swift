@@ -3,13 +3,14 @@ import SwiftUI
 /// Explicit completion state shown after the API creates a new goal cycle.
 struct GoalCycleStartedView: View {
     let goals: UserGoals
+    let startedNewCycle: Bool
     let goal: Goal?
     let targetWeight: String
     let maintainWeightMin: String
     let maintainWeightMax: String
     let weeklyRateKg: String
     let targetDate: String
-    let estimatedCompletionDate: String?
+    let preview: GoalsPreview?
     let preferredUnits: PreferredUnits
     let onDone: () -> Void
 
@@ -18,6 +19,7 @@ struct GoalCycleStartedView: View {
             VStack(alignment: .leading, spacing: 24) {
                 completionHeader
                 planSection
+                planOutcomeSection
                 goalsSection
                 PrimaryButton(title: "Done", action: onDone)
             }
@@ -33,11 +35,11 @@ struct GoalCycleStartedView: View {
                 .foregroundStyle(AppColors.success)
                 .accessibilityHidden(true)
 
-            Text("New goal cycle started")
+            Text(startedNewCycle ? "New goal cycle started" : "Goal plan updated")
                 .font(AppTypography.heading1)
                 .foregroundStyle(AppColors.textPrimary)
 
-            Text("Your previous cycle is saved in history. Your daily goals below have been recalculated for the new plan.")
+            Text(completionMessage)
                 .font(.body)
                 .foregroundStyle(AppColors.textSecondary)
         }
@@ -53,35 +55,34 @@ struct GoalCycleStartedView: View {
             if let targetDescription {
                 LabeledContent("Target", value: targetDescription)
             }
-            if !weeklyRateKg.isEmpty {
+            if !weeklyRateKg.isEmpty, preview?.calories?.targetRateKgPerWeek == nil {
                 LabeledContent("Weekly pace", value: "\(weeklyRateKg) kg/week")
             }
-            if let targetDateDescription {
+            if let targetDateDescription, preview?.estimatedCompletion == nil {
                 LabeledContent("Target date", value: targetDateDescription)
-            }
-            if let estimatedCompletionDescription {
-                Divider()
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Label("Estimated completion", systemImage: "calendar.badge.clock")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(AppColors.accent)
-                    Text(estimatedCompletionDescription)
-                        .font(.title3.bold())
-                        .foregroundStyle(AppColors.textPrimary)
-                    Text("Based on your current weight and selected pace")
-                        .font(.caption)
-                        .foregroundStyle(AppColors.textSecondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12)
-                .appGlassSurface(level: .inset)
             }
         }
         .font(.subheadline)
         .foregroundStyle(AppColors.textSecondary)
         .padding(16)
         .appGlassSurface()
+    }
+
+    private var completionMessage: String {
+        if startedNewCycle {
+            return "Your previous cycle is saved in history. Your daily goals below have been recalculated for the new plan."
+        }
+        if goals.mode == .manual || goals.source == "user" {
+            return "Your plan is active. Your manual daily goals stay unchanged; review any recommendation in Goals."
+        }
+        return "Your plan is active. We checked its pace and recalculated your daily goals where needed."
+    }
+
+    @ViewBuilder
+    private var planOutcomeSection: some View {
+        if let preview, let completion = preview.estimatedCompletion {
+            GoalPlanTimelineCard(preview: preview, completion: completion)
+        }
     }
 
     private var goalsSection: some View {
@@ -132,10 +133,6 @@ struct GoalCycleStartedView: View {
 
     private var targetDateDescription: String? {
         displayDate(targetDate)
-    }
-
-    private var estimatedCompletionDescription: String? {
-        displayDate(estimatedCompletionDate)
     }
 
     private func displayDate(_ value: String?) -> String? {

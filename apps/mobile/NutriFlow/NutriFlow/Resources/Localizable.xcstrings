@@ -986,6 +986,9 @@
     "Goal plan" : {
 
     },
+    "Goal plan updated" : {
+
+    },
     "Goal update" : {
 
     },
@@ -1142,6 +1145,12 @@
     "Need at least 2 other nights to compare" : {
 
     },
+    "New goal cycle started" : {
+
+    },
+    "New plan" : {
+
+    },
     "Next goal review" : {
 
     },
@@ -1267,6 +1276,9 @@
 
     },
     "Pick a common pace or enter a custom value." : {
+
+    },
+    "Plan timeline" : {
 
     },
     "Point the camera at a barcode" : {
@@ -1486,6 +1498,9 @@
     "Tap to change photo" : {
 
     },
+    "Target" : {
+
+    },
     "Target and schedule" : {
 
     },
@@ -1564,6 +1579,9 @@
     "Update the plan for your current goal, or choose a new direction to start a new cycle." : {
 
     },
+    "Updated daily goals" : {
+
+    },
     "Updates automatically when you travel." : {
 
     },
@@ -1601,6 +1619,9 @@
 
     },
     "We need a little more recent data before creating another recommendation." : {
+
+    },
+    "Weekly pace" : {
 
     },
     "Weekly pace · Optional" : {
@@ -1648,9 +1669,6 @@
     "Your previous goal will remain in history. New daily goals will be calculated for the direction and plan below." : {
 
     },
-    "Your previous cycle is saved in history. Your daily goals below have been recalculated for the new plan." : {
-
-    },
     "Your profile or current weight changed. Your manual goals are unchanged. Recalculate them from your new data?" : {
 
     },
@@ -1658,27 +1676,6 @@
 
     },
     "Your workouts from Apple Health will appear here." : {
-
-    },
-    "Based on your current weight and selected pace" : {
-
-    },
-    "Estimated completion" : {
-
-    },
-    "New goal cycle started" : {
-
-    },
-    "New plan" : {
-
-    },
-    "Target" : {
-
-    },
-    "Updated daily goals" : {
-
-    },
-    "Weekly pace" : {
 
     }
   },
