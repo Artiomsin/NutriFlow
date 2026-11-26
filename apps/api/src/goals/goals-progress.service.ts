@@ -12,11 +12,12 @@ import { userSleep } from '../db/schema/userSleep';
 import { formatDateInTimeZone, zonedDayRange } from '../common/time/user-date';
 import { rowToGoalMetrics } from './goals-history';
 import {
+  buildSuggestedGoalPlan,
   calculateRecommendedMetrics,
   mapProfileRowToInput,
 } from './goals-calculation';
 import { diffGoalMetrics } from './goal-versions';
-import type { GoalMetrics } from './personalization/types';
+import type { GoalMetrics, SuggestedGoalPlan } from './personalization/types';
 
 type ProgressStatus =
   | 'on_track'
@@ -352,6 +353,7 @@ export class GoalsProgressService {
       diff: ReturnType<typeof diffGoalMetrics>;
       note?: string;
       basis?: Record<string, unknown>;
+      suggestedPlan?: SuggestedGoalPlan | null;
     } | null = null;
 
     const profileInput = mapProfileRowToInput(profile);
@@ -382,6 +384,9 @@ export class GoalsProgressService {
           dailyDeltaKcal: calc.calories.dailyDeltaKcal,
           warnings: calc.calories.warnings,
         },
+        suggestedPlan: profileInput
+          ? buildSuggestedGoalPlan(profileInput, newRateKgPerWeek, today)
+          : null,
       };
     };
 

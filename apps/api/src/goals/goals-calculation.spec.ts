@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test';
 
 import {
   buildManualModeSuggestion,
+  buildSuggestedGoalPlan,
   calculateBmr,
   calculateCalories,
   calculateMacros,
@@ -13,6 +14,7 @@ import {
   type GoalProfileInput,
 } from './goals-calculation';
 import type { GoalMetrics } from './personalization/types';
+import type { PrimaryGoal } from './personalization/types';
 
 const baseProfile: GoalProfileInput = {
   weightKg: 80,
@@ -209,5 +211,99 @@ describe('goals-calculation', () => {
     });
 
     expect(result.warnings).toContain('fixed_calories_below_safe_minimum');
+  });
+
+  describe('buildSuggestedGoalPlan', () => {
+    const today = '2026-11-26';
+
+    it('returns plan for lose goal with remaining weight and valid rate', () => {
+      const profile = {
+        ...baseProfile,
+        goal: 'lose' as PrimaryGoal,
+        weightKg: 80,
+        targetWeightKg: 72,
+      } as GoalProfileInput;
+      const plan = buildSuggestedGoalPlan(profile, 0.4, today);
+      expect(plan).not.toBeNull();
+      expect(plan!.weeklyRateKg).toBe(0.4);
+      expect(plan!.previousWeeklyRateKg).toBeNull();
+      // 8 kg / 0.4 kg/week = 20 weeks = 140 days → 2027-04-15
+      expect(plan!.targetDate).toBe('2027-04-15');
+    });
+
+    it('returns plan for gain goal with remaining weight and valid rate', () => {
+      const profile = {
+        ...baseProfile,
+        goal: 'gain' as PrimaryGoal,
+        weightKg: 80,
+        targetWeightKg: 88,
+      } as GoalProfileInput;
+      const plan = buildSuggestedGoalPlan(profile, 0.3, today);
+      expect(plan).not.toBeNull();
+      expect(plan!.weeklyRateKg).toBe(0.3);
+      // 8 kg / 0.3 kg/week = 26.67 → 27 weeks = 189 days → 2027-06-01
+      expect(plan!.targetDate).toBe('2027-06-01');
+    });
+
+    it('returns null for maintain goal', () => {
+      const profile = {
+        ...baseProfile,
+        goal: 'maintain' as PrimaryGoal,
+        weightKg: 80,
+        targetWeightKg: 80,
+      } as GoalProfileInput;
+      const plan = buildSuggestedGoalPlan(profile, 0.5, today);
+      expect(plan).toBeNull();
+    });
+
+    it('returns null when rate is zero or negative', () => {
+      const profile = {
+        ...baseProfile,
+        weightKg: 80,
+        targetWeightKg: 72,
+      } as GoalProfileInput;
+      expect(buildSuggestedGoalPlan(profile, 0, today)).toBeNull();
+      expect(buildSuggestedGoalPlan(profile, -0.5, today)).toBeNull();
+    });
+
+    it('returns null when target weight already reached (lose)', () => {
+      const profile = {
+        ...baseProfile,
+        goal: 'lose' as PrimaryGoal,
+        weightKg: 70,
+        targetWeightKg: 72,
+      } as GoalProfileInput;
+      expect(buildSuggestedGoalPlan(profile, 0.4, today)).toBeNull();
+    });
+
+    it('returns null when target weight already reached (gain)', () => {
+      const profile = {
+        ...baseProfile,
+        goal: 'gain' as PrimaryGoal,
+        weightKg: 90,
+        targetWeightKg: 88,
+      } as GoalProfileInput;
+      expect(buildSuggestedGoalPlan(profile, 0.3, today)).toBeNull();
+    });
+
+    it('returns null when rate would take more than 520 weeks', () => {
+      const profile = {
+        ...baseProfile,
+        weightKg: 80,
+        targetWeightKg: 79.99,
+      } as GoalProfileInput;
+      const plan = buildSuggestedGoalPlan(profile, 0.00001, today);
+      expect(plan).toBeNull();
+    });
+
+    it('rounds weeklyRateKg to 2 decimals', () => {
+      const profile = {
+        ...baseProfile,
+        weightKg: 80,
+        targetWeightKg: 72,
+      } as GoalProfileInput;
+      const plan = buildSuggestedGoalPlan(profile, 0.333, today);
+      expect(plan!.weeklyRateKg).toBe(0.33);
+    });
   });
 });

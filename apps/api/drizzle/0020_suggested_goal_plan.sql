@@ -1,0 +1,1 @@
+ALTER TABLE "app"."goal_recommendations" ADD COLUMN "suggested_plan" jsonb;

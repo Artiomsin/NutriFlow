@@ -123,6 +123,14 @@ export interface ConfidenceResult {
   reasons: string[];
 }
 
+/** Plan-level change proposed together with a personalization recommendation. */
+export interface SuggestedGoalPlan {
+  weeklyRateKg: number | null;
+  targetDate: string | null;
+  previousWeeklyRateKg: number | null;
+  previousTargetDate: string | null;
+}
+
 export interface Recommendation {
   previousGoals: GoalMetrics;
   recommendedGoals: GoalMetrics;

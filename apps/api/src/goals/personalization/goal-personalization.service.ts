@@ -12,6 +12,7 @@ import {
 } from '../goals-history';
 import { eq, and, lt, desc, isNull, sql } from 'drizzle-orm';
 import { GoalsProgressService } from '../goals-progress.service';
+import { validateGoalPlanFields } from '../goal-plan-validation';
 
 export const PERSONALIZATION_INTERVAL_DAYS = 7;
 export const RECOMMENDATION_TTL_DAYS = 7;
@@ -201,6 +202,7 @@ export class GoalPersonalizationService {
           status: 'pending',
           previousGoals: progress.appliedGoals,
           recommendedGoals: effectiveAdjustment.metrics,
+          suggestedPlan: effectiveAdjustment.suggestedPlan ?? null,
           analysisPeriodStart: progress.period.start,
           analysisPeriodEnd: progress.period.end,
           reasons: [
@@ -418,6 +420,47 @@ export class GoalPersonalizationService {
       const next = recRow.recommendedGoals;
       const now = new Date();
 
+      const [profile] = await tx
+        .select()
+        .from(userProfiles)
+        .where(eq(userProfiles.userId, userId))
+        .limit(1);
+      if (!profile) throw new NotFoundException('Profile not found');
+
+      // A recommendation may carry a plan-level change. Apply it atomically
+      // with the new goals version, but never restart the current cycle.
+      const suggestedPlan = recRow.suggestedPlan;
+      if (suggestedPlan?.weeklyRateKg != null && suggestedPlan.targetDate) {
+        validateGoalPlanFields({
+          weight: profile.weight == null ? null : Number(profile.weight),
+          goal: (profile.goal as 'lose' | 'gain' | 'maintain' | null) ?? null,
+          targetWeightKg:
+            profile.targetWeightKg == null
+              ? null
+              : Number(profile.targetWeightKg),
+          targetWeightMinKg:
+            (profile as any).targetWeightMinKg == null
+              ? null
+              : Number((profile as any).targetWeightMinKg),
+          targetWeightMaxKg:
+            (profile as any).targetWeightMaxKg == null
+              ? null
+              : Number((profile as any).targetWeightMaxKg),
+          weeklyRateKg: suggestedPlan.weeklyRateKg,
+          targetDate: suggestedPlan.targetDate,
+          goalStartedAt: profile.goalStartedAt,
+        });
+
+        await tx
+          .update(userProfiles)
+          .set({
+            weeklyRateKg: suggestedPlan.weeklyRateKg,
+            targetDate: suggestedPlan.targetDate,
+            updatedAt: now,
+          })
+          .where(eq(userProfiles.userId, userId));
+      }
+
       // Read only the version that is active right now. Historical versions
       // must stay untouched so past days keep showing the goal they had.
       const [existing] = await tx
@@ -457,6 +500,7 @@ export class GoalPersonalizationService {
             fromRecommendation: recRow.id,
             analysisPeriodStart: recRow.analysisPeriodStart,
             analysisPeriodEnd: recRow.analysisPeriodEnd,
+            appliedPlan: suggestedPlan ?? null,
           },
           startedAt: now,
           endedAt: null,

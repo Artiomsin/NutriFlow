@@ -1,6 +1,12 @@
 import { roundNutrition } from '../common/nutrition/precision';
-import type { GoalMetrics } from './personalization/types';
+import type { GoalMetrics, SuggestedGoalPlan } from './personalization/types';
 import type { GoalMode, ManualGoalOverrides } from '../db/schema/userGoals';
+
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
 export type PrimaryGoal = 'lose' | 'gain' | 'maintain';
 export type ActivityLevel = 'low' | 'medium' | 'high';
@@ -401,6 +407,41 @@ export function mapProfileRowToInput(row: {
     weeklyRateKg: row.weeklyRateKg == null ? null : Number(row.weeklyRateKg),
     targetDate: row.targetDate ?? null,
     goalStartedAt: row.goalStartedAt ?? null,
+  };
+}
+
+/**
+ * Plan-level counterpart of a personalization adjustment: the new weekly rate
+ * and a target date recalculated from the remaining distance at that rate.
+ */
+export function buildSuggestedGoalPlan(
+  profile: GoalProfileInput,
+  newRateKgPerWeek: number | null,
+  today: string,
+): SuggestedGoalPlan | null {
+  if (
+    newRateKgPerWeek == null ||
+    newRateKgPerWeek <= 0 ||
+    profile.goal === 'maintain' ||
+    profile.targetWeightKg == null
+  ) {
+    return null;
+  }
+  const remaining = profile.targetWeightKg - profile.weightKg;
+  if (
+    (profile.goal === 'lose' && remaining >= 0) ||
+    (profile.goal === 'gain' && remaining <= 0)
+  ) {
+    return null;
+  }
+  const weeks = Math.abs(remaining) / newRateKgPerWeek;
+  if (!Number.isFinite(weeks) || weeks <= 0 || weeks > 520) return null;
+
+  return {
+    weeklyRateKg: Math.round(newRateKgPerWeek * 100) / 100,
+    targetDate: addDays(today, Math.ceil(weeks * 7)),
+    previousWeeklyRateKg: profile.weeklyRateKg ?? null,
+    previousTargetDate: profile.targetDate ?? null,
   };
 }
 
