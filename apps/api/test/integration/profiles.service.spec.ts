@@ -10,6 +10,7 @@ import { weightLogs } from '../../src/db/schema/weightLogs';
 import { ProfilesModule } from '../../src/profiles/profiles.module';
 import { ProfilesService } from '../../src/profiles/profiles.service';
 import { formatDateInTimeZone } from '../../src/common/time/user-date';
+import { FieldErrorCode } from '../../src/common/validation/field-errors';
 import { createTestModule } from '../utils/app';
 import { createTestDb } from '../utils/db';
 import type { TestDb, TestTx } from '../utils/db';
@@ -134,11 +135,10 @@ describe('ProfilesService.updateByUserId', () => {
     await service.create({ ...profileInput, userId: user.id });
 
     const updated = (await service.updateByUserId(user.id, {
-      goal: 'lose',
       age: 31,
     }))!;
 
-    expect(updated.goal).toBe('lose');
+    expect(updated.goal).toBe('maintain');
     expect(updated.age).toBe(31);
 
     const [goals] = await tx
@@ -146,6 +146,24 @@ describe('ProfilesService.updateByUserId', () => {
       .from(userGoals)
       .where(eq(userGoals.userId, user.id));
     expect(goals?.source).toBe('initial');
+  });
+
+  it('rejects a goal direction change; it belongs to /goals/new-cycle', async () => {
+    const user = await createUser(tx);
+    await service.create({ ...profileInput, userId: user.id });
+
+    expect(
+      service.updateByUserId(user.id, { goal: 'lose' }),
+    ).rejects.toMatchObject({
+      response: {
+        fieldErrors: [
+          {
+            field: 'goal',
+            code: FieldErrorCode.goalChangeRequiresNewCycle,
+          },
+        ],
+      },
+    });
   });
 });
 
