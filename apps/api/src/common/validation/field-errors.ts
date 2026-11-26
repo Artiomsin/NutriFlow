@@ -33,6 +33,7 @@ export const FieldErrorCode = {
   targetWeightTooFarFromCurrent: 'TARGET_WEIGHT_TOO_FAR_FROM_CURRENT',
   maintainRangeNotAllowed: 'MAINTAIN_RANGE_NOT_ALLOWED',
   goalRequiredForNewCycle: 'GOAL_REQUIRED_FOR_NEW_CYCLE',
+  goalChangeRequiresNewCycle: 'GOAL_CHANGE_REQUIRES_NEW_CYCLE',
   tempoAdjustmentRequired: 'TEMPO_ADJUSTMENT_REQUIRED',
 } as const;
 

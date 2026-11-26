@@ -12,11 +12,18 @@ export interface GoalPlanValidationInput {
   goalStartedAt: Date | string | null;
 }
 
+export interface GoalPlanValidationOptions {
+  validatePastTargetDate?: boolean;
+}
+
 /**
  * Shared validation for every path that changes the user's plan: profile
  * creation/update, new cycle and applying a personalization recommendation.
  */
-export function validateGoalPlanFields(input: GoalPlanValidationInput): void {
+export function validateGoalPlanFields(
+  input: GoalPlanValidationInput,
+  options: GoalPlanValidationOptions = {},
+): void {
   const {
     weight,
     goal,
@@ -34,7 +41,7 @@ export function validateGoalPlanFields(input: GoalPlanValidationInput): void {
       },
     ]);
   }
-  if (targetDate != null) {
+  if (options.validatePastTargetDate !== false && targetDate != null) {
     const today = new Date().toISOString().slice(0, 10);
     if (targetDate < today) {
       throw validationProblem([

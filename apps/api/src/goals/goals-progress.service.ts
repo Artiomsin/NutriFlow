@@ -363,9 +363,13 @@ export class GoalsProgressService {
       note?: string,
     ) => {
       if (!profileInput) return null;
+      const persistedRateKgPerWeek =
+        newRateKgPerWeek == null
+          ? null
+          : Math.round(newRateKgPerWeek * 100) / 100;
       const adjustedProfile = {
         ...profileInput,
-        weeklyRateKg: newRateKgPerWeek,
+        weeklyRateKg: persistedRateKgPerWeek,
       };
       const calc = calculateRecommendedMetrics(adjustedProfile);
       const diff = diffGoalMetrics(applied, calc.metrics);
@@ -379,13 +383,13 @@ export class GoalsProgressService {
         note: note ?? safetyNote,
         basis: {
           previousWeeklyRateKg: profile.weeklyRateKg ?? null,
-          newWeeklyRateKg: newRateKgPerWeek,
+          newWeeklyRateKg: persistedRateKgPerWeek,
           paceSource: calc.calories.paceSource,
           dailyDeltaKcal: calc.calories.dailyDeltaKcal,
           warnings: calc.calories.warnings,
         },
         suggestedPlan: profileInput
-          ? buildSuggestedGoalPlan(profileInput, newRateKgPerWeek, today)
+          ? buildSuggestedGoalPlan(profileInput, persistedRateKgPerWeek, today)
           : null,
       };
     };
