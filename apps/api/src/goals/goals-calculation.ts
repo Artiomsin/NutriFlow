@@ -538,10 +538,13 @@ export function buildManualModeSuggestion(args: {
     caloriesFixed || proteinFixed || fatFixed || carbsFixed;
 
   if (anyNutritionFixed) {
-    const weightKg = profileInput.weightKg;
+    // A manual suggestion must react to the plan, not only to current weight.
+    // Protein follows the target weight so changing the plan recalculates the
+    // macros that the person did not fix themselves.
+    const macroWeightKg = profileInput.targetWeightKg ?? profileInput.weightKg;
     const goal = profileInput.goal;
     const proteinPerKg = goal === 'maintain' ? 1.6 : 2.0;
-    const defaultProtein = roundNutrition(weightKg * proteinPerKg);
+    const defaultProtein = roundNutrition(macroWeightKg * proteinPerKg);
 
     let calories = caloriesFixed
       ? (applied.dailyCaloriesGoal ?? recommended.dailyCaloriesGoal ?? 0)
@@ -564,7 +567,7 @@ export function buildManualModeSuggestion(args: {
       // Keep fixed macros, fill unfixed macros from recommended split based on recommended calories.
       const baseCalories = recommended.dailyCaloriesGoal ?? calories;
       calories = baseCalories;
-      if (!proteinFixed) protein = roundNutrition(weightKg * proteinPerKg);
+      if (!proteinFixed) protein = roundNutrition(macroWeightKg * proteinPerKg);
       if (!fatFixed) fat = roundNutrition((calories * 0.25) / 9);
       if (!carbsFixed)
         carbs = roundNutrition(
@@ -578,7 +581,7 @@ export function buildManualModeSuggestion(args: {
       }
     } else if (caloriesFixed) {
       // Calories fixed: recalc unfixed macros from fixed calories.
-      if (!proteinFixed) protein = roundNutrition(weightKg * proteinPerKg);
+      if (!proteinFixed) protein = roundNutrition(macroWeightKg * proteinPerKg);
       if (!fatFixed) fat = roundNutrition((calories * 0.25) / 9);
       if (!carbsFixed)
         carbs = roundNutrition(

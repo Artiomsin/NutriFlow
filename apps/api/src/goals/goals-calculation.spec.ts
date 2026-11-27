@@ -194,6 +194,40 @@ describe('goals-calculation', () => {
     expect(result.recalculatedFields.length).toBeGreaterThan(0);
   });
 
+  it('recalculates manual macros when only the target weight changes', () => {
+    const applied = makeMetrics({ dailyCaloriesGoal: 1700 });
+    const overrides = {
+      dailyCaloriesGoal: { value: 1700, setAt: '2026-11-01T00:00:00Z' },
+    };
+    const buildForTarget = (targetWeightKg: number) => {
+      const profile = { ...baseProfile, targetWeightKg };
+      const recommendedResult = calculateRecommendedMetrics(profile);
+      return buildManualModeSuggestion({
+        applied,
+        recommended: recommendedResult.metrics,
+        overrides,
+        profileInput: profile,
+        recommendedCalories: {
+          minSafeCalories: recommendedResult.calories.minSafeCalories,
+          maxSafeCalories: recommendedResult.calories.maxSafeCalories,
+        },
+      });
+    };
+
+    const closerTarget = buildForTarget(76);
+    const fartherTarget = buildForTarget(66);
+
+    expect(closerTarget.suggested.dailyCaloriesGoal).toBe(1700);
+    expect(fartherTarget.suggested.dailyCaloriesGoal).toBe(1700);
+    expect(fartherTarget.suggested.dailyProteinGoal).not.toBe(
+      closerTarget.suggested.dailyProteinGoal,
+    );
+    expect(fartherTarget.suggested.dailyCarbsGoal).not.toBe(
+      closerTarget.suggested.dailyCarbsGoal,
+    );
+    expect(fartherTarget.recalculatedFields).toContain('dailyProteinGoal');
+  });
+
   it('adds warning when fixed calories are below safe minimum', () => {
     const recommendedResult = calculateRecommendedMetrics(baseProfile);
     const applied = makeMetrics({ dailyCaloriesGoal: 900 });
