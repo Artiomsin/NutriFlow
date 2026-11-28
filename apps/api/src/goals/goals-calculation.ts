@@ -479,7 +479,7 @@ export interface ManualSuggestionResult {
 }
 
 type GoalMetricKey = keyof GoalMetrics;
-const NUTRITION_KEYS: GoalMetricKey[] = [
+export const NUTRITION_METRIC_KEYS: GoalMetricKey[] = [
   'dailyCaloriesGoal',
   'dailyProteinGoal',
   'dailyFatGoal',
@@ -622,7 +622,7 @@ export function buildManualModeSuggestion(args: {
   }
 
   // Mark nutrition recalculated fields accurately.
-  for (const key of NUTRITION_KEYS) {
+  for (const key of NUTRITION_METRIC_KEYS) {
     if (fixed.has(key)) continue;
     const was = (applied[key] ?? null) !== (suggested[key] ?? null);
     if (was && !recalculatedFields.includes(key)) recalculatedFields.push(key);

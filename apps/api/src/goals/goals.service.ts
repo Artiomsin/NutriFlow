@@ -49,6 +49,7 @@ import {
   modeFromSource,
   buildManualModeSuggestion,
   getFixedMetricKeys,
+  NUTRITION_METRIC_KEYS,
   type GoalCalculationResult,
 } from './goals-calculation';
 
@@ -417,57 +418,37 @@ export class GoalsService {
       const patchKeys = Object.keys(data) as (keyof GoalMetrics)[];
       const nowIso = new Date().toISOString();
 
+      let nextMetrics: GoalMetrics;
+      let manualOverrides: ManualGoalOverrides;
+
       if (!existing) {
-        const nextMetrics: GoalMetrics = {
-          ...EMPTY_GOALS_METRICS,
-          ...data,
-        };
-        const manualOverrides: ManualGoalOverrides = {};
+        nextMetrics = { ...EMPTY_GOALS_METRICS, ...data };
+        manualOverrides = {};
         for (const key of patchKeys) {
           const value = nextMetrics[key];
           if (value != null) {
             manualOverrides[key] = { value, setAt: nowIso };
           }
         }
-
-        return this.replaceCurrentGoals(
-          userId,
-          undefined,
-          nextMetrics,
-          'user',
-          'user_edit',
-          tx,
-          {
-            mode: 'manual',
-            clearSuggestion: true,
-            manualOverrides,
-            appliedBasis: {
-              editedManually: true,
-              fixedFields: Object.keys(manualOverrides),
-            },
-          },
-        );
-      }
-
-      const nextMetrics: GoalMetrics = {
-        ...rowToGoalMetrics(existing),
-        ...data,
-      };
-
-      const prevOverrides =
-        (existing.manualOverrides as ManualGoalOverrides | null) ?? {};
-      const manualOverrides: ManualGoalOverrides = { ...prevOverrides };
-      for (const key of patchKeys) {
-        const value = nextMetrics[key];
-        if (value == null) {
-          delete manualOverrides[key];
-        } else {
-          manualOverrides[key] = { value, setAt: nowIso };
+      } else {
+        nextMetrics = { ...rowToGoalMetrics(existing), ...data };
+        const prevOverrides =
+          (existing.manualOverrides as ManualGoalOverrides | null) ?? {};
+        manualOverrides = { ...prevOverrides };
+        for (const key of patchKeys) {
+          const value = nextMetrics[key];
+          if (value == null) {
+            delete manualOverrides[key];
+          } else {
+            manualOverrides[key] = { value, setAt: nowIso };
+          }
         }
       }
 
-      // Manual user edit: apply immediately as manual, clear stale suggestion.
-      return this.replaceCurrentGoals(
+      // Manual user edit: apply only the edited fields as manual, clear the
+      // stale suggestion, then rebuild a coherent suggestion for the nutrition
+      // group. The edit itself is never overwritten by that recalculation.
+      const saved = await this.replaceCurrentGoals(
         userId,
         existing,
         nextMetrics,
@@ -484,6 +465,28 @@ export class GoalsService {
           },
         },
       );
+
+      const nutritionEdited = NUTRITION_METRIC_KEYS.some((key) =>
+        patchKeys.includes(key),
+      );
+      if (!nutritionEdited) return saved;
+
+      try {
+        return await this.calculate(userId, tx, {
+          reason: 'manual_nutrition_edit',
+          trigger: 'recalculate_requested',
+        });
+      } catch (error) {
+        // A manual edit must still succeed when no usable profile exists for a
+        // recalculation. The applied values stay exactly as the user set them.
+        if (
+          error instanceof NotFoundException ||
+          error instanceof BadRequestException
+        ) {
+          return saved;
+        }
+        throw error;
+      }
     });
   }
 
@@ -512,14 +515,8 @@ export class GoalsService {
         const selected = new Set<GoalMetricKey>(selectedMetrics);
         // Nutrition consistency: if any nutrition metric selected, apply the whole nutrition group
         // from suggestion to avoid inconsistent calories/macros.
-        const nutrition: GoalMetricKey[] = [
-          'dailyCaloriesGoal',
-          'dailyProteinGoal',
-          'dailyFatGoal',
-          'dailyCarbsGoal',
-        ];
-        if (nutrition.some((k) => selected.has(k))) {
-          for (const k of nutrition) selected.add(k);
+        if (NUTRITION_METRIC_KEYS.some((k) => selected.has(k))) {
+          for (const k of NUTRITION_METRIC_KEYS) selected.add(k);
         }
 
         nextMetrics = { ...applied };
@@ -559,14 +556,8 @@ export class GoalsService {
                 selectedMetrics.length
                   ? ((): GoalMetricKey[] => {
                       const s = new Set<GoalMetricKey>(selectedMetrics);
-                      const nutrition: GoalMetricKey[] = [
-                        'dailyCaloriesGoal',
-                        'dailyProteinGoal',
-                        'dailyFatGoal',
-                        'dailyCarbsGoal',
-                      ];
-                      if (nutrition.some((k) => s.has(k)))
-                        nutrition.forEach((k) => s.add(k));
+                      if (NUTRITION_METRIC_KEYS.some((k) => s.has(k)))
+                        NUTRITION_METRIC_KEYS.forEach((k) => s.add(k));
                       return Array.from(s);
                     })()
                   : [],

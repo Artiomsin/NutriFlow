@@ -537,6 +537,70 @@ describe('GoalsService preview and manual suggestion flow', () => {
     expect(typeof preview.estimatedCompletion?.plannedDate).toBe('string');
   });
 
+  it('builds a coherent nutrition suggestion immediately after a single macro edit', async () => {
+    const user = await createUser(tx);
+    await createProfile(tx, user.id, {
+      weight: 80,
+      height: 170,
+      age: 30,
+      gender: 'female',
+      goal: 'lose',
+      activityLevel: 'medium',
+      targetWeightKg: 72,
+    });
+    await service.calculate(user.id);
+    const initial = (await service.findByUserId(user.id))!;
+
+    const updated = (await service.update(user.id, {
+      dailyProteinGoal: 180,
+    }))!;
+
+    expect(updated.mode).toBe('manual');
+    expect(updated.dailyProteinGoal).toBe(180);
+    expect(updated.dailyCaloriesGoal).toBe(initial.dailyCaloriesGoal);
+    expect(updated.dailyFatGoal).toBe(initial.dailyFatGoal);
+    expect(updated.dailyCarbsGoal).toBe(initial.dailyCarbsGoal);
+
+    const suggestion = updated.suggestion;
+    expect(suggestion).toBeTruthy();
+    expect(suggestion!.goals.dailyProteinGoal).toBe(180);
+    expect(suggestion!.goals.dailyCarbsGoal).not.toBe(initial.dailyCarbsGoal);
+
+    const macroCalories =
+      (suggestion!.goals.dailyProteinGoal ?? 0) * 4 +
+      (suggestion!.goals.dailyFatGoal ?? 0) * 9 +
+      (suggestion!.goals.dailyCarbsGoal ?? 0) * 4;
+    expect(
+      Math.abs(macroCalories - (suggestion!.goals.dailyCaloriesGoal ?? 0)),
+    ).toBeLessThan(2);
+
+    expect(suggestion!.basis?.preservedFixedFields).toContain(
+      'dailyProteinGoal',
+    );
+    expect(suggestion!.basis?.recalculatedFields).toContain('dailyCarbsGoal');
+  });
+
+  it('does not build a suggestion for a non-nutrition manual edit', async () => {
+    const user = await createUser(tx);
+    await createProfile(tx, user.id, {
+      weight: 80,
+      height: 170,
+      age: 30,
+      gender: 'female',
+      goal: 'lose',
+      activityLevel: 'medium',
+    });
+    await service.calculate(user.id);
+
+    const updated = (await service.update(user.id, {
+      dailyWaterGoal: 4000,
+    }))!;
+
+    expect(updated.mode).toBe('manual');
+    expect(updated.dailyWaterGoal).toBe(4000);
+    expect(updated.suggestion).toBeNull();
+  });
+
   it('stores manual suggestion on calculate and supports partial suggestion apply', async () => {
     const user = await createUser(tx);
     await createProfile(tx, user.id, {
