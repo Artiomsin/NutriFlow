@@ -202,13 +202,13 @@ struct GoalsManagementView: View {
 
     private var nutritionSection: some View {
         groupedSection(title: "Nutrition") {
-            nutritionStepperRow(label: "Calories", caption: "per day", value: $calories, range: 1_000...5_000, step: 0.1, unit: UnitConversion.formatEnergyUnit(preferred: PreferencesStore.shared.preferredUnits), field: "dailyCaloriesGoal", errorMessage: goalsVM.fieldErrors["dailyCaloriesGoal"])
+            nutritionStepperRow(label: "Calories", caption: "per day", value: $calories, range: 1_000...5_000, step: 50, unit: UnitConversion.formatEnergyUnit(preferred: PreferencesStore.shared.preferredUnits), field: "dailyCaloriesGoal", errorMessage: goalsVM.fieldErrors["dailyCaloriesGoal"])
             divider
-            nutritionStepperRow(label: "Protein", caption: "per day", value: $protein, range: 30...300, step: 0.1, unit: "g", field: "dailyProteinGoal", errorMessage: goalsVM.fieldErrors["dailyProteinGoal"])
+            nutritionStepperRow(label: "Protein", caption: "per day", value: $protein, range: 30...300, step: 5, unit: "g", field: "dailyProteinGoal", errorMessage: goalsVM.fieldErrors["dailyProteinGoal"])
             divider
-            nutritionStepperRow(label: "Fat", caption: "per day", value: $fat, range: 20...200, step: 0.1, unit: "g", field: "dailyFatGoal", errorMessage: goalsVM.fieldErrors["dailyFatGoal"])
+            nutritionStepperRow(label: "Fat", caption: "per day", value: $fat, range: 20...200, step: 5, unit: "g", field: "dailyFatGoal", errorMessage: goalsVM.fieldErrors["dailyFatGoal"])
             divider
-            nutritionStepperRow(label: "Carbs", caption: "per day", value: $carbs, range: 50...600, step: 0.1, unit: "g", field: "dailyCarbsGoal", errorMessage: goalsVM.fieldErrors["dailyCarbsGoal"])
+            nutritionStepperRow(label: "Carbs", caption: "per day", value: $carbs, range: 50...600, step: 5, unit: "g", field: "dailyCarbsGoal", errorMessage: goalsVM.fieldErrors["dailyCarbsGoal"])
             divider
             stepperRow(label: "Water", caption: "per day", value: $water, range: 500...6000, step: 100, unit: "ml", field: "dailyWaterGoal", errorMessage: goalsVM.fieldErrors["dailyWaterGoal"])
         }
