@@ -8,6 +8,31 @@ export interface GoalMetricChange {
   to: number | null;
 }
 
+/** Plan fields captured with a goal version. */
+export interface GoalPlanSnapshot {
+  targetWeightKg: number | null;
+  targetWeightMinKg: number | null;
+  targetWeightMaxKg: number | null;
+  weeklyRateKg: number | null;
+  targetDate: string | null;
+}
+
+export type GoalPlanValue = number | string | null;
+
+export interface GoalPlanChange {
+  metric: keyof GoalPlanSnapshot;
+  from: GoalPlanValue;
+  to: GoalPlanValue;
+}
+
+export const EMPTY_GOAL_PLAN: GoalPlanSnapshot = {
+  targetWeightKg: null,
+  targetWeightMinKg: null,
+  targetWeightMaxKg: null,
+  weeklyRateKg: null,
+  targetDate: null,
+};
+
 /**
  * A single goal version as exposed by `GET /goals/history`.
  *
@@ -22,6 +47,8 @@ export interface GoalVersionEntry {
   source: GoalSource;
   reason: string | null;
   changes: GoalMetricChange[];
+  /** Plan changes captured when this version replaced the previous one. */
+  planChanges: GoalPlanChange[];
   /** Full snapshot of the version, used by the day detail timeline. */
   goal: GoalMetrics;
 }
@@ -61,4 +88,53 @@ export function diffGoalMetrics(
     const to = next[metric] ?? null;
     return from === to ? [] : [{ metric, from, to }];
   });
+}
+
+/** Plan fields exposed as history rows, in display order. */
+export const GOAL_PLAN_KEYS: (keyof GoalPlanSnapshot)[] = [
+  'targetWeightKg',
+  'targetWeightMinKg',
+  'targetWeightMaxKg',
+  'weeklyRateKg',
+  'targetDate',
+];
+
+export function diffGoalPlan(
+  previous: GoalPlanSnapshot,
+  next: GoalPlanSnapshot,
+): GoalPlanChange[] {
+  return GOAL_PLAN_KEYS.flatMap((metric) => {
+    const from = previous[metric];
+    const to = next[metric];
+    return from === to ? [] : [{ metric, from, to }];
+  });
+}
+
+/** Reads a plan snapshot from version metadata written before this field existed. */
+export function planFromBasis(basis: unknown): GoalPlanSnapshot | null {
+  if (!basis || typeof basis !== 'object') return null;
+
+  const value = basis as Record<string, unknown>;
+  const hasPlan =
+    'targetWeightKg' in value ||
+    'weeklyRateKg' in value ||
+    'targetDate' in value;
+  if (!hasPlan) return null;
+
+  return {
+    targetWeightKg: numberOrNull(value.targetWeightKg),
+    targetWeightMinKg: numberOrNull(value.targetWeightMinKg),
+    targetWeightMaxKg: numberOrNull(value.targetWeightMaxKg),
+    weeklyRateKg: numberOrNull(value.weeklyRateKg),
+    targetDate: typeof value.targetDate === 'string' ? value.targetDate : null,
+  };
+}
+
+function numberOrNull(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
 }

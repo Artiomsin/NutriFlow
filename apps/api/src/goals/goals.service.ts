@@ -30,8 +30,18 @@ import {
   recordGoalHistory,
   rowToGoalMetrics,
 } from './goals-history';
-import { diffGoalMetrics, GOAL_METRIC_KEYS } from './goal-versions';
-import type { GoalHistoryPage, GoalVersionEntry } from './goal-versions';
+import {
+  diffGoalMetrics,
+  diffGoalPlan,
+  EMPTY_GOAL_PLAN,
+  GOAL_METRIC_KEYS,
+  planFromBasis,
+} from './goal-versions';
+import type {
+  GoalHistoryPage,
+  GoalPlanSnapshot,
+  GoalVersionEntry,
+} from './goal-versions';
 import {
   calculateRecommendedMetrics,
   goalMetricsEqual,
@@ -205,9 +215,23 @@ export class GoalsService {
     rows: UserGoals[],
     count: number,
   ): GoalVersionEntry[] {
+    // Walk oldest to newest so versions without their own plan snapshot
+    // inherit the last known plan instead of inventing a fresh one.
+    const planByRow = new Map<string, GoalPlanSnapshot>();
+    let carriedPlan: GoalPlanSnapshot = EMPTY_GOAL_PLAN;
+    for (let index = rows.length - 1; index >= 0; index -= 1) {
+      const row = rows[index]!;
+      carriedPlan = planFromBasis(row.appliedBasis) ?? carriedPlan;
+      planByRow.set(row.id, carriedPlan);
+    }
+
     return rows.slice(0, count).map((row, index) => {
       const previous = rows[index + 1];
       const goal = rowToGoalMetrics(row);
+      const plan = planByRow.get(row.id) ?? EMPTY_GOAL_PLAN;
+      const previousPlan = previous
+        ? (planByRow.get(previous.id) ?? EMPTY_GOAL_PLAN)
+        : EMPTY_GOAL_PLAN;
 
       return {
         id: row.id,
@@ -219,6 +243,7 @@ export class GoalsService {
           previous ? rowToGoalMetrics(previous) : null,
           goal,
         ),
+        planChanges: diffGoalPlan(previousPlan, plan),
         goal,
       };
     });
@@ -1101,6 +1126,30 @@ export class GoalsService {
     );
   }
 
+  private async withPlanBasis(
+    userId: string,
+    executor: DatabaseExecutor,
+    appliedBasis: Record<string, unknown> | null | undefined,
+  ): Promise<Record<string, unknown>> {
+    const basis: Record<string, unknown> = { ...(appliedBasis ?? {}) };
+    if (planFromBasis(basis)) return basis;
+
+    const [profile] = await executor
+      .select()
+      .from(userProfiles)
+      .where(eq(userProfiles.userId, userId))
+      .limit(1);
+
+    return {
+      ...basis,
+      targetWeightKg: profile?.targetWeightKg ?? null,
+      targetWeightMinKg: (profile as any)?.targetWeightMinKg ?? null,
+      targetWeightMaxKg: (profile as any)?.targetWeightMaxKg ?? null,
+      weeklyRateKg: profile?.weeklyRateKg ?? null,
+      targetDate: profile?.targetDate ?? null,
+    };
+  }
+
   private buildAppliedBasis(
     profile: typeof userProfiles.$inferSelect,
     calculation: GoalCalculationResult,
@@ -1255,6 +1304,12 @@ export class GoalsService {
       return this.toGoalState(existing, opts?.estimatedCompletion);
     }
 
+    const appliedBasis = await this.withPlanBasis(
+      userId,
+      executor,
+      opts?.appliedBasis,
+    );
+
     const now = new Date();
 
     if (existing) {
@@ -1302,7 +1357,7 @@ export class GoalsService {
             ? opts.suggestionBasis
             : ((existing?.suggestionBasis as Record<string, unknown> | null) ??
               null),
-        appliedBasis: opts?.appliedBasis ?? null,
+        appliedBasis,
         manualOverrides,
         startedAt: now,
         endedAt: null,

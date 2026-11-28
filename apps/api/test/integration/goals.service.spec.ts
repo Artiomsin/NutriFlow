@@ -427,6 +427,47 @@ describe('GoalsService.getHistory', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('records target weight, pace and date changes in goal history', async () => {
+    const user = await createUser(tx);
+    await createProfile(tx, user.id, {
+      weight: 80,
+      height: 170,
+      age: 30,
+      gender: 'female',
+      goal: 'lose',
+      activityLevel: 'medium',
+      targetWeightKg: 80,
+      weeklyRateKg: 0.5,
+      targetDate: '2026-12-31',
+    });
+
+    await service.calculate(user.id, tx, {
+      reason: 'initial_calculation',
+      trigger: 'initial',
+    });
+    await tx
+      .update(userProfiles)
+      .set({
+        targetWeightKg: 72,
+        weeklyRateKg: 0.7,
+        targetDate: '2026-12-20',
+      })
+      .where(eq(userProfiles.userId, user.id));
+    await service.calculate(user.id, tx, {
+      reason: 'profile_changed',
+      trigger: 'profile_changed',
+    });
+
+    const page = await service.getHistory(user.id, { limit: 20 });
+    expect(page.items[0]?.planChanges).toEqual(
+      expect.arrayContaining([
+        { metric: 'targetWeightKg', from: 80, to: 72 },
+        { metric: 'weeklyRateKg', from: 0.5, to: 0.7 },
+        { metric: 'targetDate', from: '2026-12-31', to: '2026-12-20' },
+      ]),
+    );
+  });
+
   it('resolves the versions in effect during a day in the profile time zone', async () => {
     const user = await createUser(tx);
 
