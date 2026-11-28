@@ -49,7 +49,12 @@ struct GoalHistoryCard: View {
 
                 Spacer()
 
-                Text(GoalHistoryFormat.sourceLabel(event.source))
+                Text(
+                    GoalHistoryFormat.sourceLabel(
+                        event.source,
+                        reason: event.reason
+                    )
+                )
                     .font(.caption2.weight(.semibold))
                     .foregroundColor(AppColors.accent)
             }

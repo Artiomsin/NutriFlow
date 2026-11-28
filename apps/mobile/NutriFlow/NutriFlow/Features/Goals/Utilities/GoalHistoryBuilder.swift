@@ -152,9 +152,19 @@ enum GoalHistoryBuilder {
         )
     }
 
+    static func isAutomatic(source: String, reason: String?) -> Bool {
+        let normalized = source.lowercased()
+        guard normalized != "personalized", normalized != "user" else {
+            return false
+        }
+        return normalized == "initial" || isAutomatic(reason)
+    }
+
     private static func isAutomatic(_ reason: String?) -> Bool {
         reason == "profile_recalculation"
             || reason == "personalized_profile_recalculation"
+            || reason == "profile_changed"
+            || reason == "weight_changed"
     }
 
     private static func dayID(for date: Date) -> String {
