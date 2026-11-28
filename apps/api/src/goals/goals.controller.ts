@@ -20,6 +20,7 @@ import {
   clearManualOverrideSchema,
   applySuggestionSchema,
   newCycleSchema,
+  previewDraftSchema,
 } from './goals.schema';
 import type {
   UpdateGoalsDto,
@@ -30,6 +31,7 @@ import type {
   ClearManualOverrideDto,
   ApplySuggestionDto,
   NewCycleDto,
+  GoalsPreviewDraftDto,
 } from './goals.schema';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
 import { JwtAuthGuard } from '../auth/jwt.guard';
@@ -59,6 +61,13 @@ export class GoalsController {
   @Get('preview')
   preview(@User() user: AuthPayload) {
     return this.goalsService.preview(user.userId);
+  }
+
+  @Post('preview/draft')
+  previewDraft(
+    @Body(new ZodValidationPipe(previewDraftSchema)) data: GoalsPreviewDraftDto,
+  ) {
+    return this.goalsService.previewDraft(data);
   }
 
   @Patch()

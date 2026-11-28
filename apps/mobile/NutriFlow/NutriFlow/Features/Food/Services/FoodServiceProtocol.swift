@@ -74,6 +74,21 @@ protocol FoodServiceProtocol: Sendable {
 
     func createCatalogFood(_ request: CreateCatalogFoodRequest) async throws -> CatalogFood
 
+    func createServing(
+        foodID: String,
+        name: String,
+        grams: Double
+    ) async throws -> FoodServing
+
+    func updateServing(
+        foodID: String,
+        servingID: String,
+        name: String?,
+        grams: Double?
+    ) async throws -> FoodServing
+
+    func deleteServing(foodID: String, servingID: String) async throws
+
     func getCategories() async throws -> [FoodCategory]
 
     func createCategory(name: String, icon: String?, color: String?) async throws -> FoodCategory

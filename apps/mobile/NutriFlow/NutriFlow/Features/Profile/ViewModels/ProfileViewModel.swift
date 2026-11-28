@@ -4,6 +4,14 @@ import Observation
 @Observable
 @MainActor
 final class ProfileViewModel {
+    enum LiveValidationField {
+        case weight
+        case height
+        case age
+        case targetWeight
+        case maintainRange
+        case weeklyPace
+    }
     
     var state: ProfileState = .loading
     
@@ -19,6 +27,15 @@ final class ProfileViewModel {
     var goal: Goal?
     var activityLevel: ActivityLevel?
     var preferredUnits: PreferredUnits = .default
+
+    // Goal-plan fields are kept separate from the general profile form.
+    var targetWeight: String = ""
+    var maintainWeightMin: String = ""
+    var maintainWeightMax: String = ""
+    var weeklyRateKg: String = ""
+    var targetDate: String = ""
+    var goalStartedAt: String?
+
     var saveError: AppError?
     var unitsError: AppError?
     var timeZoneError: AppError?
@@ -27,6 +44,12 @@ final class ProfileViewModel {
     private var originalWeightKg: Double?
     private var originalWeightText: String?
     private var originalHeightCm: Int?
+    private var originalTargetWeightKg: Double?
+    private var originalMaintainWeightMinKg: Double?
+    private var originalMaintainWeightMaxKg: Double?
+    private var originalWeeklyRateKg: Double?
+    private var originalTargetDate: String?
+    private var originalGoal: Goal?
     @ObservationIgnored private var lastSavedUnits: PreferredUnits = .default
 
     @ObservationIgnored private let authService: AuthServiceProtocol
@@ -77,11 +100,18 @@ final class ProfileViewModel {
         analyticsTracker?.track(.screenView(screen: screen))
     }
 
+    /// Called only after the person has reviewed the calculated starting goals.
+    func completeInitialPlanReview() {
+        coordinator?.goToMain()
+    }
+
     private func invalidateAggregateCaches() async {
         await cacheService?.remove("summary_today")
         await cacheService?.removeByPrefix("chart_summaries")
         await cacheService?.removeByPrefix("analytics_")
         await cacheService?.remove("goals_personalization")
+        await cacheService?.remove("goals_preview")
+        await cacheService?.removeByPrefix("goals_progress_")
         // A time zone change moves every calendar-day boundary, so cached weight
         // logs for all periods (Today/Week/Month/Custom) become stale, not just
         // the currently selected one.
@@ -229,36 +259,23 @@ final class ProfileViewModel {
         }
     }
 
-    func createProfile() async {
+    @discardableResult
+    func createProfile() async -> Bool {
         fieldErrors.removeAll()
-
-        let weightValue = canonicalWeight()
-        let heightValue = canonicalHeight()
-        let ageValue = Int(age)
-
-        if weightValue == nil {
-            setValidationError(for: "weight", isMissing: isBlank(weight))
-        }
-        if heightValue == nil {
-            setValidationError(for: "height", isMissing: isBlank(height))
-        }
-        if ageValue == nil {
-            setValidationError(for: "age", isMissing: isBlank(age))
-        }
-        if gender == nil { setRequiredError(for: "gender") }
-        if goal == nil { setRequiredError(for: "goal") }
-        if activityLevel == nil { setRequiredError(for: "activityLevel") }
-
-        guard fieldErrors.isEmpty,
-              let weight = weightValue,
-              let height = heightValue,
-              let age = ageValue,
+        guard validateProfileIdentity(),
+              validateGoalSelection(),
+              validatePlanDraft(),
+              let weight = canonicalWeight(),
+              let height = canonicalHeight(),
+              let age = Int(age),
               let gender,
               let goal,
               let activityLevel else {
             state = .empty
-            return
+            return false
         }
+
+        let goalPlan = makeGoalPlanRequest(currentWeightKg: weight)
 
         state = .saving(nil)
 
@@ -270,7 +287,8 @@ final class ProfileViewModel {
                 gender: gender,
                 goal: goal,
                 activityLevel: activityLevel,
-                preferredUnits: preferredUnits
+                preferredUnits: preferredUnits,
+                goalPlan: goalPlan
             )
 
             mapProfile(profile)
@@ -281,7 +299,7 @@ final class ProfileViewModel {
             await cacheService?.remove("goals")
             await invalidateAggregateCaches()
             progressRefreshState?.invalidateGoals()
-            coordinator?.goToMain()
+            return true
 
         } catch {
             switch ErrorHandler.handle(
@@ -292,7 +310,13 @@ final class ProfileViewModel {
                     "age",
                     "gender",
                     "goal",
-                    "activityLevel"
+                    "activityLevel",
+                    "targetWeightKg",
+                    "targetWeightMinKg",
+                    "targetWeightMaxKg",
+                    "weeklyRateKg",
+                    "targetDate",
+                    "goalStartedAt"
                 ]
             ) {
             case .fieldErrors(let errors):
@@ -303,7 +327,336 @@ final class ProfileViewModel {
                 routeAuth(appError)
                 state = .error(appError)
             }
+            return false
         }
+    }
+
+    /// Validates non-empty values while the person is editing. Required-field
+    /// errors remain reserved for an attempt to continue through the form.
+    func validateLiveValue(_ field: LiveValidationField) {
+        switch field {
+        case .weight:
+            validateOptionalNumber(
+                weight,
+                field: "weight",
+                value: canonicalWeight(),
+                range: 20...400
+            )
+        case .height:
+            validateOptionalNumber(
+                height,
+                field: "height",
+                value: canonicalHeight().map(Double.init),
+                range: 80...250
+            )
+        case .age:
+            validateOptionalNumber(
+                age,
+                field: "age",
+                value: Int(age).map(Double.init),
+                range: 13...120
+            )
+        case .targetWeight:
+            fieldErrors.clear("targetWeightKg")
+            guard !isBlank(targetWeight) else { return }
+            guard let target = canonicalPlanWeight(targetWeight) else {
+                setValidationError(for: "targetWeightKg", isMissing: false)
+                return
+            }
+            guard (20...400).contains(target) else {
+                setWeightRangeError(for: "targetWeightKg")
+                return
+            }
+            let currentWeight = originalWeightKg ?? canonicalWeight()
+            if (goal == .lose && currentWeight.map { target >= $0 } == true) ||
+                (goal == .gain && currentWeight.map { target <= $0 } == true) {
+                setValidationError(for: "targetWeightKg", isMissing: false)
+            }
+        case .maintainRange:
+            fieldErrors.clear("targetWeightMinKg")
+            fieldErrors.clear("targetWeightMaxKg")
+            guard !isBlank(maintainWeightMin) || !isBlank(maintainWeightMax) else { return }
+            guard let minimum = canonicalPlanWeight(maintainWeightMin),
+                  let maximum = canonicalPlanWeight(maintainWeightMax),
+                  minimum < maximum,
+                  (0.5...10).contains(maximum - minimum) else {
+                setValidationError(for: "targetWeightMinKg", isMissing: false)
+                setValidationError(for: "targetWeightMaxKg", isMissing: false)
+                return
+            }
+        case .weeklyPace:
+            fieldErrors.clear("weeklyRateKg")
+            guard !isBlank(weeklyRateKg) else { return }
+            guard let pace = normalized(weeklyRateKg), (0...2).contains(pace), pace > 0 else {
+                setValidationError(for: "weeklyRateKg", isMissing: false)
+                return
+            }
+        }
+    }
+
+    private func validateOptionalNumber(
+        _ text: String,
+        field: String,
+        value: Double?,
+        range: ClosedRange<Double>
+    ) {
+        fieldErrors.clear(field)
+        guard !isBlank(text) else { return }
+        guard let value, range.contains(value) else {
+            setValidationError(for: field, isMissing: false)
+            return
+        }
+    }
+
+    private func setWeightRangeError(for field: String) {
+        let minimum = UnitConversion.formatBodyWeight(kg: 20, preferred: preferredUnits)
+        let maximum = UnitConversion.formatBodyWeight(kg: 400, preferred: preferredUnits)
+        let unit = UnitConversion.bodyWeightUnitLabel(preferred: preferredUnits)
+        fieldErrors.set("Enter a weight between \(minimum) and \(maximum) \(unit).", for: field)
+    }
+
+    /// Validates the body metrics shown on the first onboarding step.
+    @discardableResult
+    func validateProfileIdentity() -> Bool {
+        let weightValue = canonicalWeight()
+        let heightValue = canonicalHeight()
+        let ageValue = Int(age)
+
+        if weightValue == nil || !(20...400).contains(weightValue ?? 0) {
+            setValidationError(for: "weight", isMissing: isBlank(weight))
+        }
+        if heightValue == nil || !(80...250).contains(heightValue ?? 0) {
+            setValidationError(for: "height", isMissing: isBlank(height))
+        }
+        if ageValue == nil || !(13...120).contains(ageValue ?? 0) {
+            setValidationError(for: "age", isMissing: isBlank(age))
+        }
+        if gender == nil { setRequiredError(for: "gender") }
+        if activityLevel == nil { setRequiredError(for: "activityLevel") }
+        return fieldErrors.isEmpty
+    }
+
+    /// Validates the goal selection shown on the second onboarding step.
+    @discardableResult
+    func validateGoalSelection() -> Bool {
+        if goal == nil { setRequiredError(for: "goal") }
+        return fieldErrors.isEmpty
+    }
+
+    /// Validates plan fields without consulting the API.
+    @discardableResult
+    func validatePlanDraft() -> Bool {
+        makeGoalPlanRequest(currentWeightKg: canonicalWeight()) != nil
+    }
+
+    /// Stateless payload for POST /goals/preview/draft.
+    func makePreviewDraft() -> GoalsPreviewDraftRequest? {
+        guard validateProfileIdentity(),
+              validateGoalSelection(),
+              validatePlanDraft(),
+              let weight = canonicalWeight(),
+              let height = canonicalHeight(),
+              let age = Int(age),
+              let gender,
+              let goal,
+              let activityLevel else {
+            return nil
+        }
+
+        let plan = makeGoalPlanRequest(currentWeightKg: weight)
+        return GoalsPreviewDraftRequest(
+            weight: weight,
+            height: height,
+            age: age,
+            gender: gender,
+            goal: goal,
+            activityLevel: activityLevel,
+            targetWeightKg: plan?.targetWeightKg,
+            targetWeightMinKg: plan?.targetWeightMinKg,
+            targetWeightMaxKg: plan?.targetWeightMaxKg,
+            weeklyRateKg: plan?.weeklyRateKg,
+            targetDate: plan?.targetDate,
+            timeZone: TimeZone.current.identifier
+        )
+    }
+
+    /// Saves the target plan after local validation, keeping API field errors in the same form state.
+    @discardableResult
+    func saveGoalPlan() async -> Bool {
+        fieldErrors.removeAll()
+        saveError = nil
+
+        guard let request = makeGoalPlanRequest(currentWeightKg: originalWeightKg ?? canonicalWeight()) else {
+            return false
+        }
+
+        do {
+            let profile = try await profileService.updateGoalPlan(request)
+            mapProfile(profile)
+            state = .loaded(profile)
+            await cacheService?.remove("profile")
+            await cacheService?.remove("goals")
+            await invalidateAggregateCaches()
+            // The plan screen already offers an explicit automatic recalculation
+            // in its result state. A global prompt here would duplicate it and
+            // skip the pending suggestion created for manual goals.
+            progressRefreshState?.invalidateGoals()
+            return true
+        } catch {
+            switch ErrorHandler.handle(
+                error,
+                supportedFields: [
+                    "goal",
+                    "targetWeightKg", "targetWeightMinKg", "targetWeightMaxKg",
+                    "weeklyRateKg", "targetDate", "goalStartedAt"
+                ]
+            ) {
+            case .fieldErrors(let errors):
+                fieldErrors = errors
+            case .general(let appError):
+                routeAuth(appError)
+                saveError = appError == .cancelled ? nil : appError
+            }
+            return false
+        }
+    }
+
+    func makeNewGoalCycleRequest() -> NewGoalCycleRequest? {
+        guard let plan = makeGoalPlanRequest(currentWeightKg: canonicalWeight()) else {
+            return nil
+        }
+
+        return NewGoalCycleRequest(
+            action: .setNewGoal,
+            goal: plan.goal,
+            targetWeightKg: plan.targetWeightKg,
+            targetWeightMinKg: plan.targetWeightMinKg,
+            targetWeightMaxKg: plan.targetWeightMaxKg,
+            weeklyRateKg: plan.weeklyRateKg,
+            targetDate: plan.targetDate,
+            goalStartedAt: nil
+        )
+    }
+
+    var hasChangedGoalDirection: Bool {
+        goal != originalGoal
+    }
+
+    /// Canonical plan values used by the result screen. Keeping them numeric
+    /// lets the card re-format with the current units instead of freezing text.
+    func savedTargetWeightKg() -> Double? { originalTargetWeightKg }
+    func savedMaintainWeightMinKg() -> Double? { originalMaintainWeightMinKg }
+    func savedMaintainWeightMaxKg() -> Double? { originalMaintainWeightMaxKg }
+    func savedWeeklyRateKg() -> Double? { originalWeeklyRateKg }
+    func savedTargetDate() -> String? { originalTargetDate }
+
+    func currentTargetWeightKg() -> Double? { canonicalPlanWeight(targetWeight) }
+    func currentMaintainWeightMinKg() -> Double? { canonicalPlanWeight(maintainWeightMin) }
+    func currentMaintainWeightMaxKg() -> Double? { canonicalPlanWeight(maintainWeightMax) }
+    func currentWeeklyRateKg() -> Double? { normalized(weeklyRateKg) }
+
+    func currentTargetDate() -> String? {
+        let value = targetDate.trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : value
+    }
+
+    private func makeGoalPlanRequest(currentWeightKg: Double?) -> UpdateGoalPlanRequest? {
+        let target = canonicalPlanWeight(targetWeight)
+        let minimum = canonicalPlanWeight(maintainWeightMin)
+        let maximum = canonicalPlanWeight(maintainWeightMax)
+        let rate = normalized(weeklyRateKg)
+        let date = targetDate.trimmingCharacters(in: .whitespacesAndNewlines)
+        let selectedGoal = goal
+
+        if !isBlank(targetWeight), target == nil || !(20...400).contains(target ?? 0) { setValidationError(for: "targetWeightKg", isMissing: false) }
+        if !isBlank(maintainWeightMin), minimum == nil || !(20...400).contains(minimum ?? 0) { setValidationError(for: "targetWeightMinKg", isMissing: false) }
+        if !isBlank(maintainWeightMax), maximum == nil || !(20...400).contains(maximum ?? 0) { setValidationError(for: "targetWeightMaxKg", isMissing: false) }
+        if !isBlank(weeklyRateKg), rate == nil || rate == 0 || (rate ?? 0) > 2 {
+            setValidationError(for: "weeklyRateKg", isMissing: false)
+        }
+        if !date.isEmpty, (!Self.isDateOnly(date) || date < Self.minimumTargetDateOnly) {
+            setValidationError(for: "targetDate", isMissing: false)
+        }
+
+        guard let selectedGoal else {
+            setRequiredError(for: "goal")
+            return nil
+        }
+
+        if (minimum == nil) != (maximum == nil) {
+            setValidationError(for: "targetWeightMinKg", isMissing: false)
+            setValidationError(for: "targetWeightMaxKg", isMissing: false)
+        }
+        if let minimum, let maximum {
+            if minimum >= maximum || maximum - minimum < 0.5 || maximum - minimum > 10 {
+                setValidationError(for: "targetWeightMinKg", isMissing: false)
+                setValidationError(for: "targetWeightMaxKg", isMissing: false)
+            }
+        }
+
+        switch selectedGoal {
+        case .lose:
+            if minimum != nil || maximum != nil {
+                setValidationError(for: "targetWeightMinKg", isMissing: false)
+            }
+            if let target, let currentWeightKg, target >= currentWeightKg {
+                setValidationError(for: "targetWeightKg", isMissing: false)
+            }
+            if !date.isEmpty, target == nil {
+                setValidationError(for: "targetWeightKg", isMissing: false)
+            }
+        case .gain:
+            if minimum != nil || maximum != nil {
+                setValidationError(for: "targetWeightMinKg", isMissing: false)
+            }
+            if let target, let currentWeightKg, target <= currentWeightKg {
+                setValidationError(for: "targetWeightKg", isMissing: false)
+            }
+            if !date.isEmpty, target == nil {
+                setValidationError(for: "targetWeightKg", isMissing: false)
+            }
+        case .maintain:
+            if let minimum, let maximum, let currentWeightKg,
+               maximum < currentWeightKg - 15 || minimum > currentWeightKg + 15 {
+                setValidationError(for: "targetWeightMinKg", isMissing: false)
+            }
+            if let target, let minimum, let maximum, target < minimum || target > maximum {
+                setValidationError(for: "targetWeightKg", isMissing: false)
+            } else if let target, let currentWeightKg, abs(target - currentWeightKg) > 10 {
+                setValidationError(for: "targetWeightKg", isMissing: false)
+            }
+        }
+
+        guard fieldErrors.isEmpty else { return nil }
+        return UpdateGoalPlanRequest(
+            goal: selectedGoal,
+            targetWeightKg: target,
+            targetWeightMinKg: minimum,
+            targetWeightMaxKg: maximum,
+            weeklyRateKg: rate,
+            targetDate: date.isEmpty ? nil : date,
+            goalStartedAt: goalStartedAt
+        )
+    }
+
+    private func canonicalPlanWeight(_ text: String) -> Double? {
+        guard let value = normalized(text) else { return nil }
+        return UnitConversion.bodyWeightToKg(value, preferred: preferredUnits)
+    }
+
+    private static var todayDateOnly: String {
+        AppDate.dateOnlyFormatter().string(from: .now)
+    }
+
+    private static var minimumTargetDateOnly: String {
+        let today = Calendar.current.startOfDay(for: .now)
+        let earliest = Calendar.current.date(byAdding: .day, value: 14, to: today) ?? today
+        return AppDate.dateOnlyFormatter().string(from: earliest)
+    }
+
+    private static func isDateOnly(_ value: String) -> Bool {
+        let formatter = AppDate.dateOnlyFormatter()
+        return formatter.string(from: formatter.date(from: value) ?? .distantPast) == value
     }
 
     func clearFieldError(_ field: String) {
@@ -312,7 +665,9 @@ final class ProfileViewModel {
 
     private func setRequiredError(for field: String) {
         fieldErrors.set(
-            FormErrorMapper.message(for: FieldErrorCode.required.rawValue),
+            FormErrorMapper.message(
+                for: FieldProblem(field: field, code: FieldErrorCode.required.rawValue)
+            ),
             for: field
         )
     }
@@ -323,7 +678,7 @@ final class ProfileViewModel {
             : FieldErrorCode.invalidValue
 
         fieldErrors.set(
-            FormErrorMapper.message(for: code.rawValue),
+            FormErrorMapper.message(for: FieldProblem(field: field, code: code.rawValue)),
             for: field
         )
     }
@@ -338,7 +693,9 @@ final class ProfileViewModel {
                 height: canonicalHeight(),
                 age: Int(age),
                 gender: gender,
-                goal: goal,
+                // Goal direction starts a separate lifecycle and must be changed
+                // only through the Goal plan flow / new-cycle endpoint.
+                goal: nil,
                 activityLevel: activityLevel,
                 preferredUnits: preferredUnits
             )
@@ -356,7 +713,7 @@ final class ProfileViewModel {
             // errors. Anything else falls back to the general error channel.
             let result = ErrorHandler.handle(
                 error,
-                supportedFields: ["height", "age", "gender"]
+                supportedFields: ["height", "age", "gender", "activityLevel"]
             )
 
             if case .general(let appError) = result {
@@ -515,7 +872,19 @@ final class ProfileViewModel {
         age = profile.age.map { String($0) } ?? ""
         gender = profile.gender
         goal = profile.goal
+        originalGoal = profile.goal
         activityLevel = profile.activityLevel
+        originalTargetWeightKg = profile.targetWeightKg
+        originalMaintainWeightMinKg = profile.targetWeightMinKg
+        originalMaintainWeightMaxKg = profile.targetWeightMaxKg
+        targetWeight = profile.targetWeightKg.map { Self.formatBodyWeight(kg: $0, units: units) } ?? ""
+        maintainWeightMin = profile.targetWeightMinKg.map { Self.formatBodyWeight(kg: $0, units: units) } ?? ""
+        maintainWeightMax = profile.targetWeightMaxKg.map { Self.formatBodyWeight(kg: $0, units: units) } ?? ""
+        weeklyRateKg = profile.weeklyRateKg.map { String($0) } ?? ""
+        targetDate = profile.targetDate ?? ""
+        originalWeeklyRateKg = profile.weeklyRateKg
+        originalTargetDate = profile.targetDate
+        goalStartedAt = profile.goalStartedAt
         preferredUnits = profile.preferredUnits ?? .default
         lastSavedUnits = preferredUnits
     }
@@ -562,18 +931,39 @@ final class ProfileViewModel {
         if let originalHeightCm {
             height = Self.formatBodyHeight(cm: Double(originalHeightCm), units: newUnits)
         }
+        if let originalTargetWeightKg {
+            targetWeight = Self.formatBodyWeight(kg: originalTargetWeightKg, units: newUnits)
+        }
+        if let originalMaintainWeightMinKg {
+            maintainWeightMin = Self.formatBodyWeight(kg: originalMaintainWeightMinKg, units: newUnits)
+        }
+        if let originalMaintainWeightMaxKg {
+            maintainWeightMax = Self.formatBodyWeight(kg: originalMaintainWeightMaxKg, units: newUnits)
+        }
     }
 
     private func clearForm() {
         weight = ""
         height = ""
         age = ""
+        targetWeight = ""
+        maintainWeightMin = ""
+        maintainWeightMax = ""
+        weeklyRateKg = ""
+        targetDate = ""
+        goalStartedAt = nil
         gender = nil
         goal = nil
+        originalGoal = nil
         activityLevel = nil
         originalWeightKg = nil
         originalWeightText = nil
         originalHeightCm = nil
+        originalTargetWeightKg = nil
+        originalMaintainWeightMinKg = nil
+        originalMaintainWeightMaxKg = nil
+        originalWeeklyRateKg = nil
+        originalTargetDate = nil
     }
     
     func setPreviewState(_ newState: ProfileState) {

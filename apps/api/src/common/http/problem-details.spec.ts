@@ -5,7 +5,9 @@ import {
   ProblemType,
   defaultProblem,
   detailFromExceptionResponse,
+  validationProblem,
 } from './problem-details';
+import { FieldErrorCode } from '../validation/field-errors';
 
 describe('problem details', () => {
   test('maps standard HTTP statuses to stable problem types', () => {
@@ -52,6 +54,28 @@ describe('problem details', () => {
       title: 'Food analysis quota exceeded',
       status: HttpStatus.TOO_MANY_REQUESTS,
       detail: 'A new analysis slot will become available later.',
+    });
+  });
+
+  test('creates a structured validation problem for semantic form rules', () => {
+    const exception = validationProblem([
+      {
+        field: 'targetWeightKg',
+        code: FieldErrorCode.targetWeightMustBeLowerThanCurrent,
+      },
+    ]);
+
+    expect(exception.getResponse()).toEqual({
+      type: ProblemType.validationFailed,
+      title: 'Validation failed',
+      status: HttpStatus.BAD_REQUEST,
+      detail: 'One or more fields are invalid.',
+      fieldErrors: [
+        {
+          field: 'targetWeightKg',
+          code: FieldErrorCode.targetWeightMustBeLowerThanCurrent,
+        },
+      ],
     });
   });
 });

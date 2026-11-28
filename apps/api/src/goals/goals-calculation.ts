@@ -1,6 +1,12 @@
 import { roundNutrition } from '../common/nutrition/precision';
-import type { GoalMetrics } from './personalization/types';
+import type { GoalMetrics, SuggestedGoalPlan } from './personalization/types';
 import type { GoalMode, ManualGoalOverrides } from '../db/schema/userGoals';
+
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
 export type PrimaryGoal = 'lose' | 'gain' | 'maintain';
 export type ActivityLevel = 'low' | 'medium' | 'high';
@@ -404,6 +410,41 @@ export function mapProfileRowToInput(row: {
   };
 }
 
+/**
+ * Plan-level counterpart of a personalization adjustment: the new weekly rate
+ * and a target date recalculated from the remaining distance at that rate.
+ */
+export function buildSuggestedGoalPlan(
+  profile: GoalProfileInput,
+  newRateKgPerWeek: number | null,
+  today: string,
+): SuggestedGoalPlan | null {
+  if (
+    newRateKgPerWeek == null ||
+    newRateKgPerWeek <= 0 ||
+    profile.goal === 'maintain' ||
+    profile.targetWeightKg == null
+  ) {
+    return null;
+  }
+  const remaining = profile.targetWeightKg - profile.weightKg;
+  if (
+    (profile.goal === 'lose' && remaining >= 0) ||
+    (profile.goal === 'gain' && remaining <= 0)
+  ) {
+    return null;
+  }
+  const weeks = Math.abs(remaining) / newRateKgPerWeek;
+  if (!Number.isFinite(weeks) || weeks <= 0 || weeks > 520) return null;
+
+  return {
+    weeklyRateKg: Math.round(newRateKgPerWeek * 100) / 100,
+    targetDate: addDays(today, Math.ceil(weeks * 7)),
+    previousWeeklyRateKg: profile.weeklyRateKg ?? null,
+    previousTargetDate: profile.targetDate ?? null,
+  };
+}
+
 export function goalMetricsEqual(a: GoalMetrics, b: GoalMetrics): boolean {
   const keys = Object.keys(a) as (keyof GoalMetrics)[];
   return keys.every((k) => (a[k] ?? null) === (b[k] ?? null));
@@ -438,7 +479,7 @@ export interface ManualSuggestionResult {
 }
 
 type GoalMetricKey = keyof GoalMetrics;
-const NUTRITION_KEYS: GoalMetricKey[] = [
+export const NUTRITION_METRIC_KEYS: GoalMetricKey[] = [
   'dailyCaloriesGoal',
   'dailyProteinGoal',
   'dailyFatGoal',
@@ -497,10 +538,13 @@ export function buildManualModeSuggestion(args: {
     caloriesFixed || proteinFixed || fatFixed || carbsFixed;
 
   if (anyNutritionFixed) {
-    const weightKg = profileInput.weightKg;
+    // A manual suggestion must react to the plan, not only to current weight.
+    // Protein follows the target weight so changing the plan recalculates the
+    // macros that the person did not fix themselves.
+    const macroWeightKg = profileInput.targetWeightKg ?? profileInput.weightKg;
     const goal = profileInput.goal;
     const proteinPerKg = goal === 'maintain' ? 1.6 : 2.0;
-    const defaultProtein = roundNutrition(weightKg * proteinPerKg);
+    const defaultProtein = roundNutrition(macroWeightKg * proteinPerKg);
 
     let calories = caloriesFixed
       ? (applied.dailyCaloriesGoal ?? recommended.dailyCaloriesGoal ?? 0)
@@ -523,7 +567,7 @@ export function buildManualModeSuggestion(args: {
       // Keep fixed macros, fill unfixed macros from recommended split based on recommended calories.
       const baseCalories = recommended.dailyCaloriesGoal ?? calories;
       calories = baseCalories;
-      if (!proteinFixed) protein = roundNutrition(weightKg * proteinPerKg);
+      if (!proteinFixed) protein = roundNutrition(macroWeightKg * proteinPerKg);
       if (!fatFixed) fat = roundNutrition((calories * 0.25) / 9);
       if (!carbsFixed)
         carbs = roundNutrition(
@@ -537,7 +581,7 @@ export function buildManualModeSuggestion(args: {
       }
     } else if (caloriesFixed) {
       // Calories fixed: recalc unfixed macros from fixed calories.
-      if (!proteinFixed) protein = roundNutrition(weightKg * proteinPerKg);
+      if (!proteinFixed) protein = roundNutrition(macroWeightKg * proteinPerKg);
       if (!fatFixed) fat = roundNutrition((calories * 0.25) / 9);
       if (!carbsFixed)
         carbs = roundNutrition(
@@ -578,7 +622,7 @@ export function buildManualModeSuggestion(args: {
   }
 
   // Mark nutrition recalculated fields accurately.
-  for (const key of NUTRITION_KEYS) {
+  for (const key of NUTRITION_METRIC_KEYS) {
     if (fixed.has(key)) continue;
     const was = (applied[key] ?? null) !== (suggested[key] ?? null);
     if (was && !recalculatedFields.includes(key)) recalculatedFields.push(key);

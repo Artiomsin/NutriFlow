@@ -8,6 +8,7 @@ import { createE2eApp } from '../utils/e2e';
 import { createTestDb } from '../utils/db';
 import type { TestDb, TestTx } from '../utils/db';
 import { userGoals } from '../../src/db/schema/userGoals';
+import { userProfiles } from '../../src/db/schema/userProfiles';
 import { dailySummary } from '../../src/db/schema/dailySummary';
 import { dailyActivity } from '../../src/db/schema/dailyActivity';
 import { weightLogs } from '../../src/db/schema/weightLogs';
@@ -98,6 +99,60 @@ describe('goals routes', () => {
     await http().get('/api/goals').set(auth(token)).expect(404);
   });
 
+  it('calculates an onboarding preview without creating a profile', async () => {
+    const token = await register();
+    const res = await http()
+      .post('/api/goals/preview/draft')
+      .set(auth(token))
+      .send({
+        weight: 80,
+        height: 180,
+        age: 30,
+        gender: 'male',
+        goal: 'lose',
+        activityLevel: 'medium',
+        targetWeightKg: 75,
+        weeklyRateKg: 0.5,
+      })
+      .expect(201);
+
+    const body = res.body as {
+      recommended?: { dailyCaloriesGoal?: number };
+      basis?: { currentWeightKg?: number };
+    };
+    expect(body.recommended?.dailyCaloriesGoal).toBeGreaterThan(0);
+    expect(body.basis?.currentWeightKg).toBe(80);
+
+    await http().get('/api/profiles/me').set(auth(token)).expect(404);
+  });
+
+  it('rejects an onboarding preview with an unsafe target', async () => {
+    const token = await register();
+    const res = await http()
+      .post('/api/goals/preview/draft')
+      .set(auth(token))
+      .send({
+        weight: 80,
+        height: 180,
+        age: 30,
+        gender: 'male',
+        goal: 'lose',
+        activityLevel: 'medium',
+        targetWeightKg: 85,
+      })
+      .expect(400);
+
+    expect(res.body).toMatchObject({
+      status: 400,
+      fieldErrors: [
+        {
+          field: 'targetWeightKg',
+          code: 'TARGET_WEIGHT_MUST_BE_LOWER_THAN_CURRENT',
+        },
+      ],
+    });
+  });
+
   it('creates goals via PATCH and returns history', async () => {
     const token = await register();
 
@@ -179,6 +234,30 @@ describe('goals routes', () => {
       .set(auth(token))
       .expect(200);
     expect(state.body.personalizationDue).toBeBoolean();
+    expect(state.body.pending).toBeNull();
+  });
+
+  it('does not reset personalization due date when goals version is recreated', async () => {
+    const token = await register();
+    await createProfile(token);
+    const profile = await getProfile(token);
+    const userId = profile.userId;
+
+    // Plan started long ago, but a recent weight log left a fresh goals row.
+    // Before the fix the service used goals.createdAt and reported not_due.
+    const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+    await tx
+      .update(userProfiles)
+      .set({ goalStartedAt: twoWeeksAgo })
+      .where(eq(userProfiles.userId, userId));
+
+    const state = await http()
+      .get('/api/goals/personalization')
+      .set(auth(token))
+      .expect(200);
+
+    // Must be due from goalStartedAt, not from the freshly created goals row.
+    expect(state.body.personalizationDue).toBe(true);
     expect(state.body.pending).toBeNull();
   });
 

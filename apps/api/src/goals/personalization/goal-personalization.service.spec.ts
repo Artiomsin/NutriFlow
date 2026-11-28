@@ -29,6 +29,7 @@ type Progress = {
       diff: Array<{ metric: string; from: number | null; to: number | null }>;
       note?: string;
       basis?: Record<string, unknown>;
+      suggestedPlan?: any;
     };
   };
 };
@@ -71,12 +72,18 @@ function makeProgress(overrides: Partial<Progress> = {}): Progress {
   };
 }
 
-function makeDb(options: { selectQueue?: any[][]; insertQueue?: any[][] }) {
+function makeDb(options: {
+  selectQueue?: any[][];
+  insertQueue?: any[][];
+  updateQueue?: any[][];
+}) {
   const selectQueue = [...(options.selectQueue ?? [])];
   const insertQueue = [...(options.insertQueue ?? [])];
+  const updateQueue = [...(options.updateQueue ?? [])];
 
   const nextSelect = () => (selectQueue.length ? selectQueue.shift()! : []);
   const nextInsert = () => (insertQueue.length ? insertQueue.shift()! : []);
+  const nextUpdate = () => (updateQueue.length ? updateQueue.shift()! : []);
 
   const makeSelectChain = () => {
     const result = nextSelect();
@@ -101,20 +108,28 @@ function makeDb(options: { selectQueue?: any[][]; insertQueue?: any[][] }) {
   };
 
   const makeUpdateChain = () => {
+    const result = nextUpdate();
     const chain: any = {};
     chain.set = mock(() => chain);
-    chain.where = mock(async () => []);
-    chain.returning = mock(async () => []);
+    chain.where = mock(() => chain);
+    chain.returning = mock(async () => result);
     chain.then = (resolve: any, reject: any) =>
-      Promise.resolve([]).then(resolve, reject);
+      Promise.resolve(result).then(resolve, reject);
     return chain;
+  };
+
+  const tx = {
+    execute: mock(async () => undefined),
+    select: mock(() => makeSelectChain()),
+    insert: mock(() => makeInsertChain()),
+    update: mock(() => makeUpdateChain()),
   };
 
   return {
     select: mock(() => makeSelectChain()),
     insert: mock(() => makeInsertChain()),
     update: mock(() => makeUpdateChain()),
-    transaction: mock(async (fn: any) => fn({})),
+    transaction: mock(async (fn: any) => fn(tx)),
   } as unknown as Db;
 }
 
@@ -122,6 +137,7 @@ function setup(overrides: {
   progress?: Partial<Progress>;
   selectQueue?: any[][];
   insertQueue?: any[][];
+  updateQueue?: any[][];
 }) {
   const progress = makeProgress(overrides.progress ?? {});
   const progressService = {
@@ -130,6 +146,7 @@ function setup(overrides: {
   const db = makeDb({
     selectQueue: overrides.selectQueue,
     insertQueue: overrides.insertQueue,
+    updateQueue: overrides.updateQueue,
   });
   const service = new GoalPersonalizationService(db, progressService);
   return { service, db, progressService, progress };
@@ -156,8 +173,7 @@ describe('GoalPersonalizationService.stabilization v2', () => {
     const { service } = setup({
       selectQueue: [
         [], // findPending
-        [{ createdAt: oldDate }], // getLastEvaluationAt: userGoals
-        [{ createdAt: recentDate, acceptedAt: null, dismissedAt: null }], // lastRec
+        [{ createdAt: recentDate, acceptedAt: null, dismissedAt: null }], // lastRec (goalRecommendations)
       ],
     });
 
@@ -180,9 +196,9 @@ describe('GoalPersonalizationService.stabilization v2', () => {
       },
       selectQueue: [
         [], // findPending
-        [{ createdAt: oldDate }], // goals
-        [], // lastRec (old/none)
-        [], // recentEvaluations
+        [], // lastRec (goalRecommendations)
+        [], // userProfiles (no goalStartedAt)
+        [{ createdAt: oldDate }], // goals (fallback)
       ],
       insertQueue: [[{ id: 'marker-1', status: 'insufficient_data' }]],
     });
@@ -208,9 +224,9 @@ describe('GoalPersonalizationService.stabilization v2', () => {
       },
       selectQueue: [
         [], // findPending
-        [{ createdAt: oldDate }],
-        [],
-        [], // recentEvaluations
+        [], // lastRec (goalRecommendations)
+        [], // userProfiles (no goalStartedAt)
+        [{ createdAt: oldDate }], // goals (fallback)
       ],
       insertQueue: [[{ id: 'marker-2', status: 'collect_data' }]],
     });
@@ -238,8 +254,9 @@ describe('GoalPersonalizationService.stabilization v2', () => {
       },
       selectQueue: [
         [], // findPending
-        [{ createdAt: oldDate }],
-        [],
+        [], // lastRec (goalRecommendations)
+        [], // userProfiles (no goalStartedAt)
+        [{ createdAt: oldDate }], // goals (fallback)
         [], // recentEvaluations
         [{ acceptedAt: recentAccepted, reasons: [], status: 'accepted' }], // cooldown acceptedRows
       ],
@@ -279,8 +296,9 @@ describe('GoalPersonalizationService.stabilization v2', () => {
       },
       selectQueue: [
         [], // findPending
-        [{ createdAt: oldDate }],
-        [],
+        [], // lastRec (goalRecommendations)
+        [], // userProfiles (no goalStartedAt)
+        [{ createdAt: oldDate }], // goals (fallback)
         [], // recentEvaluations
         [{ acceptedAt: recentAccepted, reasons: [], status: 'accepted' }], // cooldown acceptedRows
       ],
@@ -309,8 +327,9 @@ describe('GoalPersonalizationService.stabilization v2', () => {
       },
       selectQueue: [
         [], // findPending
-        [{ createdAt: oldDate }],
-        [],
+        [], // lastRec (goalRecommendations)
+        [], // userProfiles (no goalStartedAt)
+        [{ createdAt: oldDate }], // goals (fallback)
         [
           // recentEvaluations: no same action+reason
           {
@@ -323,7 +342,6 @@ describe('GoalPersonalizationService.stabilization v2', () => {
           },
         ],
         [], // cooldown accepted
-        [], // cooldown recentGoals
       ],
       insertQueue: [[{ id: 'marker-4', status: 'no_change' }]],
     });
@@ -350,8 +368,9 @@ describe('GoalPersonalizationService.stabilization v2', () => {
       },
       selectQueue: [
         [], // findPending
-        [{ createdAt: oldDate }],
-        [],
+        [], // lastRec (goalRecommendations)
+        [], // userProfiles (no goalStartedAt)
+        [{ createdAt: oldDate }], // goals (fallback)
         [
           {
             status: 'no_change',
@@ -363,7 +382,6 @@ describe('GoalPersonalizationService.stabilization v2', () => {
           },
         ],
         [], // cooldown accepted
-        [], // cooldown recentGoals
       ],
       insertQueue: [[{ id: 'rec-pending', status: 'pending' }]],
     });
@@ -400,8 +418,9 @@ describe('GoalPersonalizationService.stabilization v2', () => {
       },
       selectQueue: [
         [], // findPending
-        [{ createdAt: oldDate }],
-        [],
+        [], // lastRec (goalRecommendations)
+        [], // userProfiles (no goalStartedAt)
+        [{ createdAt: oldDate }], // goals (fallback)
         [
           {
             status: 'no_change',
@@ -409,7 +428,6 @@ describe('GoalPersonalizationService.stabilization v2', () => {
           },
         ],
         [], // cooldown accepted
-        [], // cooldown recentGoals
       ],
       insertQueue: [[{ id: 'marker-5', status: 'collect_data' }]],
     });
@@ -446,8 +464,9 @@ describe('GoalPersonalizationService.stabilization v2', () => {
       },
       selectQueue: [
         [], // findPending
-        [{ createdAt: oldDate }],
-        [],
+        [], // lastRec (goalRecommendations)
+        [], // userProfiles (no goalStartedAt)
+        [{ createdAt: oldDate }], // goals (fallback)
         [
           {
             status: 'no_change',
@@ -455,7 +474,6 @@ describe('GoalPersonalizationService.stabilization v2', () => {
           },
         ],
         [], // cooldown accepted
-        [], // cooldown recentGoals
       ],
       insertQueue: [[{ id: 'rec-eased', status: 'pending' }]],
     });
@@ -464,5 +482,253 @@ describe('GoalPersonalizationService.stabilization v2', () => {
     // With poor adherence adjust_plan should not be applied aggressively; it becomes ease_plan
     // and since suggestedAdjustment still exists in this mocked progress, it creates pending.
     expect(result.status).toBe('created');
+  });
+
+  it('getPersonalizationState uses goalStartedAt from profile when no recommendations exist', async () => {
+    const { service } = setup({
+      selectQueue: [
+        [], // findPending
+        [], // lastRec (goalRecommendations)
+        [{ goalStartedAt: recentDate }], // userProfiles
+      ],
+    });
+
+    const state = await service.getPersonalizationState('user-1');
+    expect(state.personalizationDue).toBe(false);
+    expect(state.nextAvailableAt).not.toBeNull();
+    expect(state.pending).toBeNull();
+  });
+
+  it('getPersonalizationState is due when profile goalStartedAt is older than 7 days', async () => {
+    const { service } = setup({
+      selectQueue: [
+        [], // findPending
+        [], // lastRec (goalRecommendations)
+        [{ goalStartedAt: oldDate }], // userProfiles
+      ],
+    });
+
+    const state = await service.getPersonalizationState('user-1');
+    expect(state.personalizationDue).toBe(true);
+    expect(state.nextAvailableAt).toBeNull();
+    expect(state.pending).toBeNull();
+  });
+
+  it('weight log does not shift nextAvailableAt: profile goalStartedAt wins over recent goals createdAt', async () => {
+    // userGoals.version created just now (e.g. after weight log), but plan started long ago.
+    const { service } = setup({
+      selectQueue: [
+        [], // findPending
+        [], // lastRec (goalRecommendations)
+        [{ goalStartedAt: oldDate }], // userProfiles — userGoals never queried
+      ],
+    });
+
+    const state = await service.getPersonalizationState('user-1');
+    expect(state.personalizationDue).toBe(true);
+    expect(state.nextAvailableAt).toBeNull();
+  });
+
+  it('getPersonalizationState falls back to goals createdAt when profile has no goalStartedAt', async () => {
+    const { service } = setup({
+      selectQueue: [
+        [], // findPending
+        [], // lastRec (goalRecommendations)
+        [], // userProfiles (no row / no goalStartedAt)
+        [{ createdAt: recentDate }], // goals (fallback)
+      ],
+    });
+
+    const state = await service.getPersonalizationState('user-1');
+    expect(state.personalizationDue).toBe(false);
+    expect(state.nextAvailableAt).not.toBeNull();
+    expect(state.pending).toBeNull();
+  });
+
+  it('acceptRecommendation applies suggestedPlan to profile without restarting cycle', async () => {
+    const profile = {
+      id: 'prof-1',
+      userId: 'user-1',
+      weight: 80,
+      height: 180,
+      age: 30,
+      gender: 'male',
+      goal: 'lose',
+      activityLevel: 'medium',
+      weeklyRateKg: 0.5,
+      targetWeightKg: 72,
+      targetDate: null,
+      targetWeightMinKg: null,
+      targetWeightMaxKg: null,
+      goalStartedAt: new Date('2026-01-01T00:00:00Z'),
+    };
+    const existingGoals = {
+      id: 'goal-1',
+      userId: 'user-1',
+      dailyCaloriesGoal: 2200,
+      startedAt: new Date('2026-01-01T00:00:00Z'),
+      endedAt: null,
+      mode: 'auto',
+      source: 'initial',
+    };
+    const createdGoals = {
+      ...existingGoals,
+      id: 'goal-2',
+      startedAt: new Date(),
+    };
+
+    const { service } = setup({
+      updateQueue: [
+        [
+          {
+            id: 'rec-1',
+            status: 'accepted',
+            acceptedAt: new Date(),
+            suggestedPlan: {
+              weeklyRateKg: 0.4,
+              targetDate: '2026-12-01',
+              previousWeeklyRateKg: 0.5,
+              previousTargetDate: null,
+            },
+            recommendedGoals: {
+              dailyCaloriesGoal: 2300,
+              dailyProteinGoal: 120,
+              dailyFatGoal: 60,
+              dailyCarbsGoal: 200,
+              dailyWaterGoal: 2800,
+              dailyStepsGoal: 8000,
+              dailyActiveCaloriesGoal: 400,
+              weeklyWorkoutsGoal: 3,
+              weeklyWorkoutMinutesGoal: 150,
+              nightlySleepMinMinutes: 420,
+              nightlySleepMaxMinutes: 540,
+            },
+          },
+        ], // claim rec
+        [], // update userProfiles
+        [], // close existing goals
+      ],
+      selectQueue: [
+        [profile], // userProfiles
+        [existingGoals], // userGoals
+      ],
+      insertQueue: [[createdGoals]], // insert new goals version
+    });
+
+    const result = await service.acceptRecommendation('user-1', 'rec-1');
+
+    expect(result.dailyCaloriesGoal).toBe(2300);
+  });
+
+  it('acceptRecommendation without suggestedPlan does not touch profile', async () => {
+    const profile = {
+      id: 'prof-1',
+      userId: 'user-1',
+      weight: 80,
+      height: 180,
+      age: 30,
+      gender: 'male',
+      goal: 'lose',
+      activityLevel: 'medium',
+      weeklyRateKg: 0.5,
+      targetWeightKg: 72,
+      targetDate: null,
+      targetWeightMinKg: null,
+      targetWeightMaxKg: null,
+      goalStartedAt: new Date('2026-01-01T00:00:00Z'),
+    };
+    const existingGoals = {
+      id: 'goal-1',
+      userId: 'user-1',
+      dailyCaloriesGoal: 2200,
+      startedAt: new Date('2026-01-01T00:00:00Z'),
+      endedAt: null,
+    };
+
+    const { service } = setup({
+      updateQueue: [
+        [
+          {
+            id: 'rec-1',
+            status: 'accepted',
+            acceptedAt: new Date(),
+            recommendedGoals: {
+              dailyCaloriesGoal: 2300,
+              dailyProteinGoal: 120,
+              dailyFatGoal: 60,
+              dailyCarbsGoal: 200,
+              dailyWaterGoal: 2800,
+              dailyStepsGoal: 8000,
+              dailyActiveCaloriesGoal: 400,
+              weeklyWorkoutsGoal: 3,
+              weeklyWorkoutMinutesGoal: 150,
+              nightlySleepMinMinutes: 420,
+              nightlySleepMaxMinutes: 540,
+            },
+          },
+        ], // claim rec, no suggestedPlan
+        [], // close existing goals
+      ],
+      selectQueue: [
+        [profile], // userProfiles
+        [existingGoals], // userGoals
+      ],
+      insertQueue: [[{ id: 'goal-2' }]],
+    });
+
+    const result = await service.acceptRecommendation('user-1', 'rec-1');
+    expect(result).toBeDefined();
+  });
+
+  it('acceptRecommendation rejects invalid suggestedPlan (targetDate in past)', async () => {
+    const profile = {
+      id: 'prof-1',
+      userId: 'user-1',
+      weight: 80,
+      height: 180,
+      age: 30,
+      gender: 'male',
+      goal: 'lose',
+      activityLevel: 'medium',
+      weeklyRateKg: 0.5,
+      targetWeightKg: 72,
+      targetDate: null,
+      targetWeightMinKg: null,
+      targetWeightMaxKg: null,
+      goalStartedAt: new Date('2026-01-01T00:00:00Z'),
+    };
+
+    const { service } = setup({
+      updateQueue: [
+        [
+          {
+            id: 'rec-1',
+            status: 'accepted',
+            acceptedAt: new Date(),
+            suggestedPlan: {
+              weeklyRateKg: 0.4,
+              targetDate: '2020-01-01',
+              previousWeeklyRateKg: 0.5,
+              previousTargetDate: null,
+            },
+          },
+        ],
+      ],
+      selectQueue: [[profile]], // userProfiles
+    });
+
+    await expect(
+      service.acceptRecommendation('user-1', 'rec-1'),
+    ).rejects.toThrow();
+  });
+
+  it('acceptRecommendation throws when recommendation is not pending', async () => {
+    const { service } = setup({
+      updateQueue: [[]], // no recRow returned
+    });
+
+    await expect(
+      service.acceptRecommendation('user-1', 'rec-1'),
+    ).rejects.toThrow('Recommendation is not pending');
   });
 });

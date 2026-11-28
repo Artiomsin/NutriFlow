@@ -17,10 +17,12 @@ import type {
 import { userProfiles } from '../db/schema/userProfiles';
 import { and, desc, eq, gt, isNull, lt, or, sql } from 'drizzle-orm';
 import { formatDateInTimeZone, zonedDayRange } from '../common/time/user-date';
+import { validateGoalPlanFields } from './goal-plan-validation';
 import type {
   GoalsHistoryQueryDto,
   UpdateGoalsDto,
   NewCycleDto,
+  GoalsPreviewDraftDto,
 } from './goals.schema';
 import type { GoalMetrics } from './personalization/types';
 import {
@@ -28,8 +30,18 @@ import {
   recordGoalHistory,
   rowToGoalMetrics,
 } from './goals-history';
-import { diffGoalMetrics, GOAL_METRIC_KEYS } from './goal-versions';
-import type { GoalHistoryPage, GoalVersionEntry } from './goal-versions';
+import {
+  diffGoalMetrics,
+  diffGoalPlan,
+  EMPTY_GOAL_PLAN,
+  GOAL_METRIC_KEYS,
+  planFromBasis,
+} from './goal-versions';
+import type {
+  GoalHistoryPage,
+  GoalPlanSnapshot,
+  GoalVersionEntry,
+} from './goal-versions';
 import {
   calculateRecommendedMetrics,
   goalMetricsEqual,
@@ -37,6 +49,7 @@ import {
   modeFromSource,
   buildManualModeSuggestion,
   getFixedMetricKeys,
+  NUTRITION_METRIC_KEYS,
   type GoalCalculationResult,
 } from './goals-calculation';
 
@@ -51,6 +64,8 @@ export interface CalculateOptions {
     | 'weight_changed'
     | 'manual_reset'
     | 'recalculate_requested';
+  /** Manual overrides removed for the suggestion being created. */
+  clearedFields?: GoalMetricKey[];
 }
 
 @Injectable()
@@ -201,9 +216,23 @@ export class GoalsService {
     rows: UserGoals[],
     count: number,
   ): GoalVersionEntry[] {
+    // Walk oldest to newest so versions without their own plan snapshot
+    // inherit the last known plan instead of inventing a fresh one.
+    const planByRow = new Map<string, GoalPlanSnapshot>();
+    let carriedPlan: GoalPlanSnapshot = EMPTY_GOAL_PLAN;
+    for (let index = rows.length - 1; index >= 0; index -= 1) {
+      const row = rows[index]!;
+      carriedPlan = planFromBasis(row.appliedBasis) ?? carriedPlan;
+      planByRow.set(row.id, carriedPlan);
+    }
+
     return rows.slice(0, count).map((row, index) => {
       const previous = rows[index + 1];
       const goal = rowToGoalMetrics(row);
+      const plan = planByRow.get(row.id) ?? EMPTY_GOAL_PLAN;
+      const previousPlan = previous
+        ? (planByRow.get(previous.id) ?? EMPTY_GOAL_PLAN)
+        : EMPTY_GOAL_PLAN;
 
       return {
         id: row.id,
@@ -215,6 +244,7 @@ export class GoalsService {
           previous ? rowToGoalMetrics(previous) : null,
           goal,
         ),
+        planChanges: diffGoalPlan(previousPlan, plan),
         goal,
       };
     });
@@ -267,7 +297,12 @@ export class GoalsService {
     const effectiveRecommended =
       constrainedSuggestion?.suggested ?? calculation.metrics;
     const estimatedCompletion = this.computePlannedEstimatedCompletion(
-      profile,
+      {
+        goal: profile.goal,
+        targetWeightKg: profile.targetWeightKg,
+        currentWeightKg: profile.weight,
+        timeZone: profile.timeZone,
+      },
       calculation,
     );
 
@@ -305,6 +340,76 @@ export class GoalsService {
     };
   }
 
+  /**
+   * Calculates a plan from an onboarding draft without reading or writing a
+   * profile row. The caller owns the data until the final createProfile call.
+   */
+  previewDraft(data: GoalsPreviewDraftDto) {
+    validateGoalPlanFields({
+      weight: data.weight,
+      goal: data.goal,
+      targetWeightKg: data.targetWeightKg ?? null,
+      targetWeightMinKg: data.targetWeightMinKg ?? null,
+      targetWeightMaxKg: data.targetWeightMaxKg ?? null,
+      weeklyRateKg: data.weeklyRateKg ?? null,
+      targetDate: data.targetDate ?? null,
+      goalStartedAt: data.goalStartedAt ?? null,
+    });
+
+    const calculation = calculateRecommendedMetrics({
+      weightKg: data.weight,
+      heightCm: data.height,
+      age: data.age,
+      gender: data.gender,
+      goal: data.goal,
+      activityLevel: data.activityLevel,
+      targetWeightKg: data.targetWeightKg ?? null,
+      weeklyRateKg: data.weeklyRateKg ?? null,
+      targetDate: data.targetDate ?? null,
+      goalStartedAt: data.goalStartedAt ?? null,
+    });
+
+    const estimatedCompletion = this.computePlannedEstimatedCompletion(
+      {
+        goal: data.goal,
+        targetWeightKg: data.targetWeightKg ?? null,
+        currentWeightKg: data.weight,
+        timeZone: data.timeZone ?? 'UTC',
+      },
+      calculation,
+    );
+
+    const diff = diffGoalMetrics(null, calculation.metrics);
+
+    return {
+      mode: 'auto' as const,
+      recommended: calculation.metrics,
+      suggested: calculation.metrics,
+      applied: null,
+      fixedMetrics: [],
+      manualOverrides: null,
+      diff,
+      autoDiff: diff,
+      basis: calculation.basis,
+      calories: {
+        bmr: calculation.calories.bmr,
+        tdee: calculation.calories.tdee,
+        dailyCalories: calculation.calories.dailyCalories,
+        rawDailyCalories: calculation.calories.rawDailyCalories,
+        dailyDeltaKcal: calculation.calories.dailyDeltaKcal,
+        targetRateKgPerWeek: calculation.calories.targetRateKgPerWeek,
+        paceSource: calculation.calories.paceSource,
+        minSafeCalories: calculation.calories.minSafeCalories,
+        maxSafeCalories: calculation.calories.maxSafeCalories,
+        warnings: calculation.calories.warnings ?? [],
+        conflicts: [],
+        limitedBySafety: calculation.calories.limitedBySafety,
+      },
+      willApplyAutomatically: true,
+      estimatedCompletion,
+    };
+  }
+
   async update(userId: string, data: UpdateGoalsDto) {
     return this.db.transaction(async (tx) => {
       await this.acquireUserLock(userId, tx);
@@ -313,57 +418,37 @@ export class GoalsService {
       const patchKeys = Object.keys(data) as (keyof GoalMetrics)[];
       const nowIso = new Date().toISOString();
 
+      let nextMetrics: GoalMetrics;
+      let manualOverrides: ManualGoalOverrides;
+
       if (!existing) {
-        const nextMetrics: GoalMetrics = {
-          ...EMPTY_GOALS_METRICS,
-          ...data,
-        };
-        const manualOverrides: ManualGoalOverrides = {};
+        nextMetrics = { ...EMPTY_GOALS_METRICS, ...data };
+        manualOverrides = {};
         for (const key of patchKeys) {
           const value = nextMetrics[key];
           if (value != null) {
             manualOverrides[key] = { value, setAt: nowIso };
           }
         }
-
-        return this.replaceCurrentGoals(
-          userId,
-          undefined,
-          nextMetrics,
-          'user',
-          'user_edit',
-          tx,
-          {
-            mode: 'manual',
-            clearSuggestion: true,
-            manualOverrides,
-            appliedBasis: {
-              editedManually: true,
-              fixedFields: Object.keys(manualOverrides),
-            },
-          },
-        );
-      }
-
-      const nextMetrics: GoalMetrics = {
-        ...rowToGoalMetrics(existing),
-        ...data,
-      };
-
-      const prevOverrides =
-        (existing.manualOverrides as ManualGoalOverrides | null) ?? {};
-      const manualOverrides: ManualGoalOverrides = { ...prevOverrides };
-      for (const key of patchKeys) {
-        const value = nextMetrics[key];
-        if (value == null) {
-          delete manualOverrides[key];
-        } else {
-          manualOverrides[key] = { value, setAt: nowIso };
+      } else {
+        nextMetrics = { ...rowToGoalMetrics(existing), ...data };
+        const prevOverrides =
+          (existing.manualOverrides as ManualGoalOverrides | null) ?? {};
+        manualOverrides = { ...prevOverrides };
+        for (const key of patchKeys) {
+          const value = nextMetrics[key];
+          if (value == null) {
+            delete manualOverrides[key];
+          } else {
+            manualOverrides[key] = { value, setAt: nowIso };
+          }
         }
       }
 
-      // Manual user edit: apply immediately as manual, clear stale suggestion.
-      return this.replaceCurrentGoals(
+      // Manual user edit: apply only the edited fields as manual, clear the
+      // stale suggestion, then rebuild a coherent suggestion for the nutrition
+      // group. The edit itself is never overwritten by that recalculation.
+      const saved = await this.replaceCurrentGoals(
         userId,
         existing,
         nextMetrics,
@@ -380,6 +465,28 @@ export class GoalsService {
           },
         },
       );
+
+      const nutritionEdited = NUTRITION_METRIC_KEYS.some((key) =>
+        patchKeys.includes(key),
+      );
+      if (!nutritionEdited) return saved;
+
+      try {
+        return await this.calculate(userId, tx, {
+          reason: 'manual_nutrition_edit',
+          trigger: 'recalculate_requested',
+        });
+      } catch (error) {
+        // A manual edit must still succeed when no usable profile exists for a
+        // recalculation. The applied values stay exactly as the user set them.
+        if (
+          error instanceof NotFoundException ||
+          error instanceof BadRequestException
+        ) {
+          return saved;
+        }
+        throw error;
+      }
     });
   }
 
@@ -408,14 +515,8 @@ export class GoalsService {
         const selected = new Set<GoalMetricKey>(selectedMetrics);
         // Nutrition consistency: if any nutrition metric selected, apply the whole nutrition group
         // from suggestion to avoid inconsistent calories/macros.
-        const nutrition: GoalMetricKey[] = [
-          'dailyCaloriesGoal',
-          'dailyProteinGoal',
-          'dailyFatGoal',
-          'dailyCarbsGoal',
-        ];
-        if (nutrition.some((k) => selected.has(k))) {
-          for (const k of nutrition) selected.add(k);
+        if (NUTRITION_METRIC_KEYS.some((k) => selected.has(k))) {
+          for (const k of NUTRITION_METRIC_KEYS) selected.add(k);
         }
 
         nextMetrics = { ...applied };
@@ -455,14 +556,8 @@ export class GoalsService {
                 selectedMetrics.length
                   ? ((): GoalMetricKey[] => {
                       const s = new Set<GoalMetricKey>(selectedMetrics);
-                      const nutrition: GoalMetricKey[] = [
-                        'dailyCaloriesGoal',
-                        'dailyProteinGoal',
-                        'dailyFatGoal',
-                        'dailyCarbsGoal',
-                      ];
-                      if (nutrition.some((k) => s.has(k)))
-                        nutrition.forEach((k) => s.add(k));
+                      if (NUTRITION_METRIC_KEYS.some((k) => s.has(k)))
+                        NUTRITION_METRIC_KEYS.forEach((k) => s.add(k));
                       return Array.from(s);
                     })()
                   : [],
@@ -478,11 +573,21 @@ export class GoalsService {
         manualOverrides = next;
       }
 
+      // Applying a suggestion is an explicit user action, even when the
+      // values came from a recommendation. Keep the current mode manual and
+      // expose it as a manual change in goal history.
+      const source: GoalSource =
+        mode === 'manual'
+          ? 'user'
+          : existing.source === 'personalized'
+            ? 'personalized'
+            : 'initial';
+
       return this.replaceCurrentGoals(
         userId,
         existing,
         nextMetrics,
-        'initial',
+        source,
         selectedMetrics?.length
           ? 'suggestion_partially_applied'
           : 'suggestion_applied',
@@ -548,9 +653,12 @@ export class GoalsService {
       if (!existing) {
         throw new NotFoundException('Goals not found');
       }
-      if (!existing.manualOverrides) {
+      const overrides =
+        (existing.manualOverrides as ManualGoalOverrides | null) ?? null;
+      if (!overrides) {
         return this.toGoalState(existing);
       }
+      const clearedFields = Object.keys(overrides) as GoalMetricKey[];
       await tx
         .update(userGoals)
         .set({ manualOverrides: null, updatedAt: new Date() })
@@ -559,6 +667,7 @@ export class GoalsService {
       return this.calculate(userId, tx, {
         reason: 'manual_overrides_cleared',
         trigger: 'recalculate_requested',
+        clearedFields,
       });
     });
   }
@@ -585,6 +694,7 @@ export class GoalsService {
       return this.calculate(userId, tx, {
         reason: 'manual_override_cleared',
         trigger: 'recalculate_requested',
+        clearedFields: [metric],
       });
     });
   }
@@ -777,7 +887,7 @@ export class GoalsService {
       }
 
       // Basic semantic validation on merged profile.
-      this.validateProfileTargetFields({
+      validateGoalPlanFields({
         weight: profile.weight,
         goal: nextGoal,
         targetWeightKg: nextTargetWeightKg,
@@ -834,7 +944,12 @@ export class GoalsService {
 
     const calculation = calculateRecommendedMetrics(input);
     const estimatedCompletion = this.computePlannedEstimatedCompletion(
-      profile,
+      {
+        goal: profile.goal,
+        targetWeightKg: profile.targetWeightKg,
+        currentWeightKg: profile.weight,
+        timeZone: profile.timeZone,
+      },
       calculation,
     );
     const existing = await this.findActiveRow(userId, executor);
@@ -898,6 +1013,15 @@ export class GoalsService {
       });
       const suggestionMetrics = constrained.suggested;
       const suggestionDiffers = !goalMetricsEqual(applied, suggestionMetrics);
+      const previousClearedFields =
+        ((existing.suggestionBasis as Record<string, unknown> | null)
+          ?.clearedFields as GoalMetricKey[] | undefined) ?? [];
+      const clearedFields = [
+        ...new Set([
+          ...(options.clearedFields ?? []),
+          ...previousClearedFields,
+        ]),
+      ];
       const now = new Date();
       if (suggestionDiffers) {
         const [updated] = await executor
@@ -912,6 +1036,7 @@ export class GoalsService {
               calculatedAt: now.toISOString(),
               preservedFixedFields: constrained.preservedFixedFields,
               recalculatedFields: constrained.recalculatedFields,
+              clearedFields,
               warnings: [
                 ...(calculation.calories.warnings ?? []),
                 ...constrained.warnings,
@@ -992,125 +1117,28 @@ export class GoalsService {
     );
   }
 
-  private validateProfileTargetFields(input: {
-    weight: number | null;
-    goal: 'lose' | 'gain' | 'maintain' | null;
-    targetWeightKg: number | null;
-    targetWeightMinKg?: number | null;
-    targetWeightMaxKg?: number | null;
-    weeklyRateKg: number | null;
-    targetDate: string | null;
-    goalStartedAt: Date | string | null;
-  }) {
-    const {
-      weight,
-      goal,
-      targetWeightKg,
-      targetWeightMinKg = null,
-      targetWeightMaxKg = null,
-      weeklyRateKg,
-      targetDate,
-    } = input;
-    if (weeklyRateKg != null && weeklyRateKg <= 0) {
-      throw new BadRequestException('weeklyRateKg must be positive');
-    }
-    if (targetDate != null) {
-      const today = new Date().toISOString().slice(0, 10);
-      if (targetDate < today) {
-        throw new BadRequestException('targetDate must not be in the past');
-      }
-    }
-    if (targetDate != null && targetWeightKg == null && goal !== 'maintain') {
-      throw new BadRequestException(
-        'targetWeightKg is required when targetDate is set',
-      );
-    }
-    if (
-      goal === 'lose' &&
-      targetWeightKg != null &&
-      weight != null &&
-      targetWeightKg >= weight
-    ) {
-      throw new BadRequestException(
-        'targetWeightKg must be less than current weight for lose goal',
-      );
-    }
-    if (
-      goal === 'gain' &&
-      targetWeightKg != null &&
-      weight != null &&
-      targetWeightKg <= weight
-    ) {
-      throw new BadRequestException(
-        'targetWeightKg must be greater than current weight for gain goal',
-      );
-    }
+  private async withPlanBasis(
+    userId: string,
+    executor: DatabaseExecutor,
+    appliedBasis: Record<string, unknown> | null | undefined,
+  ): Promise<Record<string, unknown>> {
+    const basis: Record<string, unknown> = { ...(appliedBasis ?? {}) };
+    if (planFromBasis(basis)) return basis;
 
-    const hasMin = targetWeightMinKg != null;
-    const hasMax = targetWeightMaxKg != null;
-    if (hasMin !== hasMax) {
-      throw new BadRequestException(
-        'targetWeightMinKg and targetWeightMaxKg must be provided together',
-      );
-    }
-    if (hasMin && hasMax) {
-      if (targetWeightMinKg! >= targetWeightMaxKg!) {
-        throw new BadRequestException(
-          'targetWeightMaxKg must be greater than targetWeightMinKg',
-        );
-      }
-      const width = targetWeightMaxKg! - targetWeightMinKg!;
-      if (width < 0.5 || width > 10) {
-        throw new BadRequestException(
-          'Maintain range width should be between 0.5 and 10 kg',
-        );
-      }
-    }
+    const [profile] = await executor
+      .select()
+      .from(userProfiles)
+      .where(eq(userProfiles.userId, userId))
+      .limit(1);
 
-    if (goal === 'maintain') {
-      if (hasMin && hasMax) {
-        if (weight != null) {
-          if (
-            targetWeightMaxKg! < weight - 15 ||
-            targetWeightMinKg! > weight + 15
-          ) {
-            throw new BadRequestException(
-              'Maintain range should be reasonably close to current weight',
-            );
-          }
-        }
-        if (targetWeightKg != null) {
-          if (
-            targetWeightKg < targetWeightMinKg! ||
-            targetWeightKg > targetWeightMaxKg!
-          ) {
-            throw new BadRequestException(
-              'targetWeightKg must be within maintain range when range is provided',
-            );
-          }
-        }
-      } else if (targetWeightKg != null && weight != null) {
-        if (Math.abs(targetWeightKg - weight) > 10) {
-          throw new BadRequestException(
-            'For maintain goal, targetWeightKg should be within 10kg of current weight',
-          );
-        }
-      }
-    } else if (hasMin || hasMax) {
-      throw new BadRequestException(
-        'Maintain range is only supported for maintain goal',
-      );
-    }
-
-    if (targetDate != null && input.goalStartedAt != null) {
-      const started =
-        input.goalStartedAt instanceof Date
-          ? input.goalStartedAt.toISOString().slice(0, 10)
-          : String(input.goalStartedAt).slice(0, 10);
-      if (targetDate <= started) {
-        throw new BadRequestException('targetDate must be after goalStartedAt');
-      }
-    }
+    return {
+      ...basis,
+      targetWeightKg: profile?.targetWeightKg ?? null,
+      targetWeightMinKg: (profile as any)?.targetWeightMinKg ?? null,
+      targetWeightMaxKg: (profile as any)?.targetWeightMaxKg ?? null,
+      weeklyRateKg: profile?.weeklyRateKg ?? null,
+      targetDate: profile?.targetDate ?? null,
+    };
   }
 
   private buildAppliedBasis(
@@ -1143,14 +1171,19 @@ export class GoalsService {
   }
 
   private computePlannedEstimatedCompletion(
-    profile: typeof userProfiles.$inferSelect,
+    input: {
+      goal: string | null;
+      targetWeightKg: number | string | null;
+      currentWeightKg: number | string | null;
+      timeZone: string | null;
+    },
     calculation: GoalCalculationResult,
   ) {
-    const goal = profile.goal as 'lose' | 'gain' | 'maintain' | null;
+    const goal = input.goal as 'lose' | 'gain' | 'maintain' | null;
     const targetWeightKg =
-      profile.targetWeightKg == null ? null : Number(profile.targetWeightKg);
+      input.targetWeightKg == null ? null : Number(input.targetWeightKg);
     const currentWeightKg =
-      profile.weight == null ? null : Number(profile.weight);
+      input.currentWeightKg == null ? null : Number(input.currentWeightKg);
     const targetRateKgPerWeek = calculation.calories.targetRateKgPerWeek;
 
     if (
@@ -1167,7 +1200,7 @@ export class GoalsService {
 
     const remainingToTarget = targetWeightKg - currentWeightKg; // signed
     const distance = Math.abs(remainingToTarget);
-    const tz = profile.timeZone ?? 'UTC';
+    const tz = input.timeZone ?? 'UTC';
     const today = formatDateInTimeZone(new Date(), tz);
     const addDays = (dateStr: string, days: number): string => {
       const d = new Date(`${dateStr}T00:00:00Z`);
@@ -1262,6 +1295,12 @@ export class GoalsService {
       return this.toGoalState(existing, opts?.estimatedCompletion);
     }
 
+    const appliedBasis = await this.withPlanBasis(
+      userId,
+      executor,
+      opts?.appliedBasis,
+    );
+
     const now = new Date();
 
     if (existing) {
@@ -1309,7 +1348,7 @@ export class GoalsService {
             ? opts.suggestionBasis
             : ((existing?.suggestionBasis as Record<string, unknown> | null) ??
               null),
-        appliedBasis: opts?.appliedBasis ?? null,
+        appliedBasis,
         manualOverrides,
         startedAt: now,
         endedAt: null,

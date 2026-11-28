@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import type { Db } from '../db/db';
 import { DB } from '../db/db.module';
@@ -12,6 +7,9 @@ import { eq } from 'drizzle-orm';
 import { GoalsService } from '../goals/goals.service';
 import { weightLogs } from '../db/schema/weightLogs';
 import { formatDateInTimeZone } from '../common/time/user-date';
+import { validateGoalPlanFields } from '../goals/goal-plan-validation';
+import { validationProblem } from '../common/http/problem-details';
+import { FieldErrorCode } from '../common/validation/field-errors';
 
 import type { CreateProfileDto, UpdateProfileDto } from './profiles.schema';
 
@@ -26,7 +24,7 @@ export class ProfilesService {
     const timeZone = data.timeZone ?? 'UTC';
     const initialDate = formatDateInTimeZone(new Date(), timeZone);
     const goalStartedAt = data.goalStartedAt ?? new Date();
-    this.validateTargetFields({
+    validateGoalPlanFields({
       weight: data.weight,
       goal: data.goal,
       targetWeightKg: data.targetWeightKg ?? null,
@@ -113,6 +111,18 @@ export class ProfilesService {
 
       if (!existing) throw new NotFoundException('Profile not found');
 
+      // A direction change starts a distinct goal lifecycle. It must go through
+      // the dedicated new-cycle endpoint so the new start date and goals stay
+      // consistent even for clients other than the mobile app.
+      if (data.goal !== undefined && data.goal !== existing.goal) {
+        throw validationProblem([
+          {
+            field: 'goal',
+            code: FieldErrorCode.goalChangeRequiresNewCycle,
+          },
+        ]);
+      }
+
       const merged = {
         weight: existing.weight,
         height: data.height ?? existing.height,
@@ -149,7 +159,7 @@ export class ProfilesService {
             : data.goalStartedAt,
       };
 
-      this.validateTargetFields(
+      validateGoalPlanFields(
         {
           weight: merged.weight,
           goal: merged.goal,
@@ -218,141 +228,6 @@ export class ProfilesService {
 
     if (!profile) throw new NotFoundException('Profile not found');
     return profile;
-  }
-
-  private validateTargetFields(
-    input: {
-      weight: number | null;
-      goal: 'lose' | 'gain' | 'maintain' | null;
-      targetWeightKg: number | null;
-      targetWeightMinKg?: number | null;
-      targetWeightMaxKg?: number | null;
-      weeklyRateKg: number | null;
-      targetDate: string | null;
-      goalStartedAt: Date | string | null;
-    },
-    opts?: { validatePastTargetDate?: boolean },
-  ) {
-    const {
-      weight,
-      goal,
-      targetWeightKg,
-      targetWeightMinKg = null,
-      targetWeightMaxKg = null,
-      weeklyRateKg,
-      targetDate,
-    } = input;
-    const validatePastTargetDate = opts?.validatePastTargetDate ?? true;
-
-    if (weeklyRateKg != null && weeklyRateKg <= 0) {
-      throw new BadRequestException('weeklyRateKg must be positive');
-    }
-
-    if (validatePastTargetDate && targetDate != null) {
-      const today = new Date().toISOString().slice(0, 10);
-      if (targetDate < today) {
-        throw new BadRequestException('targetDate must not be in the past');
-      }
-    }
-
-    if (targetDate != null && targetWeightKg == null && goal !== 'maintain') {
-      throw new BadRequestException(
-        'targetWeightKg is required when targetDate is set',
-      );
-    }
-
-    if (goal === 'lose') {
-      if (
-        targetWeightKg != null &&
-        weight != null &&
-        targetWeightKg >= weight
-      ) {
-        throw new BadRequestException(
-          'targetWeightKg must be less than current weight for lose goal',
-        );
-      }
-    }
-
-    if (goal === 'gain') {
-      if (
-        targetWeightKg != null &&
-        weight != null &&
-        targetWeightKg <= weight
-      ) {
-        throw new BadRequestException(
-          'targetWeightKg must be greater than current weight for gain goal',
-        );
-      }
-    }
-
-    const hasMin = targetWeightMinKg != null;
-    const hasMax = targetWeightMaxKg != null;
-    if (hasMin !== hasMax) {
-      throw new BadRequestException(
-        'targetWeightMinKg and targetWeightMaxKg must be provided together',
-      );
-    }
-    if (hasMin && hasMax) {
-      if (targetWeightMinKg! >= targetWeightMaxKg!) {
-        throw new BadRequestException(
-          'targetWeightMaxKg must be greater than targetWeightMinKg',
-        );
-      }
-      const width = targetWeightMaxKg! - targetWeightMinKg!;
-      if (width < 0.5 || width > 10) {
-        throw new BadRequestException(
-          'Maintain range width should be between 0.5 and 10 kg',
-        );
-      }
-    }
-
-    if (goal === 'maintain') {
-      if (hasMin && hasMax) {
-        if (weight != null) {
-          if (
-            targetWeightMaxKg! < weight - 15 ||
-            targetWeightMinKg! > weight + 15
-          ) {
-            throw new BadRequestException(
-              'Maintain range should be reasonably close to current weight',
-            );
-          }
-        }
-        if (targetWeightKg != null) {
-          if (
-            targetWeightKg < targetWeightMinKg! ||
-            targetWeightKg > targetWeightMaxKg!
-          ) {
-            throw new BadRequestException(
-              'targetWeightKg must be within maintain range when range is provided',
-            );
-          }
-        }
-      } else if (targetWeightKg != null && weight != null) {
-        const diff = Math.abs(targetWeightKg - weight);
-        if (diff > 10) {
-          throw new BadRequestException(
-            'For maintain goal, targetWeightKg should be within 10kg of current weight',
-          );
-        }
-      }
-      // Maintain with a rate usually means no pace; ignore/allow but it's not meaningful.
-    } else if (hasMin || hasMax) {
-      throw new BadRequestException(
-        'Maintain range is only supported for maintain goal',
-      );
-    }
-
-    // If targetDate is set, ensure it's after goalStartedAt when both present.
-    if (targetDate != null && input.goalStartedAt != null) {
-      const started =
-        input.goalStartedAt instanceof Date
-          ? input.goalStartedAt.toISOString().slice(0, 10)
-          : String(input.goalStartedAt).slice(0, 10);
-      if (targetDate <= started) {
-        throw new BadRequestException('targetDate must be after goalStartedAt');
-      }
-    }
   }
 
   private async findByUserIdSafe(userId: string) {

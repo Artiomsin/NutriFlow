@@ -17,6 +17,24 @@ export const FieldErrorCode = {
   tooLong: 'TOO_LONG',
   outOfRange: 'OUT_OF_RANGE',
   unknownField: 'UNKNOWN_FIELD',
+  weeklyRateMustBePositive: 'WEEKLY_RATE_MUST_BE_POSITIVE',
+  targetDateInPast: 'TARGET_DATE_IN_PAST',
+  targetDateMustBeAfterGoalStart: 'TARGET_DATE_MUST_BE_AFTER_GOAL_START',
+  targetWeightRequiredForDate: 'TARGET_WEIGHT_REQUIRED_FOR_DATE',
+  targetWeightMustBeLowerThanCurrent:
+    'TARGET_WEIGHT_MUST_BE_LOWER_THAN_CURRENT',
+  targetWeightMustBeHigherThanCurrent:
+    'TARGET_WEIGHT_MUST_BE_HIGHER_THAN_CURRENT',
+  maintainRangePairRequired: 'MAINTAIN_RANGE_PAIR_REQUIRED',
+  maintainRangeOrderInvalid: 'MAINTAIN_RANGE_ORDER_INVALID',
+  maintainRangeWidthOutOfRange: 'MAINTAIN_RANGE_WIDTH_OUT_OF_RANGE',
+  maintainRangeTooFarFromCurrent: 'MAINTAIN_RANGE_TOO_FAR_FROM_CURRENT',
+  targetWeightOutsideMaintainRange: 'TARGET_WEIGHT_OUTSIDE_MAINTAIN_RANGE',
+  targetWeightTooFarFromCurrent: 'TARGET_WEIGHT_TOO_FAR_FROM_CURRENT',
+  maintainRangeNotAllowed: 'MAINTAIN_RANGE_NOT_ALLOWED',
+  goalRequiredForNewCycle: 'GOAL_REQUIRED_FOR_NEW_CYCLE',
+  goalChangeRequiresNewCycle: 'GOAL_CHANGE_REQUIRES_NEW_CYCLE',
+  tempoAdjustmentRequired: 'TEMPO_ADJUSTMENT_REQUIRED',
 } as const;
 
 export type FieldErrorCodeValue =
@@ -101,6 +119,18 @@ export function fieldErrorCode(
       return FieldErrorCode.unknownField;
 
     default:
+      if (issue.code === 'custom') {
+        const code = (issue.params as { fieldErrorCode?: unknown } | undefined)
+          ?.fieldErrorCode;
+
+        if (
+          typeof code === 'string' &&
+          Object.values(FieldErrorCode).includes(code as FieldErrorCodeValue)
+        ) {
+          return code as FieldErrorCodeValue;
+        }
+      }
+
       return FieldErrorCode.invalidValue;
   }
 }

@@ -427,6 +427,47 @@ describe('GoalsService.getHistory', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('records target weight, pace and date changes in goal history', async () => {
+    const user = await createUser(tx);
+    await createProfile(tx, user.id, {
+      weight: 80,
+      height: 170,
+      age: 30,
+      gender: 'female',
+      goal: 'lose',
+      activityLevel: 'medium',
+      targetWeightKg: 80,
+      weeklyRateKg: 0.5,
+      targetDate: '2026-12-31',
+    });
+
+    await service.calculate(user.id, tx, {
+      reason: 'initial_calculation',
+      trigger: 'initial',
+    });
+    await tx
+      .update(userProfiles)
+      .set({
+        targetWeightKg: 72,
+        weeklyRateKg: 0.7,
+        targetDate: '2026-12-20',
+      })
+      .where(eq(userProfiles.userId, user.id));
+    await service.calculate(user.id, tx, {
+      reason: 'profile_changed',
+      trigger: 'profile_changed',
+    });
+
+    const page = await service.getHistory(user.id, { limit: 20 });
+    expect(page.items[0]?.planChanges).toEqual(
+      expect.arrayContaining([
+        { metric: 'targetWeightKg', from: 80, to: 72 },
+        { metric: 'weeklyRateKg', from: 0.5, to: 0.7 },
+        { metric: 'targetDate', from: '2026-12-31', to: '2026-12-20' },
+      ]),
+    );
+  });
+
   it('resolves the versions in effect during a day in the profile time zone', async () => {
     const user = await createUser(tx);
 
@@ -496,6 +537,70 @@ describe('GoalsService preview and manual suggestion flow', () => {
     expect(typeof preview.estimatedCompletion?.plannedDate).toBe('string');
   });
 
+  it('builds a coherent nutrition suggestion immediately after a single macro edit', async () => {
+    const user = await createUser(tx);
+    await createProfile(tx, user.id, {
+      weight: 80,
+      height: 170,
+      age: 30,
+      gender: 'female',
+      goal: 'lose',
+      activityLevel: 'medium',
+      targetWeightKg: 72,
+    });
+    await service.calculate(user.id);
+    const initial = (await service.findByUserId(user.id))!;
+
+    const updated = (await service.update(user.id, {
+      dailyProteinGoal: 180,
+    }))!;
+
+    expect(updated.mode).toBe('manual');
+    expect(updated.dailyProteinGoal).toBe(180);
+    expect(updated.dailyCaloriesGoal).toBe(initial.dailyCaloriesGoal);
+    expect(updated.dailyFatGoal).toBe(initial.dailyFatGoal);
+    expect(updated.dailyCarbsGoal).toBe(initial.dailyCarbsGoal);
+
+    const suggestion = updated.suggestion;
+    expect(suggestion).toBeTruthy();
+    expect(suggestion!.goals.dailyProteinGoal).toBe(180);
+    expect(suggestion!.goals.dailyCarbsGoal).not.toBe(initial.dailyCarbsGoal);
+
+    const macroCalories =
+      (suggestion!.goals.dailyProteinGoal ?? 0) * 4 +
+      (suggestion!.goals.dailyFatGoal ?? 0) * 9 +
+      (suggestion!.goals.dailyCarbsGoal ?? 0) * 4;
+    expect(
+      Math.abs(macroCalories - (suggestion!.goals.dailyCaloriesGoal ?? 0)),
+    ).toBeLessThan(2);
+
+    expect(suggestion!.basis?.preservedFixedFields).toContain(
+      'dailyProteinGoal',
+    );
+    expect(suggestion!.basis?.recalculatedFields).toContain('dailyCarbsGoal');
+  });
+
+  it('does not build a suggestion for a non-nutrition manual edit', async () => {
+    const user = await createUser(tx);
+    await createProfile(tx, user.id, {
+      weight: 80,
+      height: 170,
+      age: 30,
+      gender: 'female',
+      goal: 'lose',
+      activityLevel: 'medium',
+    });
+    await service.calculate(user.id);
+
+    const updated = (await service.update(user.id, {
+      dailyWaterGoal: 4000,
+    }))!;
+
+    expect(updated.mode).toBe('manual');
+    expect(updated.dailyWaterGoal).toBe(4000);
+    expect(updated.suggestion).toBeNull();
+  });
+
   it('stores manual suggestion on calculate and supports partial suggestion apply', async () => {
     const user = await createUser(tx);
     await createProfile(tx, user.id, {
@@ -523,6 +628,67 @@ describe('GoalsService preview and manual suggestion flow', () => {
     if (applied.suggestedGoals != null) {
       expect(typeof applied.suggestedGoals).toBe('object');
     }
+
+    // Applying a suggestion is an explicit user action, so history must show
+    // it as manual even though the values came from the recalculation.
+    const appliedHistory = await loadHistory(
+      user.id,
+      'suggestion_partially_applied',
+    );
+    expect(appliedHistory.length).toBeGreaterThan(0);
+    expect(appliedHistory.every((row) => row.source === 'user')).toBe(true);
+  });
+
+  it('records the cleared manual field in the suggestion basis', async () => {
+    const user = await createUser(tx);
+    await createProfile(tx, user.id, {
+      weight: 80,
+      height: 170,
+      age: 30,
+      gender: 'female',
+      goal: 'lose',
+      activityLevel: 'medium',
+    });
+
+    await service.update(user.id, {
+      dailyCaloriesGoal: 2300,
+      dailyProteinGoal: 150,
+    });
+    const cleared = (await service.clearManualOverride(
+      user.id,
+      'dailyCaloriesGoal',
+    ))!;
+
+    expect(cleared.mode).toBe('manual');
+    expect(cleared.fixedMetrics).not.toContain('dailyCaloriesGoal');
+    expect(cleared.fixedMetrics).toContain('dailyProteinGoal');
+    expect(cleared.suggestion?.basis?.clearedFields).toEqual([
+      'dailyCaloriesGoal',
+    ]);
+
+    const recalculated = (await service.calculate(user.id))!;
+    expect(recalculated.suggestion?.basis?.clearedFields).toEqual([
+      'dailyCaloriesGoal',
+    ]);
+  });
+
+  it('keeps goals unchanged when clearing overrides that are already empty', async () => {
+    const user = await createUser(tx);
+    await createProfile(tx, user.id, {
+      weight: 80,
+      height: 170,
+      age: 30,
+      gender: 'female',
+      goal: 'lose',
+      activityLevel: 'medium',
+    });
+
+    const initial = (await service.calculate(user.id))!;
+    const cleared = (await service.clearManualOverrides(user.id))!;
+
+    expect(cleared.fixedMetrics).toEqual([]);
+    expect(cleared.suggestion).toBeNull();
+    expect(cleared.dailyCaloriesGoal).toBe(initial.dailyCaloriesGoal);
   });
 });
 

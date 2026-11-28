@@ -16,8 +16,20 @@ enum GoalHistoryFormat {
         "nightlySleepMaxMinutes"
     ]
 
+    private static let planMetrics = [
+        "targetWeightKg",
+        "targetWeightMinKg",
+        "targetWeightMaxKg",
+        "weeklyRateKg",
+        "targetDate"
+    ]
+
     static func order(of metric: String) -> Int {
         metrics.firstIndex(of: metric) ?? metrics.count
+    }
+
+    static func planOrder(of metric: String) -> Int {
+        planMetrics.firstIndex(of: metric) ?? planMetrics.count
     }
 
     static func metricLabel(_ metric: String) -> String {
@@ -37,7 +49,24 @@ enum GoalHistoryFormat {
         }
     }
 
-    static func sourceLabel(_ source: String) -> String {
+    static func planLabel(_ metric: String) -> String {
+        switch metric {
+        case "targetWeightKg": return "Target weight"
+        case "targetWeightMinKg": return "Min target"
+        case "targetWeightMaxKg": return "Max target"
+        case "weeklyRateKg": return "Weekly pace"
+        case "targetDate": return "Target date"
+        default: return metric
+        }
+    }
+
+    static func sourceLabel(_ source: String, reason: String? = nil) -> String {
+        // Older versions stored suggestion applies with `initial` source.
+        // Treat them as manual so historical events stay correctly classified.
+        if let reason, isManualReason(reason) {
+            return "Manual"
+        }
+
         switch source.lowercased() {
         case "initial": return "Automatic"
         case "user": return "Manual"
@@ -47,41 +76,104 @@ enum GoalHistoryFormat {
     }
 
     static func reasonLabel(_ reason: String?) -> String? {
+        guard let reason, !reason.isEmpty else { return nil }
+
+        if reason.hasPrefix("new_cycle_") {
+            return "Started a new goal cycle"
+        }
+
         switch reason {
         case "recommendation_accepted":
             return "Updated from a personalized recommendation"
         case "user_edit":
             return "Updated manually"
+        case "suggestion_applied":
+            return "Applied suggested values"
+        case "suggestion_partially_applied":
+            return "Applied selected suggested values"
         case "manual_reset_to_automatic":
             return "Switched to automatic goals"
-        case "profile_recalculation":
+        case "profile_recalculation", "profile_changed", "weight_changed":
             return "Recalculated from profile and weight"
         case "personalized_profile_recalculation":
             return "Recalculated while keeping recommendation adjustments"
+        case "progress_adjustment_applied":
+            return "Applied a progress recommendation"
         case "initial_calculation":
             return "Initial automatic calculation"
-        case nil, "":
-            return nil
         default:
             return reason
         }
     }
 
-    static func value(_ metric: String, _ value: Double?) -> String {
+    private static func isManualReason(_ reason: String) -> Bool {
+        reason == "user_edit"
+            || reason == "suggestion_applied"
+            || reason == "suggestion_partially_applied"
+    }
+
+    static func value(
+        _ metric: String,
+        _ value: Double?,
+        preferredUnits: PreferredUnits
+    ) -> String {
         guard let value else { return "—" }
         let number = value.formatted(.number.precision(.fractionLength(0...1)))
 
         switch metric {
+        case "dailyCaloriesGoal", "dailyActiveCaloriesGoal":
+            return UnitConversion.formatEnergy(kcal: value, preferred: preferredUnits)
         case "dailyProteinGoal", "dailyFatGoal", "dailyCarbsGoal":
-            return "\(number) g"
+            return UnitConversion.formatMacro(grams: value, preferred: preferredUnits)
         case "dailyWaterGoal":
-            return "\(number) ml"
+            return UnitConversion.formatAmount(
+                grams: value,
+                unit: "ml",
+                preferred: preferredUnits
+            )
         case "weeklyWorkoutMinutesGoal",
              "nightlySleepMinMinutes",
              "nightlySleepMaxMinutes":
             return "\(number) min"
         default:
             return number
+        }
+    }
+
+    static func planValue(
+        _ metric: String,
+        _ value: GoalHistoryValue,
+        preferredUnits: PreferredUnits
+    ) -> String {
+        switch value {
+        case .none:
+            return "—"
+        case .text(let text):
+            guard metric == "targetDate",
+                  let date = AppDate.dateOnlyFormatter().date(from: text) else {
+                return text
+            }
+            return AppDate.displayFormatter("d MMM yyyy").string(from: date)
+        case .number(let number):
+            switch metric {
+            case "targetWeightKg", "targetWeightMinKg", "targetWeightMaxKg":
+                let text = UnitConversion.formatBodyWeight(
+                    kg: number,
+                    preferred: preferredUnits
+                )
+                let unit = UnitConversion.bodyWeightUnitLabel(preferred: preferredUnits)
+                return "\(text) \(unit)"
+            case "weeklyRateKg":
+                let display = UnitConversion.bodyWeightToDisplay(
+                    kg: number,
+                    preferred: preferredUnits
+                )
+                let text = display.formatted(.number.precision(.fractionLength(0...2)))
+                let unit = UnitConversion.bodyWeightUnitLabel(preferred: preferredUnits)
+                return "\(text) \(unit)/week"
+            default:
+                return number.formatted(.number.precision(.fractionLength(0...1)))
+            }
         }
     }
 }

@@ -27,9 +27,7 @@ struct GoalHistoryTimeline: View {
             case .all:
                 return true
             case .automatic:
-                return source == "initial"
-                    || reason == "initial_calculation"
-                    || reason == "profile_recalculation"
+                return GoalHistoryBuilder.isAutomatic(source: source, reason: reason)
             case .personalized:
                 return source == "personalized"
                     || reason == "recommendation_accepted"
@@ -37,6 +35,8 @@ struct GoalHistoryTimeline: View {
             case .manual:
                 return source == "user"
                     || reason == "user_edit"
+                    || reason == "suggestion_applied"
+                    || reason == "suggestion_partially_applied"
             }
         }
     }

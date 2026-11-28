@@ -6,6 +6,7 @@ struct GoalHistoryCard: View {
     let isLatest: Bool
 
     @Binding private var expanded: Set<String>
+    @State private var prefsStore = PreferencesStore.shared
 
     init(
         event: GoalHistoryEvent,
@@ -21,9 +22,12 @@ struct GoalHistoryCard: View {
 
     var body: some View {
         let isExpanded = expanded.contains(event.id)
-        let visible = isExpanded
-            ? event.changes
-            : Array(event.changes.prefix(3))
+        // Plan changes come first: they explain why the daily goals below
+        // changed. A single `prefix(3)` keeps the collapsed card predictable.
+        let rows: [GoalHistoryDisplayRow] =
+            event.planChanges.map(GoalHistoryDisplayRow.plan)
+                + event.changes.map(GoalHistoryDisplayRow.metric)
+        let visible = isExpanded ? rows : Array(rows.prefix(3))
 
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
@@ -49,7 +53,12 @@ struct GoalHistoryCard: View {
 
                 Spacer()
 
-                Text(GoalHistoryFormat.sourceLabel(event.source))
+                Text(
+                    GoalHistoryFormat.sourceLabel(
+                        event.source,
+                        reason: event.reason
+                    )
+                )
                     .font(.caption2.weight(.semibold))
                     .foregroundColor(AppColors.accent)
             }
@@ -61,12 +70,15 @@ struct GoalHistoryCard: View {
             }
 
             VStack(spacing: 6) {
-                ForEach(visible) { change in
-                    GoalHistoryChangeRow(change: change)
+                ForEach(visible) { row in
+                    GoalHistoryChangeRow(
+                        row: row,
+                        preferredUnits: prefsStore.preferredUnits
+                    )
                 }
             }
 
-            if event.changes.count > 3 {
+            if rows.count > 3 {
                 Button {
                     if isExpanded {
                         expanded.remove(event.id)
@@ -77,7 +89,7 @@ struct GoalHistoryCard: View {
                     Text(
                         isExpanded
                             ? "Show less"
-                            : "And \(event.changes.count - 3) more"
+                            : "And \(rows.count - 3) more"
                     )
                     .font(.caption2.weight(.semibold))
                     .foregroundColor(AppColors.accent)

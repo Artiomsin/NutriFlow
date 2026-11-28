@@ -6,6 +6,10 @@ import {
   updateProfileSchema,
   updateTimeZoneSchema,
 } from './profiles.schema';
+import {
+  FieldErrorCode,
+  fieldErrorsFromIssues,
+} from '../common/validation/field-errors';
 
 const validProfile = {
   weight: 75,
@@ -40,6 +44,23 @@ describe('createProfileSchema', () => {
     expect(
       createProfileSchema.safeParse({ ...validProfile, goal: 'bulk' }).success,
     ).toBe(false);
+  });
+
+  it('uses a precise code when the losing target is not below the current weight', () => {
+    const input = {
+      ...validProfile,
+      goal: 'lose',
+      targetWeightKg: 75,
+    };
+    const result = createProfileSchema.safeParse(input);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(fieldErrorsFromIssues(result.error.issues, input)).toContainEqual({
+        field: 'targetWeightKg',
+        code: FieldErrorCode.targetWeightMustBeLowerThanCurrent,
+      });
+    }
   });
 });
 

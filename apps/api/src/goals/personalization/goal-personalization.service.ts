@@ -3,6 +3,7 @@ import type { Db } from '../../db/db';
 import { DB } from '../../db/db.module';
 import { userGoals } from '../../db/schema/userGoals';
 import { goalRecommendations } from '../../db/schema/goalRecommendations';
+import { userProfiles } from '../../db/schema/userProfiles';
 import type { GoalMetrics } from './types';
 import {
   recordGoalHistory,
@@ -11,6 +12,7 @@ import {
 } from '../goals-history';
 import { eq, and, lt, desc, isNull, sql } from 'drizzle-orm';
 import { GoalsProgressService } from '../goals-progress.service';
+import { validateGoalPlanFields } from '../goal-plan-validation';
 
 export const PERSONALIZATION_INTERVAL_DAYS = 7;
 export const RECOMMENDATION_TTL_DAYS = 7;
@@ -200,6 +202,7 @@ export class GoalPersonalizationService {
           status: 'pending',
           previousGoals: progress.appliedGoals,
           recommendedGoals: effectiveAdjustment.metrics,
+          suggestedPlan: effectiveAdjustment.suggestedPlan ?? null,
           analysisPeriodStart: progress.period.start,
           analysisPeriodEnd: progress.period.end,
           reasons: [
@@ -417,6 +420,47 @@ export class GoalPersonalizationService {
       const next = recRow.recommendedGoals;
       const now = new Date();
 
+      const [profile] = await tx
+        .select()
+        .from(userProfiles)
+        .where(eq(userProfiles.userId, userId))
+        .limit(1);
+      if (!profile) throw new NotFoundException('Profile not found');
+
+      // A recommendation may carry a plan-level change. Apply it atomically
+      // with the new goals version, but never restart the current cycle.
+      const suggestedPlan = recRow.suggestedPlan;
+      if (suggestedPlan?.weeklyRateKg != null && suggestedPlan.targetDate) {
+        validateGoalPlanFields({
+          weight: profile.weight == null ? null : Number(profile.weight),
+          goal: (profile.goal as 'lose' | 'gain' | 'maintain' | null) ?? null,
+          targetWeightKg:
+            profile.targetWeightKg == null
+              ? null
+              : Number(profile.targetWeightKg),
+          targetWeightMinKg:
+            (profile as any).targetWeightMinKg == null
+              ? null
+              : Number((profile as any).targetWeightMinKg),
+          targetWeightMaxKg:
+            (profile as any).targetWeightMaxKg == null
+              ? null
+              : Number((profile as any).targetWeightMaxKg),
+          weeklyRateKg: suggestedPlan.weeklyRateKg,
+          targetDate: suggestedPlan.targetDate,
+          goalStartedAt: profile.goalStartedAt,
+        });
+
+        await tx
+          .update(userProfiles)
+          .set({
+            weeklyRateKg: suggestedPlan.weeklyRateKg,
+            targetDate: suggestedPlan.targetDate,
+            updatedAt: now,
+          })
+          .where(eq(userProfiles.userId, userId));
+      }
+
       // Read only the version that is active right now. Historical versions
       // must stay untouched so past days keep showing the goal they had.
       const [existing] = await tx
@@ -456,6 +500,13 @@ export class GoalPersonalizationService {
             fromRecommendation: recRow.id,
             analysisPeriodStart: recRow.analysisPeriodStart,
             analysisPeriodEnd: recRow.analysisPeriodEnd,
+            appliedPlan: suggestedPlan ?? null,
+            targetWeightKg: profile.targetWeightKg ?? null,
+            targetWeightMinKg: (profile as any).targetWeightMinKg ?? null,
+            targetWeightMaxKg: (profile as any).targetWeightMaxKg ?? null,
+            weeklyRateKg:
+              suggestedPlan?.weeklyRateKg ?? profile.weeklyRateKg ?? null,
+            targetDate: suggestedPlan?.targetDate ?? profile.targetDate ?? null,
           },
           startedAt: now,
           endedAt: null,
@@ -521,13 +572,6 @@ export class GoalPersonalizationService {
   }
 
   private async getLastEvaluationAt(userId: string): Promise<Date> {
-    const [goalsRow] = await this.db
-      .select()
-      .from(userGoals)
-      .where(and(eq(userGoals.userId, userId), isNull(userGoals.endedAt)))
-      .orderBy(desc(userGoals.startedAt))
-      .limit(1);
-
     const [lastRec] = await this.db
       .select()
       .from(goalRecommendations)
@@ -538,6 +582,23 @@ export class GoalPersonalizationService {
     if (lastRec?.acceptedAt) return lastRec.acceptedAt;
     if (lastRec?.dismissedAt) return lastRec.dismissedAt;
     if (lastRec) return lastRec.createdAt;
+
+    const [profile] = await this.db
+      .select({ goalStartedAt: userProfiles.goalStartedAt })
+      .from(userProfiles)
+      .where(eq(userProfiles.userId, userId))
+      .limit(1);
+
+    if (profile?.goalStartedAt) {
+      return new Date(profile.goalStartedAt);
+    }
+
+    const [goalsRow] = await this.db
+      .select()
+      .from(userGoals)
+      .where(and(eq(userGoals.userId, userId), isNull(userGoals.endedAt)))
+      .orderBy(desc(userGoals.startedAt))
+      .limit(1);
 
     return goalsRow?.createdAt ?? new Date();
   }

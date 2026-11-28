@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import {
+  FieldErrorCode,
+  type FieldErrorCodeValue,
+} from '../common/validation/field-errors';
 
 const timeZoneSchema = z
   .string()
@@ -64,6 +68,19 @@ function isPastCalendarDate(dateStr: string): boolean {
   return dateStr < today;
 }
 
+function addSemanticIssue(
+  ctx: z.RefinementCtx,
+  field: string,
+  fieldErrorCode: FieldErrorCodeValue,
+) {
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    path: [field],
+    message: 'Invalid goal plan field',
+    params: { fieldErrorCode },
+  });
+}
+
 function validateTargetSemantics(
   value: {
     goal?: 'lose' | 'gain' | 'maintain';
@@ -77,19 +94,15 @@ function validateTargetSemantics(
   ctx: z.RefinementCtx,
 ) {
   if (value.weeklyRateKg != null && value.weeklyRateKg <= 0) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['weeklyRateKg'],
-      message: 'weeklyRateKg must be positive',
-    });
+    addSemanticIssue(
+      ctx,
+      'weeklyRateKg',
+      FieldErrorCode.weeklyRateMustBePositive,
+    );
   }
 
   if (value.targetDate != null && isPastCalendarDate(value.targetDate)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['targetDate'],
-      message: 'targetDate must not be in the past',
-    });
+    addSemanticIssue(ctx, 'targetDate', FieldErrorCode.targetDateInPast);
   }
 
   const goal = value.goal;
@@ -102,12 +115,11 @@ function validateTargetSemantics(
       currentWeight != null &&
       targetWeightKg >= currentWeight
     ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['targetWeightKg'],
-        message:
-          'targetWeightKg must be less than current weight for lose goal',
-      });
+      addSemanticIssue(
+        ctx,
+        'targetWeightKg',
+        FieldErrorCode.targetWeightMustBeLowerThanCurrent,
+      );
     }
   }
 
@@ -117,12 +129,11 @@ function validateTargetSemantics(
       currentWeight != null &&
       targetWeightKg <= currentWeight
     ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['targetWeightKg'],
-        message:
-          'targetWeightKg must be greater than current weight for gain goal',
-      });
+      addSemanticIssue(
+        ctx,
+        'targetWeightKg',
+        FieldErrorCode.targetWeightMustBeHigherThanCurrent,
+      );
     }
   }
 
@@ -131,28 +142,27 @@ function validateTargetSemantics(
   const hasMin = minKg != null;
   const hasMax = maxKg != null;
   if (hasMin !== hasMax) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: hasMin ? ['targetWeightMaxKg'] : ['targetWeightMinKg'],
-      message:
-        'targetWeightMinKg and targetWeightMaxKg must be provided together',
-    });
+    addSemanticIssue(
+      ctx,
+      hasMin ? 'targetWeightMaxKg' : 'targetWeightMinKg',
+      FieldErrorCode.maintainRangePairRequired,
+    );
   }
   if (hasMin && hasMax) {
     if (minKg! >= maxKg!) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['targetWeightMaxKg'],
-        message: 'targetWeightMaxKg must be greater than targetWeightMinKg',
-      });
+      addSemanticIssue(
+        ctx,
+        'targetWeightMaxKg',
+        FieldErrorCode.maintainRangeOrderInvalid,
+      );
     } else {
       const width = maxKg! - minKg!;
       if (width < 0.5 || width > 10) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['targetWeightMaxKg'],
-          message: 'Maintain range width should be between 0.5 and 10 kg',
-        });
+        addSemanticIssue(
+          ctx,
+          'targetWeightMaxKg',
+          FieldErrorCode.maintainRangeWidthOutOfRange,
+        );
       }
     }
   }
@@ -162,41 +172,38 @@ function validateTargetSemantics(
     if (hasMin && hasMax) {
       if (currentWeight != null) {
         if (maxKg! < currentWeight - 15 || minKg! > currentWeight + 15) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['targetWeightMinKg'],
-            message:
-              'Maintain range should be reasonably close to current weight',
-          });
+          addSemanticIssue(
+            ctx,
+            'targetWeightMinKg',
+            FieldErrorCode.maintainRangeTooFarFromCurrent,
+          );
         }
       }
       if (targetWeightKg != null) {
         if (targetWeightKg < minKg! || targetWeightKg > maxKg!) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['targetWeightKg'],
-            message:
-              'targetWeightKg must be within maintain range when range is provided',
-          });
+          addSemanticIssue(
+            ctx,
+            'targetWeightKg',
+            FieldErrorCode.targetWeightOutsideMaintainRange,
+          );
         }
       }
     } else if (targetWeightKg != null && currentWeight != null) {
       const diff = Math.abs(targetWeightKg - currentWeight);
       if (diff > 10) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['targetWeightKg'],
-          message:
-            'For maintain goal, targetWeightKg should be within 10kg of current weight (maintenance range anchor)',
-        });
+        addSemanticIssue(
+          ctx,
+          'targetWeightKg',
+          FieldErrorCode.targetWeightTooFarFromCurrent,
+        );
       }
     }
   } else if (hasMin || hasMax) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['targetWeightMinKg'],
-      message: 'Maintain range is only supported for maintain goal',
-    });
+    addSemanticIssue(
+      ctx,
+      'targetWeightMinKg',
+      FieldErrorCode.maintainRangeNotAllowed,
+    );
   }
 
   if (
@@ -204,11 +211,11 @@ function validateTargetSemantics(
     targetWeightKg == null &&
     goal !== 'maintain'
   ) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['targetWeightKg'],
-      message: 'targetWeightKg is required when targetDate is set',
-    });
+    addSemanticIssue(
+      ctx,
+      'targetWeightKg',
+      FieldErrorCode.targetWeightRequiredForDate,
+    );
   }
 }
 
@@ -263,18 +270,14 @@ export const updateProfileSchema = z
   .superRefine((value, ctx) => {
     // Weight is not updatable here; merged semantic validation happens in service.
     if (value.weeklyRateKg != null && value.weeklyRateKg <= 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['weeklyRateKg'],
-        message: 'weeklyRateKg must be positive',
-      });
+      addSemanticIssue(
+        ctx,
+        'weeklyRateKg',
+        FieldErrorCode.weeklyRateMustBePositive,
+      );
     }
     if (value.targetDate != null && isPastCalendarDate(value.targetDate)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['targetDate'],
-        message: 'targetDate must not be in the past',
-      });
+      addSemanticIssue(ctx, 'targetDate', FieldErrorCode.targetDateInPast);
     }
   });
 

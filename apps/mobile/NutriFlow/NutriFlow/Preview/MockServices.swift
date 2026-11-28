@@ -168,6 +168,41 @@ final class MockFoodService: FoodServiceProtocol {
     func createCatalogFood(_ request: CreateCatalogFoodRequest) async throws -> CatalogFood {
         CatalogFood(id: UUID().uuidString, name: request.name, categoryId: request.categoryId, categoryName: nil, brand: nil, caloriesPer100g: request.caloriesPer100g, proteinPer100g: request.proteinPer100g, fatPer100g: request.fatPer100g, carbsPer100g: request.carbsPer100g, barcode: request.barcode, imageUrl: request.imageUrl, source: "user", createdBy: nil, createdAt: "", updatedAt: "", servings: request.servings?.map { FoodServing(id: UUID().uuidString, foodId: "", name: $0.name, grams: $0.grams, createdAt: nil) })
     }
+    func createServing(
+        foodID: String,
+        name: String,
+        grams: Double
+    ) async throws -> FoodServing {
+        FoodServing(
+            id: UUID().uuidString,
+            foodId: foodID,
+            name: name,
+            grams: grams,
+            source: .user,
+            createdBy: "1",
+            createdAt: nil
+        )
+    }
+
+    func updateServing(
+        foodID: String,
+        servingID: String,
+        name: String?,
+        grams: Double?
+    ) async throws -> FoodServing {
+        FoodServing(
+            id: servingID,
+            foodId: foodID,
+            name: name ?? "Serving",
+            grams: grams ?? 100,
+            source: .user,
+            createdBy: "1",
+            createdAt: nil
+        )
+    }
+
+    func deleteServing(foodID: String, servingID: String) async throws { }
+
     func getCategories() async throws -> [FoodCategory] {
         [
             FoodCategory(id: "system-fruits", name: "Fruits", icon: "leaf.fill", color: "#84CC16", createdBy: nil, createdAt: "2026-01-01T00:00:00Z", foodCount: 5),
@@ -306,12 +341,16 @@ final class MockDailySummaryService: DailySummaryServiceProtocol {
 }
 
 final class MockProfileService: ProfileServiceProtocol {
+    func updateGoalPlan(_ request: UpdateGoalPlanRequest) async throws -> UserProfile {
+        try await getMyProfile()
+    }
+
     func updateTimeZone(_ timeZone: String) async throws {}
     func getMyProfile() async throws -> UserProfile {
         UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: 82, height: 183, age: 24, gender: .male, goal: .gain, activityLevel: .high, preferredUnits: nil, timeZone: TimeZone.current.identifier, createdAt: nil, updatedAt: nil)
     }
-    func createProfile(weight: Double, height: Int, age: Int, gender: Gender, goal: Goal, activityLevel: ActivityLevel, preferredUnits: PreferredUnits? = nil) async throws -> UserProfile {
-        UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: weight, height: height, age: age, gender: gender, goal: goal, activityLevel: activityLevel, preferredUnits: preferredUnits, timeZone: TimeZone.current.identifier, createdAt: nil, updatedAt: nil)
+    func createProfile(weight: Double, height: Int, age: Int, gender: Gender, goal: Goal, activityLevel: ActivityLevel, preferredUnits: PreferredUnits? = nil, goalPlan: UpdateGoalPlanRequest? = nil) async throws -> UserProfile {
+        UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: weight, height: height, age: age, gender: gender, goal: goal, targetWeightKg: goalPlan?.targetWeightKg, targetWeightMinKg: goalPlan?.targetWeightMinKg, targetWeightMaxKg: goalPlan?.targetWeightMaxKg, weeklyRateKg: goalPlan?.weeklyRateKg, targetDate: goalPlan?.targetDate, goalStartedAt: goalPlan?.goalStartedAt, activityLevel: activityLevel, preferredUnits: preferredUnits, timeZone: TimeZone.current.identifier, createdAt: nil, updatedAt: nil)
     }
     func updateMyProfile(height: Int?, age: Int?, gender: Gender?, goal: Goal?, activityLevel: ActivityLevel?, preferredUnits: PreferredUnits? = nil) async throws -> UserProfile {
         UserProfile(id: UUID().uuidString, userId: "1", email: "test@example.com", firstName: "Artem", lastName: "Developer", weight: 82, height: height, age: age, gender: gender, goal: goal, activityLevel: activityLevel, preferredUnits: preferredUnits, timeZone: TimeZone.current.identifier, createdAt: nil, updatedAt: nil)
@@ -431,6 +470,84 @@ final class MockAnalyticsService: AnalyticsServiceProtocol {
 
 final class MockGoalsService: GoalsServiceProtocol {
     
+    func getGoalsPreview() async throws -> GoalsPreview {
+        try await previewDraft(
+            GoalsPreviewDraftRequest(
+                weight: 80,
+                height: 180,
+                age: 30,
+                gender: .male,
+                goal: .maintain,
+                activityLevel: .medium,
+                targetWeightKg: nil,
+                targetWeightMinKg: nil,
+                targetWeightMaxKg: nil,
+                weeklyRateKg: nil,
+                targetDate: nil,
+                timeZone: nil
+            )
+        )
+    }
+
+    func previewDraft(_ request: GoalsPreviewDraftRequest) async throws -> GoalsPreview {
+        GoalsPreview(
+            mode: .auto,
+            recommended: nil,
+            suggested: nil,
+            applied: nil,
+            fixedMetrics: nil,
+            manualOverrides: nil,
+            diff: nil,
+            autoDiff: nil,
+            basis: nil,
+            calories: nil,
+            willApplyAutomatically: true,
+            estimatedCompletion: nil
+        )
+    }
+
+    func applySuggestion(metrics: [GoalMetricKey]?) async throws -> UserGoals {
+        try await getGoals()
+    }
+
+    func dismissSuggestion() async throws -> UserGoals {
+        try await getGoals()
+    }
+
+    func clearManualOverrides() async throws -> UserGoals {
+        try await getGoals()
+    }
+
+    func clearManualOverride(metric: GoalMetricKey) async throws -> UserGoals {
+        try await getGoals()
+    }
+
+    func getGoalsProgress(days: Int) async throws -> GoalsProgress {
+        GoalsProgress(
+            period: nil,
+            status: nil,
+            reason: nil,
+            direction: nil,
+            confidence: nil,
+            metrics: nil,
+            recommendation: nil,
+            estimatedCompletion: nil,
+            appliedGoals: nil,
+            goal: nil
+        )
+    }
+
+    func applyProgressAdjustment(
+        days: Int,
+        metrics: GoalMetrics?
+    ) async throws -> UserGoals {
+        try await getGoals()
+    }
+
+    func startNewCycle(_ request: NewGoalCycleRequest) async throws -> UserGoals {
+        try await getGoals()
+    }
+
     func personalizeGoals() async throws -> PersonalizeResult {
         .insufficientData
         
@@ -470,7 +587,8 @@ final class MockGoalsService: GoalsServiceProtocol {
                 createdAt: "2026-09-17T08:00:00Z",
                 expiresAt: "2026-09-24T08:00:00Z",
                 acceptedAt: nil,
-                dismissedAt: nil
+                dismissedAt: nil,
+                suggestedPlan: nil
             ),
             personalizationDue: false,
             nextAvailableAt: nil
@@ -480,20 +598,8 @@ final class MockGoalsService: GoalsServiceProtocol {
         DismissResult(dismissed: true)
     }
     
-    func acceptRecommendation(id: String) async throws -> GoalMetrics {
-        GoalMetrics(
-            dailyCaloriesGoal: 2200,
-            dailyProteinGoal: 150,
-            dailyFatGoal: 65,
-            dailyCarbsGoal: 250,
-            dailyWaterGoal: 3000,
-            dailyStepsGoal: 8000,
-            dailyActiveCaloriesGoal: 500,
-            weeklyWorkoutsGoal: 5,
-            weeklyWorkoutMinutesGoal: 155,
-            nightlySleepMinMinutes: 234,
-            nightlySleepMaxMinutes: 500
-        )
+    func acceptRecommendation(id: String) async throws -> UserGoals {
+        try await getGoals()
     }
     
     func getGoalHistory(

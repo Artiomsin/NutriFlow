@@ -1,5 +1,8 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
-import type { FieldErrorCodeValue } from '../validation/field-errors';
+import type {
+  FieldError,
+  FieldErrorCodeValue,
+} from '../validation/field-errors';
 
 const problemBaseURL = 'https://api.nutriflow.app/problems';
 
@@ -35,6 +38,19 @@ export class ProblemDetailsException extends HttpException {
   constructor(problem: Omit<ProblemDetails, 'instance'>) {
     super(problem, problem.status);
   }
+}
+
+/** Creates the shared response shape for semantic form validation. */
+export function validationProblem(
+  fieldErrors: FieldError[],
+): ProblemDetailsException {
+  return new ProblemDetailsException({
+    type: ProblemType.validationFailed,
+    title: 'Validation failed',
+    status: HttpStatus.BAD_REQUEST,
+    detail: 'One or more fields are invalid.',
+    fieldErrors,
+  });
 }
 
 export function isProblemDetails(value: unknown): value is ProblemDetails {

@@ -73,6 +73,9 @@
         }
       }
     },
+    "%@ direction" : {
+
+    },
     "%@ efficiency" : {
 
     },
@@ -110,9 +113,6 @@
     "%lld-day streak" : {
 
     },
-    "+%lld more goals updated" : {
-
-    },
     "0" : {
 
     },
@@ -120,9 +120,6 @@
 
     },
     "Achievement notifications" : {
-
-    },
-    "Activity Level" : {
 
     },
     "Activity, sleep, and workouts will appear here once connected." : {
@@ -161,6 +158,9 @@
     "Added %@" : {
 
     },
+    "Adjust plan" : {
+
+    },
     "All (%lld)" : {
 
     },
@@ -188,25 +188,37 @@
     "Apply" : {
 
     },
+    "Apply changes" : {
+
+    },
+    "Apply these values without leaving manual mode" : {
+
+    },
+    "Apply values" : {
+
+    },
     "Are you sure you want to delete this water entry?" : {
 
     },
     "Assign a category while adding a food. System categories are shared; yours stay private." : {
 
     },
-    "Automatic calculation is off" : {
+    "At least two weeks from today" : {
+
+    },
+    "Automatic" : {
 
     },
     "Automatic Time Zone" : {
 
     },
-    "Based on your recent activity" : {
+    "Back" : {
 
     },
     "BPM" : {
 
     },
-    "Calculating…" : {
+    "Calculating a safe starting plan…" : {
 
     },
     "Calories" : {
@@ -242,10 +254,22 @@
     "Change the name to save" : {
 
     },
+    "Changing this starts a separate goal cycle." : {
+
+    },
     "Charts" : {
 
     },
     "Check access in the Health app:\n%@" : {
+
+    },
+    "Choose a common pace or enter a custom value in kg per week." : {
+
+    },
+    "Choose a date at least two weeks from today." : {
+
+    },
+    "Choose a direction first" : {
 
     },
     "Choose an icon that makes this category easy to spot." : {
@@ -258,6 +282,9 @@
 
     },
     "Color" : {
+
+    },
+    "Comfort range" : {
 
     },
     "Connect Apple Health to see sleep history" : {
@@ -308,9 +335,6 @@
     "Create personal category %@" : {
 
     },
-    "Create Profile" : {
-
-    },
     "Current period" : {
 
     },
@@ -356,7 +380,10 @@
     "Delete weight record" : {
 
     },
-    "Dismiss" : {
+    "Direction" : {
+
+    },
+    "Direction, target weight, pace and date" : {
 
     },
     "Done" : {
@@ -944,22 +971,19 @@
     "Gender" : {
 
     },
-    "Get Started" : {
-
-    },
     "Glass card" : {
 
     },
     "Glass Effects" : {
 
     },
-    "Goal" : {
+    "Go back and choose lose, maintain, or gain." : {
 
     },
     "Goal Activity" : {
 
     },
-    "Goal recommendations" : {
+    "Goal plan" : {
 
     },
     "Goal update" : {
@@ -992,7 +1016,16 @@
     "Hours" : {
 
     },
+    "If you set one limit, set both. The range must be 0.5–10 kg wide." : {
+
+    },
     "Initial weight" : {
+
+    },
+    "Keep current cycle" : {
+
+    },
+    "Keep current goals" : {
 
     },
     "Keep going!" : {
@@ -1067,10 +1100,16 @@
     "Macro" : {
 
     },
+    "Maintenance range · optional" : {
+
+    },
     "Manage Categories" : {
 
     },
     "Manage Dishes" : {
+
+    },
+    "Manage fixed fields" : {
 
     },
     "Manage Personal Dishes" : {
@@ -1080,6 +1119,9 @@
 
     },
     "Manage your daily targets" : {
+
+    },
+    "Manual" : {
 
     },
     "Manual record" : {
@@ -1103,7 +1145,7 @@
     "Need at least 2 other nights to compare" : {
 
     },
-    "Next" : {
+    "New plan" : {
 
     },
     "Next goal review" : {
@@ -1128,6 +1170,9 @@
 
     },
     "No goal changes yet" : {
+
+    },
+    "No goal values would change. You can keep your current goals." : {
 
     },
     "No Health data is available" : {
@@ -1190,7 +1235,13 @@
     "NutriFlow" : {
 
     },
+    "NUTRIFLOW" : {
+
+    },
     "OK" : {
+
+    },
+    "Only the values listed above will change. All other goals stay the same." : {
 
     },
     "Open Settings" : {
@@ -1202,6 +1253,16 @@
     "Ounces" : {
 
     },
+    "Page %lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Page %1$lld of %2$lld"
+          }
+        }
+      }
+    },
     "Password successfully changed." : {
 
     },
@@ -1211,7 +1272,10 @@
     "Personal" : {
 
     },
-    "Personalized plan" : {
+    "Pick a common pace or enter a custom value." : {
+
+    },
+    "Plan timeline" : {
 
     },
     "Point the camera at a barcode" : {
@@ -1235,10 +1299,19 @@
     "Recalculate automatically" : {
 
     },
+    "Recalculate them automatically for this plan?" : {
+
+    },
     "Recalculate your goals?" : {
 
     },
-    "Recommendation adjustments are kept while goals adapt to your profile and weight." : {
+    "Recalculated for your plan" : {
+
+    },
+    "Recalculated from your updated plan." : {
+
+    },
+    "Recalculating…" : {
 
     },
     "Record" : {
@@ -1260,6 +1333,9 @@
 
     },
     "Retry loading weight" : {
+
+    },
+    "Review the exact changes before applying them" : {
 
     },
     "Rings use the goal in effect at the end of the day." : {
@@ -1337,6 +1413,15 @@
     "Series segment" : {
 
     },
+    "Set a target date · Optional" : {
+
+    },
+    "Set either a pace, a date, or both. When both are set, pace takes priority for the estimate." : {
+
+    },
+    "Set up my plan" : {
+
+    },
     "Settings" : {
 
     },
@@ -1358,6 +1443,12 @@
     "Sign in with Google" : {
 
     },
+    "Skip" : {
+
+    },
+    "Skips the introduction and continues to sign in." : {
+
+    },
     "Sleep" : {
 
     },
@@ -1367,16 +1458,32 @@
     "Start" : {
 
     },
+    "Start a new goal cycle?" : {
+
+    },
+    "Start new cycle" : {
+
+    },
     "Start tracking to see statistics" : {
 
     },
     "Start typing to search" : {
 
     },
+    "STEP %lld OF %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "STEP %1$lld OF %2$lld"
+          }
+        }
+      }
+    },
     "Suggested by product: %@" : {
 
     },
-    "Switch to automatic goals" : {
+    "Suggested goal update" : {
 
     },
     "System" : {
@@ -1397,7 +1504,13 @@
     "Tap to change photo" : {
 
     },
-    "Tell us about yourself" : {
+    "Target" : {
+
+    },
+    "Target and schedule" : {
+
+    },
+    "Target date" : {
 
     },
     "The chart and automatic goals will be updated if this is today’s current record." : {
@@ -1457,6 +1570,9 @@
     "Try selecting another filter." : {
 
     },
+    "Typical daily activity" : {
+
+    },
     "Unassign Category" : {
 
     },
@@ -1466,16 +1582,25 @@
     "Update my goals to match my stats" : {
 
     },
+    "Update the plan for your current goal, or choose a new direction to start a new cycle." : {
+
+    },
+    "Updated automatically" : {
+
+    },
     "Updates automatically when you travel." : {
 
     },
-    "Use automatic goals?" : {
+    "Use automatic" : {
 
     },
-    "Use standard automatic goals" : {
+    "Use automatic goals" : {
 
     },
     "Use subtle glass on supported interface elements." : {
+
+    },
+    "Used to calculate your daily energy needs." : {
 
     },
     "Value" : {
@@ -1499,7 +1624,16 @@
     "Water: %@" : {
 
     },
+    "We couldn’t load your starting plan." : {
+
+    },
     "We need a little more recent data before creating another recommendation." : {
+
+    },
+    "Weekly pace" : {
+
+    },
+    "Weekly pace · Optional" : {
 
     },
     "Weight" : {
@@ -1532,16 +1666,22 @@
     "Your goals have evolved over time" : {
 
     },
-    "Your manual or personalized targets will be replaced using your current profile and weight." : {
+    "Your manual daily goals were kept." : {
 
     },
-    "Your manual targets stay fixed when your weight changes." : {
+    "Your manual mode stays on. Only the values listed above will change; your other targets stay as you set them." : {
 
     },
     "Your nutrition trends" : {
 
     },
+    "Your previous goal will remain in history. New daily goals will be calculated for the direction and plan below." : {
+
+    },
     "Your profile or current weight changed. Your manual goals are unchanged. Recalculate them from your new data?" : {
+
+    },
+    "Your timeline" : {
 
     },
     "Your workouts from Apple Health will appear here." : {

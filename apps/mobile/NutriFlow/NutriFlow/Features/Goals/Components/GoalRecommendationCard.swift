@@ -2,7 +2,6 @@ import SwiftUI
 
 struct GoalRecommendationCard: View {
     let recommendation: GoalRecommendation
-    let currentGoals: UserGoals?
     let isProcessing: Bool
     let onAccept: () -> Void
     let onDismiss: () -> Void
@@ -10,26 +9,33 @@ struct GoalRecommendationCard: View {
     @State private var prefsStore = PreferencesStore.shared
 
     private var baseline: GoalMetrics {
-        GoalMetrics(
-            dailyCaloriesGoal: currentGoals?.dailyCaloriesGoal,
-            dailyProteinGoal: currentGoals?.dailyProteinGoal,
-            dailyFatGoal: currentGoals?.dailyFatGoal,
-            dailyCarbsGoal: currentGoals?.dailyCarbsGoal,
-            dailyWaterGoal: currentGoals?.dailyWaterGoal,
-            dailyStepsGoal: currentGoals?.dailyStepsGoal,
-            dailyActiveCaloriesGoal: currentGoals?.dailyActiveCaloriesGoal,
-            weeklyWorkoutsGoal: currentGoals?.weeklyWorkoutsGoal,
-            weeklyWorkoutMinutesGoal: currentGoals?.weeklyWorkoutMinutesGoal,
-            nightlySleepMinMinutes: currentGoals?.nightlySleepMinMinutes,
-            nightlySleepMaxMinutes: currentGoals?.nightlySleepMaxMinutes
-        )
+        // The recommendation includes an immutable snapshot of the goals it
+        // was calculated from. Using it avoids presenting incorrect "from"
+        // values if the active goals changed after this recommendation existed.
+        recommendation.previousGoals
     }
 
     var body: some View {
         let rows = diffRows
+        let planRows = suggestedPlanRows
         VStack(alignment: .leading, spacing: 14) {
             header
-            if !rows.isEmpty { diffList(rows) }
+            evidenceLine
+            if !rows.isEmpty {
+                changeSection(title: "Daily goals", rows: rows)
+            }
+            if !planRows.isEmpty {
+                changeSection(title: "Goal plan", rows: planRows)
+            }
+            if rows.isEmpty && planRows.isEmpty {
+                Text("No goal values would change. You can keep your current goals.")
+                    .font(.footnote)
+                    .foregroundStyle(AppColors.textSecondary)
+            } else {
+                Text("Only the values listed above will change. All other goals stay the same.")
+                    .font(.caption)
+                    .foregroundStyle(AppColors.textTertiary)
+            }
             if !reasons.isEmpty { reasonLines }
             buttons
         }
@@ -44,10 +50,10 @@ struct GoalRecommendationCard: View {
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundColor(AppColors.accent)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Goal recommendations")
+                    Text("Suggested goal update")
                     .font(.headline)
                     .foregroundColor(AppColors.textPrimary)
-                Text("Based on your recent activity")
+                Text("Review the exact changes before applying them")
                     .font(.caption)
                     .foregroundColor(AppColors.textSecondary)
             }
@@ -71,8 +77,23 @@ struct GoalRecommendationCard: View {
             .cornerRadius(AppRadius.chip)
     }
 
-    private func diffList(_ rows: [DiffRow]) -> some View {
+    private var evidenceLine: some View {
+        let confidence = recommendation.confidence
+        let trackedDays = confidence.trackedDays
+        let activityDays = confidence.activityDays
+
+        return Text("Based on \(trackedDays) tracked days" + (activityDays > 0 ? " and \(activityDays) activity days." : "."))
+            .font(.caption)
+            .foregroundStyle(AppColors.textSecondary)
+    }
+
+    private func changeSection(title: String, rows: [DiffRow]) -> some View {
         VStack(spacing: 8) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppColors.textTertiary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
             ForEach(rows) { row in
                 HStack(spacing: 10) {
                     Circle().fill(row.color).frame(width: 8, height: 8)
@@ -82,7 +103,7 @@ struct GoalRecommendationCard: View {
                     Spacer()
                     Text(row.from)
                         .font(.footnote.weight(.semibold))
-                        .foregroundColor(AppColors.textTertiary )
+                        .foregroundColor(AppColors.textTertiary)
                         .strikethrough()
                     Image(systemName: "arrow.right")
                         .font(.caption2)
@@ -92,14 +113,9 @@ struct GoalRecommendationCard: View {
                         .foregroundColor(AppColors.textPrimary)
                 }
             }
-            if let extra = rows.count > 3 ? rows.count - 3 : nil {
-                Text("+\(extra) more goals updated")
-                    .font(.caption)
-                    .foregroundColor(AppColors.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
         }
-        .padding(.vertical, 2)
+        .padding(12)
+        .appGlassSurface(level: .inset)
     }
 
     private var reasonLines: some View {
@@ -117,7 +133,7 @@ struct GoalRecommendationCard: View {
             Button {
                 onAccept()
             } label: {
-                Text("Apply")
+                Text("Apply changes")
                     .font(.headline)
                     .foregroundColor(AppColors.accentOnPrimary)
                     .frame(maxWidth: .infinity)
@@ -128,7 +144,7 @@ struct GoalRecommendationCard: View {
             Button {
                 onDismiss()
             } label: {
-                Text("Dismiss")
+                Text("Keep current goals")
                     .font(.headline)
                     .foregroundColor(AppColors.accent)
                     .frame(maxWidth: .infinity)
@@ -158,7 +174,7 @@ struct GoalRecommendationCard: View {
             return UnitConversion.formatEnergy(kcal: v, preferred: prefs)
         }
         func grams(_ v: Double?) -> String {
-            v.map { "\($0.formatted(.number.precision(.fractionLength(0...1)))) g" } ?? ""
+            v.map { "\($0.formatted(.number.precision(.fractionLength(1)))) g" } ?? ""
         }
         func plain(_ v: Int?) -> String { v.map { "\(number($0))" } ?? "" }
         func minutes(_ v: Int?) -> String { v.map { "\($0) min" } ?? "" }
@@ -186,10 +202,61 @@ struct GoalRecommendationCard: View {
         return rows
     }
 
+    private var suggestedPlanRows: [DiffRow] {
+        guard let plan = recommendation.suggestedPlan else { return [] }
+
+        var rows: [DiffRow] = []
+        func add<V: Equatable>(
+            _ id: String,
+            _ label: String,
+            _ previous: V?,
+            _ proposed: V?,
+            format: (V?) -> String
+        ) {
+            guard proposed != previous else { return }
+            rows.append(
+                DiffRow(
+                    id: id,
+                    label: label,
+                    color: AppColors.accent,
+                    from: format(previous),
+                    to: format(proposed)
+                )
+            )
+        }
+
+        add(
+            "weeklyPace",
+            "Weekly pace",
+            plan.previousWeeklyRateKg,
+            plan.weeklyRateKg,
+            format: { value in
+                value.map { "\($0.formatted(.number.precision(.fractionLength(0...2)))) kg/week" } ?? "Not set"
+            }
+        )
+        add(
+            "targetDate",
+            "Estimated target date",
+            plan.previousTargetDate,
+            plan.targetDate,
+            format: displayDate
+        )
+        return rows
+    }
+
     private var reasons: [String] { recommendation.reasons }
 
     private func number(_ v: Int) -> String {
         NumberFormatter.goalDiffGrouping.string(from: NSNumber(value: v)) ?? "\(v)"
+    }
+
+    private func displayDate(_ value: String?) -> String {
+        guard let value else { return "Not set" }
+        let formatter = DateFormatter()
+        formatter.locale = Locale.current
+        formatter.dateFormat = "yyyy-MM-dd"
+        guard let date = formatter.date(from: value) else { return value }
+        return AppDate.displayFormatter("d MMM yyyy").string(from: date)
     }
 }
 
@@ -219,7 +286,6 @@ struct GoalPersonalizationSection: View {
             if let pending = state?.pending {
                 GoalRecommendationCard(
                     recommendation: pending,
-                    currentGoals: goals,
                     isProcessing: isProcessing,
                     onAccept: { onAccept(pending) },
                     onDismiss: { onDismiss(pending) }
@@ -288,7 +354,7 @@ private struct NextGoalReviewCard: View {
                 Text("Next goal review")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppColors.textPrimary)
-                Text("Available (dateText)" + (relativeText.map { " · \($0)" } ?? ""))
+                Text(dateText + (relativeText.map { " · \($0)" } ?? ""))
                     .font(.caption)
                     .foregroundStyle(AppColors.textSecondary)
                 Text("We need a little more recent data before creating another recommendation.")
@@ -349,7 +415,7 @@ private extension NumberFormatter {
             sleepNights: 14, adherenceStepsPct: 0.72, weightTrendKgPerWeek: nil
         ),
         createdAt: "2026-09-17T08:00:00Z", expiresAt: "2026-09-24T08:00:00Z",
-        acceptedAt: nil, dismissedAt: nil
+        acceptedAt: nil, dismissedAt: nil, suggestedPlan: nil
     )
     return VStack(spacing: 20) {
         GoalPersonalizationSection(

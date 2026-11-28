@@ -117,10 +117,29 @@ describe('profiles routes', () => {
     const updated = await http()
       .put('/api/profiles/me')
       .set(auth(token))
-      .send({ goal: 'lose', age: 41 })
+      .send({ age: 41 })
       .expect(200);
-    expect(updated.body.goal).toBe('lose');
+    expect(updated.body.goal).toBe('maintain');
     expect(updated.body.age).toBe(41);
+  });
+
+  it('rejects a goal direction change through the profile endpoint', async () => {
+    const token = await register();
+    await http()
+      .post('/api/profiles')
+      .set(auth(token))
+      .send(profileInput())
+      .expect(201);
+
+    const response = await http()
+      .put('/api/profiles/me')
+      .set(auth(token))
+      .send({ goal: 'lose' })
+      .expect(400);
+    expect(response.body.fieldErrors[0]).toMatchObject({
+      field: 'goal',
+      code: 'GOAL_CHANGE_REQUIRES_NEW_CYCLE',
+    });
   });
 
   it('updates the time zone and rejects an invalid one', async () => {

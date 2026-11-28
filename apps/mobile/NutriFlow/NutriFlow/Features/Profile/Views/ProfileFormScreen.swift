@@ -2,24 +2,35 @@ import SwiftUI
 
 @MainActor
 struct ProfileFormScreen: View {
-    @State private var viewModel: ProfileViewModel
+    @State private var profileViewModel: ProfileViewModel
+    @State private var reviewViewModel: InitialPlanReviewViewModel
 
     init(container: AppDependency, coordinator: AppCoordinator) {
-        _viewModel = State(
+        _profileViewModel = State(
             initialValue: ProfileViewModel(
                 coordinator: coordinator,
                 authService: container.authService,
                 profileService: container.profileService,
                 userService: container.userService,
+                cacheService: container.cacheService,
                 activitySync: container.activitySync,
                 analyticsTracker: container.analyticsTracker,
                 weightReminderScheduler: container.weightReminderScheduler,
                 waterReminderScheduler: container.waterReminderScheduler
             )
         )
+        _reviewViewModel = State(
+            initialValue: InitialPlanReviewViewModel(
+                coordinator: coordinator,
+                service: container.goalsService
+            )
+        )
     }
 
     var body: some View {
-        ProfileFormView(viewModel: viewModel)
+        ProfileOnboardingView(
+            viewModel: profileViewModel,
+            reviewViewModel: reviewViewModel
+        )
     }
 }

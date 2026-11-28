@@ -99,40 +99,7 @@ struct EditProfileView: View {
                         }
                     )
 
-                    VStack(
-                        alignment: .leading,
-                        spacing: 8
-                    ) {
-
-                        Text("Gender")
-                            .font(.subheadline)
-                            .foregroundColor(AppColors.textTertiary )
-
-                        HStack(spacing: 12) {
-
-                            ForEach(
-                                Gender.allCases,
-                                id: \.self
-                            ) { gender in
-
-                                SelectableChip(
-                                    title: gender.displayName,
-                                    isSelected: viewModel.gender == gender
-                                ) {
-                                    dismissKeyboard()
-                                    viewModel.gender = gender
-                                    viewModel.clearFieldError("gender")
-                                }
-                            }
-                        }
-
-                        if let genderError = viewModel.fieldErrors["gender"] {
-                            Text(genderError)
-                                .font(.caption)
-                                .foregroundColor(AppColors.error)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
+                    personalDetailsSection
 
                     if let saveError = viewModel.saveError,
                        viewModel.fieldErrors.isEmpty {
@@ -181,7 +148,103 @@ struct EditProfileView: View {
         .onChange(of: viewModel.age) { _, _ in
             viewModel.clearFieldError("age")
         }
+        .onChange(of: viewModel.activityLevel) { _, _ in
+            viewModel.clearFieldError("activityLevel")
+        }
         .onAppear { viewModel.trackScreen("edit_profile") }
+    }
+
+    @ViewBuilder
+    private var activityChoices: some View {
+        ForEach(ActivityLevel.allCases, id: \.self) { level in
+            SelectableChip(
+                title: level.displayName,
+                isSelected: viewModel.activityLevel == level
+            ) {
+                dismissKeyboard()
+                viewModel.activityLevel = level
+            }
+        }
+    }
+
+    private var personalDetailsSection: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Gender")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppColors.textPrimary)
+
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 10) {
+                        genderChoices
+                    }
+
+                    LazyVGrid(
+                        columns: [GridItem(.flexible()), GridItem(.flexible())],
+                        alignment: .leading,
+                        spacing: 10
+                    ) {
+                        genderChoices
+                    }
+                }
+
+                if let genderError = viewModel.fieldErrors["gender"] {
+                    Text(genderError)
+                        .font(.caption)
+                        .foregroundStyle(AppColors.error)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Divider().opacity(0.35)
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Typical daily activity")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppColors.textPrimary)
+
+                Text("Used to calculate your daily energy needs.")
+                    .font(.footnote)
+                    .foregroundStyle(AppColors.textSecondary)
+
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 10) {
+                        activityChoices
+                    }
+
+                    LazyVGrid(
+                        columns: [GridItem(.flexible()), GridItem(.flexible())],
+                        alignment: .leading,
+                        spacing: 10
+                    ) {
+                        activityChoices
+                    }
+                }
+
+                if let activityError = viewModel.fieldErrors["activityLevel"] {
+                    Text(activityError)
+                        .font(.caption)
+                        .foregroundStyle(AppColors.error)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .padding(16)
+        .appGlassSurface()
+    }
+
+    @ViewBuilder
+    private var genderChoices: some View {
+        ForEach(Gender.allCases, id: \.self) { gender in
+            SelectableChip(
+                title: gender.displayName,
+                isSelected: viewModel.gender == gender
+            ) {
+                dismissKeyboard()
+                viewModel.gender = gender
+                viewModel.clearFieldError("gender")
+            }
+        }
     }
 
     private func dismissKeyboard() {

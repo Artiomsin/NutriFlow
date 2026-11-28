@@ -27,12 +27,22 @@ final class SessionBootstrapService: Sendable {
         do {
             _ = try await profileService.getMyProfile()
             return .main(bootstrapError: nil)
-        } catch APIError.notFound {
-            return .profileForm
-        } catch APIError.unauthorized, APIError.forbidden {
-            try sessionService.clear()
-            return .auth
         } catch {
+            // The server returns Problem Details for 404/401/403, and the HTTP
+            // client decodes those into APIError.remote rather than the status
+            // cases, so match on the status code instead of the error case.
+            if let apiError = error as? APIError {
+                switch apiError.statusCode {
+                case 404:
+                    return .profileForm
+                case 401, 403:
+                    try sessionService.clear()
+                    return .auth
+                default:
+                    break
+                }
+            }
+
             let appError = ErrorMapper.map(error)
 
             // A temporary failure does not prove that credentials are invalid.

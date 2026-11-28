@@ -204,6 +204,41 @@ final class FoodService: FoodServiceProtocol, Sendable {
         return try await client.send(apiRequest)
     }
 
+    func createServing(
+        foodID: String,
+        name: String,
+        grams: Double
+    ) async throws -> FoodServing {
+        let request = APIRequest(
+            path: FoodEndpoints.createServing(foodID: foodID),
+            method: .POST,
+            body: CreateFoodServingRequest(name: name, grams: grams)
+        )
+        return try await client.send(request)
+    }
+
+    func updateServing(
+        foodID: String,
+        servingID: String,
+        name: String?,
+        grams: Double?
+    ) async throws -> FoodServing {
+        let request = APIRequest(
+            path: FoodEndpoints.updateServing(foodID: foodID, servingID: servingID),
+            method: .PATCH,
+            body: UpdateFoodServingRequest(name: name, grams: grams)
+        )
+        return try await client.send(request)
+    }
+
+    func deleteServing(foodID: String, servingID: String) async throws {
+        let request = APIRequest<NeverBody>(
+            path: FoodEndpoints.deleteServing(foodID: foodID, servingID: servingID),
+            method: .DELETE
+        )
+        _ = try await client.send(request) as DeleteFoodServingResponse
+    }
+
     func getCategories() async throws -> [FoodCategory] {
         let request = APIRequest<NeverBody>(
             path: FoodEndpoints.getCategories,

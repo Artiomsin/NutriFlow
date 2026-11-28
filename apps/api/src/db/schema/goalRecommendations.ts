@@ -10,7 +10,10 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { users } from './users';
-import type { GoalMetrics } from '../../goals/personalization/types';
+import type {
+  GoalMetrics,
+  SuggestedGoalPlan,
+} from '../../goals/personalization/types';
 
 const app = pgSchema('app');
 
@@ -52,6 +55,8 @@ export const goalRecommendations = app.table(
     previousGoals: jsonb('previous_goals').$type<GoalMetrics>().notNull(),
 
     recommendedGoals: jsonb('recommended_goals').$type<GoalMetrics>().notNull(),
+
+    suggestedPlan: jsonb('suggested_plan').$type<SuggestedGoalPlan | null>(),
 
     analysisPeriodStart: date('analysis_period_start').notNull(),
     analysisPeriodEnd: date('analysis_period_end').notNull(),

@@ -1,22 +1,30 @@
 import SwiftUI
 
 struct GoalsManagementView: View {
-    private enum SaveAction {
-        case manual
-        case automatic
+    private struct GoalDraftSnapshot: Equatable {
+        let calories: Double
+        let protein: Double
+        let fat: Double
+        let carbs: Double
+        let water: Int
+        let steps: Int
+        let activeCalories: Int
+        let workouts: Int
+        let workoutMinutes: Int
+        let sleepMinMinutes: Int
+        let sleepMaxMinutes: Int
     }
 
     @Bindable var goalsVM: GoalsViewModel
+    let onEditPlan: () -> Void
 
     @State private var isSaving = false
-    @State private var isResettingGoals = false
     @State private var successMessage: String?
-    @State private var showResetConfirmation = false
-    @State private var lastSaveAction: SaveAction?
     @State private var history: [GoalVersionEntry] = []
     @State private var historyNextCursor: String?
     @State private var isLoadingMoreHistory = false
     @State private var lastSeededGoals: UserGoals?
+    @State private var lastSeededDrafts: GoalDraftSnapshot?
 
     @State private var calories = 2200.0
     @State private var protein = 150.0
@@ -35,13 +43,78 @@ struct GoalsManagementView: View {
         return nil
     }
 
+    /// A personalized recommendation is recorded as history/source. It does
+    /// not create a third operating mode alongside automatic and manual.
+    private var isManualMode: Bool {
+        currentGoals?.mode == .manual || currentGoals?.source == "user"
+    }
+
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
                 header
 
+                Button(action: onEditPlan) {
+                    HStack(spacing: 14) {
+                        Image(systemName: "target")
+                            .font(.title3)
+                            .foregroundStyle(AppColors.accent)
+                            .frame(width: 30)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Goal plan")
+                                .font(.headline)
+                                .foregroundStyle(AppColors.textPrimary)
+                            Text("Direction, target weight, pace and date")
+                                .font(.footnote)
+                                .foregroundStyle(AppColors.textSecondary)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(AppColors.textTertiary)
+                    }
+                    .padding(16)
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .appGlassSurface()
+
+                if let goals = currentGoals {
+                    GoalPlanSummaryCard(
+                        goals: goals,
+                        preview: goalsVM.preview,
+                        isProcessing: goalsVM.isUpdatingGoals,
+                        onClearOverride: { metric in
+                            await clearOverride(for: metric)
+                        }
+                    )
+                }
+
                 if case .error(let error) = goalsVM.state {
                     ErrorView(error: error) { goalsVM.retryGoals() }
+                }
+
+                if let suggestion = currentGoals?.suggestion,
+                   currentGoals?.hasPendingSuggestion == true {
+                    GoalSuggestionCard(
+                        suggestion: suggestion,
+                        isProcessing: goalsVM.isUpdatingGoals,
+                        onApply: {
+                            Task {
+                                if await goalsVM.applySuggestedGoals() {
+                                    seedDrafts()
+                                    successMessage = "Suggestion applied"
+                                    await loadHistory(forceNetwork: true)
+                                }
+                            }
+                        },
+                        onKeep: {
+                            Task { await keepCurrentGoals(clearedFields: suggestion.clearedFields) }
+                        }
+                    )
                 }
 
                 GoalPersonalizationSection(
@@ -86,24 +159,18 @@ struct GoalsManagementView: View {
             seedDrafts()
             await loadHistory()
         }
+        // Starting a new cycle updates GoalsViewModel while this view remains
+        // in the navigation stack. Mirror that fresh response into the local
+        // editing fields before the user returns to this screen.
+        .onChange(of: currentGoals) { _, _ in
+            seedDrafts()
+        }
         .onChange(of: successMessage) { _, message in
             guard message != nil else { return }
             Task {
                 try? await Task.sleep(for: .seconds(2))
                 successMessage = nil
             }
-        }
-        .confirmationDialog(
-            "Use automatic goals?",
-            isPresented: $showResetConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Switch to automatic goals") {
-                Task { await resetToAutomaticGoals() }
-            }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("Your manual or personalized targets will be replaced using your current profile and weight.")
         }
     }
 
@@ -122,8 +189,8 @@ struct GoalsManagementView: View {
 
     @ViewBuilder
     private var sourceBadge: some View {
-        if let goals = currentGoals {
-            Text(sourceLabel(goals.source))
+        if currentGoals != nil {
+            Text(isManualMode ? "Manual" : "Automatic")
                 .font(.caption.weight(.semibold))
                 .foregroundColor(AppColors.accent)
                 .padding(.horizontal, 10)
@@ -135,13 +202,13 @@ struct GoalsManagementView: View {
 
     private var nutritionSection: some View {
         groupedSection(title: "Nutrition") {
-            nutritionStepperRow(label: "Calories", caption: "per day", value: $calories, range: 1_000...5_000, step: 0.1, unit: UnitConversion.formatEnergyUnit(preferred: PreferencesStore.shared.preferredUnits), field: "dailyCaloriesGoal", errorMessage: goalsVM.fieldErrors["dailyCaloriesGoal"])
+            nutritionStepperRow(label: "Calories", caption: "per day", value: $calories, range: 1_000...5_000, step: 50, unit: UnitConversion.formatEnergyUnit(preferred: PreferencesStore.shared.preferredUnits), field: "dailyCaloriesGoal", errorMessage: goalsVM.fieldErrors["dailyCaloriesGoal"])
             divider
-            nutritionStepperRow(label: "Protein", caption: "per day", value: $protein, range: 30...300, step: 0.1, unit: "g", field: "dailyProteinGoal", errorMessage: goalsVM.fieldErrors["dailyProteinGoal"])
+            nutritionStepperRow(label: "Protein", caption: "per day", value: $protein, range: 30...300, step: 5, unit: "g", field: "dailyProteinGoal", errorMessage: goalsVM.fieldErrors["dailyProteinGoal"])
             divider
-            nutritionStepperRow(label: "Fat", caption: "per day", value: $fat, range: 20...200, step: 0.1, unit: "g", field: "dailyFatGoal", errorMessage: goalsVM.fieldErrors["dailyFatGoal"])
+            nutritionStepperRow(label: "Fat", caption: "per day", value: $fat, range: 20...200, step: 5, unit: "g", field: "dailyFatGoal", errorMessage: goalsVM.fieldErrors["dailyFatGoal"])
             divider
-            nutritionStepperRow(label: "Carbs", caption: "per day", value: $carbs, range: 50...600, step: 0.1, unit: "g", field: "dailyCarbsGoal", errorMessage: goalsVM.fieldErrors["dailyCarbsGoal"])
+            nutritionStepperRow(label: "Carbs", caption: "per day", value: $carbs, range: 50...600, step: 5, unit: "g", field: "dailyCarbsGoal", errorMessage: goalsVM.fieldErrors["dailyCarbsGoal"])
             divider
             stepperRow(label: "Water", caption: "per day", value: $water, range: 500...6000, step: 100, unit: "ml", field: "dailyWaterGoal", errorMessage: goalsVM.fieldErrors["dailyWaterGoal"])
         }
@@ -382,89 +449,9 @@ struct GoalsManagementView: View {
             .background(successMessage != nil ? AppColors.accent.opacity(0.7) : AppColors.accent)
             .cornerRadius(AppRadius.medium)
             .disabled(isSaving)
-
-            automaticGoalsControl
         }
     }
 
-    @ViewBuilder
-    private var automaticGoalsControl: some View {
-        if let goals = currentGoals, goals.source == "user" {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppColors.accent)
-                        .frame(width: 30, height: 30)
-                        .background(AppColors.accent.opacity(0.12))
-                        .clipShape(Circle())
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Automatic calculation is off")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppColors.textPrimary)
-                        Text("Your manual targets stay fixed when your weight changes.")
-                            .font(.caption)
-                            .foregroundStyle(AppColors.textSecondary)
-                    }
-                }
-
-                Button {
-                    showResetConfirmation = true
-                } label: {
-                    HStack {
-                        if isResettingGoals {
-                            ProgressView()
-                                .tint(AppColors.accent)
-                        } else {
-                            Image(systemName: "sparkles")
-                        }
-                        Text(isResettingGoals ? "Calculating…" : "Switch to automatic goals")
-                    }
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(AppColors.accent)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(AppColors.accent.opacity(0.10))
-                    .clipShape(RoundedRectangle(cornerRadius: AppRadius.small))
-                }
-                .disabled(isSaving || isResettingGoals)
-            }
-            .padding(12)
-            .appGlassSurface()
-        } else if currentGoals?.source == "personalized" {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "sparkles")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppColors.accent)
-                        .frame(width: 30, height: 30)
-                        .background(AppColors.accent.opacity(0.12))
-                        .clipShape(Circle())
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Personalized plan")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppColors.textPrimary)
-                        Text("Recommendation adjustments are kept while goals adapt to your profile and weight.")
-                            .font(.caption)
-                            .foregroundStyle(AppColors.textSecondary)
-                    }
-                }
-
-                Button("Use standard automatic goals") {
-                    showResetConfirmation = true
-                }
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(AppColors.accent)
-                .disabled(isSaving || isResettingGoals)
-            }
-            .padding(12)
-            .appGlassSurface()
-        }
-    }
-
-    
     private var historySection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center) {
@@ -548,10 +535,33 @@ struct GoalsManagementView: View {
     private func save() async {
         guard !isSaving else { return }
         isSaving = true
-        lastSaveAction = .manual
         defer { isSaving = false }
 
+        // Only fields the person actually edited become manual overrides.
+        // Sending the whole form would freeze every goal and leave nothing for
+        // the API to recalculate when the plan changes.
+        let baseline = lastSeededDrafts ?? currentDraftSnapshot
         let success = await goalsVM.updateGoals(
+            calories: changed(calories, baseline.calories),
+            protein: changed(protein, baseline.protein),
+            fat: changed(fat, baseline.fat),
+            carbs: changed(carbs, baseline.carbs),
+            water: changed(water, baseline.water),
+            steps: changed(steps, baseline.steps),
+            activeCalories: changed(activeCalories, baseline.activeCalories),
+            workouts: changed(workouts, baseline.workouts),
+            workoutMinutes: changed(workoutMinutes, baseline.workoutMinutes),
+            sleepMinMinutes: changed(sleepMinMin, baseline.sleepMinMinutes),
+            sleepMaxMinutes: changed(sleepMaxMin, baseline.sleepMaxMinutes)
+        )
+        if success {
+            successMessage = "Goals saved"
+            await loadHistory(forceNetwork: true)
+        }
+    }
+
+    private var currentDraftSnapshot: GoalDraftSnapshot {
+        GoalDraftSnapshot(
             calories: calories,
             protein: protein,
             fat: fat,
@@ -564,34 +574,37 @@ struct GoalsManagementView: View {
             sleepMinMinutes: sleepMinMin,
             sleepMaxMinutes: sleepMaxMin
         )
-        if success {
-            successMessage = "Goals saved"
-            await loadHistory(forceNetwork: true)
-        }
     }
 
-    private func resetToAutomaticGoals() async {
-        guard !isResettingGoals else { return }
-        isResettingGoals = true
-        lastSaveAction = .automatic
-        defer { isResettingGoals = false }
+    private func changed<T: Equatable>(_ draft: T, _ saved: T) -> T? {
+        guard draft != saved else { return nil }
+        return draft
+    }
 
-        if await goalsVM.resetGoalsToAutomatic() {
+    @discardableResult
+    private func clearOverride(for metric: GoalMetricKey) async -> Bool {
+        let success = await goalsVM.clearManualOverride(metric: metric)
+        guard success else { return false }
+        seedDrafts()
+        successMessage = "Automatic calculation enabled"
+        await loadHistory(forceNetwork: true)
+        return true
+    }
+
+    private func keepCurrentGoals(clearedFields: [GoalMetricKey]) async {
+        guard let goals = currentGoals else { return }
+        guard await goalsVM.restoreClearedFields(clearedFields, from: goals) else {
+            return
+        }
+        if await goalsVM.dismissGoalSuggestion() {
             seedDrafts()
-            successMessage = "Automatic goals enabled"
+            successMessage = "Current goals kept"
             await loadHistory(forceNetwork: true)
         }
     }
 
     private func retryLastSaveAction() {
-        Task {
-            switch lastSaveAction {
-            case .automatic:
-                await resetToAutomaticGoals()
-            case .manual, .none:
-                await save()
-            }
-        }
+        Task { await save() }
     }
 
     private func seedDrafts() {
@@ -608,6 +621,7 @@ struct GoalsManagementView: View {
         workoutMinutes = goals.weeklyWorkoutMinutesGoal ?? workoutMinutes
         sleepMinMin = goals.nightlySleepMinMinutes ?? sleepMinMin
         sleepMaxMin = goals.nightlySleepMaxMinutes ?? sleepMaxMin
+        lastSeededDrafts = currentDraftSnapshot
     }
 
     private func loadHistory(forceNetwork: Bool = false) async {
@@ -629,14 +643,6 @@ struct GoalsManagementView: View {
         historyNextCursor = page.nextCursor
     }
 
-    private func sourceLabel(_ source: String?) -> String {
-        switch source?.lowercased() {
-        case "initial": return "Automatic"
-        case "user": return "Manual"
-        case "personalized": return "Personalized"
-        default: return "Auto"
-        }
-    }
 }
 
 #Preview("Goals Management") {
@@ -652,7 +658,7 @@ struct GoalsManagementView: View {
         source: "personalized", createdAt: nil, updatedAt: nil
     ))
     return NavigationStack {
-        GoalsManagementView(goalsVM: goalsVM)
+        GoalsManagementView(goalsVM: goalsVM, onEditPlan: {})
     }
     .background(AppColors.background)
     
