@@ -27,11 +27,15 @@ struct GoalPlanView: View {
     @State private var appliedChanges: [GoalChangeSummaryCard.Change] = []
     @State private var lastPlanSnapshot: PlanChangeSnapshot?
 
+    /// Canonical values captured before saving. The result screen formats them
+    /// with the current units, so they must not be pre-formatted strings.
     private struct PlanChangeSnapshot {
         let goals: UserGoals?
-        let targetWeight: String
-        let maintainWeightMin: String
-        let maintainWeightMax: String
+        let targetWeightKg: Double?
+        let maintainWeightMinKg: Double?
+        let maintainWeightMaxKg: Double?
+        let weeklyRateKg: Double?
+        let targetDate: String?
     }
 
     var body: some View {
@@ -41,14 +45,13 @@ struct GoalPlanView: View {
                     goals: savedPlanGoals,
                     completion: completion,
                     goal: profileVM.goal,
-                    targetWeight: profileVM.targetWeight,
-                    maintainWeightMin: profileVM.maintainWeightMin,
-                    maintainWeightMax: profileVM.maintainWeightMax,
-                    weeklyRateKg: profileVM.weeklyRateKg,
+                    targetWeightKg: profileVM.currentTargetWeightKg(),
+                    maintainWeightMinKg: profileVM.currentMaintainWeightMinKg(),
+                    maintainWeightMaxKg: profileVM.currentMaintainWeightMaxKg(),
+                    weeklyRateKg: profileVM.currentWeeklyRateKg(),
                     targetDate: profileVM.targetDate,
                     preview: goalsVM.preview,
                     appliedChanges: appliedChanges,
-                    preferredUnits: profileVM.preferredUnits,
                     isApplyingAutomatic: isApplyingAutomatic,
                     onUseAutomatic: applyAutomaticGoals,
                     isApplyingSuggestion: isApplyingSuggestion,
@@ -449,9 +452,11 @@ struct GoalPlanView: View {
 
         return PlanChangeSnapshot(
             goals: previousGoals,
-            targetWeight: profileVM.savedTargetWeightText() ?? "",
-            maintainWeightMin: profileVM.savedMaintainWeightMinText() ?? "",
-            maintainWeightMax: profileVM.savedMaintainWeightMaxText() ?? ""
+            targetWeightKg: profileVM.savedTargetWeightKg(),
+            maintainWeightMinKg: profileVM.savedMaintainWeightMinKg(),
+            maintainWeightMaxKg: profileVM.savedMaintainWeightMaxKg(),
+            weeklyRateKg: profileVM.savedWeeklyRateKg(),
+            targetDate: profileVM.savedTargetDate()
         )
     }
 
@@ -473,10 +478,11 @@ struct GoalPlanView: View {
             snapshot: snapshot,
             goals: goals,
             goal: profileVM.goal,
-            preferredUnits: profileVM.preferredUnits,
-            currentTargetWeight: profileVM.targetWeight,
-            currentMaintainWeightMin: profileVM.maintainWeightMin,
-            currentMaintainWeightMax: profileVM.maintainWeightMax
+            currentTargetWeightKg: profileVM.currentTargetWeightKg(),
+            currentMaintainWeightMinKg: profileVM.currentMaintainWeightMinKg(),
+            currentMaintainWeightMaxKg: profileVM.currentMaintainWeightMaxKg(),
+            currentWeeklyRateKg: profileVM.currentWeeklyRateKg(),
+            currentTargetDate: profileVM.currentTargetDate()
         )
     }
 
@@ -484,63 +490,74 @@ struct GoalPlanView: View {
         snapshot: PlanChangeSnapshot,
         goals: UserGoals,
         goal: Goal?,
-        preferredUnits: PreferredUnits,
-        currentTargetWeight: String,
-        currentMaintainWeightMin: String,
-        currentMaintainWeightMax: String
+        currentTargetWeightKg: Double?,
+        currentMaintainWeightMinKg: Double?,
+        currentMaintainWeightMaxKg: Double?,
+        currentWeeklyRateKg: Double?,
+        currentTargetDate: String?
     ) -> [GoalChangeSummaryCard.Change] {
         let isManual = goals.mode == .manual || goals.source == "user"
         guard !isManual, goals.hasPendingSuggestion != true else { return [] }
 
         var rows = GoalChangeSummaryCard.metricChanges(
-            metricChanges(from: snapshot.goals, to: goals),
-            preferredUnits: preferredUnits
+            metricChanges(from: snapshot.goals, to: goals)
         )
-
-        let unit = UnitConversion.bodyWeightUnitLabel(preferred: preferredUnits)
         var planRows: [GoalChangeSummaryCard.Change] = []
 
-        func addWeightChange(
+        func addChange(
             id: String,
             label: String,
-            from before: String,
-            to after: String
+            from before: GoalChangeSummaryCard.Value,
+            to after: GoalChangeSummaryCard.Value
         ) {
-            guard !before.isEmpty, !after.isEmpty, before != after else { return }
+            guard before != after else { return }
             planRows.append(
                 GoalChangeSummaryCard.Change(
                     id: "plan.\(id)",
                     label: label,
-                    from: "\(before) \(unit)",
-                    to: "\(after) \(unit)"
+                    from: before,
+                    to: after
                 )
             )
         }
 
         switch goal {
         case .lose, .gain:
-            addWeightChange(
+            addChange(
                 id: "targetWeight",
                 label: "Target weight",
-                from: snapshot.targetWeight,
-                to: currentTargetWeight
+                from: .bodyWeight(snapshot.targetWeightKg),
+                to: .bodyWeight(currentTargetWeightKg)
             )
         case .maintain:
-            addWeightChange(
+            addChange(
                 id: "maintainWeightMin",
                 label: "Min target",
-                from: snapshot.maintainWeightMin,
-                to: currentMaintainWeightMin
+                from: .bodyWeight(snapshot.maintainWeightMinKg),
+                to: .bodyWeight(currentMaintainWeightMinKg)
             )
-            addWeightChange(
+            addChange(
                 id: "maintainWeightMax",
                 label: "Max target",
-                from: snapshot.maintainWeightMax,
-                to: currentMaintainWeightMax
+                from: .bodyWeight(snapshot.maintainWeightMaxKg),
+                to: .bodyWeight(currentMaintainWeightMaxKg)
             )
         case nil:
             break
         }
+
+        addChange(
+            id: "weeklyRate",
+            label: "Weekly pace",
+            from: .weeklyRate(snapshot.weeklyRateKg),
+            to: .weeklyRate(currentWeeklyRateKg)
+        )
+        addChange(
+            id: "targetDate",
+            label: "Target date",
+            from: .date(snapshot.targetDate),
+            to: .date(currentTargetDate)
+        )
 
         rows.insert(contentsOf: planRows, at: 0)
         return rows
@@ -619,10 +636,11 @@ struct GoalPlanView: View {
                 snapshot: snapshot,
                 goals: goals,
                 goal: profileVM.goal,
-                preferredUnits: profileVM.preferredUnits,
-                currentTargetWeight: profileVM.targetWeight,
-                currentMaintainWeightMin: profileVM.maintainWeightMin,
-                currentMaintainWeightMax: profileVM.maintainWeightMax
+                currentTargetWeightKg: profileVM.currentTargetWeightKg(),
+                currentMaintainWeightMinKg: profileVM.currentMaintainWeightMinKg(),
+                currentMaintainWeightMaxKg: profileVM.currentMaintainWeightMaxKg(),
+                currentWeeklyRateKg: profileVM.currentWeeklyRateKg(),
+                currentTargetDate: profileVM.currentTargetDate()
             )
         }
         return true

@@ -47,6 +47,8 @@ final class ProfileViewModel {
     private var originalTargetWeightKg: Double?
     private var originalMaintainWeightMinKg: Double?
     private var originalMaintainWeightMaxKg: Double?
+    private var originalWeeklyRateKg: Double?
+    private var originalTargetDate: String?
     private var originalGoal: Goal?
     @ObservationIgnored private var lastSavedUnits: PreferredUnits = .default
 
@@ -540,16 +542,22 @@ final class ProfileViewModel {
         goal != originalGoal
     }
 
-    func savedTargetWeightText() -> String? {
-        originalTargetWeightKg.map { Self.formatBodyWeight(kg: $0, units: preferredUnits) }
-    }
+    /// Canonical plan values used by the result screen. Keeping them numeric
+    /// lets the card re-format with the current units instead of freezing text.
+    func savedTargetWeightKg() -> Double? { originalTargetWeightKg }
+    func savedMaintainWeightMinKg() -> Double? { originalMaintainWeightMinKg }
+    func savedMaintainWeightMaxKg() -> Double? { originalMaintainWeightMaxKg }
+    func savedWeeklyRateKg() -> Double? { originalWeeklyRateKg }
+    func savedTargetDate() -> String? { originalTargetDate }
 
-    func savedMaintainWeightMinText() -> String? {
-        originalMaintainWeightMinKg.map { Self.formatBodyWeight(kg: $0, units: preferredUnits) }
-    }
+    func currentTargetWeightKg() -> Double? { canonicalPlanWeight(targetWeight) }
+    func currentMaintainWeightMinKg() -> Double? { canonicalPlanWeight(maintainWeightMin) }
+    func currentMaintainWeightMaxKg() -> Double? { canonicalPlanWeight(maintainWeightMax) }
+    func currentWeeklyRateKg() -> Double? { normalized(weeklyRateKg) }
 
-    func savedMaintainWeightMaxText() -> String? {
-        originalMaintainWeightMaxKg.map { Self.formatBodyWeight(kg: $0, units: preferredUnits) }
+    func currentTargetDate() -> String? {
+        let value = targetDate.trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : value
     }
 
     private func makeGoalPlanRequest(currentWeightKg: Double?) -> UpdateGoalPlanRequest? {
@@ -874,6 +882,8 @@ final class ProfileViewModel {
         maintainWeightMax = profile.targetWeightMaxKg.map { Self.formatBodyWeight(kg: $0, units: units) } ?? ""
         weeklyRateKg = profile.weeklyRateKg.map { String($0) } ?? ""
         targetDate = profile.targetDate ?? ""
+        originalWeeklyRateKg = profile.weeklyRateKg
+        originalTargetDate = profile.targetDate
         goalStartedAt = profile.goalStartedAt
         preferredUnits = profile.preferredUnits ?? .default
         lastSavedUnits = preferredUnits
@@ -952,6 +962,8 @@ final class ProfileViewModel {
         originalTargetWeightKg = nil
         originalMaintainWeightMinKg = nil
         originalMaintainWeightMaxKg = nil
+        originalWeeklyRateKg = nil
+        originalTargetDate = nil
     }
     
     func setPreviewState(_ newState: ProfileState) {

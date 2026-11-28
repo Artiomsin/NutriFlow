@@ -11,14 +11,17 @@ struct GoalCycleStartedView: View {
     let goals: UserGoals
     let completion: GoalPlanCompletion
     let goal: Goal?
-    let targetWeight: String
-    let maintainWeightMin: String
-    let maintainWeightMax: String
-    let weeklyRateKg: String
+    let targetWeightKg: Double?
+    let maintainWeightMinKg: Double?
+    let maintainWeightMaxKg: Double?
+    let weeklyRateKg: Double?
     let targetDate: String
     let preview: GoalsPreview?
     let appliedChanges: [GoalChangeSummaryCard.Change]
-    let preferredUnits: PreferredUnits
+
+    @State private var prefsStore = PreferencesStore.shared
+
+    private var preferredUnits: PreferredUnits { prefsStore.preferredUnits }
     let isApplyingAutomatic: Bool
     let onUseAutomatic: (() async -> Bool)?
     let isApplyingSuggestion: Bool
@@ -183,8 +186,8 @@ struct GoalCycleStartedView: View {
             if let targetDescription {
                 LabeledContent("Target", value: targetDescription)
             }
-            if !weeklyRateKg.isEmpty, preview?.calories?.targetRateKgPerWeek == nil {
-                LabeledContent("Weekly pace", value: "\(weeklyRateKg) kg/week")
+            if let weeklyRateKg, preview?.calories?.targetRateKgPerWeek == nil {
+                LabeledContent("Weekly pace", value: paceText(weeklyRateKg))
             }
             if let targetDateDescription, preview?.estimatedCompletion == nil {
                 LabeledContent("Target date", value: targetDateDescription)
@@ -242,17 +245,36 @@ struct GoalCycleStartedView: View {
     }
 
     private var targetDescription: String? {
+        let unit = UnitConversion.bodyWeightUnitLabel(preferred: preferredUnits)
+
         switch goal {
         case .lose, .gain:
-            guard !targetWeight.isEmpty else { return nil }
-            return "\(targetWeight) \(UnitConversion.bodyWeightUnitLabel(preferred: preferredUnits))"
+            guard let targetWeightKg else { return nil }
+            let value = UnitConversion.formatBodyWeight(
+                kg: targetWeightKg,
+                preferred: preferredUnits
+            )
+            return "\(value) \(unit)"
         case .maintain:
-            guard !maintainWeightMin.isEmpty, !maintainWeightMax.isEmpty else { return nil }
-            let unit = UnitConversion.bodyWeightUnitLabel(preferred: preferredUnits)
-            return "\(maintainWeightMin)–\(maintainWeightMax) \(unit)"
+            guard let minimum = maintainWeightMinKg, let maximum = maintainWeightMaxKg else {
+                return nil
+            }
+            let minText = UnitConversion.formatBodyWeight(kg: minimum, preferred: preferredUnits)
+            let maxText = UnitConversion.formatBodyWeight(kg: maximum, preferred: preferredUnits)
+            return "\(minText)–\(maxText) \(unit)"
         case nil:
             return nil
         }
+    }
+
+    private func paceText(_ kgPerWeek: Double) -> String {
+        let display = UnitConversion.bodyWeightToDisplay(
+            kg: kgPerWeek,
+            preferred: preferredUnits
+        )
+        let value = display.formatted(.number.precision(.fractionLength(0...2)))
+        let unit = UnitConversion.bodyWeightUnitLabel(preferred: preferredUnits)
+        return "\(value) \(unit)/week"
     }
 
     private var targetDateDescription: String? {
