@@ -209,9 +209,6 @@
     "Automatic" : {
 
     },
-    "Automatic calculation is off" : {
-
-    },
     "Automatic Time Zone" : {
 
     },
@@ -222,9 +219,6 @@
 
     },
     "Calculating a safe starting plan…" : {
-
-    },
-    "Calculating…" : {
 
     },
     "Calories" : {
@@ -1489,9 +1483,6 @@
     "Suggested goal update" : {
 
     },
-    "Switch to automatic goals" : {
-
-    },
     "System" : {
 
     },
@@ -1600,9 +1591,6 @@
     "Use automatic goals" : {
 
     },
-    "Use automatic goals?" : {
-
-    },
     "Use subtle glass on supported interface elements." : {
 
     },
@@ -1676,12 +1664,6 @@
 
     },
     "Your manual mode stays on. Only the values listed above will change; your other targets stay as you set them." : {
-
-    },
-    "Your manual targets stay fixed when your weight changes." : {
-
-    },
-    "Your manual targets will be replaced using your current profile and weight." : {
 
     },
     "Your nutrition trends" : {

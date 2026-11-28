@@ -472,6 +472,15 @@ struct GoalPlanView: View {
         isApplyingSuggestion = true
         defer { isApplyingSuggestion = false }
 
+        if let suggestion = savedPlanGoals?.suggestion,
+           let sourceGoals = savedPlanGoals {
+            let restored = await goalsVM.restoreClearedFields(
+                suggestion.clearedFields,
+                from: sourceGoals
+            )
+            guard restored else { return false }
+        }
+
         guard await goalsVM.dismissGoalSuggestion() else { return false }
         guard case .loaded(let goals) = goalsVM.state else { return false }
         savedPlanGoals = goals

@@ -112,13 +112,7 @@ struct GoalsManagementView: View {
                             }
                         },
                         onKeep: {
-                            Task {
-                                if await goalsVM.dismissGoalSuggestion() {
-                                    seedDrafts()
-                                    successMessage = "Current goals kept"
-                                    await loadHistory(forceNetwork: true)
-                                }
-                            }
+                            Task { await keepCurrentGoals(clearedFields: suggestion.clearedFields) }
                         }
                     )
                 }
@@ -595,6 +589,18 @@ struct GoalsManagementView: View {
         successMessage = "Automatic calculation enabled"
         await loadHistory(forceNetwork: true)
         return true
+    }
+
+    private func keepCurrentGoals(clearedFields: [GoalMetricKey]) async {
+        guard let goals = currentGoals else { return }
+        guard await goalsVM.restoreClearedFields(clearedFields, from: goals) else {
+            return
+        }
+        if await goalsVM.dismissGoalSuggestion() {
+            seedDrafts()
+            successMessage = "Current goals kept"
+            await loadHistory(forceNetwork: true)
+        }
     }
 
     private func retryLastSaveAction() {

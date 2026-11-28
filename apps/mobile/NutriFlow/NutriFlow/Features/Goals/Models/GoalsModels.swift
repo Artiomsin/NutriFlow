@@ -129,6 +129,36 @@ struct GoalSuggestion: Codable, Sendable, Equatable {
     let reason: String?
     let suggestedAt: String?
     let diff: [GoalMetricChange]
+    let clearedFields: [GoalMetricKey]
+
+    private struct BasisPayload: Codable {
+        let clearedFields: [GoalMetricKey]?
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case goals, reason, suggestedAt, diff, basis, clearedFields
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        goals = try container.decode(GoalMetrics.self, forKey: .goals)
+        reason = try container.decodeIfPresent(String.self, forKey: .reason)
+        suggestedAt = try container.decodeIfPresent(String.self, forKey: .suggestedAt)
+        diff = try container.decodeIfPresent([GoalMetricChange].self, forKey: .diff) ?? []
+        let basis = try container.decodeIfPresent(BasisPayload.self, forKey: .basis)
+        clearedFields = try basis?.clearedFields
+            ?? container.decodeIfPresent([GoalMetricKey].self, forKey: .clearedFields)
+            ?? []
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(goals, forKey: .goals)
+        try container.encodeIfPresent(reason, forKey: .reason)
+        try container.encodeIfPresent(suggestedAt, forKey: .suggestedAt)
+        try container.encode(diff, forKey: .diff)
+        try container.encode(clearedFields, forKey: .clearedFields)
+    }
 }
 
 struct UpdateGoalsRequest: Codable, Sendable {

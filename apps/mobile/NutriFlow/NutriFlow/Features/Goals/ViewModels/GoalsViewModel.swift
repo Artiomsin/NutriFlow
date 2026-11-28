@@ -638,6 +638,31 @@ final class GoalsViewModel {
         }
     }
 
+    /// Re-fixes fields reported by the API as cleared for the current suggestion.
+    /// Sending their applied values keeps manual mode without overwriting goals.
+    @discardableResult
+    func restoreClearedFields(
+        _ metrics: [GoalMetricKey],
+        from goals: UserGoals
+    ) async -> Bool {
+        let cleared = Set(metrics)
+        guard !cleared.isEmpty else { return true }
+
+        return await updateGoals(
+            calories: cleared.contains(.dailyCaloriesGoal) ? goals.dailyCaloriesGoal : nil,
+            protein: cleared.contains(.dailyProteinGoal) ? goals.dailyProteinGoal : nil,
+            fat: cleared.contains(.dailyFatGoal) ? goals.dailyFatGoal : nil,
+            carbs: cleared.contains(.dailyCarbsGoal) ? goals.dailyCarbsGoal : nil,
+            water: cleared.contains(.dailyWaterGoal) ? goals.dailyWaterGoal : nil,
+            steps: cleared.contains(.dailyStepsGoal) ? goals.dailyStepsGoal : nil,
+            activeCalories: cleared.contains(.dailyActiveCaloriesGoal) ? goals.dailyActiveCaloriesGoal : nil,
+            workouts: cleared.contains(.weeklyWorkoutsGoal) ? goals.weeklyWorkoutsGoal : nil,
+            workoutMinutes: cleared.contains(.weeklyWorkoutMinutesGoal) ? goals.weeklyWorkoutMinutesGoal : nil,
+            sleepMinMinutes: cleared.contains(.nightlySleepMinMinutes) ? goals.nightlySleepMinMinutes : nil,
+            sleepMaxMinutes: cleared.contains(.nightlySleepMaxMinutes) ? goals.nightlySleepMaxMinutes : nil
+        )
+    }
+
     @discardableResult
     func applyProgressAdjustment(
         days: Int,
