@@ -269,6 +269,42 @@ struct GoalMetricChange: Codable, Sendable, Identifiable, Equatable {
     var id: String { metric }
 }
 
+enum GoalHistoryValue: Codable, Sendable, Equatable {
+    case number(Double)
+    case text(String)
+    case none
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() {
+            self = .none
+        } else if let value = try? container.decode(Double.self) {
+            self = .number(value)
+        } else if let value = try? container.decode(String.self) {
+            self = .text(value)
+        } else {
+            self = .none
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .number(let value): try container.encode(value)
+        case .text(let value): try container.encode(value)
+        case .none: try container.encodeNil()
+        }
+    }
+}
+
+struct GoalPlanChange: Codable, Sendable, Identifiable, Equatable {
+    let metric: String
+    let from: GoalHistoryValue
+    let to: GoalHistoryValue
+
+    var id: String { metric }
+}
+
 /// A stored goal version. One entry is one change event, not one field.
 struct GoalVersionEntry: Codable, Sendable, Identifiable {
     let id: String
@@ -277,7 +313,45 @@ struct GoalVersionEntry: Codable, Sendable, Identifiable {
     let source: String
     let reason: String?
     let changes: [GoalMetricChange]
+    let planChanges: [GoalPlanChange]
     let goal: GoalMetrics
+
+    private enum CodingKeys: String, CodingKey {
+        case id, startedAt, endedAt, source, reason
+        case changes, planChanges, goal
+    }
+
+    init(
+        id: String,
+        startedAt: String,
+        endedAt: String?,
+        source: String,
+        reason: String?,
+        changes: [GoalMetricChange],
+        planChanges: [GoalPlanChange] = [],
+        goal: GoalMetrics
+    ) {
+        self.id = id
+        self.startedAt = startedAt
+        self.endedAt = endedAt
+        self.source = source
+        self.reason = reason
+        self.changes = changes
+        self.planChanges = planChanges
+        self.goal = goal
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        startedAt = try container.decode(String.self, forKey: .startedAt)
+        endedAt = try container.decodeIfPresent(String.self, forKey: .endedAt)
+        source = try container.decode(String.self, forKey: .source)
+        reason = try container.decodeIfPresent(String.self, forKey: .reason)
+        changes = try container.decodeIfPresent([GoalMetricChange].self, forKey: .changes) ?? []
+        planChanges = try container.decodeIfPresent([GoalPlanChange].self, forKey: .planChanges) ?? []
+        goal = try container.decode(GoalMetrics.self, forKey: .goal)
+    }
 }
 
 struct GoalHistoryPage: Codable, Sendable {

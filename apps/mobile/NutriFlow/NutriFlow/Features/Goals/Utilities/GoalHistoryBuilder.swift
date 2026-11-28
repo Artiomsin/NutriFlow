@@ -15,6 +15,7 @@ struct GoalHistoryEvent: Identifiable {
     let source: String
     let reason: String?
     let changes: [GoalMetricChange]
+    let planChanges: [GoalPlanChange]
     let automaticCount: Int
 }
 
@@ -38,9 +39,11 @@ enum GoalHistoryBuilder {
                 guard let startedAt = AppDate.parseISO(entry.startedAt) else {
                     return nil
                 }
-                // A version that only switched source without changing values
-                // has nothing to show.
-                guard !entry.changes.isEmpty else { return nil }
+                // A version that only switched source without changing any
+                // goal or plan value has nothing to show.
+                guard !entry.changes.isEmpty || !entry.planChanges.isEmpty else {
+                    return nil
+                }
 
                 return GoalHistoryEvent(
                     id: entry.id,
@@ -50,6 +53,7 @@ enum GoalHistoryBuilder {
                     source: entry.source,
                     reason: entry.reason,
                     changes: entry.changes,
+                    planChanges: entry.planChanges,
                     automaticCount: 1
                 )
             }
@@ -148,8 +152,41 @@ enum GoalHistoryBuilder {
             source: newer.source,
             reason: newer.reason,
             changes: changes,
+            planChanges: Self.mergePlanChanges(
+                newer: newer.planChanges,
+                older: older.planChanges
+            ),
             automaticCount: newer.automaticCount + 1
         )
+    }
+
+    /// Same net-diff rule as metric changes, applied to plan fields.
+    private static func mergePlanChanges(
+        newer: [GoalPlanChange],
+        older: [GoalPlanChange]
+    ) -> [GoalPlanChange] {
+        var byMetric: [String: GoalPlanChange] = [:]
+
+        for change in newer {
+            byMetric[change.metric] = change
+        }
+
+        for change in older {
+            if let newerChange = byMetric[change.metric] {
+                byMetric[change.metric] = GoalPlanChange(
+                    metric: change.metric,
+                    from: change.from,
+                    to: newerChange.to
+                )
+            } else {
+                byMetric[change.metric] = change
+            }
+        }
+
+        return byMetric.values.sorted {
+            GoalHistoryFormat.planOrder(of: $0.metric)
+                < GoalHistoryFormat.planOrder(of: $1.metric)
+        }
     }
 
     static func isAutomatic(source: String, reason: String?) -> Bool {

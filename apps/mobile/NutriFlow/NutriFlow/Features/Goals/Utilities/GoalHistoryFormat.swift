@@ -16,8 +16,20 @@ enum GoalHistoryFormat {
         "nightlySleepMaxMinutes"
     ]
 
+    private static let planMetrics = [
+        "targetWeightKg",
+        "targetWeightMinKg",
+        "targetWeightMaxKg",
+        "weeklyRateKg",
+        "targetDate"
+    ]
+
     static func order(of metric: String) -> Int {
         metrics.firstIndex(of: metric) ?? metrics.count
+    }
+
+    static func planOrder(of metric: String) -> Int {
+        planMetrics.firstIndex(of: metric) ?? planMetrics.count
     }
 
     static func metricLabel(_ metric: String) -> String {
@@ -33,6 +45,17 @@ enum GoalHistoryFormat {
         case "weeklyWorkoutMinutesGoal": return "Workout minutes / week"
         case "nightlySleepMinMinutes": return "Sleep min / night"
         case "nightlySleepMaxMinutes": return "Sleep max / night"
+        default: return metric
+        }
+    }
+
+    static func planLabel(_ metric: String) -> String {
+        switch metric {
+        case "targetWeightKg": return "Target weight"
+        case "targetWeightMinKg": return "Min target"
+        case "targetWeightMaxKg": return "Max target"
+        case "weeklyRateKg": return "Weekly pace"
+        case "targetDate": return "Target date"
         default: return metric
         }
     }
@@ -114,6 +137,43 @@ enum GoalHistoryFormat {
             return "\(number) min"
         default:
             return number
+        }
+    }
+
+    static func planValue(
+        _ metric: String,
+        _ value: GoalHistoryValue,
+        preferredUnits: PreferredUnits
+    ) -> String {
+        switch value {
+        case .none:
+            return "—"
+        case .text(let text):
+            guard metric == "targetDate",
+                  let date = AppDate.dateOnlyFormatter().date(from: text) else {
+                return text
+            }
+            return AppDate.displayFormatter("d MMM yyyy").string(from: date)
+        case .number(let number):
+            switch metric {
+            case "targetWeightKg", "targetWeightMinKg", "targetWeightMaxKg":
+                let text = UnitConversion.formatBodyWeight(
+                    kg: number,
+                    preferred: preferredUnits
+                )
+                let unit = UnitConversion.bodyWeightUnitLabel(preferred: preferredUnits)
+                return "\(text) \(unit)"
+            case "weeklyRateKg":
+                let display = UnitConversion.bodyWeightToDisplay(
+                    kg: number,
+                    preferred: preferredUnits
+                )
+                let text = display.formatted(.number.precision(.fractionLength(0...2)))
+                let unit = UnitConversion.bodyWeightUnitLabel(preferred: preferredUnits)
+                return "\(text) \(unit)/week"
+            default:
+                return number.formatted(.number.precision(.fractionLength(0...1)))
+            }
         }
     }
 }
