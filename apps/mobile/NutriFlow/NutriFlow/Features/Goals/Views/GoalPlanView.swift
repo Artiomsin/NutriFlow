@@ -24,6 +24,15 @@ struct GoalPlanView: View {
     @State private var isApplyingAutomatic = false
     @State private var isApplyingSuggestion = false
     @State private var suggestionResolution: String?
+    @State private var appliedChanges: [GoalChangeSummaryCard.Change] = []
+    @State private var lastPlanSnapshot: PlanChangeSnapshot?
+
+    private struct PlanChangeSnapshot {
+        let goals: UserGoals?
+        let targetWeight: String
+        let maintainWeightMin: String
+        let maintainWeightMax: String
+    }
 
     var body: some View {
         Group {
@@ -38,6 +47,7 @@ struct GoalPlanView: View {
                     weeklyRateKg: profileVM.weeklyRateKg,
                     targetDate: profileVM.targetDate,
                     preview: goalsVM.preview,
+                    appliedChanges: appliedChanges,
                     preferredUnits: profileVM.preferredUnits,
                     isApplyingAutomatic: isApplyingAutomatic,
                     onUseAutomatic: applyAutomaticGoals,
@@ -399,6 +409,7 @@ struct GoalPlanView: View {
     }
 
     private func save() {
+        let snapshot = planChangeSnapshot()
         if profileVM.hasChangedGoalDirection {
             pendingNewCycle = profileVM.makeNewGoalCycleRequest()
             showNewCycleConfirmation = pendingNewCycle != nil
@@ -409,25 +420,45 @@ struct GoalPlanView: View {
             isSaving = true
             defer { isSaving = false }
             if await profileVM.saveGoalPlan() {
-                await presentSavedPlanResult(completion: .planUpdated)
+                await presentSavedPlanResult(completion: .planUpdated, snapshot: snapshot)
             }
         }
     }
 
     private func startNewCycle() {
         guard let request = pendingNewCycle else { return }
+        let snapshot = planChangeSnapshot()
 
         Task {
             isSaving = true
             defer { isSaving = false }
             if await goalsVM.startNewCycle(request) {
-                await presentSavedPlanResult(completion: .newCycle)
+                await presentSavedPlanResult(completion: .newCycle, snapshot: snapshot)
                 pendingNewCycle = nil
             }
         }
     }
 
-    private func presentSavedPlanResult(completion: GoalPlanCompletion) async {
+    private func planChangeSnapshot() -> PlanChangeSnapshot {
+        let previousGoals: UserGoals?
+        if case .loaded(let goals) = goalsVM.state {
+            previousGoals = goals
+        } else {
+            previousGoals = nil
+        }
+
+        return PlanChangeSnapshot(
+            goals: previousGoals,
+            targetWeight: profileVM.savedTargetWeightText() ?? "",
+            maintainWeightMin: profileVM.savedMaintainWeightMinText() ?? "",
+            maintainWeightMax: profileVM.savedMaintainWeightMaxText() ?? ""
+        )
+    }
+
+    private func presentSavedPlanResult(
+        completion: GoalPlanCompletion,
+        snapshot: PlanChangeSnapshot
+    ) async {
         await profileVM.loadData(forceRefresh: true)
         await goalsVM.loadGoals(forceRefresh: true)
         guard case .loaded(let goals) = goalsVM.state else {
@@ -437,6 +468,137 @@ struct GoalPlanView: View {
         self.completion = completion
         self.suggestionResolution = nil
         savedPlanGoals = goals
+        lastPlanSnapshot = snapshot
+        appliedChanges = Self.buildAppliedChanges(
+            snapshot: snapshot,
+            goals: goals,
+            goal: profileVM.goal,
+            preferredUnits: profileVM.preferredUnits,
+            currentTargetWeight: profileVM.targetWeight,
+            currentMaintainWeightMin: profileVM.maintainWeightMin,
+            currentMaintainWeightMax: profileVM.maintainWeightMax
+        )
+    }
+
+    private static func buildAppliedChanges(
+        snapshot: PlanChangeSnapshot,
+        goals: UserGoals,
+        goal: Goal?,
+        preferredUnits: PreferredUnits,
+        currentTargetWeight: String,
+        currentMaintainWeightMin: String,
+        currentMaintainWeightMax: String
+    ) -> [GoalChangeSummaryCard.Change] {
+        let isManual = goals.mode == .manual || goals.source == "user"
+        guard !isManual, goals.hasPendingSuggestion != true else { return [] }
+
+        var rows = GoalChangeSummaryCard.metricChanges(
+            metricChanges(from: snapshot.goals, to: goals),
+            preferredUnits: preferredUnits
+        )
+
+        let unit = UnitConversion.bodyWeightUnitLabel(preferred: preferredUnits)
+        var planRows: [GoalChangeSummaryCard.Change] = []
+
+        func addWeightChange(
+            id: String,
+            label: String,
+            from before: String,
+            to after: String
+        ) {
+            guard !before.isEmpty, !after.isEmpty, before != after else { return }
+            planRows.append(
+                GoalChangeSummaryCard.Change(
+                    id: "plan.\(id)",
+                    label: label,
+                    from: "\(before) \(unit)",
+                    to: "\(after) \(unit)"
+                )
+            )
+        }
+
+        switch goal {
+        case .lose, .gain:
+            addWeightChange(
+                id: "targetWeight",
+                label: "Target weight",
+                from: snapshot.targetWeight,
+                to: currentTargetWeight
+            )
+        case .maintain:
+            addWeightChange(
+                id: "maintainWeightMin",
+                label: "Min target",
+                from: snapshot.maintainWeightMin,
+                to: currentMaintainWeightMin
+            )
+            addWeightChange(
+                id: "maintainWeightMax",
+                label: "Max target",
+                from: snapshot.maintainWeightMax,
+                to: currentMaintainWeightMax
+            )
+        case nil:
+            break
+        }
+
+        rows.insert(contentsOf: planRows, at: 0)
+        return rows
+    }
+
+    private static func metricChanges(
+        from previous: UserGoals?,
+        to current: UserGoals
+    ) -> [GoalMetricChange] {
+        guard let previous else { return [] }
+        var changes: [GoalMetricChange] = []
+
+        func add(_ metric: String, _ from: Double?, _ to: Double?) {
+            guard from != to else { return }
+            changes.append(GoalMetricChange(metric: metric, from: from, to: to))
+        }
+
+        add("dailyCaloriesGoal", previous.dailyCaloriesGoal, current.dailyCaloriesGoal)
+        add("dailyProteinGoal", previous.dailyProteinGoal, current.dailyProteinGoal)
+        add("dailyFatGoal", previous.dailyFatGoal, current.dailyFatGoal)
+        add("dailyCarbsGoal", previous.dailyCarbsGoal, current.dailyCarbsGoal)
+        add(
+            "dailyWaterGoal",
+            previous.dailyWaterGoal.map { Double($0) },
+            current.dailyWaterGoal.map { Double($0) }
+        )
+        add(
+            "dailyStepsGoal",
+            previous.dailyStepsGoal.map { Double($0) },
+            current.dailyStepsGoal.map { Double($0) }
+        )
+        add(
+            "dailyActiveCaloriesGoal",
+            previous.dailyActiveCaloriesGoal.map { Double($0) },
+            current.dailyActiveCaloriesGoal.map { Double($0) }
+        )
+        add(
+            "weeklyWorkoutsGoal",
+            previous.weeklyWorkoutsGoal.map { Double($0) },
+            current.weeklyWorkoutsGoal.map { Double($0) }
+        )
+        add(
+            "weeklyWorkoutMinutesGoal",
+            previous.weeklyWorkoutMinutesGoal.map { Double($0) },
+            current.weeklyWorkoutMinutesGoal.map { Double($0) }
+        )
+        add(
+            "nightlySleepMinMinutes",
+            previous.nightlySleepMinMinutes.map { Double($0) },
+            current.nightlySleepMinMinutes.map { Double($0) }
+        )
+        add(
+            "nightlySleepMaxMinutes",
+            previous.nightlySleepMaxMinutes.map { Double($0) },
+            current.nightlySleepMaxMinutes.map { Double($0) }
+        )
+
+        return changes
     }
 
     /// Keeps the result screen in sync when the person accepts the offer to
@@ -452,6 +614,17 @@ struct GoalPlanView: View {
         savedPlanGoals = goals
         completion = .automaticEnabled
         suggestionResolution = nil
+        if let snapshot = lastPlanSnapshot {
+            appliedChanges = Self.buildAppliedChanges(
+                snapshot: snapshot,
+                goals: goals,
+                goal: profileVM.goal,
+                preferredUnits: profileVM.preferredUnits,
+                currentTargetWeight: profileVM.targetWeight,
+                currentMaintainWeightMin: profileVM.maintainWeightMin,
+                currentMaintainWeightMax: profileVM.maintainWeightMax
+            )
+        }
         return true
     }
 

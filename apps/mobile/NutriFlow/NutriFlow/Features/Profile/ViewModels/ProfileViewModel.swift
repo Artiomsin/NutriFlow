@@ -540,6 +540,18 @@ final class ProfileViewModel {
         goal != originalGoal
     }
 
+    func savedTargetWeightText() -> String? {
+        originalTargetWeightKg.map { Self.formatBodyWeight(kg: $0, units: preferredUnits) }
+    }
+
+    func savedMaintainWeightMinText() -> String? {
+        originalMaintainWeightMinKg.map { Self.formatBodyWeight(kg: $0, units: preferredUnits) }
+    }
+
+    func savedMaintainWeightMaxText() -> String? {
+        originalMaintainWeightMaxKg.map { Self.formatBodyWeight(kg: $0, units: preferredUnits) }
+    }
+
     private func makeGoalPlanRequest(currentWeightKg: Double?) -> UpdateGoalPlanRequest? {
         let target = canonicalPlanWeight(targetWeight)
         let minimum = canonicalPlanWeight(maintainWeightMin)

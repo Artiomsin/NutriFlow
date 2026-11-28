@@ -1308,6 +1308,9 @@
     "Recalculated for your plan" : {
 
     },
+    "Recalculated from your updated plan." : {
+
+    },
     "Recalculating…" : {
 
     },
@@ -1580,6 +1583,9 @@
 
     },
     "Update the plan for your current goal, or choose a new direction to start a new cycle." : {
+
+    },
+    "Updated automatically" : {
 
     },
     "Updates automatically when you travel." : {

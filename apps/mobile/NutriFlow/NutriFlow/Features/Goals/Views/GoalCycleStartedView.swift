@@ -17,6 +17,7 @@ struct GoalCycleStartedView: View {
     let weeklyRateKg: String
     let targetDate: String
     let preview: GoalsPreview?
+    let appliedChanges: [GoalChangeSummaryCard.Change]
     let preferredUnits: PreferredUnits
     let isApplyingAutomatic: Bool
     let onUseAutomatic: (() async -> Bool)?
@@ -50,6 +51,9 @@ struct GoalCycleStartedView: View {
                 completionHeader
                 planSection
                 planOutcomeSection
+                if !appliedChanges.isEmpty {
+                    GoalChangeSummaryCard(changes: appliedChanges)
+                }
                 if let suggestionResolution {
                     resolutionBanner(suggestionResolution)
                 }
