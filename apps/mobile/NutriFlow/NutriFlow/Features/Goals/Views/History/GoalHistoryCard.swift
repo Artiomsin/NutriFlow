@@ -6,6 +6,7 @@ struct GoalHistoryCard: View {
     let isLatest: Bool
 
     @Binding private var expanded: Set<String>
+    @State private var prefsStore = PreferencesStore.shared
 
     init(
         event: GoalHistoryEvent,
@@ -67,7 +68,10 @@ struct GoalHistoryCard: View {
 
             VStack(spacing: 6) {
                 ForEach(visible) { change in
-                    GoalHistoryChangeRow(change: change)
+                    GoalHistoryChangeRow(
+                        change: change,
+                        preferredUnits: prefsStore.preferredUnits
+                    )
                 }
             }
 

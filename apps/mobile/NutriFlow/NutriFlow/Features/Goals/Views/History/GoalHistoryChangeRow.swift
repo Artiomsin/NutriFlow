@@ -3,6 +3,7 @@ import SwiftUI
 
 struct GoalHistoryChangeRow: View {
     let change: GoalMetricChange
+    let preferredUnits: PreferredUnits
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -13,7 +14,7 @@ struct GoalHistoryChangeRow: View {
             Spacer()
 
             Text(
-                "\(GoalHistoryFormat.value(change.metric, change.from)) → \(GoalHistoryFormat.value(change.metric, change.to))"
+                "\(GoalHistoryFormat.value(change.metric, change.from, preferredUnits: preferredUnits)) → \(GoalHistoryFormat.value(change.metric, change.to, preferredUnits: preferredUnits))"
             )
             .font(.footnote.monospacedDigit())
             .foregroundColor(AppColors.textSecondary)

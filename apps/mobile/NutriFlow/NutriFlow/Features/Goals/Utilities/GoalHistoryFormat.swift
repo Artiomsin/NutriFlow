@@ -89,15 +89,25 @@ enum GoalHistoryFormat {
             || reason == "suggestion_partially_applied"
     }
 
-    static func value(_ metric: String, _ value: Double?) -> String {
+    static func value(
+        _ metric: String,
+        _ value: Double?,
+        preferredUnits: PreferredUnits
+    ) -> String {
         guard let value else { return "—" }
         let number = value.formatted(.number.precision(.fractionLength(0...1)))
 
         switch metric {
+        case "dailyCaloriesGoal", "dailyActiveCaloriesGoal":
+            return UnitConversion.formatEnergy(kcal: value, preferred: preferredUnits)
         case "dailyProteinGoal", "dailyFatGoal", "dailyCarbsGoal":
-            return "\(number) g"
+            return UnitConversion.formatMacro(grams: value, preferred: preferredUnits)
         case "dailyWaterGoal":
-            return "\(number) ml"
+            return UnitConversion.formatAmount(
+                grams: value,
+                unit: "ml",
+                preferred: preferredUnits
+            )
         case "weeklyWorkoutMinutesGoal",
              "nightlySleepMinMinutes",
              "nightlySleepMaxMinutes":
