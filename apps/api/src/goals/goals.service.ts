@@ -637,9 +637,12 @@ export class GoalsService {
       if (!existing) {
         throw new NotFoundException('Goals not found');
       }
-      const clearedFields = Object.keys(
-        existing.manualOverrides as ManualGoalOverrides,
-      ) as GoalMetricKey[];
+      const overrides =
+        (existing.manualOverrides as ManualGoalOverrides | null) ?? null;
+      if (!overrides) {
+        return this.toGoalState(existing);
+      }
+      const clearedFields = Object.keys(overrides) as GoalMetricKey[];
       await tx
         .update(userGoals)
         .set({ manualOverrides: null, updatedAt: new Date() })

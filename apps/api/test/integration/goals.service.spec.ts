@@ -566,6 +566,25 @@ describe('GoalsService preview and manual suggestion flow', () => {
       'dailyCaloriesGoal',
     ]);
   });
+
+  it('keeps goals unchanged when clearing overrides that are already empty', async () => {
+    const user = await createUser(tx);
+    await createProfile(tx, user.id, {
+      weight: 80,
+      height: 170,
+      age: 30,
+      gender: 'female',
+      goal: 'lose',
+      activityLevel: 'medium',
+    });
+
+    const initial = (await service.calculate(user.id))!;
+    const cleared = (await service.clearManualOverrides(user.id))!;
+
+    expect(cleared.fixedMetrics).toEqual([]);
+    expect(cleared.suggestion).toBeNull();
+    expect(cleared.dailyCaloriesGoal).toBe(initial.dailyCaloriesGoal);
+  });
 });
 
 describe('GoalsService.startNewCycle', () => {
