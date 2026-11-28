@@ -132,7 +132,7 @@ struct GoalChangeSummaryCard: View {
             }
             return AppDate.displayFormatter("d MMM yyyy").string(from: parsed)
         case .text(let text):
-            text
+            return text
         }
     }
 }
