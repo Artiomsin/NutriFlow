@@ -504,7 +504,8 @@ export class GoalPersonalizationService {
             targetWeightKg: profile.targetWeightKg ?? null,
             targetWeightMinKg: (profile as any).targetWeightMinKg ?? null,
             targetWeightMaxKg: (profile as any).targetWeightMaxKg ?? null,
-            weeklyRateKg: suggestedPlan?.weeklyRateKg ?? profile.weeklyRateKg ?? null,
+            weeklyRateKg:
+              suggestedPlan?.weeklyRateKg ?? profile.weeklyRateKg ?? null,
             targetDate: suggestedPlan?.targetDate ?? profile.targetDate ?? null,
           },
           startedAt: now,
