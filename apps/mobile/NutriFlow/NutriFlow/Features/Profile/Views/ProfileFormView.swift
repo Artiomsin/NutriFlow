@@ -462,7 +462,7 @@ struct ProfileOnboardingView: View {
 
     private func grams(_ value: Double?) -> String {
         guard let value else { return "—" }
-        return "\(Int(value.rounded())) g"
+        return "\(value.formatted(.number.precision(.fractionLength(1)))) g"
     }
 
     private func weeklyPaceText(_ rate: Double) -> String {

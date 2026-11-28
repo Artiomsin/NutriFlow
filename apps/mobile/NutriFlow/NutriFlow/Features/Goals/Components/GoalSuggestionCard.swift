@@ -179,7 +179,7 @@ struct GoalSuggestionCard: View {
         case .dailyCaloriesGoal, .dailyActiveCaloriesGoal:
             return UnitConversion.formatEnergy(kcal: Int(value.rounded()), preferred: prefs)
         case .dailyProteinGoal, .dailyFatGoal, .dailyCarbsGoal:
-            return "\(value.formatted(.number.precision(.fractionLength(0...1)))) g"
+            return "\(value.formatted(.number.precision(.fractionLength(1)))) g"
         case .dailyWaterGoal:
             return "\(Int(value.rounded())) ml"
         case .dailyStepsGoal, .weeklyWorkoutsGoal, .weeklyWorkoutMinutesGoal,

@@ -279,13 +279,13 @@ struct GoalCycleStartedView: View {
             rows.append(("Calories", UnitConversion.formatEnergy(kcal: calories, preferred: preferredUnits)))
         }
         if let protein = goals.dailyProteinGoal {
-            rows.append(("Protein", "\(protein.formatted(.number.precision(.fractionLength(0)))) g"))
+            rows.append(("Protein", "\(protein.formatted(.number.precision(.fractionLength(1)))) g"))
         }
         if let carbs = goals.dailyCarbsGoal {
-            rows.append(("Carbohydrates", "\(carbs.formatted(.number.precision(.fractionLength(0)))) g"))
+            rows.append(("Carbohydrates", "\(carbs.formatted(.number.precision(.fractionLength(1)))) g"))
         }
         if let fat = goals.dailyFatGoal {
-            rows.append(("Fat", "\(fat.formatted(.number.precision(.fractionLength(0)))) g"))
+            rows.append(("Fat", "\(fat.formatted(.number.precision(.fractionLength(1)))) g"))
         }
         if let water = goals.dailyWaterGoal {
             rows.append(("Water", "\(water.formatted()) ml"))

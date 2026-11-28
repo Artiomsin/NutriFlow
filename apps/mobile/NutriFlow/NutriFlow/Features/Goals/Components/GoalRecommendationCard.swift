@@ -174,7 +174,7 @@ struct GoalRecommendationCard: View {
             return UnitConversion.formatEnergy(kcal: v, preferred: prefs)
         }
         func grams(_ v: Double?) -> String {
-            v.map { "\($0.formatted(.number.precision(.fractionLength(0...1)))) g" } ?? ""
+            v.map { "\($0.formatted(.number.precision(.fractionLength(1)))) g" } ?? ""
         }
         func plain(_ v: Int?) -> String { v.map { "\(number($0))" } ?? "" }
         func minutes(_ v: Int?) -> String { v.map { "\($0) min" } ?? "" }
@@ -354,7 +354,7 @@ private struct NextGoalReviewCard: View {
                 Text("Next goal review")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppColors.textPrimary)
-                Text("Available (dateText)" + (relativeText.map { " · \($0)" } ?? ""))
+                Text(dateText + (relativeText.map { " · \($0)" } ?? ""))
                     .font(.caption)
                     .foregroundStyle(AppColors.textSecondary)
                 Text("We need a little more recent data before creating another recommendation.")
