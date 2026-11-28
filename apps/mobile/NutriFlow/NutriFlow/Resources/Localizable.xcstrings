@@ -191,6 +191,12 @@
     "Apply changes" : {
 
     },
+    "Apply these values without leaving manual mode" : {
+
+    },
+    "Apply values" : {
+
+    },
     "Are you sure you want to delete this water entry?" : {
 
     },
@@ -986,9 +992,6 @@
     "Goal plan" : {
 
     },
-    "Goal plan updated" : {
-
-    },
     "Goal update" : {
 
     },
@@ -1112,6 +1115,9 @@
     "Manage Dishes" : {
 
     },
+    "Manage fixed fields" : {
+
+    },
     "Manage Personal Dishes" : {
 
     },
@@ -1143,9 +1149,6 @@
 
     },
     "Need at least 2 other nights to compare" : {
-
-    },
-    "New goal cycle started" : {
 
     },
     "New plan" : {
@@ -1302,7 +1305,16 @@
     "Recalculate automatically" : {
 
     },
+    "Recalculate them automatically for this plan?" : {
+
+    },
     "Recalculate your goals?" : {
+
+    },
+    "Recalculated for your plan" : {
+
+    },
+    "Recalculating…" : {
 
     },
     "Record" : {
@@ -1579,10 +1591,13 @@
     "Update the plan for your current goal, or choose a new direction to start a new cycle." : {
 
     },
-    "Updated daily goals" : {
+    "Updates automatically when you travel." : {
 
     },
-    "Updates automatically when you travel." : {
+    "Use automatic" : {
+
+    },
+    "Use automatic goals" : {
 
     },
     "Use automatic goals?" : {
@@ -1655,6 +1670,12 @@
 
     },
     "Your goals have evolved over time" : {
+
+    },
+    "Your manual daily goals were kept." : {
+
+    },
+    "Your manual mode stays on. Only the values listed above will change; your other targets stay as you set them." : {
 
     },
     "Your manual targets stay fixed when your weight changes." : {

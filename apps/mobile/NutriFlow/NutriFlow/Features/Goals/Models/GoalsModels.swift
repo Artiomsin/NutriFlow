@@ -105,7 +105,7 @@ enum GoalMode: String, Codable, Sendable, Equatable {
     case manual
 }
 
-enum GoalMetricKey: String, Codable, CodingKey, CaseIterable, Sendable, Equatable {
+enum GoalMetricKey: String, Codable, CodingKey, CaseIterable, Sendable, Hashable {
     case dailyCaloriesGoal
     case dailyProteinGoal
     case dailyFatGoal
@@ -143,6 +143,28 @@ struct UpdateGoalsRequest: Codable, Sendable {
     let weeklyWorkoutMinutesGoal: Int?
     let nightlySleepMinMinutes: Int?
     let nightlySleepMaxMinutes: Int?
+
+    private enum CodingKeys: String, CodingKey {
+        case dailyCaloriesGoal, dailyProteinGoal, dailyFatGoal, dailyCarbsGoal
+        case dailyWaterGoal, dailyStepsGoal, dailyActiveCaloriesGoal
+        case weeklyWorkoutsGoal, weeklyWorkoutMinutesGoal
+        case nightlySleepMinMinutes, nightlySleepMaxMinutes
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(dailyCaloriesGoal, forKey: .dailyCaloriesGoal)
+        try container.encodeIfPresent(dailyProteinGoal, forKey: .dailyProteinGoal)
+        try container.encodeIfPresent(dailyFatGoal, forKey: .dailyFatGoal)
+        try container.encodeIfPresent(dailyCarbsGoal, forKey: .dailyCarbsGoal)
+        try container.encodeIfPresent(dailyWaterGoal, forKey: .dailyWaterGoal)
+        try container.encodeIfPresent(dailyStepsGoal, forKey: .dailyStepsGoal)
+        try container.encodeIfPresent(dailyActiveCaloriesGoal, forKey: .dailyActiveCaloriesGoal)
+        try container.encodeIfPresent(weeklyWorkoutsGoal, forKey: .weeklyWorkoutsGoal)
+        try container.encodeIfPresent(weeklyWorkoutMinutesGoal, forKey: .weeklyWorkoutMinutesGoal)
+        try container.encodeIfPresent(nightlySleepMinMinutes, forKey: .nightlySleepMinMinutes)
+        try container.encodeIfPresent(nightlySleepMaxMinutes, forKey: .nightlySleepMaxMinutes)
+    }
 }
 
 struct GoalMetrics: Codable, Sendable, Equatable {
