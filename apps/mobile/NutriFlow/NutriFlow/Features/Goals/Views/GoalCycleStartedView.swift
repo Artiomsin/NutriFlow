@@ -1,9 +1,15 @@
 import SwiftUI
 
-/// Explicit completion state shown after the API creates a new goal cycle.
+enum GoalPlanCompletion: Equatable {
+    case planUpdated
+    case newCycle
+    case automaticEnabled
+}
+
+/// Explicit completion state shown after the API applies a goal plan change.
 struct GoalCycleStartedView: View {
     let goals: UserGoals
-    let startedNewCycle: Bool
+    let completion: GoalPlanCompletion
     let goal: Goal?
     let targetWeight: String
     let maintainWeightMin: String
@@ -12,7 +18,31 @@ struct GoalCycleStartedView: View {
     let targetDate: String
     let preview: GoalsPreview?
     let preferredUnits: PreferredUnits
+    let isApplyingAutomatic: Bool
+    let onUseAutomatic: (() async -> Bool)?
+    let isApplyingSuggestion: Bool
+    let suggestionResolution: String?
+    let onApplySuggestion: (() async -> Bool)?
+    let onKeepSuggestion: (() async -> Bool)?
     let onDone: () -> Void
+
+    private var isManual: Bool {
+        goals.mode == .manual || goals.source == "user"
+    }
+
+    private var showsSuggestionCard: Bool {
+        goals.hasPendingSuggestion == true
+            && goals.suggestion != nil
+            && (onApplySuggestion != nil || onKeepSuggestion != nil)
+    }
+
+    private var showsAutomaticOffer: Bool {
+        completion == .planUpdated
+            && isManual
+            && onUseAutomatic != nil
+            && !showsSuggestionCard
+            && suggestionResolution == nil
+    }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -20,6 +50,15 @@ struct GoalCycleStartedView: View {
                 completionHeader
                 planSection
                 planOutcomeSection
+                if let suggestionResolution {
+                    resolutionBanner(suggestionResolution)
+                }
+                if showsSuggestionCard, let suggestion = goals.suggestion {
+                    suggestionSection(suggestion: suggestion)
+                }
+                if showsAutomaticOffer {
+                    automaticOffer
+                }
                 goalsSection
                 PrimaryButton(title: "Done", action: onDone)
             }
@@ -35,7 +74,7 @@ struct GoalCycleStartedView: View {
                 .foregroundStyle(AppColors.success)
                 .accessibilityHidden(true)
 
-            Text(startedNewCycle ? "New goal cycle started" : "Goal plan updated")
+            Text(completionTitle)
                 .font(AppTypography.heading1)
                 .foregroundStyle(AppColors.textPrimary)
 
@@ -43,6 +82,91 @@ struct GoalCycleStartedView: View {
                 .font(.body)
                 .foregroundStyle(AppColors.textSecondary)
         }
+    }
+
+    private var completionTitle: String {
+        switch completion {
+        case .newCycle:
+            return "New goal cycle started"
+        case .automaticEnabled:
+            return "Automatic goals enabled"
+        case .planUpdated:
+            return "Goal plan updated"
+        }
+    }
+
+    private var completionMessage: String {
+        switch completion {
+        case .newCycle:
+            return "Your previous cycle is saved in history. Your daily goals below have been recalculated for the new plan."
+        case .automaticEnabled:
+            return "Your daily goals below were recalculated from your current profile and this plan."
+        case .planUpdated:
+            if isManual {
+                if showsSuggestionCard {
+                    return "Your plan is active. Your manual daily goals stay unchanged; review the recalculated values below."
+                }
+                return "Your plan is active. Your manual daily goals stay unchanged."
+            }
+            return "Your plan is active. We checked its pace and recalculated your daily goals where needed."
+        }
+    }
+
+    private var automaticOffer: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Your manual daily goals were kept.")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppColors.textPrimary)
+
+            Text("Recalculate them automatically for this plan?")
+                .font(.footnote)
+                .foregroundStyle(AppColors.textSecondary)
+
+            Button {
+                Task { _ = await onUseAutomatic?() }
+            } label: {
+                HStack {
+                    if isApplyingAutomatic {
+                        ProgressView()
+                            .tint(AppColors.accent)
+                    } else {
+                        Image(systemName: "sparkles")
+                    }
+                    Text(isApplyingAutomatic ? "Recalculating…" : "Use automatic goals")
+                }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppColors.accent)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(AppColors.accent.opacity(0.10))
+                .clipShape(RoundedRectangle(cornerRadius: AppRadius.small))
+            }
+            .disabled(isApplyingAutomatic)
+        }
+        .padding(12)
+        .appGlassSurface()
+    }
+
+    private func resolutionBanner(_ message: String) -> some View {
+        Label(message, systemImage: "checkmark.circle.fill")
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(AppColors.success)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .appGlassSurface(level: .inset)
+    }
+
+    private func suggestionSection(suggestion: GoalSuggestion) -> some View {
+        GoalSuggestionCard(
+            suggestion: suggestion,
+            isProcessing: isApplyingSuggestion,
+            onApply: {
+                Task { _ = await onApplySuggestion?() }
+            },
+            onKeep: {
+                Task { _ = await onKeepSuggestion?() }
+            }
+        )
     }
 
     private var planSection: some View {
@@ -68,14 +192,10 @@ struct GoalCycleStartedView: View {
         .appGlassSurface()
     }
 
-    private var completionMessage: String {
-        if startedNewCycle {
-            return "Your previous cycle is saved in history. Your daily goals below have been recalculated for the new plan."
-        }
-        if goals.mode == .manual || goals.source == "user" {
-            return "Your plan is active. Your manual daily goals stay unchanged; review any recommendation in Goals."
-        }
-        return "Your plan is active. We checked its pace and recalculated your daily goals where needed."
+    private var goalsSectionTitle: String {
+        completion == .planUpdated && isManual
+            ? "Current daily goals"
+            : "Updated daily goals"
     }
 
     @ViewBuilder
@@ -87,7 +207,7 @@ struct GoalCycleStartedView: View {
 
     private var goalsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("Updated daily goals", systemImage: "sparkles")
+            Label(goalsSectionTitle, systemImage: "sparkles")
                 .font(.headline)
                 .foregroundStyle(AppColors.textPrimary)
 

@@ -20,14 +20,17 @@ struct GoalPlanView: View {
     @State private var showNewCycleConfirmation = false
     @State private var pendingNewCycle: NewGoalCycleRequest?
     @State private var savedPlanGoals: UserGoals?
-    @State private var startedNewCycle = false
+    @State private var completion: GoalPlanCompletion = .planUpdated
+    @State private var isApplyingAutomatic = false
+    @State private var isApplyingSuggestion = false
+    @State private var suggestionResolution: String?
 
     var body: some View {
         Group {
             if let savedPlanGoals {
                 GoalCycleStartedView(
                     goals: savedPlanGoals,
-                    startedNewCycle: startedNewCycle,
+                    completion: completion,
                     goal: profileVM.goal,
                     targetWeight: profileVM.targetWeight,
                     maintainWeightMin: profileVM.maintainWeightMin,
@@ -36,6 +39,12 @@ struct GoalPlanView: View {
                     targetDate: profileVM.targetDate,
                     preview: goalsVM.preview,
                     preferredUnits: profileVM.preferredUnits,
+                    isApplyingAutomatic: isApplyingAutomatic,
+                    onUseAutomatic: applyAutomaticGoals,
+                    isApplyingSuggestion: isApplyingSuggestion,
+                    suggestionResolution: suggestionResolution,
+                    onApplySuggestion: applySuggestedGoals,
+                    onKeepSuggestion: keepSuggestedGoals,
                     onDone: { dismiss() }
                 )
             } else {
@@ -400,7 +409,7 @@ struct GoalPlanView: View {
             isSaving = true
             defer { isSaving = false }
             if await profileVM.saveGoalPlan() {
-                await presentSavedPlanResult(startedNewCycle: false)
+                await presentSavedPlanResult(completion: .planUpdated)
             }
         }
     }
@@ -412,20 +421,61 @@ struct GoalPlanView: View {
             isSaving = true
             defer { isSaving = false }
             if await goalsVM.startNewCycle(request) {
-                await presentSavedPlanResult(startedNewCycle: true)
+                await presentSavedPlanResult(completion: .newCycle)
                 pendingNewCycle = nil
             }
         }
     }
 
-    private func presentSavedPlanResult(startedNewCycle: Bool) async {
+    private func presentSavedPlanResult(completion: GoalPlanCompletion) async {
         await profileVM.loadData(forceRefresh: true)
         await goalsVM.loadGoals(forceRefresh: true)
         guard case .loaded(let goals) = goalsVM.state else {
             dismiss()
             return
         }
-        self.startedNewCycle = startedNewCycle
+        self.completion = completion
+        self.suggestionResolution = nil
         savedPlanGoals = goals
+    }
+
+    /// Keeps the result screen in sync when the person accepts the offer to
+    /// recalculate manually kept goals as automatic ones for this same plan.
+    private func applyAutomaticGoals() async -> Bool {
+        guard !isApplyingAutomatic else { return false }
+        isApplyingAutomatic = true
+        defer { isApplyingAutomatic = false }
+
+        guard await goalsVM.resetGoalsToAutomatic() else { return false }
+        guard case .loaded(let goals) = goalsVM.state else { return false }
+
+        savedPlanGoals = goals
+        completion = .automaticEnabled
+        suggestionResolution = nil
+        return true
+    }
+
+    private func applySuggestedGoals() async -> Bool {
+        guard !isApplyingSuggestion else { return false }
+        isApplyingSuggestion = true
+        defer { isApplyingSuggestion = false }
+
+        guard await goalsVM.applySuggestedGoals() else { return false }
+        guard case .loaded(let goals) = goalsVM.state else { return false }
+        savedPlanGoals = goals
+        suggestionResolution = "Suggested goals applied"
+        return true
+    }
+
+    private func keepSuggestedGoals() async -> Bool {
+        guard !isApplyingSuggestion else { return false }
+        isApplyingSuggestion = true
+        defer { isApplyingSuggestion = false }
+
+        guard await goalsVM.dismissGoalSuggestion() else { return false }
+        guard case .loaded(let goals) = goalsVM.state else { return false }
+        savedPlanGoals = goals
+        suggestionResolution = "Current goals kept"
+        return true
     }
 }

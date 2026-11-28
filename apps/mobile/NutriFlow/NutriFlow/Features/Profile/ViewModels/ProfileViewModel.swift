@@ -495,7 +495,10 @@ final class ProfileViewModel {
             await cacheService?.remove("profile")
             await cacheService?.remove("goals")
             await invalidateAggregateCaches()
-            progressRefreshState?.invalidateGoalsRequiringManualDecision()
+            // The plan screen already offers an explicit automatic recalculation
+            // in its result state. A global prompt here would duplicate it and
+            // skip the pending suggestion created for manual goals.
+            progressRefreshState?.invalidateGoals()
             return true
         } catch {
             switch ErrorHandler.handle(
