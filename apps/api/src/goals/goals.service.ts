@@ -53,6 +53,8 @@ export interface CalculateOptions {
     | 'weight_changed'
     | 'manual_reset'
     | 'recalculate_requested';
+  /** Manual overrides removed for the suggestion being created. */
+  clearedFields?: GoalMetricKey[];
 }
 
 @Injectable()
@@ -625,9 +627,9 @@ export class GoalsService {
       if (!existing) {
         throw new NotFoundException('Goals not found');
       }
-      if (!existing.manualOverrides) {
-        return this.toGoalState(existing);
-      }
+      const clearedFields = Object.keys(
+        existing.manualOverrides as ManualGoalOverrides,
+      ) as GoalMetricKey[];
       await tx
         .update(userGoals)
         .set({ manualOverrides: null, updatedAt: new Date() })
@@ -636,6 +638,7 @@ export class GoalsService {
       return this.calculate(userId, tx, {
         reason: 'manual_overrides_cleared',
         trigger: 'recalculate_requested',
+        clearedFields,
       });
     });
   }
@@ -662,6 +665,7 @@ export class GoalsService {
       return this.calculate(userId, tx, {
         reason: 'manual_override_cleared',
         trigger: 'recalculate_requested',
+        clearedFields: [metric],
       });
     });
   }
@@ -980,6 +984,15 @@ export class GoalsService {
       });
       const suggestionMetrics = constrained.suggested;
       const suggestionDiffers = !goalMetricsEqual(applied, suggestionMetrics);
+      const previousClearedFields =
+        ((existing.suggestionBasis as Record<string, unknown> | null)
+          ?.clearedFields as GoalMetricKey[] | undefined) ?? [];
+      const clearedFields = [
+        ...new Set([
+          ...(options.clearedFields ?? []),
+          ...previousClearedFields,
+        ]),
+      ];
       const now = new Date();
       if (suggestionDiffers) {
         const [updated] = await executor
@@ -994,6 +1007,7 @@ export class GoalsService {
               calculatedAt: now.toISOString(),
               preservedFixedFields: constrained.preservedFixedFields,
               recalculatedFields: constrained.recalculatedFields,
+              clearedFields,
               warnings: [
                 ...(calculation.calories.warnings ?? []),
                 ...constrained.warnings,

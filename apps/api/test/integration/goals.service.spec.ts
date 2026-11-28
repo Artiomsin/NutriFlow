@@ -524,6 +524,39 @@ describe('GoalsService preview and manual suggestion flow', () => {
       expect(typeof applied.suggestedGoals).toBe('object');
     }
   });
+
+  it('records the cleared manual field in the suggestion basis', async () => {
+    const user = await createUser(tx);
+    await createProfile(tx, user.id, {
+      weight: 80,
+      height: 170,
+      age: 30,
+      gender: 'female',
+      goal: 'lose',
+      activityLevel: 'medium',
+    });
+
+    await service.update(user.id, {
+      dailyCaloriesGoal: 2300,
+      dailyProteinGoal: 150,
+    });
+    const cleared = (await service.clearManualOverride(
+      user.id,
+      'dailyCaloriesGoal',
+    ))!;
+
+    expect(cleared.mode).toBe('manual');
+    expect(cleared.fixedMetrics).not.toContain('dailyCaloriesGoal');
+    expect(cleared.fixedMetrics).toContain('dailyProteinGoal');
+    expect(cleared.suggestion?.basis?.clearedFields).toEqual([
+      'dailyCaloriesGoal',
+    ]);
+
+    const recalculated = (await service.calculate(user.id))!;
+    expect(recalculated.suggestion?.basis?.clearedFields).toEqual([
+      'dailyCaloriesGoal',
+    ]);
+  });
 });
 
 describe('GoalsService.startNewCycle', () => {
