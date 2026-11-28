@@ -557,11 +557,21 @@ export class GoalsService {
         manualOverrides = next;
       }
 
+      // Applying a suggestion is an explicit user action, even when the
+      // values came from a recommendation. Keep the current mode manual and
+      // expose it as a manual change in goal history.
+      const source: GoalSource =
+        mode === 'manual'
+          ? 'user'
+          : existing.source === 'personalized'
+            ? 'personalized'
+            : 'initial';
+
       return this.replaceCurrentGoals(
         userId,
         existing,
         nextMetrics,
-        'initial',
+        source,
         selectedMetrics?.length
           ? 'suggestion_partially_applied'
           : 'suggestion_applied',

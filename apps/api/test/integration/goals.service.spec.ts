@@ -523,6 +523,15 @@ describe('GoalsService preview and manual suggestion flow', () => {
     if (applied.suggestedGoals != null) {
       expect(typeof applied.suggestedGoals).toBe('object');
     }
+
+    // Applying a suggestion is an explicit user action, so history must show
+    // it as manual even though the values came from the recalculation.
+    const appliedHistory = await loadHistory(
+      user.id,
+      'suggestion_partially_applied',
+    );
+    expect(appliedHistory.length).toBeGreaterThan(0);
+    expect(appliedHistory.every((row) => row.source === 'user')).toBe(true);
   });
 
   it('records the cleared manual field in the suggestion basis', async () => {
